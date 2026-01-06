@@ -550,7 +550,7 @@ export async function syncWooCommerceOrders() {
                 let labels: string[] = ['WooCommerce'];
 
                 if (wcOrder.status === 'processing') status = 'Gelen Siparişler'
-                if (wcOrder.status === 'completed') status = 'Kargolandı'
+                if (wcOrder.status === 'completed') status = 'Tamamlandı'
                 if (wcOrder.status === 'on-hold') status = 'Müşteri Beklemede'
                 if (wcOrder.status === 'pending') status = 'Müşteri Beklemede'
 
@@ -705,7 +705,17 @@ export async function syncWooCommerceOrders() {
                     where: { barcode: `WC-${wcOrder.id}` }
                 })
 
+                // PRESERVE HISTORY
+                let existingActivities: any[] = [];
+                let existingComments: any[] = [];
+                let previousStatus = "";
+
                 if (existingOrder) {
+                    previousStatus = existingOrder.status;
+                    // Backup logs
+                    existingActivities = await db.orderActivity.findMany({ where: { orderId: existingOrder.id } });
+                    existingComments = await db.comment.findMany({ where: { orderId: existingOrder.id } });
+
                     // Force Re-Sync: Delete and Re-create to ensure clean state
                     await db.order.delete({ where: { id: existingOrder.id } })
                     logs.push(`Order ${wcOrder.id}: Deleted old version to force update.`)
@@ -717,7 +727,7 @@ export async function syncWooCommerceOrders() {
                 const cargoBarcodeMeta = wcOrder.meta_data.find((m: any) => m.key === '_gcargo_barcode_exposed')
                 const cargoTrackingMeta = wcOrder.meta_data.find((m: any) => m.key === '_gcargo_tracking_exposed')
 
-                await db.order.create({
+                const newOrder = await db.order.create({
                     data: {
                         customer: `${wcOrder.billing.first_name || ''} ${wcOrder.billing.last_name || ''}`.trim() || 'Misafir',
                         total: `${wcOrder.total} ${wcOrder.currency_symbol}`,
@@ -742,6 +752,44 @@ export async function syncWooCommerceOrders() {
                         }
                     }
                 })
+
+                // RESTORE HISTORY
+                if (existingActivities.length > 0) {
+                    await db.orderActivity.createMany({
+                        data: existingActivities.map(a => ({
+                            orderId: newOrder.id,
+                            author: a.author,
+                            action: a.action,
+                            details: a.details,
+                            timestamp: a.timestamp
+                        }))
+                    })
+                }
+
+                if (existingComments.length > 0) {
+                    await db.comment.createMany({
+                        data: existingComments.map(c => ({
+                            orderId: newOrder.id,
+                            authorId: c.authorId,
+                            message: c.message,
+                            timestamp: c.timestamp,
+                            attachments: c.attachments
+                        }))
+                    })
+                }
+
+                // ADD "COMPLETED" LOG if applicable
+                if (status === 'Tamamlandı' && previousStatus !== 'Tamamlandı') {
+                    await db.orderActivity.create({
+                        data: {
+                            orderId: newOrder.id,
+                            author: 'Sistem',
+                            action: 'STATUS_CHANGE',
+                            details: 'Müşteriye teslim edildi (WooCommerce)',
+                        }
+                    })
+                }
+
                 newCount++
                 logs.push(`Order ${wcOrder.id}: Synced successfully.`)
 
