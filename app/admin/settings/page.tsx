@@ -9,7 +9,6 @@ import { UserPermissionsForm } from "@/components/settings/user-permissions-form
 import { AddUserForm } from "@/components/settings/add-user-form"
 import { WooDebugTool } from "@/components/settings/woo-debug-tool"
 import { StatusList } from "@/components/settings/status-list"
-import { SimpleAddUser } from "@/components/settings/simple-add-user"
 
 export const dynamic = 'force-dynamic'
 
@@ -120,7 +119,6 @@ export default async function SettingsPage() {
                             </p>
                         </div>
                         <div className="flex flex-col gap-4 items-end">
-                            <SimpleAddUser />
                             <AddUserForm />
                         </div>
                     </div>
