@@ -101,6 +101,76 @@ export default async function SettingsPage() {
                     </form>
                 </div>
 
+                {/* ETSY INTEGRATION */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-orange-100">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-900">
+                        <span className="bg-orange-600 text-white p-1 px-2 rounded text-sm">ETSY</span>
+                        Etsy Entegrasyonu
+                    </h2>
+                    <p className="text-sm text-gray-600 mb-6">
+                        Etsy mağazanızdaki siparişleri çekmek için gerekli bilgileri giriniz.
+                        <br />
+                        <span className="text-orange-600 font-medium">Etsy Developers</span> portalından bir App oluşturup bu bilgileri alabilirsiniz.
+                    </p>
+
+                    <form action={async (formData) => {
+                        "use server"
+                        const { saveEtsySettings } = await import("@/app/actions")
+                        await saveEtsySettings(formData)
+                    }} className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-orange-50/50 p-6 rounded-xl border border-orange-100">
+                        <div className="col-span-2">
+                            <label className="block text-sm font-bold text-gray-700 mb-2">Etsy Shop ID</label>
+                            <div className="relative">
+                                <Globe className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                                <input
+                                    name="etsy_shop_id"
+                                    defaultValue={systemSettings.etsy_shop_id || ''}
+                                    placeholder="Örn: 12345678"
+                                    className="w-full pl-10 p-2 text-sm border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                                />
+                            </div>
+                            <p className="text-[10px] text-gray-500 mt-1">Etsy Mağaza ID'niz.</p>
+                        </div>
+
+                        <div className="col-span-2">
+                            <label className="block text-sm font-bold text-gray-700 mb-2">API Key (Keystring)</label>
+                            <div className="relative">
+                                <Key className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                                <input
+                                    name="etsy_api_key"
+                                    type="password"
+                                    defaultValue={systemSettings.etsy_api_key || ''}
+                                    placeholder="x-api-key"
+                                    className="w-full pl-10 p-2 text-sm border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                                />
+                            </div>
+                            <p className="text-[10px] text-gray-500 mt-1">App Keystring.</p>
+                        </div>
+
+                        <div className="col-span-2">
+                            <label className="block text-sm font-bold text-gray-700 mb-2">Access Token (Private)</label>
+                            <div className="relative">
+                                <Lock className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                                <input
+                                    name="etsy_access_token"
+                                    type="password"
+                                    defaultValue={systemSettings.etsy_access_token || ''}
+                                    placeholder="OAuth Access Token"
+                                    className="w-full pl-10 p-2 text-sm border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                                />
+                            </div>
+                            <p className="text-[10px] text-gray-500 mt-1">Geçici veya uzun süreli erişim anahtarı.</p>
+                        </div>
+
+                        <div className="col-span-2 flex justify-end">
+                            <button className="bg-orange-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-orange-700 transition-colors flex items-center gap-2 shadow-sm">
+                                <Save className="w-4 h-4" />
+                                Etsy Ayarlarını Kaydet
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
                 {/* DEBUG TOOL */}
                 <WooDebugTool />
 

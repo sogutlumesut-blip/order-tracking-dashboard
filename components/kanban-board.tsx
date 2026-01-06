@@ -9,7 +9,7 @@ import { BarcodeScanner } from "./barcode-scanner"
 import { OrderDetailPanel } from "./order-detail-panel"
 import { toast } from "sonner"
 import { Toaster } from "sonner"
-import { updateOrderStatus, updateOrderDetails, addCommentAction, getOrders, markOrderAsRead, syncWooCommerceOrders, createManualOrder } from "../app/actions"
+import { updateOrderStatus, updateOrderDetails, addCommentAction, getOrders, markOrderAsRead, syncWooCommerceOrders, syncEtsyOrders, createManualOrder } from "../app/actions"
 import { ManualOrderModal } from "./manual-order-modal"
 
 interface KanbanBoardProps {
@@ -261,6 +261,28 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         >
                             {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                             {isSyncing ? 'Çekiliyor...' : 'Woo Çek'}
+                        </button>
+
+                        <button
+                            onClick={async () => {
+                                setIsSyncing(true)
+                                toast.info("Etsy senkronizasyonu...")
+                                try {
+                                    const res = await syncEtsyOrders()
+                                    if (res.error) toast.error(res.error)
+                                    else {
+                                        toast.success(res.message)
+                                        const latest = await getOrders()
+                                        setOrders(latest as any)
+                                    }
+                                } catch (e) { toast.error("Hata oluştu") }
+                                finally { setIsSyncing(false) }
+                            }}
+                            disabled={isSyncing}
+                            className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-3 py-1.5 rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                            Etsy Çek
                         </button>
 
                         <div className="h-6 w-px bg-gray-200"></div>
