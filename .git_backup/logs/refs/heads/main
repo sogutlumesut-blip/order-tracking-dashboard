@@ -1,0 +1,11 @@
+0000000000000000000000000000000000000000 366cbc6d923d8a4c146d53bba298b97d8cb4084c Mesut Söğütlü <mesutsogutlu@192.168.25.102> 1766399006 +0300	commit (initial): Initial commit from Create Next App
+366cbc6d923d8a4c146d53bba298b97d8cb4084c c62c4def8e06446b58b4dddb2f0a1d2b855da082 Mesut Söğütlü <mesutsogutlu@192.168.25.113> 1766582706 +0300	commit: Initial commit for Vercel deployment
+c62c4def8e06446b58b4dddb2f0a1d2b855da082 c62c4def8e06446b58b4dddb2f0a1d2b855da082 Mesut Söğütlü <mesutsogutlu@192.168.25.113> 1766582706 +0300	Branch: renamed refs/heads/main to refs/heads/main
+c62c4def8e06446b58b4dddb2f0a1d2b855da082 e116c3bdc4016b6e90804ec1bb0cf8ab9ae79806 Mesut Söğütlü <mesutsogutlu@192.168.25.113> 1766585811 +0300	commit: Add postinstall script for Prisma
+e116c3bdc4016b6e90804ec1bb0cf8ab9ae79806 4f7dd508b874d80fa2fed0ddfdfc1fc477b27150 Mesut Söğütlü <mesutsogutlu@192.168.25.113> 1766586463 +0300	commit: Update build script to include prisma generate
+4f7dd508b874d80fa2fed0ddfdfc1fc477b27150 de459e8c554b737ab6c17d9d643007277098950a Mesut Söğütlü <mesutsogutlu@192.168.25.113> 1766586631 +0300	commit: Add binaryTargets for Vercel deployment
+de459e8c554b737ab6c17d9d643007277098950a f8bc0079cbe0923116d16321ffba7241cebb3948 Mesut Söğütlü <mesutsogutlu@192.168.25.113> 1766586913 +0300	commit: Trigger Vercel deployment
+f8bc0079cbe0923116d16321ffba7241cebb3948 20e2f90b20993f8b328cb15143b78802866ee28f Mesut Söğütlü <mesutsogutlu@192.168.25.113> 1766588414 +0300	commit: Force Vercel Rebuild
+20e2f90b20993f8b328cb15143b78802866ee28f 034ecfeb16cbbc7b509756368284153112578a34 Mesut Söğütlü <mesutsogutlu@192.168.25.113> 1766588478 +0300	commit: Force Vercel Rebuild
+034ecfeb16cbbc7b509756368284153112578a34 b18a5fe23dd76347a070f911daa0c202b432e38d Mesut Söğütlü <mesutsogutlu@192.168.25.113> 1766588503 +0300	commit: Force Vercel Rebuild
+b18a5fe23dd76347a070f911daa0c202b432e38d 16e7425ed02304b2b6b980b9c23ce5335d39c00d Mesut Söğütlü <mesutsogutlu@192.168.25.113> 1766588530 +0300	commit: Force Vercel Rebuild

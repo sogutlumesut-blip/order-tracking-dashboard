@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String    @id @default(uuid())
+  username  String    @unique
+  password  String    // Hashed password
+  name      String
+  role      String    @default("pending") // 'admin', 'staff', 'pending'
+  allowedStatuses String? // JSON string e.g. '["pending", "processing"]'
+  comments  Comment[]
+  createdAt DateTime  @default(now())
+}
+
+model Order {
+  id             Int         @id @default(autoincrement())
+  customer       String
+  phone          String?
+  email          String?
+  address        String?
+  city           String?
+  total          String
+  status         String      // 'pending', 'processing', etc.
+  date           DateTime    @default(now())
+  note           String?
+  labels         String      // Stored as JSON string or comma-separated
+  trackingNumber String?
+  printNotes     String?
+  paymentMethod  String?     // e.g. "Kredi Kartı", "Havale"
+  barcode        String?     @unique
+  
+  assignedTo     String?     // Flexible string for 'Ahmet Usta' or 'Machine 1'
+  
+  items          OrderItem[]
+  comments       Comment[]
+  activities     OrderActivity[]
+  
+  cargoBarcode        String?
+  cargoTrackingNumber String?
+  
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  hasNotification Boolean    @default(false)
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  name      String
+  sku       String? // Product Code
+  url       String? // Special File Link (Google Drive etc.)
+  quantity  Int
+  image_src String
+  material  String?   
+  dimensions String?
+  productNote String? // Specific note for this item
+  sampleData String?  // Stores sample info if this is a sample request  
+  orderId   Int
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  message   String
+  timestamp DateTime @default(now())
+  
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  
+  orderId   Int
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  attachments String? 
+}
+
+model OrderActivity {
+  id        String   @id @default(uuid())
+  orderId   Int
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  author    String
+  action    String   // e.g., 'STATUS_CHANGE', 'NOTE_ADDED', 'COMMENT_ADDED'
+  details   String
+  timestamp DateTime @default(now())
+}
+
+model StatusColumn {
+  id      String @id // 'pending', etc.
+  title   String
+  color   String // Tailwind class e.g., 'bg-gray-100'
+  order   Int    @default(0)
+}
+
+model OrderLabel {
+  id      String @id @default(uuid())
+  name    String
+  color   String? 
+}
+
+model SystemSetting {
+  key   String @id
+  value String
+}
