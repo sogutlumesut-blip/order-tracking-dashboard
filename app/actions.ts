@@ -140,7 +140,11 @@ export async function updateOrderStatus(orderId: number, status: string) {
 
     await db.order.update({
         where: { id: orderId },
-        data: { status, hasNotification: true }
+        data: {
+            status,
+            hasNotification: true,
+            assignedTo: user // Update responsibility to the user who moved the card
+        }
     })
 
     await logActivity(orderId, user, "STATUS_CHANGE", `Durum '${status}' olarak değiştirildi.`)
