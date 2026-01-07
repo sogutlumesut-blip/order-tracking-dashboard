@@ -2,6 +2,11 @@ import { NextResponse } from "next/server"
 import { db } from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
 
+
+export async function GET(req: Request) {
+    return NextResponse.json({ status: "active", message: "Webhook is listening" }, { status: 200 })
+}
+
 export async function POST(req: Request) {
     try {
         const text = await req.text()
