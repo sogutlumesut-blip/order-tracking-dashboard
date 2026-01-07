@@ -1063,3 +1063,32 @@ export async function checkPdfAccess() {
         return { error: `Fetch Hatası: ${e.message}` }
     }
 }
+
+// CARGO LABEL ACTIONS
+export async function uploadCargoLabel(orderId: number, base64Data: string) {
+    try {
+        await db.order.update({
+            where: { id: orderId },
+            data: { cargoLabelPdf: base64Data }
+        })
+        revalidatePath("/")
+        return { success: true, message: "Kargo etiketi yüklendi" }
+    } catch (error) {
+        console.error("Upload Error:", error)
+        return { error: "Dosya yüklenirken hata oluştu" }
+    }
+}
+
+export async function deleteCargoLabel(orderId: number) {
+    try {
+        await db.order.update({
+            where: { id: orderId },
+            data: { cargoLabelPdf: null }
+        })
+        revalidatePath("/")
+        return { success: true, message: "Kargo etiketi silindi" }
+    } catch (error) {
+        console.error("Delete Error:", error)
+        return { error: "Dosya silinirken hata oluştu" }
+    }
+}

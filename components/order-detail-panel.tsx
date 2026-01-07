@@ -8,7 +8,8 @@ import { NoteLog } from "./note-log"
 import { ChatSection } from "./chat-section"
 import { ActivityLog } from "./activity-log"
 import { getColorClasses } from "@/lib/colors"
-import { logManualActivity } from "../app/actions"
+import { logManualActivity, uploadCargoLabel, deleteCargoLabel } from "../app/actions"
+import { toast } from "sonner"
 
 interface OrderDetailPanelProps {
     order: Order | null
@@ -257,10 +258,82 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                             {/* Cargo Label Button */}
                             <div className="print:hidden">
-                                <button onClick={handleDownloadPdf} className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-50 hover:border-blue-400 hover:text-blue-600 transition-all text-gray-500 font-bold">
-                                    <FileDown className="w-5 h-5" />
-                                    Kargo Barkodu İndir (PDF)
-                                </button>
+                                {formData.cargoLabelPdf ? (
+                                    <div className="space-y-2">
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => {
+                                                    const byteCharacters = atob(formData.cargoLabelPdf as string);
+                                                    const byteNumbers = new Array(byteCharacters.length);
+                                                    for (let i = 0; i < byteCharacters.length; i++) {
+                                                        byteNumbers[i] = byteCharacters.charCodeAt(i);
+                                                    }
+                                                    const byteArray = new Uint8Array(byteNumbers);
+                                                    const blob = new Blob([byteArray], { type: 'application/pdf' });
+                                                    const url = URL.createObjectURL(blob);
+                                                    window.open(url, '_blank');
+                                                }}
+                                                className="flex-1 py-3 border-2 border-blue-500 bg-blue-50 rounded-xl flex items-center justify-center gap-2 hover:bg-blue-100 transition-all text-blue-700 font-bold"
+                                            >
+                                                <FileDown className="w-5 h-5" />
+                                                Etiketi Görüntüle
+                                            </button>
+                                            <button
+                                                onClick={async () => {
+                                                    if (!confirm("Etiketi silmek istediğinize emin misiniz?")) return;
+                                                    const res = await deleteCargoLabel(formData.id);
+                                                    if (res.success) {
+                                                        toast.success(res.message);
+                                                        setFormData({ ...formData, cargoLabelPdf: null });
+                                                        onUpdate({ ...formData, cargoLabelPdf: null });
+                                                    } else {
+                                                        toast.error(res.error);
+                                                    }
+                                                }}
+                                                className="w-12 border-2 border-red-200 bg-red-50 rounded-xl flex items-center justify-center hover:bg-red-100 transition-all text-red-600"
+                                                title="Etiketi Sil"
+                                            >
+                                                <X className="w-5 h-5" />
+                                            </button>
+                                        </div>
+                                        <p className="text-[10px] text-center text-gray-400">Yüklü Belge Var</p>
+                                    </div>
+                                ) : (
+                                    <div className="relative">
+                                        <input
+                                            type="file"
+                                            accept="application/pdf"
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                            onChange={async (e) => {
+                                                const file = e.target.files?.[0];
+                                                if (!file) return;
+
+                                                if (file.size > 2 * 1024 * 1024) {
+                                                    alert("Dosya boyutu 2MB'dan büyük olamaz.");
+                                                    return;
+                                                }
+
+                                                const reader = new FileReader();
+                                                reader.onload = async () => {
+                                                    const base64 = (reader.result as string).split(',')[1];
+                                                    const res = await uploadCargoLabel(formData.id, base64);
+                                                    if (res.success) {
+                                                        toast.success(res.message);
+                                                        setFormData({ ...formData, cargoLabelPdf: base64 });
+                                                        onUpdate({ ...formData, cargoLabelPdf: base64 });
+                                                    } else {
+                                                        toast.error(res.error);
+                                                    }
+                                                };
+                                                reader.readAsDataURL(file);
+                                            }}
+                                        />
+                                        <div className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-50 hover:border-blue-400 hover:text-blue-600 transition-all text-gray-500 font-bold">
+                                            <Upload className="w-5 h-5" />
+                                            Kargo Etiketi Yükle (PDF)
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Print Only: Process Notes History */}

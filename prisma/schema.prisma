@@ -44,6 +44,7 @@ model Order {
   
   cargoBarcode        String?
   cargoTrackingNumber String?
+  cargoLabelPdf       String? // Base64 encoded PDF
   
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt

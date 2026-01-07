@@ -100,9 +100,9 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         )
     })
 
-    const getOrdersByStatus = (status: string) => {
+    const getOrdersByStatus = (statusId: string, statusTitle: string) => {
         return filteredOrders
-            .filter(order => order.status === status)
+            .filter(order => order.status === statusId || order.status === statusTitle)
             .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     }
 
@@ -360,7 +360,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
                     {cols.map((column) => {
                         const isCollapsed = collapsedIds.includes(column.id)
-                        const columnOrders = getOrdersByStatus(column.id)
+                        const columnOrders = getOrdersByStatus(column.id, column.title)
 
                         const toggleCollapse = () => {
                             setCollapsedIds(prev => {

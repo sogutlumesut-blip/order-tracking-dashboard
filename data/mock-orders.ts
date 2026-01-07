@@ -45,6 +45,7 @@ export interface Order {
     updatedAt: string; // ISO String
     cargoBarcode?: string; // From kargo entegrator
     cargoTrackingNumber?: string;
+    cargoLabelPdf?: string | null;
 }
 
 export const MOCK_ORDERS: Order[] = [
