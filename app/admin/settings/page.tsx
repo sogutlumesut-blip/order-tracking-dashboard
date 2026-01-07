@@ -1,4 +1,4 @@
-import { getStatuses, getLabels, createStatus, createLabel, deleteLabel, getUsers, updateUserRole, deleteUser, saveWooCommerceSettings, getSystemSettings } from "@/app/actions"
+import { getStatuses, getLabels, createStatus, createLabel, deleteLabel, getUsers, updateUserRole, deleteUser, saveWooCommerceSettings, saveEtsySettings, getSystemSettings } from "@/app/actions"
 
 import { getSession } from "@/lib/auth"
 import { redirect } from "next/navigation"
@@ -113,11 +113,7 @@ export default async function SettingsPage() {
                         <span className="text-orange-600 font-medium">Etsy Developers</span> portalından bir App oluşturup bu bilgileri alabilirsiniz.
                     </p>
 
-                    <form action={async (formData) => {
-                        "use server"
-                        const { saveEtsySettings } = await import("@/app/actions")
-                        await saveEtsySettings(formData)
-                    }} className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-orange-50/50 p-6 rounded-xl border border-orange-100">
+                    <form action={saveEtsySettings} className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-orange-50/50 p-6 rounded-xl border border-orange-100">
                         <div className="col-span-2">
                             <label className="block text-sm font-bold text-gray-700 mb-2">Etsy Shop ID</label>
                             <div className="relative">
