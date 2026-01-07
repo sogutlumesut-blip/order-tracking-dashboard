@@ -19,7 +19,7 @@ export async function GET(req: Request) {
     // but Request object has 'headers' we can parse 'cookie' from.
     // Making it safer by using `cookies()` from next/headers in Next.js 13+ App Dir
     const { cookies } = await import("next/headers");
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const verifier = cookieStore.get("etsy_pkce_verifier")?.value;
     const storedState = cookieStore.get("etsy_oauth_state")?.value;
 
