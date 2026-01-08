@@ -43,17 +43,5 @@ export function BarcodeScanner({ onScan }: BarcodeScannerProps) {
         return () => window.removeEventListener("keydown", handleKeyDown)
     }, [onScan])
 
-    return (
-        <div className="fixed bottom-6 right-6 bg-black text-white px-4 py-3 rounded-full flex items-center gap-3 shadow-xl z-50 border border-white/20">
-            <ScanBarcode className={`w-5 h-5 ${lastScanned ? 'text-green-400' : 'text-gray-400'}`} />
-            <div className="flex flex-col">
-                <span className="text-sm font-bold">Barkod Modu Aktif</span>
-                <span className="text-xs text-gray-400">
-                    {lastScanned
-                        ? `Son Okunan: ${lastScanned}`
-                        : "Kargo barkodu bekleniyor..."}
-                </span>
-            </div>
-        </div>
-    )
+    return null
 }
