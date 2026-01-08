@@ -265,9 +265,20 @@ export async function simulateWooCommerceOrder() {
     const randomCustomer = customers[Math.floor(Math.random() * customers.length)]
     const randomProduct = products[Math.floor(Math.random() * products.length)]
 
-    // Get first available status to ensure order appears on board
-    const firstStatus = await db.statusColumn.findFirst({ orderBy: { order: 'asc' } })
-    const targetStatus = firstStatus ? firstStatus.id : "pending"
+    // Get appropriate status ('Gelen Siparişler' or first available)
+    const statuses = await db.statusColumn.findMany({ orderBy: { order: 'asc' } })
+    let targetStatus = "pending"
+
+    if (statuses.length > 0) {
+        // Try to find a status causing 'Incoming' logic
+        const incoming = statuses.find(s =>
+            s.title.toLowerCase().includes("gelen") ||
+            s.title.toLowerCase().includes("yeni") ||
+            s.id === "wc-pending" ||
+            s.id === "pending"
+        )
+        targetStatus = incoming ? incoming.id : statuses[0].id
+    }
 
     // Create Order in DB
     await db.order.create({
