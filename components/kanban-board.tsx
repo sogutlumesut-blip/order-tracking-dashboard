@@ -516,7 +516,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     const activeOrder = orders.find(o => o.id === activeId)
                     if (!activeOrder) return null
                     return (
-                        <div className="opacity-90 rotate-3 cursor-grabbing shadow-2xl rounded-xl">
+                        <div className="cursor-grabbing shadow-2xl rounded-xl scale-105 transition-transform">
                             <div className="w-80 pointer-events-none">
                                 <OrderCard
                                     order={activeOrder}
