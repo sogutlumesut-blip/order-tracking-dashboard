@@ -127,7 +127,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         })
     )
 
-    const [selectedTexture, setSelectedTexture] = useState<string>("")
+    const [columnFilters, setColumnFilters] = useState<Record<string, string>>({})
 
     const uniqueTextures = useMemo(() => {
         const textures = new Set<string>()
@@ -141,12 +141,6 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
     // Filter Logic
     const filteredOrders = orders.filter(order => {
-        // Texture Filter
-        if (selectedTexture) {
-            const hasTexture = order.items.some(i => i.material === selectedTexture)
-            if (!hasTexture) return false
-        }
-
         // Search Filter
         if (!searchTerm) return true
         const lowerTerm = searchTerm.toLowerCase()
@@ -159,9 +153,15 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     })
 
     const getOrdersByStatus = (statusId: string, statusTitle: string) => {
-        return filteredOrders
-            .filter(order => order.status === statusId || order.status === statusTitle)
-            .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+        let ordersInColumn = filteredOrders.filter(order => order.status === statusId || order.status === statusTitle)
+
+        // Apply Column Specific Filter
+        const filter = columnFilters[statusId]
+        if (filter) {
+            ordersInColumn = ordersInColumn.filter(o => o.items.some(i => i.material === filter))
+        }
+
+        return ordersInColumn.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     }
 
     const handleDragStart = (event: DragStartEvent) => {
@@ -317,21 +317,6 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         />
                     </div>
 
-                    {/* Texture Filter */}
-                    <div className="relative">
-                        <select
-                            value={selectedTexture}
-                            onChange={(e) => setSelectedTexture(e.target.value)}
-                            className="block w-48 pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-700 bg-white shadow-sm transition-shadow hover:shadow-md cursor-pointer appearance-none"
-                            style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: `right 0.5rem center`, backgroundRepeat: `no-repeat`, backgroundSize: `1.5em 1.5em` }}
-                        >
-                            <option value="">Tüm Dokular</option>
-                            {uniqueTextures.map(texture => (
-                                <option key={texture} value={texture}>{texture}</option>
-                            ))}
-                        </select>
-                    </div>
-
 
                     <div className="flex items-center gap-4 text-sm text-gray-500">
                         {/* Woo Sync Button */}
@@ -481,19 +466,33 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
                         return (
                             <div key={column.id} className="flex-shrink-0 w-80 max-w-[90vw] flex flex-col h-full rounded-xl bg-gray-50/50 border border-gray-100 transition-all snap-center shadow-sm">
-                                <div className={`p-4 border-b rounded-t-xl sticky top-0 backdrop-blur-sm z-10 flex justify-between items-center ${column.color || 'bg-gray-100'} bg-opacity-90`}>
-                                    <div className="flex items-center gap-2">
-                                        <h2 className="font-bold text-gray-800">{column.title}</h2>
-                                        <span className="bg-white/60 text-gray-900 text-xs font-bold px-2 py-0.5 rounded-full border border-black/5 shadow-sm">
-                                            {columnOrders.length}
-                                        </span>
+                                <div className={`p-3 border-b rounded-t-xl sticky top-0 backdrop-blur-sm z-10 flex flex-col gap-2 ${column.color || 'bg-gray-100'} bg-opacity-90`}>
+                                    <div className="flex justify-between items-center w-full">
+                                        <div className="flex items-center gap-2">
+                                            <h2 className="font-bold text-gray-800 text-sm">{column.title}</h2>
+                                            <span className="bg-white/60 text-gray-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-black/5 shadow-sm">
+                                                {columnOrders.length}
+                                            </span>
+                                        </div>
+                                        <button
+                                            onClick={toggleCollapse}
+                                            className="p-1 hover:bg-black/5 rounded-md transition-colors text-gray-600"
+                                        >
+                                            <ChevronUp className="w-4 h-4" />
+                                        </button>
                                     </div>
-                                    <button
-                                        onClick={toggleCollapse}
-                                        className="p-1 hover:bg-black/5 rounded-md transition-colors text-gray-600"
+
+                                    {/* Column Filter */}
+                                    <select
+                                        value={columnFilters[column.id] || ""}
+                                        onChange={(e) => setColumnFilters(prev => ({ ...prev, [column.id]: e.target.value }))}
+                                        className="block w-full px-2 py-1 text-xs border-0 rounded-md bg-white/50 focus:bg-white focus:ring-1 focus:ring-blue-500 text-gray-600 font-medium cursor-pointer transition-colors"
                                     >
-                                        <ChevronUp className="w-4 h-4" />
-                                    </button>
+                                        <option value="">Filtrele...</option>
+                                        {uniqueTextures.map(texture => (
+                                            <option key={texture} value={texture}>{texture}</option>
+                                        ))}
+                                    </select>
                                 </div>
 
                                 <DroppableId id={column.id}>
