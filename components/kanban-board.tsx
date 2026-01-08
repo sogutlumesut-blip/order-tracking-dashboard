@@ -444,112 +444,111 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                             )
                         }
 
-                        return (
-                            <div key={column.id} className="flex-shrink-0 w-80 max-w-[90vw] flex flex-col h-full rounded-xl bg-gray-50 border border-gray-200 transition-all snap-center shadow-sm">
-                                <div className={`px-3 py-3 border-b rounded-t-xl sticky top-0 z-30 flex flex-col gap-2 transition-colors ${column.color || 'bg-gray-100'} shadow-sm`}>
-                                    <div className="flex justify-between items-center w-full relative">
-                                        <div className="flex items-center gap-2">
-                                            <h2 className="font-bold text-gray-800 text-sm">{column.title}</h2>
-                                            <span className="bg-white/80 text-gray-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-black/5 shadow-sm">
-                                                {columnOrders.length}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            {/* Filter Toggle */}
-                                            <div className="relative">
-                                                <button
-                                                    className={`p-1.5 rounded-md transition-all filter-menu-trigger ${columnFilters[column.id] ? 'bg-blue-100 text-blue-600 ring-1 ring-blue-500' : 'hover:bg-black/5 text-gray-500'}`}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        toggleFilter(column.id);
-                                                    }}
-                                                >
-                                                    <Filter className="w-3.5 h-3.5" strokeWidth={2.5} />
-                                                </button>
+                        <div key={column.id} className="flex-shrink-0 w-80 max-w-[90vw] flex flex-col h-full rounded-xl bg-gray-50 border border-gray-200 transition-all snap-center shadow-sm">
+                            <div className={`px-3 py-3 border-b rounded-t-xl relative z-30 flex flex-col gap-2 transition-colors ${column.color || 'bg-gray-100'} shadow-sm`}>
+                                <div className="flex justify-between items-center w-full relative">
+                                    <div className="flex items-center gap-2">
+                                        <h2 className="font-bold text-gray-800 text-sm">{column.title}</h2>
+                                        <span className="bg-white/80 text-gray-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-black/5 shadow-sm">
+                                            {columnOrders.length}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        {/* Filter Toggle */}
+                                        <div className="relative">
+                                            <button
+                                                className={`p-1.5 rounded-md transition-all filter-menu-trigger ${columnFilters[column.id] ? 'bg-blue-100 text-blue-600 ring-1 ring-blue-500' : 'hover:bg-black/5 text-gray-500'}`}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    toggleFilter(column.id);
+                                                }}
+                                            >
+                                                <Filter className="w-3.5 h-3.5" strokeWidth={2.5} />
+                                            </button>
 
-                                                {/* Custom Dropdown Menu */}
-                                                {openFilterId === column.id && (
-                                                    <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-50 filter-menu overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                                                        <div className="p-1 max-h-64 overflow-y-auto">
+                                            {/* Custom Dropdown Menu */}
+                                            {openFilterId === column.id && (
+                                                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-50 filter-menu overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                                    <div className="p-1 max-h-64 overflow-y-auto">
+                                                        <button
+                                                            onClick={() => {
+                                                                setColumnFilters(prev => { const n = { ...prev }; delete n[column.id]; return n; });
+                                                                setOpenFilterId(null);
+                                                            }}
+                                                            className={`w-full text-left px-3 py-2 text-xs font-medium rounded-md transition-colors ${!columnFilters[column.id] ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                                                        >
+                                                            Tümü
+                                                        </button>
+                                                        {uniqueTextures.map(texture => (
                                                             <button
+                                                                key={texture}
                                                                 onClick={() => {
-                                                                    setColumnFilters(prev => { const n = { ...prev }; delete n[column.id]; return n; });
+                                                                    setColumnFilters(prev => ({ ...prev, [column.id]: texture }));
                                                                     setOpenFilterId(null);
                                                                 }}
-                                                                className={`w-full text-left px-3 py-2 text-xs font-medium rounded-md transition-colors ${!columnFilters[column.id] ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                                                                className={`w-full text-left px-3 py-2 text-xs font-medium rounded-md transition-colors ${columnFilters[column.id] === texture ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
                                                             >
-                                                                Tümü
+                                                                {texture}
                                                             </button>
-                                                            {uniqueTextures.map(texture => (
-                                                                <button
-                                                                    key={texture}
-                                                                    onClick={() => {
-                                                                        setColumnFilters(prev => ({ ...prev, [column.id]: texture }));
-                                                                        setOpenFilterId(null);
-                                                                    }}
-                                                                    className={`w-full text-left px-3 py-2 text-xs font-medium rounded-md transition-colors ${columnFilters[column.id] === texture ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
-                                                                >
-                                                                    {texture}
-                                                                </button>
-                                                            ))}
-                                                        </div>
+                                                        ))}
                                                     </div>
-                                                )}
-                                            </div>
-
-                                            <button
-                                                onClick={() => toggleCollapse(column.id)}
-                                                className="p-1.5 hover:bg-black/5 rounded-md transition-colors text-gray-600"
-                                            >
-                                                <ChevronUp className="w-3.5 h-3.5" strokeWidth={2.5} />
-                                            </button>
+                                                </div>
+                                            )}
                                         </div>
-                                    </div>
 
-                                    {/* Active Filter Badge */}
-                                    {columnFilters[column.id] && (
-                                        <div className="flex items-center justify-between bg-blue-50 border border-blue-100 px-2 py-1 rounded text-xs text-blue-700 animate-in slide-in-from-top-1">
-                                            <span className="font-medium truncate">{columnFilters[column.id]}</span>
-                                            <button
-                                                onClick={() => setColumnFilters(prev => { const n = { ...prev }; delete n[column.id]; return n; })}
-                                                className="ml-1 p-0.5 hover:bg-blue-100 rounded-full"
-                                            >
-                                                <X className="w-3 h-3" />
-                                            </button>
+                                        <button
+                                            onClick={() => toggleCollapse(column.id)}
+                                            className="p-1.5 hover:bg-black/5 rounded-md transition-colors text-gray-600"
+                                        >
+                                            <ChevronUp className="w-3.5 h-3.5" strokeWidth={2.5} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Active Filter Badge */}
+                                {columnFilters[column.id] && (
+                                    <div className="flex items-center justify-between bg-blue-50 border border-blue-100 px-2 py-1 rounded text-xs text-blue-700 animate-in slide-in-from-top-1">
+                                        <span className="font-medium truncate">{columnFilters[column.id]}</span>
+                                        <button
+                                            onClick={() => setColumnFilters(prev => { const n = { ...prev }; delete n[column.id]; return n; })}
+                                            className="ml-1 p-0.5 hover:bg-blue-100 rounded-full"
+                                        >
+                                            <X className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            <DroppableId id={column.id}>
+                                <div className="p-3 flex-1 overflow-y-auto space-y-3 min-h-[200px]">
+                                    {columnOrders.map(order => (
+                                        <DraggableItem key={order.id} id={order.id}>
+                                            <OrderCard
+                                                order={order}
+                                                onClick={() => {
+                                                    setSelectedOrder(order);
+                                                    setIsPanelOpen(true);
+                                                    if (order.hasNotification) {
+                                                        markOrderAsRead(order.id)
+                                                        setOrders(prev => prev.map(o => o.id === order.id ? {
+                                                            ...o,
+                                                            hasNotification: false,
+                                                            updatedAt: new Date().toISOString()
+                                                        } : o))
+                                                    }
+                                                }}
+                                                tags={tags}
+                                            />
+                                        </DraggableItem>
+                                    ))}
+                                    {columnOrders.length === 0 && (
+                                        <div className="h-24 flex items-center justify-center text-sm text-gray-400 border-2 border-dashed border-gray-200 rounded-lg pointer-events-none">
+                                            {searchTerm ? "Sonuç yok" : "Sipariş Yok"}
                                         </div>
                                     )}
                                 </div>
-
-                                <DroppableId id={column.id}>
-                                    <div className="p-3 flex-1 overflow-y-auto space-y-3 min-h-[200px]">
-                                        {columnOrders.map(order => (
-                                            <DraggableItem key={order.id} id={order.id}>
-                                                <OrderCard
-                                                    order={order}
-                                                    onClick={() => {
-                                                        setSelectedOrder(order);
-                                                        setIsPanelOpen(true);
-                                                        if (order.hasNotification) {
-                                                            markOrderAsRead(order.id)
-                                                            setOrders(prev => prev.map(o => o.id === order.id ? {
-                                                                ...o,
-                                                                hasNotification: false,
-                                                                updatedAt: new Date().toISOString()
-                                                            } : o))
-                                                        }
-                                                    }}
-                                                    tags={tags}
-                                                />
-                                            </DraggableItem>
-                                        ))}
-                                        {columnOrders.length === 0 && (
-                                            <div className="h-24 flex items-center justify-center text-sm text-gray-400 border-2 border-dashed border-gray-200 rounded-lg pointer-events-none">
-                                                {searchTerm ? "Sonuç yok" : "Sipariş Yok"}
-                                            </div>
-                                        )}
-                                    </div>
-                                </DroppableId>
-                            </div>
+                            </DroppableId>
+                        </div>
                         )
                     })}
                 </div>
