@@ -63,15 +63,17 @@ export default async function Dashboard() {
             </Link>
           )}
 
-          <form action={simulateWooCommerceOrder}>
-            <button
-              type="submit"
-              className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
-              title="WooCommerce'den sipariş düşmüş gibi simüle et"
-            >
-              + Demo Sipariş
-            </button>
-          </form>
+          {session.user.role === 'admin' && (
+            <form action={simulateWooCommerceOrder}>
+              <button
+                type="submit"
+                className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
+                title="WooCommerce'den sipariş düşmüş gibi simüle et"
+              >
+                + Demo Sipariş
+              </button>
+            </form>
+          )}
 
           <form action={async () => {
             "use server"

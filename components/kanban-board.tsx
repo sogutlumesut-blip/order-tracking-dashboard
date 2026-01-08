@@ -56,31 +56,70 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         }
     }, [])
 
+    // Track orders in ref to access inside interval without resetting it
+    const ordersRef = useRef(orders)
+    useEffect(() => {
+        ordersRef.current = orders
+    }, [orders])
+
     useEffect(() => {
         const interval = setInterval(async () => {
+            if (activeId) return; // Don't poll while dragging
+
             const latestOrders = await getOrders()
-            const hasNew = latestOrders.length > orders.length
-            const hasNotification = latestOrders.some((o: any) => o.hasNotification && !orders.find(old => old.id === o.id)?.hasNotification)
+            const currentOrders = ordersRef.current
+
+            // Sound Logic
+            const hasNew = latestOrders.length > currentOrders.length
+            const hasNotification = latestOrders.some((o: any) => o.hasNotification && !currentOrders.find(old => old.id === o.id)?.hasNotification)
 
             if ((hasNew || hasNotification) && audioRef.current) {
-                audioRef.current.play().catch((e: any) => console.log("Audio play failed", e))
-                toast.info("Yeni aktivite var!")
+                audioRef.current.play().catch((e: any) => console.log("Audio play failed (Autoplay blocked?)", e))
+                toast.info("Yeni sipariş/aktivite var!")
             }
 
-            if (!activeId) {
-                setOrders(currentOrders => {
-                    return latestOrders.map((serverOrder: any) => {
-                        const localOrder = currentOrders.find(o => o.id === serverOrder.id)
-                        if (localOrder && new Date(localOrder.updatedAt).getTime() > new Date(serverOrder.updatedAt).getTime()) {
-                            return localOrder
-                        }
-                        return serverOrder as Order
-                    })
+            // Sync Logic
+            setOrders(currentOrders => {
+                // Check if any significant change exists first to avoid re-renders
+                // But we must do the mapping to check timestamps mixed with server data
+                let hasChanges = false
+
+                // We need to merge server data with local optimistic data
+                const mergedOrders = latestOrders.map((serverOrder: any) => {
+                    const localOrder = currentOrders.find(o => o.id === serverOrder.id)
+
+                    // 1. Interaction Lock Check (Grace period of 15 seconds)
+                    if (interactionLocks.current[serverOrder.id] && Date.now() - interactionLocks.current[serverOrder.id] < 15000) {
+                        return localOrder || serverOrder
+                    }
+
+                    // 2. Timestamp Check
+                    if (localOrder && new Date(localOrder.updatedAt).getTime() > new Date(serverOrder.updatedAt).getTime()) {
+                        return localOrder
+                    }
+
+                    // Check if this specific order changed from what we have
+                    if (!localOrder ||
+                        localOrder.status !== serverOrder.status ||
+                        localOrder.updatedAt !== serverOrder.updatedAt ||
+                        JSON.stringify(localOrder.labels) !== JSON.stringify(serverOrder.labels)) {
+                        hasChanges = true
+                    }
+
+                    return serverOrder as Order
                 })
-            }
+
+                // Also check if any orders were deleted (existed in current but not in latest)
+                if (currentOrders.length !== latestOrders.length) {
+                    hasChanges = true
+                }
+
+                return hasChanges ? mergedOrders : currentOrders
+            })
+
         }, 5000)
         return () => clearInterval(interval)
-    }, [orders, activeId, audioRef])
+    }, [activeId])
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -137,6 +176,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             }
             return o
         })
+        interactionLocks.current[activeId] = Date.now()
         setOrders(newOrders)
         setActiveId(null)
 
@@ -150,9 +190,13 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         }
     }
 
+    // Lock mechanic to prevent polling overwrite
+    const interactionLocks = useRef<Record<string, number>>({})
+
     const handleBarcodeScan = async (code: string) => {
         const targetOrder = orders.find(o => o.barcode === code || o.id.toString() === code)
         if (targetOrder) {
+            interactionLocks.current[targetOrder.id] = Date.now()
             setOrders(prev => prev.map(o => o.id === targetOrder.id ? { ...o, status: 'shipped' } : o))
             try {
                 await updateOrderStatus(targetOrder.id, 'shipped')
@@ -164,6 +208,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     }
 
     const handleOrderUpdate = async (updatedOrder: Order) => {
+        interactionLocks.current[updatedOrder.id] = Date.now()
         const orderWithNotification = { ...updatedOrder, hasNotification: true, updatedAt: new Date().toISOString() }
         setOrders(prev => prev.map(o => o.id === updatedOrder.id ? orderWithNotification : o))
 
@@ -254,36 +299,42 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     </div>
                     <div className="flex items-center gap-4 text-sm text-gray-500">
                         {/* Woo Sync Button */}
-                        <button
-                            onClick={handleSync}
-                            disabled={isSyncing}
-                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                            {isSyncing ? 'Çekiliyor...' : 'Woo Çek'}
-                        </button>
+                        {/* Admin Only Sync Buttons */}
+                        {currentUser.role === 'admin' && (
+                            <>
+                                <button
+                                    onClick={handleSync}
+                                    disabled={isSyncing}
+                                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                                    {isSyncing ? 'Çekiliyor...' : 'Woo Çek'}
+                                </button>
 
-                        <button
-                            onClick={async () => {
-                                setIsSyncing(true)
-                                toast.info("Etsy senkronizasyonu...")
-                                try {
-                                    const res = await syncEtsyOrders()
-                                    if (res.error) toast.error(res.error)
-                                    else {
-                                        toast.success(res.message)
-                                        const latest = await getOrders()
-                                        setOrders(latest as any)
-                                    }
-                                } catch (e) { toast.error("Hata oluştu") }
-                                finally { setIsSyncing(false) }
-                            }}
-                            disabled={isSyncing}
-                            className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-3 py-1.5 rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                            Etsy Çek
-                        </button>
+                                <button
+                                    onClick={async () => {
+                                        setIsSyncing(true)
+                                        toast.info("Etsy senkronizasyonu...")
+                                        try {
+                                            const res = await syncEtsyOrders()
+                                            if (res.error) toast.error(res.error)
+                                            else {
+                                                toast.success(res.message)
+                                                const latest = await getOrders()
+                                                setOrders(latest as any)
+                                            }
+                                        } catch (e) { toast.error("Hata oluştu") }
+                                        finally { setIsSyncing(false) }
+                                    }}
+                                    disabled={isSyncing}
+                                    className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-3 py-1.5 rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                                    Etsy Çek
+                                </button>
+                                <div className="h-6 w-px bg-gray-200"></div>
+                            </>
+                        )}
 
                         <div className="h-6 w-px bg-gray-200"></div>
 
@@ -442,13 +493,21 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 </div>
             </div>
             <DragOverlay>
-                {activeId ? (
-                    <div className="opacity-80 rotate-3 cursor-grabbing">
-                        <div className="bg-white p-4 shadow-xl rounded-xl border w-80">
-                            <span className="font-bold">Taşınıyor...</span>
+                {activeId ? (() => {
+                    const activeOrder = orders.find(o => o.id === activeId)
+                    if (!activeOrder) return null
+                    return (
+                        <div className="opacity-90 rotate-3 cursor-grabbing shadow-2xl rounded-xl">
+                            <div className="w-80 pointer-events-none">
+                                <OrderCard
+                                    order={activeOrder}
+                                    onClick={() => { }}
+                                    tags={tags}
+                                />
+                            </div>
                         </div>
-                    </div>
-                ) : null}
+                    )
+                })() : null}
             </DragOverlay>
         </DndContext>
     )
