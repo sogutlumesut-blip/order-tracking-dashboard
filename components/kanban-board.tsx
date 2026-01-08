@@ -323,88 +323,63 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         {/* Admin Only Sync Buttons */}
                         {currentUser.role === 'admin' && (
                             <>
-                                <button
-                                    onClick={handleSync}
-                                    disabled={isSyncing}
-                                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                                    {isSyncing ? 'Çekiliyor...' : 'Woo Çek'}
-                                </button>
+                                <form action={async () => {
+                                    toast.info("WooCommerce senkronizasyonu başladı...")
+                                    try {
+                                        await syncWooCommerceOrders()
+                                        toast.success("WooCommerce siparişleri güncellendi")
 
-                                <button
-                                    onClick={async () => {
-                                        setIsSyncing(true)
-                                        toast.info("Etsy senkronizasyonu...")
-                                        try {
-                                            const res = await syncEtsyOrders()
-                                            if (res.error) toast.error(res.error)
-                                            else {
-                                                toast.success(res.message)
-                                                const latest = await getOrders()
-                                                setOrders(latest as any)
-                                            }
-                                        } catch (e) { toast.error("Hata oluştu") }
-                                        finally { setIsSyncing(false) }
-                                    }}
-                                    disabled={isSyncing}
-                                    className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white px-3 py-1.5 rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                                    Etsy Çek
-                                </button>
-                                <div className="h-6 w-px bg-gray-200"></div>
+                                        // Force UI refresh logic if needed
+                                        const fresh = await getOrders()
+                                        // This part is redundant as polling will catch it, but gives immediate feedback
+                                    } catch (e) {
+                                        toast.error("Senkronizasyon hatası")
+                                    }
+                                }}>
+                                    <button
+                                        type="submit"
+                                        className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors text-gray-700 font-medium"
+                                    >
+                                        <RefreshCw className="w-4 h-4" />
+                                        <span>Woo Çek</span>
+                                    </button>
+                                </form>
+
+                                <form action={async () => {
+                                    toast.info("Etsy senkronizasyonu başladı...")
+                                    try {
+                                        await syncEtsyOrders()
+                                        toast.success("Etsy siparişleri güncellendi")
+                                    } catch (e) {
+                                        toast.error("Etsy hatası")
+                                    }
+                                }}>
+                                    <button
+                                        type="submit"
+                                        className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-md transition-colors font-medium"
+                                    >
+                                        <RefreshCw className="w-4 h-4" />
+                                        <span>Etsy Çek</span>
+                                    </button>
+                                </form>
+                                <div className="h-4 w-px bg-gray-300 mx-2 hidden md:block"></div>
                             </>
                         )}
 
-                        <div className="h-6 w-px bg-gray-200"></div>
 
-                        {searchTerm && (
-                            <span className="font-bold text-blue-600">
-                                {filteredOrders.length} sonuç bulundu
-                            </span>
-                        )}
-                        {!searchTerm && (
-                            <div className="flex items-center gap-3 text-sm text-gray-600">
-                                <span>Toplam <span className="font-bold text-gray-900">{orders.length}</span> sipariş</span>
-                                <span className="h-4 w-px bg-gray-300"></span>
-                                <span>Bugün <span className="font-bold text-green-600">{orders.filter(o => new Date(o.date).toDateString() === new Date().toDateString()).length}</span> sipariş</span>
-                            </div>
-                        )}
+                        <form action={simulateWooCommerceOrder} className="hidden">
+                            <button className="flex items-center gap-2 px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-md transition-colors font-medium">
+                                <Plus className="w-4 h-4" />
+                                <span>Manuel Sipariş</span>
+                            </button>
+                        </form>
 
-                        <div className="h-6 w-px bg-gray-200"></div>
-
-                        {/* Manual Order Button */}
-                        <button
-                            onClick={() => setIsManualOrderOpen(true)}
-                            className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2"
-                        >
-                            <Plus className="w-4 h-4" /> Manuel Sipariş
-                        </button>
-
-                        <button
-                            onClick={async () => {
-                                const newOrder = {
-                                    id: Math.floor(Math.random() * 10000),
-                                    customer: "Demo Müşteri",
-                                    total: "1500.00 ₺",
-                                    status: "Sipariş Alındı",
-                                    date: new Date().toISOString().split('T')[0],
-                                    updatedAt: new Date().toISOString(),
-                                    items: [],
-                                    labels: JSON.stringify(['Demo']),
-                                    hasNotification: true
-                                }
-                                setOrders(prev => [newOrder as any, ...prev])
-                            }}
-                            className="hidden" // Hiding Demo Button
-                        >
-                            + Demo Sipariş
-                        </button>
+                        <div className="hidden md:flex items-center gap-1">
+                            <span className="font-semibold text-gray-900">{filteredOrders.length}</span>
+                            <span>sipariş</span>
+                        </div>
                     </div>
                 </div>
-
-
 
                 {/* Board Area */}
                 <div className="flex-1 flex gap-3 md:gap-6 overflow-x-auto p-2 md:p-6 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent snap-x snap-mandatory">
@@ -448,26 +423,31 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
                         if (isCollapsed) {
                             return (
-                                <div
-                                    key={column.id}
-                                    className={`flex-shrink-0 w-12 flex flex-col h-full rounded-xl border border-gray-200 cursor-pointer transition-all hover:w-14 items-center py-4 justify-between ${column.color || 'bg-gray-50'}`}
-                                    onClick={toggleCollapse}
-                                    title={column.title}
-                                >
-                                    <div className="bg-white text-gray-900 text-[10px] font-bold w-6 h-6 flex items-center justify-center rounded-full shadow-sm border border-gray-100">
-                                        {columnOrders.length}
-                                    </div>
-                                    <div className="p-1.5 rounded-full bg-white/40 hover:bg-white/80 transition-colors backdrop-blur-sm">
-                                        <ChevronDown className="w-4 h-4 text-gray-700" />
+                                <div key={column.id} className="h-full pt-6">
+                                    <div
+                                        onClick={() => toggleCollapse(column.id)}
+                                        className={`w-12 h-full rounded-full ${column.color || 'bg-gray-100'} border border-gray-200 flex flex-col items-center py-4 gap-4 cursor-pointer hover:bg-gray-200 transition-colors shadow-sm`}
+                                    >
+                                        <div className="writing-vertical-lr transform rotate-180 text-sm font-bold text-gray-600 whitespace-nowrap tracking-wider">
+                                            {column.title}
+                                        </div>
+                                        <div className="flex flex-col items-center gap-1 mt-auto pb-4">
+                                            <span className="bg-white text-gray-900 text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shadow-sm">
+                                                {columnOrders.length}
+                                            </span>
+                                            <div className="p-1.5 rounded-full bg-white/40 hover:bg-white/80 transition-colors backdrop-blur-sm">
+                                                <ChevronDown className="w-4 h-4 text-gray-700" />
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             )
                         }
 
                         return (
-                            <div key={column.id} className="flex-shrink-0 w-80 max-w-[90vw] flex flex-col h-full rounded-xl bg-gray-50/50 border border-gray-100 transition-all snap-center shadow-sm">
-                                <div className={`p-3 border-b rounded-t-xl sticky top-0 z-30 flex flex-col gap-2 transition-colors ${column.color || 'bg-gray-100'} shadow-sm`}>
-                                    <div className="flex justify-between items-center w-full">
+                            <div key={column.id} className="flex-shrink-0 w-80 max-w-[90vw] flex flex-col h-full rounded-xl bg-gray-50 border border-gray-200 transition-all snap-center shadow-sm">
+                                <div className={`px-3 py-3 border-b rounded-t-xl sticky top-0 z-30 flex flex-col gap-2 transition-colors ${column.color || 'bg-gray-100'} shadow-sm`}>
+                                    <div className="flex justify-between items-center w-full relative">
                                         <div className="flex items-center gap-2">
                                             <h2 className="font-bold text-gray-800 text-sm">{column.title}</h2>
                                             <span className="bg-white/80 text-gray-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-black/5 shadow-sm">
@@ -476,25 +456,49 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                         </div>
                                         <div className="flex items-center gap-1">
                                             {/* Filter Toggle */}
-                                            <div className="relative group">
-                                                <select
-                                                    value={columnFilters[column.id] || ""}
-                                                    onChange={(e) => setColumnFilters(prev => ({ ...prev, [column.id]: e.target.value }))}
-                                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                                    title="Filtrele"
+                                            <div className="relative">
+                                                <button
+                                                    className={`p-1.5 rounded-md transition-all filter-menu-trigger ${columnFilters[column.id] ? 'bg-blue-100 text-blue-600 ring-1 ring-blue-500' : 'hover:bg-black/5 text-gray-500'}`}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleFilter(column.id);
+                                                    }}
                                                 >
-                                                    <option value="">Tümü</option>
-                                                    {uniqueTextures.map(texture => (
-                                                        <option key={texture} value={texture}>{texture}</option>
-                                                    ))}
-                                                </select>
-                                                <button className={`p-1.5 rounded-md transition-all ${columnFilters[column.id] ? 'bg-blue-100 text-blue-600 ring-1 ring-blue-500' : 'hover:bg-black/5 text-gray-500'}`}>
                                                     <Filter className="w-3.5 h-3.5" strokeWidth={2.5} />
                                                 </button>
+
+                                                {/* Custom Dropdown Menu */}
+                                                {openFilterId === column.id && (
+                                                    <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-50 filter-menu overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                                        <div className="p-1 max-h-64 overflow-y-auto">
+                                                            <button
+                                                                onClick={() => {
+                                                                    setColumnFilters(prev => { const n = { ...prev }; delete n[column.id]; return n; });
+                                                                    setOpenFilterId(null);
+                                                                }}
+                                                                className={`w-full text-left px-3 py-2 text-xs font-medium rounded-md transition-colors ${!columnFilters[column.id] ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                                                            >
+                                                                Tümü
+                                                            </button>
+                                                            {uniqueTextures.map(texture => (
+                                                                <button
+                                                                    key={texture}
+                                                                    onClick={() => {
+                                                                        setColumnFilters(prev => ({ ...prev, [column.id]: texture }));
+                                                                        setOpenFilterId(null);
+                                                                    }}
+                                                                    className={`w-full text-left px-3 py-2 text-xs font-medium rounded-md transition-colors ${columnFilters[column.id] === texture ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                                                                >
+                                                                    {texture}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
 
                                             <button
-                                                onClick={toggleCollapse}
+                                                onClick={() => toggleCollapse(column.id)}
                                                 className="p-1.5 hover:bg-black/5 rounded-md transition-colors text-gray-600"
                                             >
                                                 <ChevronUp className="w-3.5 h-3.5" strokeWidth={2.5} />
@@ -504,7 +508,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
                                     {/* Active Filter Badge */}
                                     {columnFilters[column.id] && (
-                                        <div className="flex items-center justify-between bg-blue-50 border border-blue-100 px-2 py-1 rounded text-xs text-blue-700">
+                                        <div className="flex items-center justify-between bg-blue-50 border border-blue-100 px-2 py-1 rounded text-xs text-blue-700 animate-in slide-in-from-top-1">
                                             <span className="font-medium truncate">{columnFilters[column.id]}</span>
                                             <button
                                                 onClick={() => setColumnFilters(prev => { const n = { ...prev }; delete n[column.id]; return n; })}
