@@ -3,7 +3,7 @@
 import { Order, OrderStatus, Comment } from "../data/mock-orders"
 import { OrderCard } from "./order-card"
 import { useState, useEffect, useRef, useMemo } from "react"
-import { ChevronDown, ChevronUp, Search, RefreshCw, Loader2, Plus } from "lucide-react"
+import { ChevronDown, ChevronUp, Search, RefreshCw, Loader2, Plus, Filter, X } from "lucide-react"
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDraggable, useDroppable, closestCorners } from "@dnd-kit/core"
 import { BarcodeScanner } from "./barcode-scanner"
 import { OrderDetailPanel } from "./order-detail-panel"
