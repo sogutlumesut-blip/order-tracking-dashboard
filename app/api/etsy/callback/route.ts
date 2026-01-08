@@ -43,7 +43,9 @@ export async function GET(req: Request) {
 
     // 3. Exchange Code for Token
     const tokenUrl = "https://api.etsy.com/v3/public/oauth/token";
-    const redirectUri = "https://order-tracking-dashboard-beta.vercel.app/api/etsy/callback";
+    const url = new URL(req.url);
+    const origin = url.origin;
+    const redirectUri = `${origin}/api/etsy/callback`;
 
     try {
         const response = await fetch(tokenUrl, {

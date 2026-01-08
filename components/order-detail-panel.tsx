@@ -202,7 +202,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                 />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <div className="flex items-start justify-between">
+                                                <div className="flex items-start justify-between flex-wrap gap-y-2">
                                                     <p className="font-bold text-gray-900 line-clamp-2">{item.name}</p>
                                                     {item.sku && (
                                                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200 ml-2 whitespace-nowrap">
@@ -210,7 +210,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                         </span>
                                                     )}
                                                     {item.sampleData && (
-                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-purple-100 text-purple-700 border border-purple-200 ml-2 whitespace-nowrap animate-pulse">
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-purple-100 text-purple-700 border border-purple-200 ml-2 animate-pulse text-right">
                                                             ✨ NUMUNE: {item.sampleData}
                                                         </span>
                                                     )}

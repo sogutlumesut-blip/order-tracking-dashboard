@@ -108,13 +108,13 @@ export function OrderCard({ order, onClick, tags }: OrderCardProps) {
                     </div>
                     <div className="flex flex-col items-end gap-1">
                         <span className={`text-sm font-semibold px-2 py-1 rounded-md ${isPaymentFailed ? 'text-red-700 bg-red-100 line-through' : 'text-green-600 bg-green-50'}`}>
-                            {order.total}
+                            {order.total.replace('$', '').replace('USD', '').trim()} TL
                         </span>
                         {/* Payment Method Badge */}
                         {order.paymentMethod && (
                             <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border ${order.paymentMethod.toLowerCase().includes('havale') || order.paymentMethod.toLowerCase().includes('eft')
-                                    ? 'text-purple-700 bg-purple-100 border-purple-200'
-                                    : 'text-gray-500 bg-gray-100 border-gray-200'
+                                ? 'text-purple-700 bg-purple-100 border-purple-200'
+                                : 'text-gray-500 bg-gray-100 border-gray-200'
                                 }`}>
                                 {order.paymentMethod}
                             </span>
@@ -170,9 +170,16 @@ export function OrderCard({ order, onClick, tags }: OrderCardProps) {
                                     })()}
                                 </span>
                             )}
+                            {/* Texture/Material */}
                             {order.items && order.items.length > 0 && order.items[0].material && (
                                 <span className="bg-purple-50 px-1.5 py-0.5 rounded text-purple-700 font-medium border border-purple-100">
                                     Doku: {order.items[0].material}
+                                </span>
+                            )}
+                            {/* Sample Data Badge */}
+                            {order.items && order.items.length > 0 && order.items[0].sampleData && (
+                                <span className="bg-pink-50 px-1.5 py-0.5 rounded text-pink-700 font-bold border border-pink-100 animate-pulse">
+                                    ✨ NUMUNE: {order.items[0].sampleData}
                                 </span>
                             )}
                         </div>

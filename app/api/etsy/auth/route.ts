@@ -36,7 +36,9 @@ export async function GET(req: Request) {
 
     // 3. Store Verifier in a cookie (or DB) to verify later
     // For simplicity, we can use a cookie
-    const redirectUri = "https://order-tracking-dashboard-beta.vercel.app/api/etsy/callback";
+    const url = new URL(req.url);
+    const origin = url.origin; // e.g., https://your-site.vercel.app
+    const redirectUri = `${origin}/api/etsy/callback`;
     const scope = "transactions_r%20shops_r%20profile_r"; // Read transactions, shops, profile
 
     const authUrl = `https://www.etsy.com/oauth/connect?response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&client_id=${apiKey}&state=${state}&code_challenge=${challenge}&code_challenge_method=S256`;
