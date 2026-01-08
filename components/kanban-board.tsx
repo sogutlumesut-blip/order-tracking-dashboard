@@ -466,7 +466,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
                         return (
                             <div key={column.id} className="flex-shrink-0 w-80 max-w-[90vw] flex flex-col h-full rounded-xl bg-gray-50/50 border border-gray-100 transition-all snap-center shadow-sm">
-                                <div className={`p-3 border-b rounded-t-xl sticky top-0 z-20 flex flex-col gap-2 ${column.color || 'bg-gray-100'}`}>
+                                <div className={`p-3 border-b rounded-t-xl sticky top-0 z-30 flex flex-col gap-2 transition-colors ${column.color || 'bg-gray-100'} shadow-sm`}>
                                     <div className="flex justify-between items-center w-full">
                                         <div className="flex items-center gap-2">
                                             <h2 className="font-bold text-gray-800 text-sm">{column.title}</h2>
@@ -474,84 +474,99 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                                 {columnOrders.length}
                                             </span>
                                         </div>
-                                        <button
-                                            onClick={toggleCollapse}
-                                            className="p-1 hover:bg-black/5 rounded-md transition-colors text-gray-600"
-                                        >
-                                            <ChevronUp className="w-4 h-4" />
-                                        </button>
+                                        <div className="flex items-center gap-1">
+                                            {/* Filter Toggle */}
+                                            <div className="relative group">
+                                                <select
+                                                    value={columnFilters[column.id] || ""}
+                                                    onChange={(e) => setColumnFilters(prev => ({ ...prev, [column.id]: e.target.value }))}
+                                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                                    title="Filtrele"
+                                                >
+                                                    <option value="">Tümü</option>
+                                                    {uniqueTextures.map(texture => (
+                                                        <option key={texture} value={texture}>{texture}</option>
+                                                    ))}
+                                                </select>
+                                                <button className={`p-1.5 rounded-md transition-all ${columnFilters[column.id] ? 'bg-blue-100 text-blue-600 ring-1 ring-blue-500' : 'hover:bg-black/5 text-gray-500'}`}>
+                                                    <Filter className="w-3.5 h-3.5" strokeWidth={2.5} />
+                                                </button>
+                                            </div>
+
+                                            <button
+                                                onClick={toggleCollapse}
+                                                className="p-1.5 hover:bg-black/5 rounded-md transition-colors text-gray-600"
+                                            >
+                                                <ChevronUp className="w-3.5 h-3.5" strokeWidth={2.5} />
+                                            </button>
+                                        </div>
                                     </div>
 
-                                    {/* Column Filter */}
-                                    <select
-                                        value={columnFilters[column.id] || ""}
-                                        onChange={(e) => setColumnFilters(prev => ({ ...prev, [column.id]: e.target.value }))}
-                                        className="block w-full px-2 py-1 text-xs border border-gray-200 rounded-md bg-white focus:ring-1 focus:ring-blue-500 text-gray-700 font-medium cursor-pointer transition-shadow shadow-sm"
-                                    >
-                                        <option value="">Filtrele...</option>
-                                        {uniqueTextures.map(texture => (
-                                            <option key={texture} value={texture}>{texture}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <option value="">Filtrele...</option>
-                                {uniqueTextures.map(texture => (
-                                    <option key={texture} value={texture}>{texture}</option>
-                                ))}
-                            </select>
+                                    {/* Active Filter Badge */}
+                                    {columnFilters[column.id] && (
+                                        <div className="flex items-center justify-between bg-blue-50 border border-blue-100 px-2 py-1 rounded text-xs text-blue-700">
+                                            <span className="font-medium truncate">{columnFilters[column.id]}</span>
+                                            <button
+                                                onClick={() => setColumnFilters(prev => { const n = { ...prev }; delete n[column.id]; return n; })}
+                                                className="ml-1 p-0.5 hover:bg-blue-100 rounded-full"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
 
-                <DroppableId id={column.id}>
-                    <div className="p-3 flex-1 overflow-y-auto space-y-3 min-h-[200px]">
-                        {columnOrders.map(order => (
-                            <DraggableItem key={order.id} id={order.id}>
+                                <DroppableId id={column.id}>
+                                    <div className="p-3 flex-1 overflow-y-auto space-y-3 min-h-[200px]">
+                                        {columnOrders.map(order => (
+                                            <DraggableItem key={order.id} id={order.id}>
+                                                <OrderCard
+                                                    order={order}
+                                                    onClick={() => {
+                                                        setSelectedOrder(order);
+                                                        setIsPanelOpen(true);
+                                                        if (order.hasNotification) {
+                                                            markOrderAsRead(order.id)
+                                                            setOrders(prev => prev.map(o => o.id === order.id ? {
+                                                                ...o,
+                                                                hasNotification: false,
+                                                                updatedAt: new Date().toISOString()
+                                                            } : o))
+                                                        }
+                                                    }}
+                                                    tags={tags}
+                                                />
+                                            </DraggableItem>
+                                        ))}
+                                        {columnOrders.length === 0 && (
+                                            <div className="h-24 flex items-center justify-center text-sm text-gray-400 border-2 border-dashed border-gray-200 rounded-lg pointer-events-none">
+                                                {searchTerm ? "Sonuç yok" : "Sipariş Yok"}
+                                            </div>
+                                        )}
+                                    </div>
+                                </DroppableId>
+                            </div>
+                        )
+                    })}
+                </div>
+            </div >
+            <DragOverlay>
+                {activeId ? (() => {
+                    const activeOrder = orders.find(o => o.id === activeId)
+                    if (!activeOrder) return null
+                    return (
+                        <div className="cursor-grabbing shadow-2xl rounded-xl scale-105 transition-transform">
+                            <div className="w-80 pointer-events-none">
                                 <OrderCard
-                                    order={order}
-                                    onClick={() => {
-                                        setSelectedOrder(order);
-                                        setIsPanelOpen(true);
-                                        if (order.hasNotification) {
-                                            markOrderAsRead(order.id)
-                                            setOrders(prev => prev.map(o => o.id === order.id ? {
-                                                ...o,
-                                                hasNotification: false,
-                                                updatedAt: new Date().toISOString()
-                                            } : o))
-                                        }
-                                    }}
+                                    order={activeOrder}
+                                    onClick={() => { }}
                                     tags={tags}
                                 />
-                            </DraggableItem>
-                        ))}
-                        {columnOrders.length === 0 && (
-                            <div className="h-24 flex items-center justify-center text-sm text-gray-400 border-2 border-dashed border-gray-200 rounded-lg pointer-events-none">
-                                {searchTerm ? "Sonuç yok" : "Sipariş Yok"}
                             </div>
-                        )}
-                    </div>
-                </DroppableId>
-            </div>
-            )
-                    })}
-        </div>
-            </div >
-        <DragOverlay>
-            {activeId ? (() => {
-                const activeOrder = orders.find(o => o.id === activeId)
-                if (!activeOrder) return null
-                return (
-                    <div className="cursor-grabbing shadow-2xl rounded-xl scale-105 transition-transform">
-                        <div className="w-80 pointer-events-none">
-                            <OrderCard
-                                order={activeOrder}
-                                onClick={() => { }}
-                                tags={tags}
-                            />
                         </div>
-                    </div>
-                )
-            })() : null}
-        </DragOverlay>
+                    )
+                })() : null}
+            </DragOverlay>
         </DndContext >
     )
 }
