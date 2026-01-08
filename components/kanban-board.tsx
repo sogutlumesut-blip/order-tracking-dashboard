@@ -127,8 +127,27 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         })
     )
 
+    const [selectedTexture, setSelectedTexture] = useState<string>("")
+
+    const uniqueTextures = useMemo(() => {
+        const textures = new Set<string>()
+        orders.forEach(o => {
+            o.items.forEach(i => {
+                if (i.material) textures.add(i.material)
+            })
+        })
+        return Array.from(textures).sort()
+    }, [orders])
+
     // Filter Logic
     const filteredOrders = orders.filter(order => {
+        // Texture Filter
+        if (selectedTexture) {
+            const hasTexture = order.items.some(i => i.material === selectedTexture)
+            if (!hasTexture) return false
+        }
+
+        // Search Filter
         if (!searchTerm) return true
         const lowerTerm = searchTerm.toLowerCase()
         return (
