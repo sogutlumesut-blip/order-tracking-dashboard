@@ -22,9 +22,28 @@ import { useRouter } from "next/navigation"
 
 // ... imports ...
 
-export default function LoginPage() {
+// ... imports ...
+import { db } from "@/lib/prisma"
+
+export default async function LoginPage() {
+    // Server-Side Debug Checks
+    let debugInfo = { status: 'init', db: false, err: '' }
+    try {
+        await db.user.count()
+        debugInfo.db = true
+        debugInfo.status = 'connected'
+    } catch (e: any) {
+        debugInfo.err = e.message
+        debugInfo.status = 'failed'
+    }
+
+    return <LoginForm debugInfo={debugInfo} />
+}
+
+function LoginForm({ debugInfo }: { debugInfo: any }) {
     const [error, setError] = useState<string | null>(null)
     const router = useRouter()
+
 
     async function clientAction(formData: FormData) {
         try {
@@ -45,8 +64,13 @@ export default function LoginPage() {
         <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
             <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 space-y-6">
                 <div className="text-center space-y-2">
-                    <h1 className="text-3xl font-bold text-gray-900">OMS Giriş</h1>
+                    <h1 className="text-3xl font-bold text-gray-900">OMS Giriş (Debug)</h1>
                     <p className="text-gray-500">Sipariş Yönetim Sistemine Hoşgeldiniz</p>
+                    <div className="text-xs font-mono text-left bg-gray-100 p-2 rounded mt-2 overflow-auto max-h-20">
+                        DB Status: {debugInfo.status}<br />
+                        Connected: {debugInfo.db ? 'YES' : 'NO'}<br />
+                        Error: {debugInfo.err}
+                    </div>
                 </div>
 
                 <form action={clientAction} className="space-y-4">
