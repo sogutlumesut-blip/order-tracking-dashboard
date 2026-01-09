@@ -9,32 +9,34 @@ import { OrderStatus } from "@/data/mock-orders"
 import WooCommerceRestApi from "@woocommerce/woocommerce-rest-api"
 
 export async function loginAction(formData: FormData) {
-    const username = formData.get("username") as string
-    const password = formData.get("password") as string
+    try {
+        const username = formData.get("username") as string
+        const password = formData.get("password") as string
 
-    const user = await db.user.findUnique({
-        where: { username },
-        select: {
-            id: true,
-            username: true,
-            password: true,
-            name: true,
-            role: true
-            // implicitly excluding allowedStatuses to prevent crash if column missing
+        const user = await db.user.findUnique({
+            where: { username },
+            // select: { ... } // Let's select all for now to debug, or keep it strict
+        })
+
+        if (!user) {
+            return { error: "Kullanıcı bulunamadı." }
         }
-    })
 
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-        return { error: "Geçersiz kullanıcı adı veya şifre" }
+        const isMatch = await bcrypt.compare(password, user.password)
+        if (!isMatch) {
+            return { error: "Şifre hatalı." }
+        }
+
+        if (user.role === "pending") {
+            return { error: "Hesabınız henüz onaylanmadı. Lütfen yöneticinizle görüşün." }
+        }
+
+        await login({ id: user.id, name: user.name, role: user.role })
+        return { success: true }
+    } catch (e: any) {
+        console.error("LOGIN ERROR:", e)
+        return { error: `Sunucu Hatası: ${e.message}` }
     }
-
-    if (user.role === "pending") {
-        return { error: "Hesabınız henüz onaylanmadı. Lütfen yöneticinizle görüşün." }
-    }
-
-    await login({ id: user.id, name: user.name, role: user.role })
-    // redirect("/")
-    return { success: true }
 }
 
 export async function getOrders() {
@@ -1080,7 +1082,7 @@ export async function uploadCargoLabel(orderId: number, base64Data: string) {
     try {
         await db.order.update({
             where: { id: orderId },
-            data: { cargoLabelPdf: base64Data }
+            data: { cargoLabelPdf: base64Data } as any
         })
         revalidatePath("/")
         return { success: true, message: "Kargo etiketi yüklendi" }
