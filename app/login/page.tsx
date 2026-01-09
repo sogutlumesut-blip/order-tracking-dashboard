@@ -35,8 +35,9 @@ export default function LoginPage() {
                 // Hard refresh to ensure clean state
                 window.location.href = "/"
             }
-        } catch (e) {
-            setError("Giriş yapılırken bir hata oluştu.")
+        } catch (e: any) {
+            console.error(e)
+            setError(`Giriş yapılırken bir hata oluştu: ${e.message || JSON.stringify(e)}`)
         }
     }
 
