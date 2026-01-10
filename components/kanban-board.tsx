@@ -570,8 +570,8 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         )
                     })() : null}
                 </DragOverlay>
+            </div>
         </DndContext >
-        </div >
     )
 }
 
