@@ -127,6 +127,11 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     )
 
     const [columnFilters, setColumnFilters] = useState<Record<string, string>>({})
+    const [openFilterId, setOpenFilterId] = useState<string | null>(null)
+
+    const toggleFilter = (columnId: string) => {
+        setOpenFilterId(prev => prev === columnId ? null : columnId)
+    }
 
     const uniqueTextures = useMemo(() => {
         const textures = new Set<string>()
