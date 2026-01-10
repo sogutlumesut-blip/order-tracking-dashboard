@@ -4,7 +4,25 @@ import bcrypt from "bcryptjs"
 
 export const dynamic = 'force-dynamic'
 
-export default async function DebugLoginPage() {
+export default import { db } from "@/lib/db"
+import { revalidatePath } from "next/cache"
+import bcrypt from "bcryptjs"
+
+async function upgradeToAdmin() {
+    "use server"
+    // Updates the first user found or specific username to admin
+    try {
+        await db.user.updateMany({
+            where: { OR: [{ username: "admin" }, { role: "staff" }] },
+            data: { role: "admin" }
+        })
+        revalidatePath("/")
+    } catch (e) {
+        console.error("Upgrade failed", e)
+    }
+}
+
+async function DebugLoginPage() {
     const checks = {
         envVar: !!process.env.DATABASE_URL,
         dbConnection: false,
