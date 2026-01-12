@@ -524,8 +524,9 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                     )}
                                 </div>
 
-                                <DroppableId id={column.id}>
-                                    <div className="p-3 flex-1 overflow-y-auto space-y-3 min-h-[200px]">
+                                {/* SCROLLABLE DROPPABLE AREA */}
+                                <div className="flex-1 min-h-0 overflow-hidden relative">
+                                    <DroppableId id={column.id} className="h-full overflow-y-auto p-3 space-y-3 scrollbar-thin scrollbar-thumb-gray-200 hover:scrollbar-thumb-gray-300">
                                         {columnOrders.map(order => (
                                             <DraggableItem key={order.id} id={order.id}>
                                                 <OrderCard
@@ -551,8 +552,8 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                                 {searchTerm ? "Sonuç yok" : "Sipariş Yok"}
                                             </div>
                                         )}
-                                    </div>
-                                </DroppableId>
+                                    </DroppableId>
+                                </div>
                             </div>
                         )
                     })}
@@ -590,10 +591,10 @@ function DraggableItem({ id, children }: { id: number; children: React.ReactNode
     )
 }
 
-function DroppableId({ id, children }: { id: string; children: React.ReactNode }) {
+function DroppableId({ id, children, className }: { id: string; children: React.ReactNode, className?: string }) {
     const { setNodeRef } = useDroppable({ id: id })
     return (
-        <div ref={setNodeRef} className="h-full">
+        <div ref={setNodeRef} className={className || "h-full"}>
             {children}
         </div>
     )
