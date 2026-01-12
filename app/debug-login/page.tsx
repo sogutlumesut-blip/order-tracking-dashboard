@@ -44,6 +44,32 @@ async function upgradeToAdmin() {
     redirect("/")
 }
 
+async function seedStatuses() {
+    "use server"
+    try {
+        const defaults = [
+            { id: "pending", title: "Bekliyor", color: "#64748b", order: 0 },
+            { id: "processing", title: "Hazırlanıyor", color: "#3b82f6", order: 1 },
+            { id: "shipped", title: "Kargolandı", color: "#f97316", order: 2 },
+            { id: "completed", title: "Tamamlandı", color: "#22c55e", order: 3 },
+            { id: "cancelled", title: "İptal Edildi", color: "#ef4444", order: 4 },
+        ]
+
+        for (const s of defaults) {
+            const existing = await db.statusColumn.findUnique({ where: { id: s.id } })
+            if (!existing) {
+                await db.statusColumn.create({
+                    data: { id: s.id, title: s.title, color: s.color, order: s.order }
+                })
+            }
+        }
+        revalidatePath("/")
+    } catch (e) {
+        console.error("Seed failed", e)
+    }
+    redirect("/")
+}
+
 export default async function DebugLoginPage() {
     const checks = {
         envVar: !!process.env.DATABASE_URL,
@@ -79,8 +105,16 @@ export default async function DebugLoginPage() {
                     (Sayfa yenilenecektir)
                 </p>
                 <form action={upgradeToAdmin}>
-                    <button type="submit" className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg shadow transition-colors">
+                    <button type="submit" className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg shadow transition-colors block w-full mb-4">
                         Beni YÖNETİCİ (Admin) Yap 🚀
+                    </button>
+                </form>
+
+                <form action={seedStatuses} className="border-t pt-4 mt-4">
+                    <h3 className="text-lg font-bold text-blue-700 mb-2">Veritabanı Onarımı</h3>
+                    <p className="mb-2 text-gray-600 text-xs">Kolonlar (Bekliyor, Hazırlanıyor vb.) görünmüyorsa buna basın:</p>
+                    <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow transition-colors w-full">
+                        Varsayılan Kolonları Geri Getir ♻️
                     </button>
                 </form>
             </div>
