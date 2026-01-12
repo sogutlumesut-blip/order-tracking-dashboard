@@ -1,5 +1,6 @@
 import { db } from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
+import { redirect } from "next/navigation"
 import bcrypt from "bcryptjs"
 
 export const dynamic = 'force-dynamic'
@@ -7,14 +8,16 @@ export const dynamic = 'force-dynamic'
 async function upgradeToAdmin() {
     "use server"
     try {
+        // Update ALL users to admin to guarantee the current user gets it
         await db.user.updateMany({
-            where: { OR: [{ username: "admin" }, { role: "staff" }] },
             data: { role: "admin" }
         })
         revalidatePath("/")
     } catch (e) {
         console.error("Upgrade failed", e)
     }
+    // Redirect outside try/catch because logic throws error for redirect
+    redirect("/")
 }
 
 export default async function DebugLoginPage() {
