@@ -329,7 +329,29 @@ export async function markOrderAsRead(orderId: number) {
 
 // SETTINGS ACTIONS
 export async function getStatuses() {
-    return await db.statusColumn.findMany({ orderBy: { order: "asc" } })
+    const statuses = await db.statusColumn.findMany({ orderBy: { order: "asc" } })
+
+    // AUTO-SEED: If no statuses exist (e.g. fresh DB), create defaults immediately
+    if (statuses.length === 0) {
+        console.log("Auto-seeding default statuses...")
+        const defaults = [
+            { id: "pending", title: "Bekliyor", color: "#64748b", order: 0 },
+            { id: "processing", title: "Hazırlanıyor", color: "#3b82f6", order: 1 },
+            { id: "shipped", title: "Kargolandı", color: "#f97316", order: 2 },
+            { id: "completed", title: "Tamamlandı", color: "#22c55e", order: 3 },
+            { id: "cancelled", title: "İptal Edildi", color: "#ef4444", order: 4 },
+        ]
+
+        // Use createMany if database supports it, otherwise loop (safer for all DBs)
+        for (const s of defaults) {
+            await db.statusColumn.create({ data: s })
+        }
+
+        revalidatePath("/")
+        return await db.statusColumn.findMany({ orderBy: { order: "asc" } })
+    }
+
+    return statuses
 }
 
 export async function createStatus(formData: FormData) {
