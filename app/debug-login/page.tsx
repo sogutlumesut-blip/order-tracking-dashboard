@@ -4,7 +4,7 @@ import { redirect } from "next/navigation"
 import bcrypt from "bcryptjs"
 
 export const dynamic = 'force-dynamic'
-// Trigger redeploy for admin fix
+// Version: 2.1 (Force Update)
 
 async function upgradeToAdmin() {
     "use server"
@@ -91,11 +91,14 @@ export default async function DebugLoginPage() {
     }
 
     return (
-        <div className="p-8 font-mono text-sm max-w-2xl mx-auto">
-            <h1 className="text-xl font-bold mb-4">Login Debug Status</h1>
-            <pre className="bg-gray-100 p-4 rounded overflow-auto mb-6">
-                {JSON.stringify(checks, null, 2)}
-            </pre>
+        <div className="min-h-screen bg-black text-white font-mono p-8 flex flex-col items-center justify-center">
+            <h1 className="text-2xl font-bold mb-4">Login Debug Status (v2.1)</h1>
+
+            <div className="bg-gray-900 p-6 rounded-lg w-full max-w-2xl mb-8 overflow-auto">
+                <pre className="text-sm text-gray-300">
+                    {JSON.stringify(checks, null, 2)}
+                </pre>
+            </div>
 
             <div className="border border-red-200 bg-red-50 p-6 rounded-lg text-center">
                 <h3 className="text-lg font-bold text-red-700 mb-2">Acil Durum: Admin Yetkisi Ver</h3>
