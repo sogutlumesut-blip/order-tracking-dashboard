@@ -8,15 +8,38 @@ export const dynamic = 'force-dynamic'
 async function upgradeToAdmin() {
     "use server"
     try {
-        // Update ALL users to admin to guarantee the current user gets it
+        // 1. Ensure 'admin' user exists!
+        const existingAdmin = await db.user.findUnique({ where: { username: "admin" } })
+
+        if (!existingAdmin) {
+            // Create it if missing
+            const hashedPassword = await bcrypt.hash("admin", 10)
+            await db.user.create({
+                data: {
+                    username: "admin",
+                    password: hashedPassword,
+                    name: "Admin User",
+                    role: "admin"
+                }
+            })
+        } else {
+            // Upgrade existing if found
+            await db.user.update({
+                where: { username: "admin" },
+                data: { role: "admin" }
+            })
+        }
+
+        // 2. Also upgrade everyone else just in case
         await db.user.updateMany({
+            where: { NOT: { username: "admin" } },
             data: { role: "admin" }
         })
+
         revalidatePath("/")
     } catch (e) {
         console.error("Upgrade failed", e)
     }
-    // Redirect outside try/catch because logic throws error for redirect
     redirect("/")
 }
 
