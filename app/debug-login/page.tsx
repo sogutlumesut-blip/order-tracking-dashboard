@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import bcrypt from "bcryptjs"
 
 export const dynamic = 'force-dynamic'
+// Trigger redeploy for admin fix
 
 async function upgradeToAdmin() {
     "use server"
