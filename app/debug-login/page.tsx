@@ -70,6 +70,19 @@ async function seedStatuses() {
     redirect("/")
 }
 
+async function resetOrdersToPending() {
+    "use server"
+    try {
+        await db.order.updateMany({
+            data: { status: "pending" }
+        })
+        revalidatePath("/")
+    } catch (e) {
+        console.error("Reset failed", e)
+    }
+    redirect("/")
+}
+
 export default async function DebugLoginPage() {
     const checks = {
         envVar: !!process.env.DATABASE_URL,

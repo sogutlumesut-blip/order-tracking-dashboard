@@ -6,6 +6,8 @@ import { LogOut, User, Settings } from "lucide-react"
 import Link from "next/link"
 import { db } from "@/lib/prisma"
 
+export const dynamic = 'force-dynamic'
+
 export default async function Dashboard() {
   const session = await getSession()
   if (!session) redirect("/login")
@@ -47,7 +49,7 @@ export default async function Dashboard() {
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
             OMS
           </div>
-          <h1 className="font-bold text-lg text-gray-800">Sipariş Takip</h1>
+          <h1 className="font-bold text-lg text-gray-800">Sipariş Takip <span className="text-xs text-gray-400 font-normal">v2.2 (Sütunlar: {statuses.length})</span></h1>
         </div>
 
         <div className="flex items-center gap-4">
