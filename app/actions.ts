@@ -701,17 +701,17 @@ export async function syncWooCommerceOrders() {
                 // Map Status
                 // IDs found in DB: 'Gelen Siparişler', 'Müşteriye İletilecek', 'Baskıya Hazır', 'Müşteri Beklemede', 'Dosya Gönderildi', 'Makinada', 'Hazır Beklemede', 'Kargolandı', 'Baskı hatası', 'Basılan ürünler'
 
-                let status = 'Gelen Siparişler' // Default to Incoming
+                let status = 'pending' // Default to Incoming
                 let labels: string[] = ['WooCommerce'];
 
-                if (wcOrder.status === 'processing') status = 'Gelen Siparişler'
-                if (wcOrder.status === 'completed') status = 'Tamamlandı'
-                if (wcOrder.status === 'on-hold') status = 'Müşteri Beklemede'
-                if (wcOrder.status === 'pending') status = 'Müşteri Beklemede'
+                if (wcOrder.status === 'processing') status = 'pending'
+                if (wcOrder.status === 'completed') status = 'pending' // Enforce Pending even for Completed
+                if (wcOrder.status === 'on-hold') status = 'pending'
+                if (wcOrder.status === 'pending') status = 'pending'
 
                 // Handle Failed/Cancelled
                 if (wcOrder.status === 'failed' || wcOrder.status === 'cancelled' || wcOrder.status === 'refunded') {
-                    status = 'Gelen Siparişler'; // Keep it in incoming so they see it
+                    status = 'pending'; // Keep it in incoming so they see it
                     labels.push('Ödeme Başarısız');
                 }
 

@@ -27,17 +27,17 @@ export async function POST(req: Request) {
         const wcId = body.id
 
         // Map Status
-        let status = 'Gelen Siparişler' // Default to Incoming
+        let status = 'pending' // Default to pending (Local ID)
         let labels: string[] = ['WooCommerce', 'Yeni'];
 
-        if (body.status === 'processing') status = 'Gelen Siparişler'
-        if (body.status === 'completed') status = 'Tamamlandı'
-        if (body.status === 'on-hold') status = 'Müşteri Beklemede'
-        if (body.status === 'pending') status = 'Müşteri Beklemede'
+        if (body.status === 'processing') status = 'pending'
+        if (body.status === 'completed') status = 'pending' // Enforce Pending
+        if (body.status === 'on-hold') status = 'pending'
+        if (body.status === 'pending') status = 'pending'
 
         // Handle Failed/Cancelled
         if (body.status === 'failed' || body.status === 'cancelled' || body.status === 'refunded') {
-            status = 'Gelen Siparişler'; // Keep it in incoming so they see it
+            status = 'pending'; // Keep it in pending/incoming so they see it to act on it
             labels.push('Ödeme Başarısız');
         }
 

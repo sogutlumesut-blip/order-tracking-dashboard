@@ -73,9 +73,22 @@ async function seedStatuses() {
 async function resetOrdersToPending() {
     "use server"
     try {
-        await db.order.updateMany({
-            data: { status: "pending" }
-        })
+        // Find 'pending' status or create it if missing
+        let pending = await db.statusColumn.findUnique({ where: { id: "pending" } })
+        if (!pending) {
+            // Fallback: Try to find ANY status
+            const first = await db.statusColumn.findFirst()
+            if (first) pending = first
+        }
+
+        if (pending) {
+            // Update all non-completed orders to pending
+            // We EXCLUDE orders that are explicitly 'completed' if we want, but user asked to move ALL.
+            // "Tüm siparişleri Bekliyor'a taşı" means ALL.
+            await db.order.updateMany({
+                data: { status: pending.id }
+            })
+        }
         revalidatePath("/")
     } catch (e) {
         console.error("Reset failed", e)
@@ -104,8 +117,10 @@ export default async function DebugLoginPage() {
     }
 
     return (
-        <div className="min-h-screen bg-black text-white font-mono p-8 flex flex-col items-center justify-center">
-            <h1 className="text-2xl font-bold mb-4">Login Debug Status (v2.1)</h1>
+        <div className="min-h-screen bg-blue-900 text-white font-mono p-8 flex flex-col items-center justify-center">
+            <h1 className="text-4xl font-black mb-8 text-yellow-400 bg-black p-4 rounded-xl border-4 border-yellow-400 shadow-[8px_8px_0px_0px_rgba(250,204,21,1)]">
+                V3.3 SİPARİŞ KURTARMA (SON DÜZELTME)
+            </h1>
 
             <div className="bg-gray-900 p-6 rounded-lg w-full max-w-2xl mb-8 overflow-auto">
                 <pre className="text-sm text-gray-300">
@@ -131,6 +146,14 @@ export default async function DebugLoginPage() {
                     <p className="mb-2 text-gray-600 text-xs">Kolonlar (Bekliyor, Hazırlanıyor vb.) görünmüyorsa buna basın:</p>
                     <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow transition-colors w-full">
                         Varsayılan Kolonları Geri Getir ♻️
+                    </button>
+                </form>
+
+                <form action={resetOrdersToPending} className="border-t pt-4 mt-4">
+                    <h3 className="text-lg font-bold text-orange-700 mb-2">Sipariş Taşıma</h3>
+                    <p className="mb-2 text-gray-600 text-xs">Siparişler yanlış yerde geliyorsa buna basın:</p>
+                    <button type="submit" className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded-lg shadow transition-colors w-full">
+                        Tüm Siparişleri "Bekliyor"a Taşı 📦
                     </button>
                 </form>
             </div>
