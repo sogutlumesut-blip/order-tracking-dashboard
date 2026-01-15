@@ -29,7 +29,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
-        <Toaster />
+        {/* <Toaster /> Moved to Dashboard to prevent login blocking */}
       </body>
     </html>
   );
