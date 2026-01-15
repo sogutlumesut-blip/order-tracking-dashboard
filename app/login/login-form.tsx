@@ -1,7 +1,7 @@
 
 "use client"
 
-import { loginAction } from "../actions"
+import { loginAction } from "./actions"
 import { useFormStatus } from "react-dom"
 import { AlertCircle } from "lucide-react"
 import { useState } from "react"
