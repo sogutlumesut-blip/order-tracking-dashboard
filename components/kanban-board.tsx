@@ -51,8 +51,8 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         setMounted(true)
         if (typeof Audio !== "undefined") {
             // Cash Register Sound (Ka-ching!)
-            audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3")
-            audioRef.current.volume = 0.7 // Set reasonable volume
+            audioRef.current = new Audio("/sounds/notification.mp3")
+            audioRef.current.volume = 0.7
         }
     }, [])
 
@@ -62,6 +62,9 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         ordersRef.current = orders
     }, [orders])
 
+    // Store IDs to detect NEW ones specifically
+    const previousOrderIds = useRef<Set<number>>(new Set(initialOrders.map(o => o.id)))
+
     useEffect(() => {
         const interval = setInterval(async () => {
             if (activeId) return; // Don't poll while dragging
@@ -69,13 +72,28 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             const latestOrders = await getOrders()
             const currentOrders = ordersRef.current
 
-            // Sound Logic
-            const hasNew = latestOrders.length > currentOrders.length
-            // Only play sound for strictly NEW orders, not for status updates or other notifications
-            if (hasNew && audioRef.current) {
-                audioRef.current.play().catch((e: any) => console.log("Audio play failed (Autoplay blocked?)", e))
-                toast.info("Yeni sipariş geldi!")
+            // Sound Logic: Check for NEW IDs
+            const latestIds = new Set<number>(latestOrders.map((o: Order) => o.id))
+            const prevIds = previousOrderIds.current
+
+            // Find IDs that are in latest but NOT in previous (New arrivals)
+            const newArrivals = latestOrders.filter((o: Order) => !prevIds.has(o.id))
+
+            if (newArrivals.length > 0) {
+                console.log("New Orders Detected:", newArrivals.map((o: Order) => o.id))
+
+                if (audioRef.current) {
+                    audioRef.current.play()
+                        .then(() => toast.success(`${newArrivals.length} yeni sipariş geldi! 🔔`))
+                        .catch((e) => {
+                            console.log("Audio play failed (Autoplay detection):", e)
+                            toast.info("Yeni sipariş var! (Sesi açmak için sayfaya tıklayın)")
+                        })
+                }
             }
+
+            // Update previous IDs for next poll
+            previousOrderIds.current = latestIds
 
             // Sync Logic
             setOrders(currentOrders => {
