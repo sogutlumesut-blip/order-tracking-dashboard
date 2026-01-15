@@ -4,6 +4,8 @@ import { db } from "@/lib/prisma"
 import { login } from "@/lib/auth"
 import bcrypt from "bcryptjs"
 
+import { redirect } from "next/navigation"
+
 export async function loginAction(formData: FormData) {
     try {
         const username = (formData.get("username") as string).trim()
@@ -14,7 +16,7 @@ export async function loginAction(formData: FormData) {
         })
 
         if (!user) {
-            return { error: "Kullanıcı bulunamadı." }
+            return redirect("/login?error=Kullanici_Bulunamadi")
         }
 
         let isMatch = await bcrypt.compare(password, user.password)
@@ -25,15 +27,16 @@ export async function loginAction(formData: FormData) {
         }
 
         if (!isMatch) {
-            return { error: "Şifre hatalı." }
+            // Return error via URL parameter for Server Component to render
+            return redirect("/login?error=Hatali_Sifre")
         }
 
         if (user.role === "pending") {
-            return { error: "Hesabınız henüz onaylanmadı. Lütfen yöneticinizle görüşün." }
+            return redirect("/login?error=Onay_Bekliyor")
         }
 
         await login({ id: user.id, name: user.name, role: user.role })
-        return { success: true }
+        return redirect("/") // Success redirect
     } catch (e: any) {
         console.error("LOGIN ERROR:", e)
         return { error: `Sunucu Hatası: ${e.message}` }
