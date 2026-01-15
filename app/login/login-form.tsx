@@ -7,15 +7,14 @@ import { AlertCircle } from "lucide-react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 
+// Simplified button to debug "unclickable" issue
 function LoginButton() {
-    const { pending } = useFormStatus()
     return (
         <button
             type="submit"
-            disabled={pending}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg font-medium transition-colors disabled:opacity-50"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg font-medium transition-colors"
         >
-            {pending ? "Giriş Yapılıyor..." : "Giriş Yap"}
+            Giriş Yap
         </button>
     )
 }
