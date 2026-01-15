@@ -36,7 +36,14 @@ export async function login(userData: { id: string; name: string; role: string }
     const session = await encrypt({ user: userData, expires });
 
     // Save the session in a cookie
-    (await cookies()).set("session", session, { expires, httpOnly: true });
+    const isProduction = process.env.NODE_ENV === "production";
+    (await cookies()).set("session", session, {
+        expires,
+        httpOnly: true,
+        path: "/",
+        secure: isProduction,
+        sameSite: "lax"
+    });
 }
 
 export async function logout() {

@@ -32,13 +32,20 @@ export async function loginAction(formData: FormData) {
         }
 
         if (user.role === "pending") {
+            console.log("Login failed: Pending role")
             return redirect("/login?error=Onay_Bekliyor")
         }
 
+        console.log("Login successful, setting session for:", user.username)
         await login({ id: user.id, name: user.name, role: user.role })
+        console.log("Session set, redirecting to /")
         return redirect("/") // Success redirect
     } catch (e: any) {
-        console.error("LOGIN ERROR:", e)
-        return { error: `Sunucu Hatası: ${e.message}` }
+        console.error("LOGIN ERROR DETAILED:", e)
+        // Check if it's a redirect error (NEXT_REDIRECT) which is actually normal behavior
+        if (e.message === "NEXT_REDIRECT") {
+            throw e
+        }
+        return redirect(`/login?error=Sunucu_Hatasi&details=${encodeURIComponent(e.message)}`)
     }
 }
