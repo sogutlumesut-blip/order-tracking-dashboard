@@ -3,13 +3,14 @@
 import { Order, OrderStatus, Comment } from "../data/mock-orders"
 import { OrderCard } from "./order-card"
 import { useState, useEffect, useRef, useMemo } from "react"
-import { ChevronDown, ChevronUp, Search, RefreshCw, Loader2, Plus, Filter, X } from "lucide-react"
+import { ChevronDown, ChevronUp, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings } from "lucide-react"
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDraggable, useDroppable, closestCorners } from "@dnd-kit/core"
 import { BarcodeScanner } from "./barcode-scanner"
 import { OrderDetailPanel } from "./order-detail-panel"
 import { toast } from "sonner"
 import { Toaster } from "sonner"
-import { updateOrderStatus, updateOrderDetails, addCommentAction, getOrders, markOrderAsRead, syncWooCommerceOrders, syncEtsyOrders, createManualOrder, simulateWooCommerceOrder } from "../app/actions"
+import { updateOrderStatus, updateOrderDetails, addCommentAction, getOrders, markOrderAsRead, syncWooCommerceOrders, syncEtsyOrders, createManualOrder, simulateWooCommerceOrder, logoutAction } from "../app/actions"
+import Link from "next/link"
 import { ManualOrderModal } from "./manual-order-modal"
 
 interface KanbanBoardProps {
@@ -324,6 +325,85 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             onDragEnd={handleDragEnd}
         >
             <div className="flex flex-col h-full">
+                {/* Header moved from page.tsx */}
+                <header className="bg-white border-b h-16 flex items-center justify-between px-6 shrink-0 z-20 relative">
+                    <div className="flex items-center gap-4">
+                        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
+                            OMS
+                        </div>
+                        <h1 className="font-bold text-lg text-gray-800">Sipariş Takip <span className="text-xs text-gray-400 font-normal">v2.3 (Sütunlar: {cols.length})</span></h1>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full">
+                            <User className="w-4 h-4" />
+                            <span className="font-medium">{currentUser.name}</span>
+                            <span className="text-xs text-gray-400">({currentUser.role})</span>
+                        </div>
+
+                        {currentUser.role === 'admin' && (
+                            <Link href="/admin/settings" className="p-2 text-gray-600 hover:bg-gray-100 rounded-full transition-colors" title="Ayarlar">
+                                <Settings className="w-5 h-5" />
+                            </Link>
+                        )}
+
+                        {/* Manuel Sipariş - Everyone can see */}
+                        <button
+                            onClick={() => setIsManualOrderOpen(true)}
+                            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
+                            title="Manuel sipariş oluştur"
+                        >
+                            <Plus className="w-4 h-4" />
+                            <span>Manuel Sipariş</span>
+                        </button>
+
+                        {/* Woo & Etsy Sync - Styled similarly */}
+                        {(currentUser.role === 'admin' || (currentUser as any).allowedStatuses?.includes("MANUAL_SYNC")) && ( // Note: currentUser in props might need mapping for permissions if detailed object passed
+                            <>
+                                <form action={async () => {
+                                    toast.info("WooCommerce senkronizasyonu...")
+                                    await syncWooCommerceOrders()
+                                    toast.success("Senkronizasyon tamamlandı")
+                                }}>
+                                    <button
+                                        type="submit"
+                                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
+                                        title="WooCommerce'den son siparişleri manuel çek"
+                                    >
+                                        <RefreshCw className="w-3.5 h-3.5" />
+                                        Woo Çek
+                                    </button>
+                                </form>
+
+                                {currentUser.role === 'admin' && (
+                                    <form action={async () => {
+                                        toast.info("Etsy senkronizasyonu...")
+                                        await syncEtsyOrders()
+                                        toast.success("Senkronizasyon tamamlandı")
+                                    }}>
+                                        <button
+                                            type="submit"
+                                            className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
+                                            title="Etsy'den son siparişleri manuel çek"
+                                        >
+                                            <RefreshCw className="w-3.5 h-3.5" />
+                                            Etsy Çek
+                                        </button>
+                                    </form>
+                                )}
+                            </>
+                        )}
+
+
+                        <form action={async () => {
+                            await logoutAction()
+                        }}>
+                            <button className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors" title="Çıkış Yap">
+                                <LogOut className="w-5 h-5" />
+                            </button>
+                        </form>
+                    </div>
+                </header>
                 {/* Search Toolbar */}
                 <div className="px-6 py-4 bg-white border-b flex items-center justify-between shrink-0 gap-4">
                     <div className="relative w-full max-w-md">

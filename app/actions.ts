@@ -1,7 +1,7 @@
 "use server"
 
 import { db } from "@/lib/prisma"
-import { login, getSession } from "@/lib/auth"
+import { login, getSession, logout as authLogout } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 import bcrypt from "bcryptjs"
@@ -42,6 +42,11 @@ export async function loginAction(formData: FormData) {
         console.error("LOGIN ERROR:", e)
         return { error: `Sunucu Hatası: ${e.message}` }
     }
+}
+
+export async function logoutAction() {
+    await authLogout()
+    redirect("/login")
 }
 
 export async function getOrders() {
