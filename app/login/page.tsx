@@ -1,6 +1,7 @@
 
 import { db } from "@/lib/prisma"
 import { loginAction } from "./actions"
+import { SubmitButton } from "./submit-button"
 
 export default async function LoginPage({ searchParams }: { searchParams: { error?: string } }) {
     // Server-Side Debug Checks
@@ -43,7 +44,7 @@ export default async function LoginPage({ searchParams }: { searchParams: { erro
                             name="username"
                             type="text"
                             required
-                            className="w-full p-3 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                            className="w-full p-3 border rounded-lg bg-gray-50 text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                             placeholder="Örn: admin"
                         />
                     </div>
@@ -54,7 +55,7 @@ export default async function LoginPage({ searchParams }: { searchParams: { erro
                             name="password"
                             type="password"
                             required
-                            className="w-full p-3 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                            className="w-full p-3 border rounded-lg bg-gray-50 text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                             placeholder="••••••"
                         />
                     </div>
@@ -65,12 +66,7 @@ export default async function LoginPage({ searchParams }: { searchParams: { erro
                         </div>
                     )}
 
-                    <button
-                        type="submit"
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg font-medium transition-colors"
-                    >
-                        Giriş Yap
-                    </button>
+                    <SubmitButton />
 
                 </form>
 
