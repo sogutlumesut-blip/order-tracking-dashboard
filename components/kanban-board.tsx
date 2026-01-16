@@ -3,7 +3,7 @@
 import { Order, OrderStatus, Comment } from "../data/mock-orders"
 import { OrderCard } from "./order-card"
 import { useState, useEffect, useRef, useMemo } from "react"
-import { ChevronDown, ChevronUp, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings } from "lucide-react"
+import { ChevronDown, ChevronUp, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX } from "lucide-react"
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDraggable, useDroppable, closestCorners } from "@dnd-kit/core"
 import { BarcodeScanner } from "./barcode-scanner"
 import { OrderDetailPanel } from "./order-detail-panel"
@@ -335,6 +335,24 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     </div>
 
                     <div className="flex items-center gap-4">
+                        {/* Sound Toggle */}
+                        <button
+                            onClick={() => {
+                                if (audioRef.current) {
+                                    audioRef.current.play()
+                                        .then(() => {
+                                            toast.success("Bildirim sesi test edildi 🔔")
+                                            // User interaction unlocked audio
+                                        })
+                                        .catch(() => toast.error("Ses çalınamadı. Tarayıcı izinlerini kontrol edin."))
+                                }
+                            }}
+                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                            title="Bildirim sesini test et"
+                        >
+                            <Volume2 className="w-5 h-5" />
+                        </button>
+
                         <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full">
                             <User className="w-4 h-4" />
                             <span className="font-medium">{currentUser.name}</span>
