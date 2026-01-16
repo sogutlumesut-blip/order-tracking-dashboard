@@ -162,7 +162,8 @@ export async function updateOrderStatus(orderId: number, status: string) {
         data: {
             status,
             hasNotification: true,
-            assignedTo: user // Update responsibility to the user who moved the card
+            assignedTo: user, // Update responsibility to the user who moved the card
+            updatedAt: new Date() // FORCE update timestamp to prevent polling reversion
         }
     })
 
