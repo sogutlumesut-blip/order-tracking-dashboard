@@ -1,5 +1,5 @@
 import { KanbanBoard } from "@/components/kanban-board"
-import { getOrders, simulateWooCommerceOrder, getStatuses, getLabels } from "./actions"
+import { getOrders, simulateWooCommerceOrder, syncWooCommerceOrders, getStatuses, getLabels } from "./actions"
 import { getSession, logout } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { LogOut, User, Settings } from "lucide-react"
@@ -73,6 +73,21 @@ export default async function Dashboard() {
                 title="WooCommerce'den sipariş düşmüş gibi simüle et"
               >
                 + Demo Sipariş
+              </button>
+            </form>
+          )}
+
+          {session.user.role === 'admin' && (
+            <form action={async () => {
+              "use server"
+              await syncWooCommerceOrders()
+            }}>
+              <button
+                type="submit"
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1 animate-pulse"
+                title="WooCommerce'den son siparişleri manuel çek"
+              >
+                🔄 Woo Çek
               </button>
             </form>
           )}
