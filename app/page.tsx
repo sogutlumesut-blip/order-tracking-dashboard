@@ -17,6 +17,8 @@ export default async function Dashboard() {
   const labels = await getLabels()
 
   // PERMISSION CHECK: Filter statuses if user has restrictions
+  let userPermissions: string[] = []
+
   if (session.user.role !== 'admin') {
     try {
       const user = await db.user.findUnique({
@@ -25,9 +27,20 @@ export default async function Dashboard() {
       })
 
       if (user?.allowedStatuses) {
-        const allowed = JSON.parse(user.allowedStatuses) as string[]
-        if (Array.isArray(allowed) && allowed.length > 0) {
-          statuses = statuses.filter(s => allowed.includes(s.id))
+        userPermissions = JSON.parse(user.allowedStatuses) as string[]
+
+        // Filter Statuses (ignore MANUAL_SYNC flag for column filtering)
+        if (Array.isArray(userPermissions) && userPermissions.length > 0) {
+          // We only filter columns if there are actual column IDs. 
+          // If the array only contains "MANUAL_SYNC", we shouldn't hide all columns.
+          // However, the logic in UserPermissionsForm implies checking boxes adds them.
+          // If 'MANUAL_SYNC' is the only thing checked, then 'statuses.filter' might return empty if not handled.
+          // Actually, standard IDs are like 'pending', 'wc-pending'. 'MANUAL_SYNC' is distinct.
+
+          const visibleStatusIds = userPermissions.filter(id => id !== "MANUAL_SYNC")
+          if (visibleStatusIds.length > 0) {
+            statuses = statuses.filter(s => visibleStatusIds.includes(s.id))
+          }
         }
       }
     } catch (e) {
@@ -78,7 +91,7 @@ export default async function Dashboard() {
           )}
 
 
-          {(session.user.role === 'admin' || (session.user.allowedStatuses && JSON.parse(String(session.user.allowedStatuses)).includes("MANUAL_SYNC"))) && (
+          {(session.user.role === 'admin' || userPermissions.includes("MANUAL_SYNC")) && (
             <form action={async () => {
               "use server"
               await syncWooCommerceOrders()
