@@ -341,54 +341,6 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
 
                     <div className="flex items-center gap-4 text-sm text-gray-500">
-                        {/* Woo Sync Button */}
-                        {/* Admin Only Sync Buttons */}
-                        {currentUser.role === 'admin' && (
-                            <>
-                                <form action={async () => {
-                                    toast.info("WooCommerce senkronizasyonu başladı...")
-                                    try {
-                                        await syncWooCommerceOrders()
-                                        toast.success("WooCommerce siparişleri güncellendi")
-
-                                        // Force UI refresh logic if needed
-                                        const fresh = await getOrders()
-                                        // This part is redundant as polling will catch it, but gives immediate feedback
-                                    } catch (e) {
-                                        toast.error("Senkronizasyon hatası")
-                                    }
-                                }}>
-                                    <button
-                                        type="submit"
-                                        className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors text-gray-700 font-medium"
-                                    >
-                                        <RefreshCw className="w-4 h-4" />
-                                        <span>Woo Çek</span>
-                                    </button>
-                                </form>
-
-                                <form action={async () => {
-                                    toast.info("Etsy senkronizasyonu başladı...")
-                                    try {
-                                        await syncEtsyOrders()
-                                        toast.success("Etsy siparişleri güncellendi")
-                                    } catch (e) {
-                                        toast.error("Etsy hatası")
-                                    }
-                                }}>
-                                    <button
-                                        type="submit"
-                                        className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-md transition-colors font-medium"
-                                    >
-                                        <RefreshCw className="w-4 h-4" />
-                                        <span>Etsy Çek</span>
-                                    </button>
-                                </form>
-                                <div className="h-4 w-px bg-gray-300 mx-2 hidden md:block"></div>
-                            </>
-                        )}
-
-
                         <form action={simulateWooCommerceOrder} className="hidden">
                             <button className="flex items-center gap-2 px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-md transition-colors font-medium">
                                 <Plus className="w-4 h-4" />
