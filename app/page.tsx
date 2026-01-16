@@ -77,7 +77,8 @@ export default async function Dashboard() {
             </form>
           )}
 
-          {session.user.role === 'admin' && (
+
+          {(session.user.role === 'admin' || (session.user.allowedStatuses && JSON.parse(String(session.user.allowedStatuses)).includes("MANUAL_SYNC"))) && (
             <form action={async () => {
               "use server"
               await syncWooCommerceOrders()

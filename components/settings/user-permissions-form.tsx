@@ -109,6 +109,24 @@ export function UserPermissionsForm({ user, statuses }: UserPermissionsFormProps
                                     </label>
                                 )
                             })}
+
+                            <div className="my-2 border-t border-gray-100"></div>
+
+                            <label className="flex items-center gap-3 p-3 border border-orange-200 bg-orange-50 rounded-lg hover:bg-orange-100 cursor-pointer group transition-all select-none">
+                                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${allowed.includes("MANUAL_SYNC") ? "bg-orange-600 border-orange-600" : "border-orange-300 bg-white"
+                                    }`}>
+                                    {allowed.includes("MANUAL_SYNC") && <Check className="w-3.5 h-3.5 text-white" />}
+                                </div>
+                                <input
+                                    type="checkbox"
+                                    className="hidden"
+                                    checked={allowed.includes("MANUAL_SYNC")}
+                                    onChange={() => handleToggle("MANUAL_SYNC")}
+                                />
+                                <span className="text-sm font-bold text-orange-800">
+                                    Woo Çek (Manuel Sync) Yetkisi
+                                </span>
+                            </label>
                         </div>
                         <div className="pt-4 mt-4 border-t flex justify-end gap-2">
                             <button
@@ -132,7 +150,8 @@ export function UserPermissionsForm({ user, statuses }: UserPermissionsFormProps
                         </div>
                     </div>
                 </div>
-            )}
-        </div>
+            )
+            }
+        </div >
     )
 }
