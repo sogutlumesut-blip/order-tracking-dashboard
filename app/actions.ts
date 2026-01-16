@@ -76,9 +76,16 @@ export async function getOrders() {
     // const isAdmin removed from here
 
     // Condition: If admin, see all. If allowedStatuses is set, filter. Else see all (default).
+    // Condition: If admin, see all. If allowedStatuses is set, filter. Else see all (default).
     const where: any = {}
-    if (!isAdmin && allowedStatuses && Array.isArray(allowedStatuses) && allowedStatuses.length > 0) {
-        where.status = { in: allowedStatuses }
+    if (!isAdmin && allowedStatuses && Array.isArray(allowedStatuses)) {
+        // Filter out feature flags (capabilities) from status filters (view restrictions)
+        const visibleStatuses = allowedStatuses.filter((s: string) => s !== "MANUAL_SYNC")
+
+        // Only apply filter if there are ACTUAL status restrictions left
+        if (visibleStatuses.length > 0) {
+            where.status = { in: visibleStatuses }
+        }
     }
 
     const orders = await db.order.findMany({
