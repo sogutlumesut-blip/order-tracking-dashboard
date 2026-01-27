@@ -676,11 +676,25 @@ export async function syncEtsyOrders() {
 }
 
 // WOOCOMMERCE SYNC ACTION
-export async function syncWooCommerceOrders() {
+export async function syncWooCommerceOrders(force: boolean = false) {
     const settings = (await getSystemSettings()) as Record<string, string>
 
     if (!settings['wc_url'] || !settings['wc_key'] || !settings['wc_secret']) {
         return { error: "WooCommerce ayarları eksik. Lütfen Ayarlar sayfasından tamamlayınız." }
+    }
+
+    // RATE LIMIT CHECK
+    if (!force) {
+        const lastSyncStr = settings['last_wc_sync_time']
+        if (lastSyncStr) {
+            const lastSync = parseInt(lastSyncStr)
+            const now = Date.now()
+            // 15 Seconds = 15,000 ms (Align with 20s client poll)
+            if (now - lastSync < 15000) {
+                // Too early, skip
+                return { skipped: true, message: "Sync skipped (Rate Limit)" }
+            }
+        }
     }
 
     try {
@@ -701,6 +715,13 @@ export async function syncWooCommerceOrders() {
         const wcOrders = await response.json()
         let newCount = 0
         let logs: string[] = []
+
+        // UPDATE TIMESTAMP
+        await db.systemSetting.upsert({
+            where: { key: 'last_wc_sync_time' },
+            update: { value: Date.now().toString() },
+            create: { key: 'last_wc_sync_time', value: Date.now().toString() }
+        })
 
         for (const wcOrder of wcOrders) {
             try {

@@ -12,6 +12,7 @@ import { Toaster } from "sonner"
 import { updateOrderStatus, updateOrderDetails, addCommentAction, getOrders, markOrderAsRead, syncWooCommerceOrders, syncEtsyOrders, createManualOrder, simulateWooCommerceOrder, logoutAction } from "../app/actions"
 import Link from "next/link"
 import { ManualOrderModal } from "./manual-order-modal"
+import { useRouter } from "next/navigation"
 
 interface KanbanBoardProps {
     initialOrders: Order[]
@@ -25,6 +26,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     const [collapsedIds, setCollapsedIds] = useState<string[]>([])
     const [searchTerm, setSearchTerm] = useState("")
     const [isSyncing, setIsSyncing] = useState(false)
+    const router = useRouter()
 
     useEffect(() => {
         const saved = localStorage.getItem("collapsedColumns")
@@ -67,12 +69,70 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     const previousOrderIds = useRef<Set<number>>(new Set(initialOrders.map(o => o.id)))
 
     useEffect(() => {
+        const checkSync = async (force: boolean = false) => {
+            // AUTO-SYNC: Dedicated Logic
+            if (force) {
+                toast.info("Otomatik kontrol yapılıyor...", { duration: 2000, id: "auto-chk" })
+            }
+
+            // On Mount: Force Sync (User refreshed).
+            // On Interval: Standard Sync (Respect 15s limit).
+            try {
+                const result = await syncWooCommerceOrders(force)
+
+                if (result && (result as any).skipped) {
+                    // Rate limited, ignore
+                } else if (result && result.error) {
+                    console.error("Auto Sync Error:", result.error)
+                    if (force) toast.error("Senkronizasyon hatası")
+                } else {
+                    console.log("Auto-Sync Success", result)
+                    // Only toast if it was a manual/forced action or authentic new sync
+                    if (!force || result.success) {
+                        toast.success("Yeni siparişler kontrol edildi", { duration: 2000, id: "auto-sync" })
+                    }
+
+                    // RAPID UI UPDATE: Fetch fresh orders immediately after sync
+                    // We also ensure we clear the loading toast if it exists
+                    const freshOrders = await getOrders()
+                    if (freshOrders) {
+                        setOrders(freshOrders as any)
+                    }
+
+                    // FORCE ROUTER REFRESH: Ensure all server components verify the new data
+                    router.refresh()
+                }
+            } catch (e) { console.error("Auto sync trigger failed", e) }
+        }
+
+        // 1. Run Immediately on Mount -> FORCE SYNC (true)
+        // This ensures "Refresh" always gets new data.
+        checkSync(true)
+
+        // 2. Schedule Interval (20s) -> Standard Sync (false)
+        const interval = setInterval(() => checkSync(false), 20000)
+
+        return () => clearInterval(interval)
+    }, [])
+
+    useEffect(() => {
         const interval = setInterval(async () => {
             if (activeId) return; // Don't poll while dragging
+
+            // 1. AUTO-SYNC: Trigger server-side sync check
+            // We poll every 5 seconds for updates, but maybe check sync every 30 seconds?
+            // To be safe, we can just call it every 30s. The server handles rate limiting (5 mins).
+            // Use a ref or simple counter to not spam every 5s if we want 30s
+            // Actually, calling it every 30s is fine.
+            // 1. AUTO-SYNC: Trigger server-side sync check
+            // We poll every 5 seconds. Let's check sync availability every 10 seconds (every 2nd poll).
+            // Server handles the 1-minute rate limit, so it's safe to ask frequently.
+
 
             const latestOrders = await getOrders()
             const currentOrders = ordersRef.current
 
+            // ... rest of polling logic ...
             // Sound Logic: Check for NEW IDs
             const latestIds = new Set<number>(latestOrders.map((o: Order) => o.id))
             const prevIds = previousOrderIds.current
@@ -380,7 +440,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                             <>
                                 <form action={async () => {
                                     toast.info("WooCommerce senkronizasyonu...")
-                                    await syncWooCommerceOrders()
+                                    await syncWooCommerceOrders(true) // FORCE SYNC
                                     toast.success("Senkronizasyon tamamlandı")
                                 }}>
                                     <button
