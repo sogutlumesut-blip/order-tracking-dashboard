@@ -78,39 +78,43 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             // On Mount: Force Sync (User refreshed).
             // On Interval: Standard Sync (Respect 15s limit).
             try {
-                const result = await syncWooCommerceOrders(force)
+                // 1. Trigger Sync (Server handles rate limiting)
+                const syncResult = await syncWooCommerceOrders(force)
 
-                if (result && (result as any).skipped) {
-                    // Rate limited, ignore
-                } else if (result && result.error) {
-                    console.error("Auto Sync Error:", result.error)
+                // 2. Handle Sync Feedback
+                if (syncResult && syncResult.error) {
+                    console.error("Auto Sync Error:", syncResult.error)
                     if (force) toast.error("Senkronizasyon hatası")
+                } else if (syncResult && (syncResult as any).skipped) {
+                    // Rate limited - that's fine, we still want to fetch fresh data
+                    // because another client might have synced it.
+                    console.log("Sync skipped (rate limit), fetching data anyway...")
                 } else {
-                    console.log("Auto-Sync Success", result)
-                    // Only toast if it was a manual/forced action or authentic new sync
-                    if (!force || result.success) {
+                    console.log("Auto-Sync Success", syncResult)
+                    if (!force || syncResult.success) {
                         toast.success("Yeni siparişler kontrol edildi", { duration: 2000, id: "auto-sync" })
                     }
-
-                    // RAPID UI UPDATE: Fetch fresh orders immediately after sync
-                    // We also ensure we clear the loading toast if it exists
-                    const freshOrders = await getOrders()
-                    if (freshOrders) {
-                        setOrders(freshOrders as any)
-                    }
-
-                    // FORCE ROUTER REFRESH: Ensure all server components verify the new data
-                    router.refresh()
                 }
+
+                // 3. ALWAYS Fetch Latest Data (Decoupled from Sync Status)
+                // This ensures we see data even if WE didn't trigger the sync
+                const freshOrders = await getOrders()
+                if (freshOrders) {
+                    setOrders(freshOrders as any)
+                }
+
+                // 4. Update Server Components
+                router.refresh()
+
             } catch (e) { console.error("Auto sync trigger failed", e) }
         }
 
         // 1. Run Immediately on Mount -> FORCE SYNC (true)
-        // This ensures "Refresh" always gets new data.
         checkSync(true)
 
-        // 2. Schedule Interval (20s) -> Standard Sync (false)
-        const interval = setInterval(() => checkSync(false), 20000)
+        // 2. Schedule Interval (10s) -> Standard Sync (false)
+        // Shorter interval makes UI snappier; sync rate limit protects backend.
+        const interval = setInterval(() => checkSync(false), 10000)
 
         return () => clearInterval(interval)
     }, [])
