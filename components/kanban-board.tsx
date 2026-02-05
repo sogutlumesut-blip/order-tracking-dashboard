@@ -68,69 +68,29 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     // Store IDs to detect NEW ones specifically
     const previousOrderIds = useRef<Set<number>>(new Set(initialOrders.map(o => o.id)))
 
+    // Unified Polling & Sync Logic is handled in the next useEffect
+    // Removed naive checkSync useEffect to prevent state clobbering
+
     useEffect(() => {
-        const checkSync = async (force: boolean = false) => {
-            // AUTO-SYNC: Dedicated Logic
-            if (force) {
-                toast.info("Otomatik kontrol yapılıyor...", { duration: 2000, id: "auto-chk" })
-            }
-
-            // On Mount: Force Sync (User refreshed).
-            // On Interval: Standard Sync (Respect 15s limit).
-            try {
-                // 1. Trigger Sync (Server handles rate limiting)
-                const syncResult = await syncWooCommerceOrders(force)
-
-                // 2. Handle Sync Feedback
-                if (syncResult && syncResult.error) {
-                    console.error("Auto Sync Error:", syncResult.error)
-                    if (force) toast.error("Senkronizasyon hatası")
-                } else if (syncResult && (syncResult as any).skipped) {
-                    // Rate limited - that's fine, we still want to fetch fresh data
-                    // because another client might have synced it.
-                    console.log("Sync skipped (rate limit), fetching data anyway...")
-                } else {
-                    console.log("Auto-Sync Success", syncResult)
-                    if (!force || syncResult.success) {
-                        toast.success("Yeni siparişler kontrol edildi", { duration: 2000, id: "auto-sync" })
-                    }
-                }
-
-                // 3. ALWAYS Fetch Latest Data (Decoupled from Sync Status)
-                // This ensures we see data even if WE didn't trigger the sync
-                const freshOrders = await getOrders()
-                if (freshOrders) {
-                    setOrders(freshOrders as any)
-                }
-
-                // 4. Update Server Components
-                router.refresh()
-
-            } catch (e) { console.error("Auto sync trigger failed", e) }
+        // Initial Sync on Mount
+        const initialSync = async () => {
+            toast.info("Siparişler kontrol ediliyor...", { duration: 2000, id: "init-sync" })
+            await syncWooCommerceOrders(true) // Force sync on load
         }
+        initialSync()
 
-        // 1. Run Immediately on Mount -> FORCE SYNC (true)
-        checkSync(true)
-
-        // 2. Schedule Interval (10s) -> Standard Sync (false)
-        // Shorter interval makes UI snappier; sync rate limit protects backend.
-        const interval = setInterval(() => checkSync(false), 10000)
-
-        return () => clearInterval(interval)
-    }, [])
-
-    useEffect(() => {
         const interval = setInterval(async () => {
             if (activeId) return; // Don't poll while dragging
 
             // 1. AUTO-SYNC: Trigger server-side sync check
-            // We poll every 5 seconds for updates, but maybe check sync every 30 seconds?
-            // To be safe, we can just call it every 30s. The server handles rate limiting (5 mins).
-            // Use a ref or simple counter to not spam every 5s if we want 30s
-            // Actually, calling it every 30s is fine.
-            // 1. AUTO-SYNC: Trigger server-side sync check
-            // We poll every 5 seconds. Let's check sync availability every 10 seconds (every 2nd poll).
-            // Server handles the 1-minute rate limit, so it's safe to ask frequently.
+            // We poll every 10 seconds. Server handles rate limiting (15s).
+            try {
+                const syncRes = await syncWooCommerceOrders(false)
+                if (syncRes && !syncRes.error && !(syncRes as any).skipped) {
+                    console.log("Auto-Sync Success: New data pulled")
+                    router.refresh()
+                }
+            } catch (e) { console.error("Auto Force Sync Error", e) }
 
 
             const latestOrders = await getOrders()
