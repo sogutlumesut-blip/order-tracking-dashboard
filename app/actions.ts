@@ -900,83 +900,77 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                 })
 
                 // PRESERVE HISTORY
-                let existingActivities: any[] = [];
-                let existingComments: any[] = [];
+                let currentOrderId: number;
                 let previousStatus = "";
 
                 if (existingOrder) {
                     previousStatus = existingOrder.status;
-                    // Backup logs
-                    existingActivities = await db.orderActivity.findMany({ where: { orderId: existingOrder.id } });
-                    existingComments = await db.comment.findMany({ where: { orderId: existingOrder.id } });
+                    // No need to backup history, we are updating the record so relations persist!
 
-                    // Force Re-Sync: Delete and Re-create to ensure clean state
-                    await db.order.delete({ where: { id: existingOrder.id } })
-                    logs.push(`Order ${wcOrder.id}: Deleted old version to force update.`)
-                }
+                    // UPDATE existing order (Preserve ID)
+                    logs.push(`Order ${wcOrder.id}: Updating existing record.`)
 
-                // Create Order (New or Re-created)
+                    // Cargo Integrator Data
+                    const cargoBarcodeMeta = wcOrder.meta_data.find((m: any) => m.key === '_gcargo_barcode_exposed')
+                    const cargoTrackingMeta = wcOrder.meta_data.find((m: any) => m.key === '_gcargo_tracking_exposed')
 
-                // Cargo Integrator Data
-                const cargoBarcodeMeta = wcOrder.meta_data.find((m: any) => m.key === '_gcargo_barcode_exposed')
-                const cargoTrackingMeta = wcOrder.meta_data.find((m: any) => m.key === '_gcargo_tracking_exposed')
-
-                const newOrder = await db.order.create({
-                    data: {
-                        customer: `${wcOrder.billing.first_name || ''} ${wcOrder.billing.last_name || ''}`.trim() || 'Misafir',
-                        total: `${wcOrder.total} ${wcOrder.currency_symbol}`,
-                        status: status,
-                        // Use original creation date, but update 'updatedAt'
-                        date: new Date(wcOrder.date_created),
-                        updatedAt: new Date(wcOrder.date_modified),
-                        barcode: `WC-${wcOrder.id}`,
-                        email: wcOrder.billing.email,
-                        phone: wcOrder.billing.phone,
-                        address: `${wcOrder.billing.address_1 || ''} ${wcOrder.billing.address_2 || ''}`.trim(),
-                        city: city,
-                        note: wcOrder.customer_note,
-                        // Preserve labels if re-creating? Or reset? 
-                        // Resetting to 'WooCommerce' is safer for sync consistency. User can re-add labels.
-                        labels: JSON.stringify(['WooCommerce']),
-                        hasNotification: true,
-                        cargoBarcode: cargoBarcodeMeta ? cargoBarcodeMeta.value : null,
-                        cargoTrackingNumber: cargoTrackingMeta ? cargoTrackingMeta.value : null,
-                        items: {
-                            create: items
+                    await db.order.update({
+                        where: { id: existingOrder.id },
+                        data: {
+                            customer: `${wcOrder.billing.first_name || ''} ${wcOrder.billing.last_name || ''}`.trim() || 'Misafir',
+                            total: `${wcOrder.total} ${wcOrder.currency_symbol}`,
+                            // Update status to match Woo (source of truth)
+                            status: status,
+                            updatedAt: new Date(), // Force update
+                            email: wcOrder.billing.email,
+                            phone: wcOrder.billing.phone,
+                            address: `${wcOrder.billing.address_1 || ''} ${wcOrder.billing.address_2 || ''}`.trim(),
+                            city: city,
+                            note: wcOrder.customer_note,
+                            cargoBarcode: cargoBarcodeMeta ? cargoBarcodeMeta.value : null,
+                            cargoTrackingNumber: cargoTrackingMeta ? cargoTrackingMeta.value : null,
+                            items: {
+                                deleteMany: {}, // Clear old items (safer than trying to sync diffs)
+                                create: items   // Add new/updated items
+                            }
                         }
-                    }
-                })
-
-                // RESTORE HISTORY
-                if (existingActivities.length > 0) {
-                    await db.orderActivity.createMany({
-                        data: existingActivities.map(a => ({
-                            orderId: newOrder.id,
-                            author: a.author,
-                            action: a.action,
-                            details: a.details,
-                            timestamp: a.timestamp
-                        }))
                     })
-                }
+                    currentOrderId = existingOrder.id;
+                } else {
+                    // Create New Order
+                    const cargoBarcodeMeta = wcOrder.meta_data.find((m: any) => m.key === '_gcargo_barcode_exposed')
+                    const cargoTrackingMeta = wcOrder.meta_data.find((m: any) => m.key === '_gcargo_tracking_exposed')
 
-                if (existingComments.length > 0) {
-                    await db.comment.createMany({
-                        data: existingComments.map(c => ({
-                            orderId: newOrder.id,
-                            authorId: c.authorId,
-                            message: c.message,
-                            timestamp: c.timestamp,
-                            attachments: c.attachments
-                        }))
+                    const newOrder = await db.order.create({
+                        data: {
+                            customer: `${wcOrder.billing.first_name || ''} ${wcOrder.billing.last_name || ''}`.trim() || 'Misafir',
+                            total: `${wcOrder.total} ${wcOrder.currency_symbol}`,
+                            status: status,
+                            date: new Date(wcOrder.date_created),
+                            updatedAt: new Date(wcOrder.date_modified),
+                            barcode: `WC-${wcOrder.id}`,
+                            email: wcOrder.billing.email,
+                            phone: wcOrder.billing.phone,
+                            address: `${wcOrder.billing.address_1 || ''} ${wcOrder.billing.address_2 || ''}`.trim(),
+                            city: city,
+                            note: wcOrder.customer_note,
+                            labels: JSON.stringify(['WooCommerce']),
+                            hasNotification: true,
+                            cargoBarcode: cargoBarcodeMeta ? cargoBarcodeMeta.value : null,
+                            cargoTrackingNumber: cargoTrackingMeta ? cargoTrackingMeta.value : null,
+                            items: {
+                                create: items
+                            }
+                        }
                     })
+                    currentOrderId = newOrder.id;
                 }
 
                 // ADD "COMPLETED" LOG if applicable
                 if (status === 'Tamamlandı' && previousStatus !== 'Tamamlandı') {
                     await db.orderActivity.create({
                         data: {
-                            orderId: newOrder.id,
+                            orderId: currentOrderId,
                             author: 'Sistem',
                             action: 'STATUS_CHANGE',
                             details: 'Müşteriye teslim edildi (WooCommerce)',
