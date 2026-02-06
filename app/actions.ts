@@ -917,13 +917,23 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                     const cargoBarcodeMeta = wcOrder.meta_data?.find((m: any) => m.key === '_gcargo_barcode_exposed')
                     const cargoTrackingMeta = wcOrder.meta_data?.find((m: any) => m.key === '_gcargo_tracking_exposed')
 
+                    // SMART STATUS SYNC
+                    // If WC Status is 'completed' or 'cancelled', we force update.
+                    // If Local Status is already advanced (e.g., 'printed', 'cutting'), and WC is just 'processing', we PRESERVE local status.
+
+                    let finalStatus = status; // Incoming WC status (mapped to 'pending' usually)
+
+                    if (existingOrder.status !== 'pending' && existingOrder.status !== 'completed' && status === 'pending') {
+                        // Local has moved forward, WC is still behind. KEEP LOCAL.
+                        finalStatus = existingOrder.status;
+                    }
+
                     await db.order.update({
                         where: { id: existingOrder.id },
                         data: {
                             customer: `${wcOrder.billing.first_name || ''} ${wcOrder.billing.last_name || ''}`.trim() || 'Misafir',
                             total: `${wcOrder.total} ${wcOrder.currency_symbol}`,
-                            // Update status to match Woo (source of truth)
-                            status: status,
+                            status: finalStatus,
                             updatedAt: new Date(), // Force update
                             email: wcOrder.billing.email,
                             phone: wcOrder.billing.phone,
