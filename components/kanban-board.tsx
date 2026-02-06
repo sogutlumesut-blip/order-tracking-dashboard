@@ -41,6 +41,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
     const [isPanelOpen, setIsPanelOpen] = useState(false)
     const [isManualOrderOpen, setIsManualOrderOpen] = useState(false)
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
     useEffect(() => {
         setOrders(initialOrders)
@@ -350,15 +351,16 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         >
             <div className="flex flex-col h-full">
                 {/* Header moved from page.tsx */}
-                <header className="bg-white border-b h-16 flex items-center justify-between px-6 shrink-0 z-20 relative">
-                    <div className="flex items-center gap-4">
-                        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
+                <header className="bg-white border-b h-16 flex items-center justify-between px-4 md:px-6 shrink-0 z-20 relative">
+                    <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
+                        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shrink-0">
                             OMS
                         </div>
-                        <h1 className="font-bold text-lg text-gray-800">Sipariş Takip <span className="text-xs text-gray-400 font-normal">v2.3 (Sütunlar: {cols.length})</span></h1>
+                        <h1 className="font-bold text-sm md:text-lg text-gray-800 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-gray-400 font-normal">v2.3 (Sütunlar: {cols.length})</span></h1>
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    {/* Desktop Menu */}
+                    <div className="hidden md:flex items-center gap-4">
                         {/* Sound Toggle */}
                         <button
                             onClick={() => {
@@ -445,7 +447,92 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                             </button>
                         </form>
                     </div>
+
+                    {/* Mobile Menu Trigger */}
+                    <div className="md:hidden flex items-center gap-2">
+                        <button
+                            onClick={() => setIsManualOrderOpen(true)}
+                            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
+                        >
+                            <Plus className="w-4 h-4" />
+                            <span>Ekle</span>
+                        </button>
+
+                        <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 text-gray-700 hover:bg-gray-100 rounded-md">
+                            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Settings className="w-6 h-6" />}
+                        </button>
+                    </div>
                 </header>
+
+                {/* Mobile Menu Dropdown */}
+                {mobileMenuOpen && (
+                    <div className="md:hidden bg-white border-b p-4 flex flex-col gap-4 absolute top-16 left-0 w-full z-30 shadow-xl animate-in slide-in-from-top-2">
+                        <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                            <div className="flex items-center gap-2 text-sm text-gray-700">
+                                <User className="w-4 h-4" />
+                                <span className="font-bold">{currentUser.name}</span>
+                            </div>
+                            <span className="text-xs bg-gray-200 px-2 py-1 rounded-full">{currentUser.role}</span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            {(currentUser.role === 'admin' || (currentUser as any).allowedStatuses?.includes("MANUAL_SYNC")) && (
+                                <form action={async () => {
+                                    toast.info("Woo Senkronize ediliyor...")
+                                    await syncWooCommerceOrders(true)
+                                    setMobileMenuOpen(false)
+                                }} className="col-span-1">
+                                    <button className="w-full flex items-center justify-center gap-2 p-3 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 font-bold text-sm border border-blue-100">
+                                        <RefreshCw className="w-4 h-4" />
+                                        Woo Çek
+                                    </button>
+                                </form>
+                            )}
+
+                            {currentUser.role === 'admin' && (
+                                <form action={async () => {
+                                    toast.info("Etsy Senkronize ediliyor...")
+                                    await syncEtsyOrders()
+                                    setMobileMenuOpen(false)
+                                }} className="col-span-1">
+                                    <button className="w-full flex items-center justify-center gap-2 p-3 bg-orange-50 text-orange-700 rounded-lg hover:bg-orange-100 font-bold text-sm border border-orange-100">
+                                        <RefreshCw className="w-4 h-4" />
+                                        Etsy Çek
+                                    </button>
+                                </form>
+                            )}
+
+                            {currentUser.role === 'admin' && (
+                                <Link onClick={() => setMobileMenuOpen(false)} href="/admin/settings" className="col-span-2 flex items-center justify-center gap-2 p-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-bold text-sm border border-gray-200">
+                                    <Settings className="w-4 h-4" />
+                                    Tüm Ayarlar
+                                </Link>
+                            )}
+                        </div>
+
+                        <div className="flex items-center justify-between gap-4 pt-2 border-t mt-2">
+                            <button
+                                onClick={() => {
+                                    if (audioRef.current) {
+                                        audioRef.current.play().catch(() => { })
+                                        toast.success("Ses test edildi")
+                                    }
+                                }}
+                                className="flex items-center gap-2 text-sm text-gray-600 px-2 py-1"
+                            >
+                                <Volume2 className="w-4 h-4" />
+                                Test Ses
+                            </button>
+
+                            <form action={async () => await logoutAction()} className="ml-auto">
+                                <button className="flex items-center gap-2 text-sm text-red-600 font-bold px-2 py-1">
+                                    <LogOut className="w-4 h-4" />
+                                    Çıkış Yap
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                )}
                 {/* Search Toolbar */}
                 <div className="px-6 py-4 bg-white border-b flex items-center justify-between shrink-0 gap-4">
                     <div className="relative w-full max-w-md">

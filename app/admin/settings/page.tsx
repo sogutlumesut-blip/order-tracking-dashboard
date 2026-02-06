@@ -26,8 +26,8 @@ export default async function SettingsPage() {
     const systemSettings = await getSystemSettings()
 
     return (
-        <div className="min-h-screen bg-gray-50 p-8">
-            <div className="max-w-4xl mx-auto space-y-8">
+        <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+            <div className="max-w-4xl mx-auto space-y-6 md:space-y-8">
 
                 {/* Header */}
                 <div className="flex items-center gap-4 mb-8">
@@ -35,8 +35,8 @@ export default async function SettingsPage() {
                         <ArrowLeft className="w-6 h-6 text-gray-600" />
                     </Link>
                     <div>
-                        <h1 className="text-3xl font-bold text-gray-900">Ayarlar</h1>
-                        <p className="text-gray-500">Sistem yapılandırmasını yönetin.</p>
+                        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Ayarlar</h1>
+                        <p className="text-sm md:text-base text-gray-500">Sistem yapılandırmasını yönetin.</p>
                     </div>
                 </div>
 
