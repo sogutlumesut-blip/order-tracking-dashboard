@@ -49,7 +49,11 @@ export async function logoutAction() {
     redirect("/login")
 }
 
+import { revalidatePath, unstable_noStore as noStore } from "next/cache"
+// ...
+
 export async function getOrders() {
+    noStore(); // Disable Cache
     const session = await getSession()
     if (!session) return []
 
