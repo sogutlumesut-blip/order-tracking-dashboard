@@ -258,6 +258,22 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                             {/* Cargo Label Button */}
                             <div className="print:hidden">
+                                {formData.cargoBarcode && !formData.cargoLabelPdf && (
+                                    <div className="mb-4">
+                                        <button
+                                            onClick={handleDownloadPdf}
+                                            className="w-full py-4 border-2 border-orange-500 bg-orange-50 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-orange-100 transition-all text-orange-700 shadow-sm group"
+                                        >
+                                            <div className="flex items-center gap-2 font-bold text-lg">
+                                                <Truck className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                                                Kargo Etiketi İndir (Woo)
+                                            </div>
+                                            <span className="text-xs opacity-75 font-mono">Barkod: {formData.cargoBarcode}</span>
+                                        </button>
+                                        <div className="text-center text-xs text-gray-400 mt-2">- veya manuel yükleme yapın -</div>
+                                    </div>
+                                )}
+
                                 {formData.cargoLabelPdf ? (
                                     <div className="space-y-2">
                                         <div className="flex gap-2">
