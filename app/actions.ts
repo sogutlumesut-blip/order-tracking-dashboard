@@ -3,7 +3,7 @@
 import { db } from "@/lib/prisma"
 import { login, getSession, logout as authLogout } from "@/lib/auth"
 import { redirect } from "next/navigation"
-import { revalidatePath } from "next/cache"
+import { revalidatePath, unstable_noStore as noStore } from "next/cache"
 import bcrypt from "bcryptjs"
 import { OrderStatus } from "@/data/mock-orders"
 import WooCommerceRestApi from "@woocommerce/woocommerce-rest-api"
@@ -49,8 +49,7 @@ export async function logoutAction() {
     redirect("/login")
 }
 
-import { revalidatePath, unstable_noStore as noStore } from "next/cache"
-// ...
+
 
 export async function getOrders() {
     noStore(); // Disable Cache
