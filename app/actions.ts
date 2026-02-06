@@ -154,21 +154,26 @@ async function logActivity(orderId: number, author: string, action: string, deta
 }
 
 export async function updateOrderStatus(orderId: number, status: string) {
-    const session = await getSession()
-    const user = session ? session.user.name : "Sistem"
+    try {
+        const session = await getSession()
+        const user = session ? session.user.name : "Sistem"
 
-    await db.order.update({
-        where: { id: orderId },
-        data: {
-            status,
-            hasNotification: true,
-            assignedTo: user, // Update responsibility to the user who moved the card
-            updatedAt: new Date() // FORCE update timestamp to prevent polling reversion
-        }
-    })
+        await db.order.update({
+            where: { id: orderId },
+            data: {
+                status,
+                hasNotification: true,
+                assignedTo: user, // Update responsibility to the user who moved the card
+                updatedAt: new Date() // FORCE update timestamp to prevent polling reversion
+            }
+        })
 
-    await logActivity(orderId, user, "STATUS_CHANGE", `Durum '${status}' olarak değiştirildi.`)
-    revalidatePath("/")
+        await logActivity(orderId, user, "STATUS_CHANGE", `Durum '${status}' olarak değiştirildi.`)
+        revalidatePath("/")
+    } catch (e) {
+        console.error("updateOrderStatus ERROR:", e)
+        throw e // Re-throw to trigger client-side catch
+    }
 }
 
 // Public action for client-side events (Print, PDF, etc.)
