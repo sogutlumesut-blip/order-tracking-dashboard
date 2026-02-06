@@ -10,6 +10,8 @@ import { AddUserForm } from "@/components/settings/add-user-form"
 import { WooDebugTool } from "@/components/settings/woo-debug-tool"
 import { StatusList } from "@/components/settings/status-list"
 
+import { WooSettingsForm } from "@/components/settings/woo-settings-form"
+
 export const dynamic = 'force-dynamic'
 
 export default async function SettingsPage() {
@@ -50,55 +52,11 @@ export default async function SettingsPage() {
                         <span className="text-blue-600 font-medium">WooCommerce &gt; Ayarlar &gt; Gelişmiş &gt; REST API</span> yolunu izleyerek anahtar oluşturabilirsiniz.
                     </p>
 
-                    <form action={saveWooCommerceSettings} className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-blue-50/50 p-6 rounded-xl border border-blue-100">
-                        <div className="col-span-2">
-                            <label className="block text-sm font-bold text-gray-700 mb-2">Site Adresi (URL)</label>
-                            <div className="relative">
-                                <Globe className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                                <input
-                                    name="wc_url"
-                                    defaultValue={systemSettings.wc_url || ''}
-                                    placeholder="https://siteadresiniz.com"
-                                    className="w-full pl-10 p-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-2">Consumer Key (CK)</label>
-                            <div className="relative">
-                                <Key className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                                <input
-                                    name="wc_key"
-                                    type="password"
-                                    defaultValue={systemSettings.wc_key || ''}
-                                    placeholder="ck_xxxxxxxxxxxx"
-                                    className="w-full pl-10 p-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-2">Consumer Secret (CS)</label>
-                            <div className="relative">
-                                <Lock className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                                <input
-                                    name="wc_secret"
-                                    type="password"
-                                    defaultValue={systemSettings.wc_secret || ''}
-                                    placeholder="cs_xxxxxxxxxxxx"
-                                    className="w-full pl-10 p-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="col-span-2 flex justify-end">
-                            <button className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm">
-                                <Save className="w-4 h-4" />
-                                Ayarları Kaydet
-                            </button>
-                        </div>
-                    </form>
+                    <WooSettingsForm initialSettings={{
+                        wc_url: systemSettings.wc_url,
+                        wc_key: systemSettings.wc_key,
+                        wc_secret: systemSettings.wc_secret
+                    }} />
                 </div>
 
                 {/* ETSY INTEGRATION */}
