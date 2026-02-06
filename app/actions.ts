@@ -911,8 +911,8 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                     logs.push(`Order ${wcOrder.id}: Updating existing record.`)
 
                     // Cargo Integrator Data
-                    const cargoBarcodeMeta = wcOrder.meta_data.find((m: any) => m.key === '_gcargo_barcode_exposed')
-                    const cargoTrackingMeta = wcOrder.meta_data.find((m: any) => m.key === '_gcargo_tracking_exposed')
+                    const cargoBarcodeMeta = wcOrder.meta_data?.find((m: any) => m.key === '_gcargo_barcode_exposed')
+                    const cargoTrackingMeta = wcOrder.meta_data?.find((m: any) => m.key === '_gcargo_tracking_exposed')
 
                     await db.order.update({
                         where: { id: existingOrder.id },
@@ -938,8 +938,8 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                     currentOrderId = existingOrder.id;
                 } else {
                     // Create New Order
-                    const cargoBarcodeMeta = wcOrder.meta_data.find((m: any) => m.key === '_gcargo_barcode_exposed')
-                    const cargoTrackingMeta = wcOrder.meta_data.find((m: any) => m.key === '_gcargo_tracking_exposed')
+                    const cargoBarcodeMeta = wcOrder.meta_data?.find((m: any) => m.key === '_gcargo_barcode_exposed')
+                    const cargoTrackingMeta = wcOrder.meta_data?.find((m: any) => m.key === '_gcargo_tracking_exposed')
 
                     const newOrder = await db.order.create({
                         data: {
