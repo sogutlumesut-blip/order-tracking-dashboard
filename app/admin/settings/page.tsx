@@ -11,6 +11,7 @@ import { WooDebugTool } from "@/components/settings/woo-debug-tool"
 import { StatusList } from "@/components/settings/status-list"
 
 import { WooSettingsForm } from "@/components/settings/woo-settings-form"
+import { EtsyMultiStoreSettings } from "@/components/settings/etsy-multi-store-settings"
 
 export const dynamic = 'force-dynamic'
 
@@ -59,88 +60,32 @@ export default async function SettingsPage() {
                     }} />
                 </div>
 
-                {/* ETSY INTEGRATION */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-orange-100">
-                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-900">
-                        <span className="bg-orange-600 text-white p-1 px-2 rounded text-sm">ETSY</span>
-                        Etsy Entegrasyonu
-                    </h2>
-                    <p className="text-sm text-gray-600 mb-6">
-                        Etsy mağazanızdaki siparişleri çekmek için gerekli bilgileri giriniz.
-                        <br />
-                        <span className="text-orange-600 font-medium">Etsy Developers</span> portalından bir App oluşturup bu bilgileri alabilirsiniz.
-                    </p>
 
-                    <form action={saveEtsySettings} className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-orange-50/50 p-6 rounded-xl border border-orange-100">
-                        <div className="col-span-2">
-                            <label className="block text-sm font-bold text-gray-700 mb-2">Etsy Shop ID</label>
-                            <div className="relative">
-                                <Globe className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                                <input
-                                    name="etsy_shop_id"
-                                    defaultValue={systemSettings.etsy_shop_id || ''}
-                                    placeholder="Örn: 12345678"
-                                    className="w-full pl-10 p-2 text-sm border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
-                                />
-                            </div>
-                            <p className="text-[10px] text-gray-500 mt-1">Etsy Mağaza ID'niz.</p>
-                        </div>
+                {/* ETSY INTEGRATION (Multi-Store) */}
+                {(() => {
+                    // Migration Logic: Convert old flat keys to new array structure if needed
+                    let etsyStores = []
+                    try {
+                        if (systemSettings.etsy_stores_json) {
+                            etsyStores = JSON.parse(systemSettings.etsy_stores_json)
+                        } else if (systemSettings.etsy_shop_id) {
+                            // Fallback: Migrate old single store
+                            etsyStores = [{
+                                id: 'legacy-store',
+                                name: 'Varsayılan Mağaza',
+                                shopId: systemSettings.etsy_shop_id,
+                                apiKey: systemSettings.etsy_api_key || '',
+                                accessToken: systemSettings.etsy_access_token || null,
+                                connected: !!systemSettings.etsy_access_token
+                            }]
+                        }
+                    } catch (e) {
+                        console.error("Etsy settings parse error", e)
+                    }
 
-                        <div className="col-span-2">
-                            <label className="block text-sm font-bold text-gray-700 mb-2">API Key (Keystring)</label>
-                            <div className="relative">
-                                <Key className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-                                <input
-                                    name="etsy_api_key"
-                                    type="password"
-                                    defaultValue={systemSettings.etsy_api_key || ''}
-                                    placeholder="x-api-key"
-                                    className="w-full pl-10 p-2 text-sm border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
-                                />
-                            </div>
-                            <p className="text-[10px] text-gray-500 mt-1">App Keystring.</p>
-                        </div>
+                    return <EtsyMultiStoreSettings initialStores={etsyStores} />
+                })()}
 
-                        <div className="col-span-2">
-                            <label className="block text-sm font-bold text-gray-700 mb-2">Etsy Bağlantısı</label>
-                            {systemSettings.etsy_access_token ? (
-                                <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center text-green-600">
-                                        <Lock className="w-4 h-4" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="text-sm font-bold text-green-700">Bağlantı Aktif</p>
-                                        <p className="text-xs text-green-600">Erişim izni başarıyla alındı.</p>
-                                    </div>
-                                    <Link
-                                        href="/api/etsy/auth"
-                                        className="px-3 py-1.5 text-xs bg-white border border-green-200 text-green-700 rounded-md hover:bg-green-50"
-                                    >
-                                        Yenile
-                                    </Link>
-                                </div>
-                            ) : (
-                                <Link
-                                    href="/api/etsy/auth"
-                                    className="flex items-center justify-center gap-2 w-full p-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition"
-                                >
-                                    <Globe className="w-4 h-4" />
-                                    Etsy ile Bağlan
-                                </Link>
-                            )}
-                            <p className="text-[10px] text-gray-500 mt-2">
-                                Önce üstteki Shop ID ve API Key alanlarını doldurup <b>Kaydet</b> butonuna basınız, sonra bağlanınız.
-                            </p>
-                        </div>
-
-                        <div className="col-span-2 flex justify-end">
-                            <button className="bg-orange-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-orange-700 transition-colors flex items-center gap-2 shadow-sm">
-                                <Save className="w-4 h-4" />
-                                Etsy Ayarlarını Kaydet
-                            </button>
-                        </div>
-                    </form>
-                </div>
 
                 {/* DEBUG TOOL */}
                 <WooDebugTool />

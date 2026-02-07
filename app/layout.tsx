@@ -30,6 +30,9 @@ export default function RootLayout({
       >
         {children}
         {/* <Toaster /> Moved to Dashboard to prevent login blocking */}
+        <div className="fixed bottom-1 right-1 bg-black text-white text-[10px] px-1 rounded opacity-50 pointer-events-none z-50">
+          v1.1 (Multi-Store)
+        </div>
       </body>
     </html>
   );

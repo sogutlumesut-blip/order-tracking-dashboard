@@ -16,30 +16,46 @@ function sha256(buffer: string) {
 }
 
 export async function GET(req: Request) {
-    // 1. Get Settings
-    const settings = await db.systemSetting.findMany({
-        where: {
-            key: { in: ['etsy_api_key', 'etsy_shop_id'] }
-        }
-    });
+    const url = new URL(req.url);
+    const storeIndex = url.searchParams.get("storeIndex");
 
-    const apiKey = settings.find(s => s.key === 'etsy_api_key')?.value;
+    // 1. Get API Key based on Store Index
+    let apiKey = "";
+
+    if (storeIndex !== null) {
+        const settings = await db.systemSetting.findUnique({ where: { key: 'etsy_stores_json' } });
+        if (settings?.value) {
+            try {
+                const stores = JSON.parse(settings.value);
+                apiKey = stores[parseInt(storeIndex)]?.apiKey;
+            } catch (e) {
+                console.error("JSON Parse Error during Auth", e);
+            }
+        }
+    }
+
+    // Fallback to legacy key if no index or invalid index
+    if (!apiKey) {
+        const settings = await db.systemSetting.findUnique({ where: { key: 'etsy_api_key' } });
+        apiKey = settings?.value || "";
+    }
 
     if (!apiKey) {
-        return NextResponse.json({ error: "Etsy API Key (Keystring) is missing in Settings." }, { status: 400 });
+        return NextResponse.json({ error: "Etsy API Key is missing. Please check your settings." }, { status: 400 });
     }
 
     // 2. Generate PKCE Verifier & Challenge
     const verifier = base64URLEncode(crypto.randomBytes(32));
     const challenge = base64URLEncode(sha256(verifier));
-    const state = base64URLEncode(crypto.randomBytes(32));
+    const randomState = base64URLEncode(crypto.randomBytes(32));
 
-    // 3. Store Verifier in a cookie (or DB) to verify later
-    // For simplicity, we can use a cookie
-    const url = new URL(req.url);
-    const origin = url.origin; // e.g., https://your-site.vercel.app
+    // Embed store index into state so we know who we are authenticating for in the callback
+    const state = `${randomState}:${storeIndex ?? 'legacy'}`;
+
+    // 3. Store Verifier in a cookie
+    const origin = url.origin;
     const redirectUri = `${origin}/api/etsy/callback`;
-    const scope = "transactions_r%20shops_r%20profile_r"; // Read transactions, shops, profile
+    const scope = "transactions_r%20shops_r%20profile_r";
 
     const authUrl = `https://www.etsy.com/oauth/connect?response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&client_id=${apiKey}&state=${state}&code_challenge=${challenge}&code_challenge_method=S256`;
 
@@ -53,7 +69,7 @@ export async function GET(req: Request) {
         maxAge: 60 * 10 // 10 minutes
     });
 
-    // Also store state to prevent CSRF
+    // Store state
     response.cookies.set("etsy_oauth_state", state, {
         httpOnly: true,
         secure: true,

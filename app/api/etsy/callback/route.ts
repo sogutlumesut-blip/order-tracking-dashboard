@@ -31,17 +31,38 @@ export async function GET(req: Request) {
         return NextResponse.redirect(new URL('/admin/settings?error=invalid_state', req.url));
     }
 
-    // 2. Get API Key
-    const settings = await db.systemSetting.findUnique({
-        where: { key: 'etsy_api_key' }
-    });
-    const clientId = settings?.value;
+    // 3. Resolve Client ID & Store Context
+    // Parse State: "RandomString:StoreIndex"
+    const [randomPart, storeIndexRef] = (storedState || "").split(":");
+    const storeIndex = storeIndexRef === 'legacy' ? null : parseInt(storeIndexRef);
+
+    let clientId = "";
+    let stores: any[] = [];
+
+    // Load stores if needed
+    if (storeIndex !== null && !isNaN(storeIndex)) {
+        const settingsJson = await db.systemSetting.findUnique({ where: { key: 'etsy_stores_json' } });
+        try {
+            if (settingsJson?.value) {
+                stores = JSON.parse(settingsJson.value);
+                clientId = stores[storeIndex]?.apiKey;
+            }
+        } catch (e) {
+            console.error("JSON Parse Error", e);
+        }
+    }
+
+    // Fallback to Legacy
+    if (!clientId) {
+        const settings = await db.systemSetting.findUnique({ where: { key: 'etsy_api_key' } });
+        clientId = settings?.value || "";
+    }
 
     if (!clientId) {
         return NextResponse.redirect(new URL('/admin/settings?error=missing_api_key', req.url));
     }
 
-    // 3. Exchange Code for Token
+    // 4. Exchange Code for Token
     const tokenUrl = "https://api.etsy.com/v3/public/oauth/token";
     const url = new URL(req.url);
     const origin = url.origin;
@@ -69,19 +90,26 @@ export async function GET(req: Request) {
             return NextResponse.redirect(new URL(`/admin/settings?error=token_exchange_failed&details=${data.error}`, req.url));
         }
 
-        // 4. Save Tokens
-        // data contains: access_token, refresh_token, varies-in (expires), etc.
         const accessToken = data.access_token;
         const refreshToken = data.refresh_token;
-        // Etsy tokens expire in 1 hour (3600 seconds) typically.
-        const expiresIn = data.expires_in; // seconds
 
-        await db.systemSetting.upsert({ where: { key: 'etsy_access_token' }, update: { value: accessToken }, create: { key: 'etsy_access_token', value: accessToken } });
-        await db.systemSetting.upsert({ where: { key: 'etsy_refresh_token' }, update: { value: refreshToken }, create: { key: 'etsy_refresh_token', value: refreshToken } });
+        // 5. Save Tokens
+        if (storeIndex !== null && !isNaN(storeIndex) && stores[storeIndex]) {
+            // Save to Multi-Store Array
+            stores[storeIndex].accessToken = accessToken;
+            stores[storeIndex].connected = true;
+            // We could save refreshToken too if we want to handle refresh logic later
 
-        // Also get Shop ID if not present? 
-        // We can fetch user profile to get Shop ID if needed, 
-        // but user enters it manually for now which is safer.
+            await db.systemSetting.upsert({
+                where: { key: 'etsy_stores_json' },
+                update: { value: JSON.stringify(stores) },
+                create: { key: 'etsy_stores_json', value: JSON.stringify(stores) }
+            });
+        } else {
+            // Save to Legacy Keys
+            await db.systemSetting.upsert({ where: { key: 'etsy_access_token' }, update: { value: accessToken }, create: { key: 'etsy_access_token', value: accessToken } });
+            await db.systemSetting.upsert({ where: { key: 'etsy_refresh_token' }, update: { value: refreshToken }, create: { key: 'etsy_refresh_token', value: refreshToken } });
+        }
 
         revalidatePath("/admin/settings");
 
