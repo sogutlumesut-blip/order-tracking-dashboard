@@ -774,8 +774,13 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 function DraggableItem({ id, children, disabled }: { id: number; children: React.ReactNode; disabled?: boolean }) {
     const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: id, disabled })
     const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined
+
+    // Only apply 'touch-none' if dragging is enabled
+    // If disabled, allow default touch actions (including scroll)
+    const className = disabled ? "touch-manipulation" : "touch-none"
+
     return (
-        <div ref={setNodeRef} style={style} {...listeners} {...attributes} className="touch-none">
+        <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={className}>
             {children}
         </div>
     )
