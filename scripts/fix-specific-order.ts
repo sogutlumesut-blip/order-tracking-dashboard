@@ -6,10 +6,10 @@ async function fix() {
 
     // 1. API Data (Hardcoded from previous fetch to avoid re-fetch bloat in script, or fetch if needed)
     // We know the data from Step 5321 output:
-    const trackingNum = "178900799340";
-    const trackingLink = "https://kargotakip.mngkargo.com.tr/?takipNo=178900799340";
-    const barcode = "489340936239";
-    const platformId = "106725";
+    const trackingNum = "N/A"; // We don't know it yet, assume script logic fixes it
+    const trackingLink = "N/A";
+    const barcode = "N/A";
+    const platformId = "106825";
 
     const client = new Client({
         connectionString: "postgresql://neondb_owner:npg_qc52eHrBLZvy@ep-wild-sound-ad49s28l-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require"
