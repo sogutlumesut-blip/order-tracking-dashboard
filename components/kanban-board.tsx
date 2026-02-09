@@ -47,6 +47,17 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         setOrders(initialOrders)
     }, [initialOrders])
 
+    // Mobile Drag Lock Logic
+    const [isDragDisabled, setIsDragDisabled] = useState(false)
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsDragDisabled(window.innerWidth < 768)
+        }
+        checkMobile()
+        window.addEventListener('resize', checkMobile)
+        return () => window.removeEventListener('resize', checkMobile)
+    }, [])
+
     // Use useRef for Audio to avoid hydration mismatch (Audio is not defined on server)
     const audioRef = useRef<HTMLAudioElement | null>(null)
     const [mounted, setMounted] = useState(false)
@@ -707,7 +718,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 <div className="flex-1 min-h-0 overflow-hidden relative">
                                     <DroppableId id={column.id} className="h-full overflow-y-auto p-3 space-y-3 scrollbar-thin scrollbar-thumb-gray-200 hover:scrollbar-thumb-gray-300">
                                         {columnOrders.map(order => (
-                                            <DraggableItem key={order.id} id={order.id}>
+                                            <DraggableItem key={order.id} id={order.id} disabled={isDragDisabled}>
                                                 <OrderCard
                                                     order={order}
                                                     onClick={() => {
@@ -760,8 +771,8 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     )
 }
 
-function DraggableItem({ id, children }: { id: number; children: React.ReactNode }) {
-    const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: id })
+function DraggableItem({ id, children, disabled }: { id: number; children: React.ReactNode; disabled?: boolean }) {
+    const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: id, disabled })
     const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined
     return (
         <div ref={setNodeRef} style={style} {...listeners} {...attributes} className="touch-none">

@@ -279,15 +279,20 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                         <div className="flex gap-2">
                                             <button
                                                 onClick={() => {
-                                                    const byteCharacters = atob(formData.cargoLabelPdf as string);
-                                                    const byteNumbers = new Array(byteCharacters.length);
-                                                    for (let i = 0; i < byteCharacters.length; i++) {
-                                                        byteNumbers[i] = byteCharacters.charCodeAt(i);
+                                                    const pdfData = formData.cargoLabelPdf as string;
+                                                    if (pdfData.startsWith('http')) {
+                                                        window.open(pdfData, '_blank');
+                                                    } else {
+                                                        const byteCharacters = atob(pdfData);
+                                                        const byteNumbers = new Array(byteCharacters.length);
+                                                        for (let i = 0; i < byteCharacters.length; i++) {
+                                                            byteNumbers[i] = byteCharacters.charCodeAt(i);
+                                                        }
+                                                        const byteArray = new Uint8Array(byteNumbers);
+                                                        const blob = new Blob([byteArray], { type: 'application/pdf' });
+                                                        const url = URL.createObjectURL(blob);
+                                                        window.open(url, '_blank');
                                                     }
-                                                    const byteArray = new Uint8Array(byteNumbers);
-                                                    const blob = new Blob([byteArray], { type: 'application/pdf' });
-                                                    const url = URL.createObjectURL(blob);
-                                                    window.open(url, '_blank');
                                                 }}
                                                 className="flex-1 py-3 border-2 border-blue-500 bg-blue-50 rounded-xl flex items-center justify-center gap-2 hover:bg-blue-100 transition-all text-blue-700 font-bold"
                                             >

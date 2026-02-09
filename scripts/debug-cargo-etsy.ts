@@ -2,7 +2,7 @@
 const { Client } = require('pg');
 
 async function debug() {
-    console.log("--- DEBUG START (Postgres) ---")
+    console.log("--- DEBUG START (Inspect WC Metadata) ---")
 
     // Credentials from .env.local
     const client = new Client({
@@ -17,54 +17,98 @@ async function debug() {
         return;
     }
 
-    // 1. Check Order V166
-    console.log("Searching for V166...");
-
-    try {
-        const res = await client.query(`
-            SELECT id, barcode, "cargoBarcode", "cargoLabelPdf" 
-            FROM "Order" 
-            WHERE barcode = $1 OR barcode LIKE $2
-        `, ['V166', '%V166%']);
-
-        if (res.rows.length > 0) {
-            const order = res.rows[0];
-            console.log(`Order Found: ${order.barcode}`);
-            console.log(`Cargo Barcode: ${order.cargoBarcode}`);
-            console.log(`Cargo Label PDF Length: ${order.cargoLabelPdf ? order.cargoLabelPdf.length : 0}`);
-        } else {
-            console.log("Order V166 NOT FOUND in 'Order' table.");
-            // Check items
-            const itemRes = await client.query(`
-                SELECT "orderId", sku FROM "OrderItem" WHERE sku LIKE $1
-            `, ['%V166%']);
-
-            if (itemRes.rows.length > 0) {
-                console.log(`Found Item with SKU V166 in Order ID: ${itemRes.rows[0].orderId}`);
-                const parentRes = await client.query(`SELECT * FROM "Order" WHERE id = $1`, [itemRes.rows[0].orderId]);
-                const parent = parentRes.rows[0];
-                console.log(`Parent Order Barcode: ${parent.barcode}`);
-                console.log(`Parent Order Cargo: ${parent.cargoBarcode}`);
-            }
-        }
-    } catch (e) {
-        console.error("Order Query Error:", e.message);
-    }
-
-    // 2. Check Etsy Settings
-    console.log("\nChecking Etsy Settings...");
+    // 1. Get WC Credentials
+    let wcUrl, wcKey, wcSecret;
     try {
         const res = await client.query(`
             SELECT key, value FROM "SystemSetting" 
-            WHERE key IN ('etsy_stores_json', 'etsy_shop_id', 'etsy_api_key')
+            WHERE key IN ('wc_url', 'wc_key', 'wc_secret')
         `);
 
-        res.rows.forEach(s => console.log(`${s.key}: ${s.value}`));
+        const settings = {};
+        res.rows.forEach(r => settings[r.key] = r.value);
+
+        wcUrl = settings['wc_url'];
+        wcKey = settings['wc_key'];
+        wcSecret = settings['wc_secret'];
+
+        if (!wcUrl || !wcKey || !wcSecret) {
+            console.error("Missing WC Credentials in DB");
+            await client.end();
+            return;
+        }
+        console.log(`Found Credentials for: ${wcUrl}`);
     } catch (e) {
         console.error("Settings Query Error:", e.message);
+        await client.end();
+        return;
     }
 
     await client.end();
+
+    // 2. Fetch Orders from WC
+    console.log("Fetching orders from WooCommerce...");
+    const auth = Buffer.from(`${wcKey}:${wcSecret}`).toString('base64');
+
+    try {
+        const response = await fetch(`${wcUrl}/wp-json/wc/v3/orders?per_page=10&status=completed`, {
+            headers: {
+                'Authorization': `Basic ${auth}`
+            }
+        });
+
+        if (!response.ok) {
+            console.error("WC API Error:", response.status, response.statusText);
+            const text = await response.text();
+            console.error(text);
+            return;
+        }
+
+        const orders = await response.json();
+        console.log(`Fetched ${orders.length} orders.`);
+
+        // 3. Deep Inspect
+        orders.forEach(order => {
+            console.log(`\nOrder #${order.id} (Status: ${order.status})`);
+
+            // Check Shipping Lines
+            if (order.shipping_lines) {
+                console.log("Shipping Lines:", JSON.stringify(order.shipping_lines, null, 2));
+            }
+
+            // Stringify and regex search for potential barcodes
+            const str = JSON.stringify(order);
+            // Look for patterns like "MNG", "cargo", or long digits that might be tracking
+            // Just log if found
+            if (str.toLowerCase().includes("mng") || str.toLowerCase().includes("kargo")) {
+                console.log(">>> Found 'mng' or 'kargo' in order object.");
+            }
+
+            if (order.meta_data) {
+                const url = order.meta_data.find(m => m.key === '_url');
+                const kargo = order.meta_data.find(m => m.key === '_kargo_firmasi');
+                const stok = order.meta_data.find(m => m.key === '_stok_kodu');
+
+                if (url) console.log(`  _url: ${url.value}`);
+                if (kargo) console.log(`  _kargo_firmasi: ${kargo.value}`);
+                if (stok) console.log(`  _stok_kodu: ${stok.value}`);
+            }
+            // Log all meta keys again just to be sure
+            if (order.meta_data) {
+                console.log("Meta Keys:", order.meta_data.map(m => m.key));
+                // value check
+                order.meta_data.forEach(m => {
+                    if (typeof m.value === 'string' && m.value.length > 10 && m.value.length < 30) {
+                        console.log(`  Possible ID [${m.key}]: ${m.value}`);
+                    }
+                });
+            }
+        });
+
+    } catch (e) {
+        console.error("Fetch Error:", e.message);
+    }
+
     console.log("--- DEBUG END ---")
 }
 
