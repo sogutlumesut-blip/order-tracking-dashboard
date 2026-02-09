@@ -9,8 +9,8 @@ async function check() {
     await client.connect();
 
     try {
-        const res = await client.query('SELECT id, barcode, "cargoTrackingNumber", "cargoLabelPdf" FROM "Order" WHERE barcode LIKE \'%106742%\' OR barcode LIKE \'%106686%\'');
-        console.log("Found:", res.rows);
+        const res = await client.query('SELECT id, barcode, status, "cargoTrackingNumber" FROM "Order" WHERE barcode LIKE \'%106731%\'');
+        console.log("Check 106731:", res.rows);
     } catch (e) {
         console.error(e);
     } finally {
