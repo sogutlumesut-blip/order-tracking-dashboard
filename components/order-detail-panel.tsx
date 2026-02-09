@@ -2,7 +2,7 @@
 
 import { Order, OrderStatus, Comment } from "../data/mock-orders"
 import { APP_CONFIG } from "../data/settings"
-import { X, Save, Truck, User, Tag, FileText, Upload, Printer, FileDown, History, ChevronDown, ChevronRight } from "lucide-react"
+import { X, Save, Truck, User, Tag, FileText, Upload, Printer, FileDown, History, ChevronDown, ChevronRight, ExternalLink } from "lucide-react"
 import { useState, useEffect } from "react"
 import { NoteLog } from "./note-log"
 import { ChatSection } from "./chat-section"
@@ -262,6 +262,16 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     <div className="mb-4">
                                         <div className="text-center text-xs text-gray-400 mb-2">
                                             Kargo etiketi otomatik çekilemedi.
+                                        </div>
+                                        <button
+                                            onClick={() => window.open(`https://duvarkagidimarketi.com/wp-admin/post.php?post=${formData.id}&action=edit`, '_blank')}
+                                            className="w-full py-3 border-2 border-gray-300 bg-gray-50 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-100 hover:border-gray-400 transition-all text-gray-600 font-bold"
+                                        >
+                                            <ExternalLink className="w-5 h-5" />
+                                            Siparişi WooCommerce'da Aç
+                                        </button>
+                                        <div className="text-center text-[10px] text-gray-400 mt-1">
+                                            (Etiketi WP panelinden yazdırabilirsiniz)
                                         </div>
                                     </div>
                                 )}
