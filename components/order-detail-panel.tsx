@@ -9,6 +9,7 @@ import { ChatSection } from "./chat-section"
 import { ActivityLog } from "./activity-log"
 import { getColorClasses } from "@/lib/colors"
 import { logManualActivity, uploadCargoLabel, deleteCargoLabel } from "../app/actions"
+import { LocalBarcodeModal } from "./local-barcode-modal"
 import { toast } from "sonner"
 
 interface OrderDetailPanelProps {
@@ -26,6 +27,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
     const [formData, setFormData] = useState<Order | null>(null)
     const [isActivityLogOpen, setIsActivityLogOpen] = useState(false)
     const [previewImage, setPreviewImage] = useState<string | null>(null)
+    const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false)
 
     useEffect(() => {
         if (order) {
@@ -69,6 +71,12 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
         <div className="fixed inset-0 z-50 flex justify-end">
             {/* Backdrop */}
             <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={onClose} />
+
+            <LocalBarcodeModal
+                order={formData}
+                isOpen={isBarcodeModalOpen}
+                onClose={() => setIsBarcodeModalOpen(false)}
+            />
 
             {/* Image Preview Modal */}
             {previewImage && (
@@ -263,13 +271,22 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                         <div className="text-center text-xs text-gray-400 mb-2">
                                             Kargo etiketi otomatik çekilemedi.
                                         </div>
-                                        <button
-                                            onClick={() => window.open(`https://duvarkagidimarketi.com/wp-admin/post.php?post=${formData.id}&action=edit`, '_blank')}
-                                            className="w-full py-3 border-2 border-gray-300 bg-gray-50 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-100 hover:border-gray-400 transition-all text-gray-600 font-bold"
-                                        >
-                                            <ExternalLink className="w-5 h-5" />
-                                            Siparişi WooCommerce'da Aç
-                                        </button>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <button
+                                                onClick={() => window.open(`https://duvarkagidimarketi.com/wp-admin/post.php?post=${formData.id}&action=edit`, '_blank')}
+                                                className="py-3 border-2 border-gray-300 bg-gray-50 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-gray-100 hover:border-gray-400 transition-all text-gray-600 font-bold text-xs"
+                                            >
+                                                <ExternalLink className="w-5 h-5" />
+                                                WooCommerce'da Aç
+                                            </button>
+                                            <button
+                                                onClick={() => setIsBarcodeModalOpen(true)}
+                                                className="py-3 border-2 border-gray-800 bg-gray-50 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-gray-800 hover:text-white transition-all text-gray-800 font-bold text-xs"
+                                            >
+                                                <Printer className="w-5 h-5" />
+                                                Barkod Oluştur
+                                            </button>
+                                        </div>
                                         <div className="text-center text-[10px] text-gray-400 mt-1">
                                             (Etiketi WP panelinden yazdırabilirsiniz)
                                         </div>
