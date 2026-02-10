@@ -43,6 +43,13 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     const [isManualOrderOpen, setIsManualOrderOpen] = useState(false)
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
+    // Refs to track modal state allows accessing current state inside setInterval closure
+    const isPanelOpenRef = useRef(isPanelOpen)
+    const isManualOrderOpenRef = useRef(isManualOrderOpen)
+
+    useEffect(() => { isPanelOpenRef.current = isPanelOpen }, [isPanelOpen])
+    useEffect(() => { isManualOrderOpenRef.current = isManualOrderOpen }, [isManualOrderOpen])
+
     useEffect(() => {
         setOrders(initialOrders)
     }, [initialOrders])
@@ -92,7 +99,8 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         initialSync()
 
         const interval = setInterval(async () => {
-            if (activeId) return; // Don't poll while dragging
+            // Don't poll while dragging or if user is editing in a modal
+            if (activeId || isPanelOpenRef.current || isManualOrderOpenRef.current) return;
 
             // 1. AUTO-SYNC: Trigger server-side sync check
             // We poll every 10 seconds. Server handles rate limiting (15s).
