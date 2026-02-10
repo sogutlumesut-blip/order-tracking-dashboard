@@ -228,7 +228,8 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             ordersInColumn = ordersInColumn.filter(o => o.items.some(i => i.material === filter))
         }
 
-        return ordersInColumn.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+        // Sort by ID (Descending) - Newest First
+        return ordersInColumn.sort((a, b) => b.id - a.id)
     }
 
     const handleDragStart = (event: DragStartEvent) => {
