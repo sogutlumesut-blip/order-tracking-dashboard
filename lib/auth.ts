@@ -41,7 +41,7 @@ export async function login(userData: { id: string; name: string; role: string }
         expires,
         httpOnly: true,
         path: "/",
-        secure: isProduction,
+        secure: false, // process.env.NODE_ENV === "production" -> Disabled to allow IP access
         sameSite: "lax"
     });
 }
