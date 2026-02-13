@@ -59,13 +59,25 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         setIsBulkProcessing(true)
         toast.info(`${selectedOrders.length} sipariş taşınıyor...`)
         try {
-            await bulkUpdateOrderStatus(selectedOrders, targetStatusId)
-            toast.success("Toplu taşıma başarılı!")
-            // Optimistic update
-            setOrders(prev => prev.map(o => selectedOrders.includes(o.id) ? { ...o, status: targetStatusId as any, updatedAt: new Date().toISOString() } : o))
-            setSelectedOrders([])
+            const result = await bulkUpdateOrderStatus(selectedOrders, targetStatusId)
+
+            if (result.success) {
+                if (typeof result.count === 'number' && result.count > 0) {
+                    toast.success(result.message || "Toplu taşıma başarılı!")
+                    // Optimistic update
+                    setOrders(prev => prev.map(o => selectedOrders.includes(o.id) ? { ...o, status: targetStatusId as any, updatedAt: new Date().toISOString() } : o))
+                    setSelectedOrders([])
+                    router.refresh()
+                } else {
+                    toast.warning("Hiçbir sipariş güncellenemedi. Muhtemelen zaten bu durumdalar.")
+                    router.refresh()
+                }
+            } else {
+                toast.error(result.error || "İşlem başarısız oldu.")
+            }
         } catch (e) {
-            toast.error("Hata oluştu")
+            console.error(e)
+            toast.error("Beklenmedik bir hata oluştu.")
         } finally {
             setIsBulkProcessing(false)
         }

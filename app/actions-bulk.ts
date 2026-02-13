@@ -3,7 +3,7 @@
 import { db } from "@/lib/prisma"
 import { getSession } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
-import { logActivity } from "./actions" // Import from main actions file or move logActivity to utils?
+// import { logActivity } from "./actions" // Removed to avoid circular/server-action issues
 // Actually logActivity is in actions.ts and might not be exported?
 // Let's check actions.ts exports.
 // If logActivity is not exported, I should export it or duplicate logic.
@@ -13,11 +13,12 @@ import { logActivity } from "./actions" // Import from main actions file or move
 
 export async function bulkUpdateOrderStatus(orderIds: number[], status: string) {
     try {
+        console.log(`[BulkUpdate] attempt: ${orderIds.length} orders to '${status}'`)
         const session = await getSession()
         const user = session ? session.user.name : "Sistem"
 
         // Bulk update
-        await db.order.updateMany({
+        const result = await db.order.updateMany({
             where: { id: { in: orderIds } },
             data: {
                 status,
@@ -27,17 +28,27 @@ export async function bulkUpdateOrderStatus(orderIds: number[], status: string) 
             }
         })
 
-        // Log legacy activity (one by one or bulk? One by one is safer for history)
-        // For performance, maybe just one log? No, history needs granularity.
-        // Let's do a loop for logs
-        for (const id of orderIds) {
-            await logActivity(id, user, "STATUS_CHANGE", `Toplu işlem ile durum '${status}' olarak değiştirildi.`)
+        console.log(`[BulkUpdate] result:`, result)
+
+        // Log activity manually to avoid import issues
+        // We use a regular loop, but we can do createMany if supported for activities?
+        // SQLite/Postgres support createMany. orderActivity probably supports it.
+        // Let's create activity records in bulk for performance
+        if (orderIds.length > 0) {
+            await db.orderActivity.createMany({
+                data: orderIds.map(id => ({
+                    orderId: id,
+                    author: user,
+                    action: "STATUS_CHANGE",
+                    details: `Toplu işlem ile durum '${status}' olarak değiştirildi.`
+                }))
+            })
         }
 
         revalidatePath("/")
-        return { success: true, message: `${orderIds.length} sipariş güncellendi.` }
+        return { success: true, count: result.count, message: `${result.count} sipariş güncellendi.` }
     } catch (e) {
         console.error("bulkUpdateOrderStatus ERROR:", e)
-        return { error: "Toplu güncelleme hatası." }
+        return { success: false, error: "Toplu güncelleme hatası: " + (e as Error).message }
     }
 }
