@@ -9,9 +9,13 @@ interface OrderCardProps {
     order: Order
     onClick: () => void
     tags: { id: string; name: string; color: string | null }[]
+    // New Props for Bulk Selection
+    selected?: boolean
+    onSelect?: (selected: boolean) => void
+    selectionMode?: boolean
 }
 
-export function OrderCard({ order, onClick, tags }: OrderCardProps) {
+export function OrderCard({ order, onClick, tags, selected = false, onSelect, selectionMode = false }: OrderCardProps) {
     // We use the first item's image as the main visual
     const mainImage = order.items[0]?.image_src
 
@@ -32,11 +36,25 @@ export function OrderCard({ order, onClick, tags }: OrderCardProps) {
     return (
         <div
             onClick={onClick}
-            className={`bg-white rounded-xl shadow-sm p-4 cursor-pointer hover:shadow-md transition-all relative group overflow-hidden border-2 ${isPaymentFailed ? 'border-red-600 bg-red-50' :
-                order.hasNotification ? 'border-blue-500 bg-blue-50/30' :
-                    isStuck ? 'border-amber-400 bg-amber-50/30' : 'border-gray-200'
+            className={`bg-white rounded-xl shadow-sm cursor-pointer hover:shadow-md transition-all relative group overflow-hidden border-2 ${selected ? 'border-blue-600 ring-2 ring-blue-300 transform scale-[1.02]' :
+                isPaymentFailed ? 'border-red-600 bg-red-50' :
+                    order.hasNotification ? 'border-blue-500 bg-blue-50/30' :
+                        isStuck ? 'border-amber-400 bg-amber-50/30' : 'border-gray-200'
                 }`}
         >
+            {/* SELECTION CHECKBOX (Visible on hover or if selected or if selectionMode is active) */}
+            <div
+                className={`absolute top-3 left-3 z-50 transition-all duration-200 ${selected || selectionMode ? 'opacity-100 scale-100' : 'opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100'}`}
+                onClick={(e) => {
+                    e.stopPropagation()
+                    if (onSelect) onSelect(!selected)
+                }}
+            >
+                <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center shadow-lg transition-colors ${selected ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300 hover:border-blue-500'}`}>
+                    {selected && <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                </div>
+            </div>
+
             {/* Notification Pulse Overlay */}
             {order.hasNotification && (
                 <div className="absolute inset-0 bg-blue-500/5 animate-pulse z-0 pointer-events-none" />

@@ -10,6 +10,7 @@ import { OrderDetailPanel } from "./order-detail-panel"
 import { toast } from "sonner"
 import { Toaster } from "sonner"
 import { updateOrderStatus, updateOrderDetails, addCommentAction, getOrders, markOrderAsRead, syncWooCommerceOrders, syncEtsyOrders, createManualOrder, simulateWooCommerceOrder, logoutAction } from "../app/actions"
+import { bulkUpdateOrderStatus } from "../app/actions-bulk"
 import Link from "next/link"
 import { ManualOrderModal } from "./manual-order-modal"
 import { useRouter } from "next/navigation"
@@ -42,6 +43,33 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     const [isPanelOpen, setIsPanelOpen] = useState(false)
     const [isManualOrderOpen, setIsManualOrderOpen] = useState(false)
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+    // BULK SELECTION STATE
+    const [selectedOrders, setSelectedOrders] = useState<number[]>([])
+    const [isBulkProcessing, setIsBulkProcessing] = useState(false)
+
+    const toggleOrderSelection = (orderId: number) => {
+        setSelectedOrders(prev =>
+            prev.includes(orderId) ? prev.filter(id => id !== orderId) : [...prev, orderId]
+        )
+    }
+
+    const handleBulkMove = async (targetStatusId: string) => {
+        if (selectedOrders.length === 0) return
+        setIsBulkProcessing(true)
+        toast.info(`${selectedOrders.length} sipariş taşınıyor...`)
+        try {
+            await bulkUpdateOrderStatus(selectedOrders, targetStatusId)
+            toast.success("Toplu taşıma başarılı!")
+            // Optimistic update
+            setOrders(prev => prev.map(o => selectedOrders.includes(o.id) ? { ...o, status: targetStatusId as any, updatedAt: new Date().toISOString() } : o))
+            setSelectedOrders([])
+        } catch (e) {
+            toast.error("Hata oluştu")
+        } finally {
+            setIsBulkProcessing(false)
+        }
+    }
 
     // Refs to track modal state allows accessing current state inside setInterval closure
     const isPanelOpenRef = useRef(isPanelOpen)
@@ -743,6 +771,9 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                                         }
                                                     }}
                                                     tags={tags}
+                                                    selected={selectedOrders.includes(order.id)}
+                                                    onSelect={() => toggleOrderSelection(order.id)}
+                                                    selectionMode={selectedOrders.length > 0}
                                                 />
                                             </DraggableItem>
                                         ))}
@@ -776,6 +807,38 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     })() : null}
                 </DragOverlay>
             </div>
+
+            {/* BULK ACTION BAR */}
+            {selectedOrders.length > 0 && (
+                <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-gray-900 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-6 animate-in slide-in-from-bottom-4 border border-gray-700">
+                    <div className="flex items-center gap-3 border-r border-gray-700 pr-6">
+                        <span className="font-bold text-lg">{selectedOrders.length}</span>
+                        <span className="text-sm text-gray-400">sipariş seçildi</span>
+                        <button
+                            onClick={() => setSelectedOrders([])}
+                            className="ml-2 text-xs hover:text-white text-gray-500 hover:underline"
+                        >
+                            İptal
+                        </button>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <span className="text-sm text-gray-400">Taşı:</span>
+                        <div className="flex gap-2">
+                            {cols.map(col => (
+                                <button
+                                    key={col.id}
+                                    disabled={isBulkProcessing}
+                                    onClick={() => handleBulkMove(col.id)}
+                                    className={`px-3 py-2 rounded-md text-xs font-bold transition-transform active:scale-95 border shadow-sm whitespace-nowrap ${col.color || 'bg-gray-100 border-gray-200'} text-gray-900 border-black/5 hover:brightness-95`}
+                                >
+                                    {col.title}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
         </DndContext >
     )
 }

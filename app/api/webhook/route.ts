@@ -27,17 +27,31 @@ export async function POST(req: Request) {
         const wcId = body.id
 
         // Map Status
-        let status = 'pending' // Default to pending (Local ID)
+        // Map Status
+        // PREFETCH STATUSES to find correct "Incoming" column
+        const statuses = await db.statusColumn.findMany({ orderBy: { order: 'asc' } })
+        let defaultStatus = statuses.length > 0 ? statuses[0].id : "pending"
+
+        const incoming = statuses.find(s =>
+            s.title.toLowerCase().includes("gelen") ||
+            s.title.toLowerCase().includes("yeni") ||
+            s.title.toLowerCase().includes("sipariş") ||
+            s.id === "wc-pending" ||
+            s.id === "pending"
+        )
+        if (incoming) defaultStatus = incoming.id
+
+        let status = defaultStatus
         let labels: string[] = ['WooCommerce', 'Yeni'];
 
-        if (body.status === 'processing') status = 'pending'
-        if (body.status === 'completed') status = 'pending' // Enforce Pending
-        if (body.status === 'on-hold') status = 'pending'
-        if (body.status === 'pending') status = 'pending'
+        if (body.status === 'processing') status = defaultStatus
+        if (body.status === 'completed') status = defaultStatus
+        if (body.status === 'on-hold') status = defaultStatus
+        if (body.status === 'pending') status = defaultStatus
 
         // Handle Failed/Cancelled
         if (body.status === 'failed' || body.status === 'cancelled' || body.status === 'refunded') {
-            status = 'pending'; // Keep it in pending/incoming so they see it to act on it
+            status = defaultStatus;
             labels.push('Ödeme Başarısız');
         }
 

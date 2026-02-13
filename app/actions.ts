@@ -145,7 +145,7 @@ export async function getOrders() {
     })) as any
 }
 
-async function logActivity(orderId: number, author: string, action: string, details: string) {
+export async function logActivity(orderId: number, author: string, action: string, details: string) {
     await db.orderActivity.create({
         data: {
             orderId,
@@ -755,6 +755,22 @@ export async function syncWooCommerceOrders(force: boolean = false) {
             create: { key: 'last_wc_sync_time', value: Date.now().toString() }
         })
 
+
+
+        // PREFETCH STATUSES to find correct "Incoming" column
+        const statuses = await db.statusColumn.findMany({ orderBy: { order: 'asc' } })
+        let defaultStatus = statuses.length > 0 ? statuses[0].id : "pending"
+
+        // Try to find a smarter default
+        const incoming = statuses.find(s =>
+            s.title.toLowerCase().includes("gelen") ||
+            s.title.toLowerCase().includes("yeni") ||
+            s.title.toLowerCase().includes("sipariş") ||
+            s.id === "wc-pending" ||
+            s.id === "pending"
+        )
+        if (incoming) defaultStatus = incoming.id
+
         for (const wcOrder of wcOrders) {
             try {
                 // Safety Check: Ensure billing exists
@@ -767,17 +783,17 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                 // Map Status
                 // IDs found in DB: 'Gelen Siparişler', 'Müşteriye İletilecek', 'Baskıya Hazır', 'Müşteri Beklemede', 'Dosya Gönderildi', 'Makinada', 'Hazır Beklemede', 'Kargolandı', 'Baskı hatası', 'Basılan ürünler'
 
-                let status = 'pending' // Default to Incoming
+                let status = defaultStatus // Default to Incoming
                 let labels: string[] = ['WooCommerce'];
 
-                if (wcOrder.status === 'processing') status = 'pending'
-                if (wcOrder.status === 'completed') status = 'pending' // Enforce Pending even for Completed
-                if (wcOrder.status === 'on-hold') status = 'pending'
-                if (wcOrder.status === 'pending') status = 'pending'
+                if (wcOrder.status === 'processing') status = defaultStatus
+                if (wcOrder.status === 'completed') status = defaultStatus // Enforce Pending even for Completed
+                if (wcOrder.status === 'on-hold') status = defaultStatus
+                if (wcOrder.status === 'pending') status = defaultStatus
 
                 // Handle Failed/Cancelled
                 if (wcOrder.status === 'failed' || wcOrder.status === 'cancelled' || wcOrder.status === 'refunded') {
-                    status = 'pending'; // Keep it in incoming so they see it
+                    status = defaultStatus; // Keep it in incoming so they see it
                     labels.push('Ödeme Başarısız');
                 }
 
