@@ -826,6 +826,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     <div className="flex items-center gap-3 border-r border-gray-700 pr-6">
                         <span className="font-bold text-lg">{selectedOrders.length}</span>
                         <span className="text-sm text-gray-400">sipariş seçildi</span>
+                        <span className="text-[10px] bg-gray-800 text-gray-500 px-1 rounded">v1.2</span>
                         <button
                             onClick={() => setSelectedOrders([])}
                             className="ml-2 text-xs hover:text-white text-gray-500 hover:underline"
