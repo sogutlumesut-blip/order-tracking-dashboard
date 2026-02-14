@@ -136,6 +136,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
     // Store IDs to detect NEW ones specifically
     const previousOrderIds = useRef<Set<number>>(new Set(initialOrders.map(o => o.id)))
+    const lastKargoSyncRef = useRef<number>(Date.now())
 
     // Unified Polling & Sync Logic is handled in the next useEffect
     // Removed naive checkSync useEffect to prevent state clobbering
@@ -161,6 +162,24 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     router.refresh()
                 }
             } catch (e) { console.error("Auto Force Sync Error", e) }
+
+            // 1.5 AUTO KARGO SYNC (Every ~30 seconds)
+            // Use date mod check or ref timestamp. 
+            // Simple check: if current seconds is between 0-5 or 30-35 (since interval is 5s, this hits roughly twice a minute)
+            // Or better: Use a ref
+            const now = Date.now();
+            if (now - lastKargoSyncRef.current > 30000) {
+                try {
+                    // Fire and forget - don't await blocking
+                    syncCargoKargoEntegrator().then(res => {
+                        if (res?.success && (res.message.includes("güncellendi") && !res.message.startsWith("0"))) {
+                            toast.success("Kargo bilgileri güncellendi", { id: "kargo-auto-sync" })
+                            router.refresh()
+                        }
+                    })
+                    lastKargoSyncRef.current = now;
+                } catch (e) { console.error("Auto Kargo Sync Error", e) }
+            }
 
 
             const latestOrders = await getOrders()
