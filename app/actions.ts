@@ -1327,8 +1327,8 @@ export async function syncCargoKargoEntegrator() {
             const barcode = ship.barcode;
             const trackingNum = ship.tracking_number;
 
-            // Construct Print URL
-            const printUrl = `https://app.kargoentegrator.com/print/shipment/${ship.id}`;
+            // Construct Print URL (Corrected via User Feedback)
+            const printUrl = `https://app.kargoentegrator.com/print-pdf?shipments[0]=${ship.id}`;
 
             if (!trackingNum && !barcode && !ship.status) continue;
 
