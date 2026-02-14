@@ -1127,75 +1127,7 @@ export async function syncWooCommerceOrders(force: boolean = false) {
     }
 }
 
-// CARGO ENTEGRATOR SYNC
-export async function syncCargoKargoEntegrator() {
-    // 1. Get Settings (Support ENV or DB)
-    const settings = await getSystemSettings();
-    const apiKey = settings['kargo_api_key'] || process.env.KARGO_ENTEGRATOR_API_KEY || "OylOoz2vKllZtByiBAbl65NpdsnaNPVlpVTRzgNte8e42427";
 
-    if (!apiKey) return;
-
-    try {
-        // Fetch latest 50 shipments to capture recent updates
-        const res = await fetch("https://app.kargoentegrator.com/api/shipments?per_page=50", {
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Accept': 'application/json'
-            },
-            cache: 'no-store'
-        });
-
-        if (!res.ok) {
-            console.error("Cargo API Error:", res.status);
-            return;
-        }
-
-        const json = await res.json();
-        const shipments = json.data || [];
-
-        for (const ship of shipments) {
-            if (!ship.platform_id) continue;
-
-            // Logic: 
-            // 1. Try to find local order by "WC-{platform_id}" (Standard)
-            // 2. If not found, try by "{platform_id}" (Manual)
-
-            const platformId = String(ship.platform_id);
-            const trackingNum = ship.tracking_number;
-            const trackingLink = ship.tracking_link;
-            const cargoBarcode = ship.barcode;
-
-            if (!trackingNum && !trackingLink && !cargoBarcode) continue;
-
-            const updateData: any = {
-                cargoTrackingNumber: trackingNum,
-                cargoBarcode: cargoBarcode, // Sync the cargo barcode
-                // If link exists, save it to cargoLabelPdf as a URL string for frontend to handle
-                cargoLabelPdf: trackingLink || null
-            };
-
-            // Specific Status Mapping?
-            // if (ship.status === 'shipped') updateData.status = 'Kargolandı';
-
-            // Update WC Order
-            const wcUpdate = await db.order.updateMany({
-                where: { barcode: `WC-${platformId}` },
-                data: updateData
-            });
-
-            // Update Manual Order (if any)
-            if (wcUpdate.count === 0) {
-                await db.order.updateMany({
-                    where: { barcode: platformId }, // Try direct ID
-                    data: updateData
-                });
-            }
-        }
-
-    } catch (e) {
-        console.error("Sync Cargo KargoEntegrator Error:", e);
-    }
-}
 
 export async function createManualOrder(orderData: any) {
     const { items, customer, phone, email, address, city, note, status } = orderData
@@ -1364,5 +1296,71 @@ export async function deleteCargoLabel(orderId: number) {
     } catch (error) {
         console.error("Delete Error:", error)
         return { error: "Dosya silinirken hata oluştu" }
+    }
+}
+
+export async function syncCargoKargoEntegrator() {
+    const apiKey = process.env.KARGO_ENTEGRATOR_API_KEY || "OylOoz2vKllZtByiBAbl65NpdsnaNPVlpVTRzgNte8e42427";
+
+    try {
+        const res = await fetch("https://app.kargoentegrator.com/api/shipments?per_page=100", {
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Accept': 'application/json'
+            },
+            cache: 'no-store'
+        });
+
+        if (!res.ok) {
+            console.error("Cargo API Error:", res.status);
+            return { error: "Kargo API Hatası: " + res.status };
+        }
+
+        const json = await res.json();
+        const shipments = json.data || [];
+        let updatedCount = 0;
+
+        for (const ship of shipments) {
+            if (!ship.platform_id) continue;
+
+            const platformId = String(ship.platform_id);
+            const barcode = ship.barcode;
+            const trackingNum = ship.tracking_number;
+
+            // Construct Print URL
+            const printUrl = `https://app.kargoentegrator.com/print/shipment/${ship.id}`;
+
+            if (!trackingNum && !barcode && !ship.status) continue;
+
+            // Try matching by Barcode (WC-123 or just 123)
+            let targetBarcode = `WC-${platformId}`;
+
+            // First try strict match by WC- prefix
+            let order = await db.order.findUnique({ where: { barcode: targetBarcode } });
+
+            // If not found, try raw ID
+            if (!order) {
+                order = await db.order.findUnique({ where: { barcode: platformId } });
+            }
+
+            if (order) {
+                await db.order.update({
+                    where: { id: order.id },
+                    data: {
+                        cargoTrackingNumber: trackingNum || undefined,
+                        cargoBarcode: barcode || undefined,
+                        cargoLabelPdf: printUrl
+                    }
+                });
+                updatedCount++;
+            }
+        }
+
+        revalidatePath("/");
+        return { success: true, message: `${updatedCount} siparişin kargo bilgisi güncellendi.` };
+
+    } catch (error: any) {
+        console.error("Kargo Sync Error:", error);
+        return { error: "Kargo Entegrasyonu Hatası: " + error.message };
     }
 }

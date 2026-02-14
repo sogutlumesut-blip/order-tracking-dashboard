@@ -3,13 +3,13 @@
 import { Order, OrderStatus, Comment } from "../data/mock-orders"
 import { OrderCard } from "./order-card"
 import { useState, useEffect, useRef, useMemo } from "react"
-import { ChevronDown, ChevronUp, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX } from "lucide-react"
+import { ChevronDown, ChevronUp, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck } from "lucide-react"
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDraggable, useDroppable, closestCorners } from "@dnd-kit/core"
 import { BarcodeScanner } from "./barcode-scanner"
 import { OrderDetailPanel } from "./order-detail-panel"
 import { toast } from "sonner"
 import { Toaster } from "sonner"
-import { updateOrderStatus, updateOrderDetails, addCommentAction, getOrders, markOrderAsRead, syncWooCommerceOrders, syncEtsyOrders, createManualOrder, simulateWooCommerceOrder, logoutAction } from "../app/actions"
+import { updateOrderStatus, updateOrderDetails, addCommentAction, getOrders, markOrderAsRead, syncWooCommerceOrders, syncEtsyOrders, syncCargoKargoEntegrator, createManualOrder, simulateWooCommerceOrder, logoutAction } from "../app/actions"
 import { bulkUpdateOrderStatus } from "../app/actions-bulk"
 import Link from "next/link"
 import { ManualOrderModal } from "./manual-order-modal"
@@ -508,6 +508,25 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                             </>
                         )}
 
+                        {/* Kargo Sync - Admin Only? Or Staff with Permission? Let's say Admin for now or same permission */}
+                        {(currentUser.role === 'admin' || (currentUser as any).allowedStatuses?.includes("MANUAL_SYNC")) && (
+                            <form action={async () => {
+                                toast.info("Kargo entegrasyonu (MNG/DHL) kontrol ediliyor...")
+                                const res = await syncCargoKargoEntegrator()
+                                if (res?.success) toast.success(res.message)
+                                else if (res?.error) toast.error(res.error)
+                            }}>
+                                <button
+                                    type="submit"
+                                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
+                                    title="Kargo takip numaralarını ve etiketleri çek"
+                                >
+                                    <Truck className="w-3.5 h-3.5" />
+                                    Kargo Çek
+                                </button>
+                            </form>
+                        )}
+
 
                         <form action={async () => {
                             await logoutAction()
@@ -568,6 +587,20 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                     <button className="w-full flex items-center justify-center gap-2 p-3 bg-orange-50 text-orange-700 rounded-lg hover:bg-orange-100 font-bold text-sm border border-orange-100">
                                         <RefreshCw className="w-4 h-4" />
                                         Etsy Çek
+                                    </button>
+                                </form>
+                            )}
+
+                            {(currentUser.role === 'admin' || (currentUser as any).allowedStatuses?.includes("MANUAL_SYNC")) && (
+                                <form action={async () => {
+                                    toast.info("Kargo Senkronize ediliyor...")
+                                    const res = await syncCargoKargoEntegrator()
+                                    if (res?.success) toast.success(res.message)
+                                    setMobileMenuOpen(false)
+                                }} className="col-span-1">
+                                    <button className="w-full flex items-center justify-center gap-2 p-3 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 font-bold text-sm border border-indigo-100">
+                                        <Truck className="w-4 h-4" />
+                                        Kargo Çek
                                     </button>
                                 </form>
                             )}
