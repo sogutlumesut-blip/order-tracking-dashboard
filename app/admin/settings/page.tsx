@@ -83,7 +83,7 @@ export default async function SettingsPage() {
                         console.error("Etsy settings parse error", e)
                     }
 
-                    return <EtsyMultiStoreSettings initialStores={etsyStores} />
+                    return <EtsyMultiStoreSettings initialStores={etsyStores} initialGlobalKey={systemSettings.etsy_global_api_key || ''} />
                 })()}
 
 

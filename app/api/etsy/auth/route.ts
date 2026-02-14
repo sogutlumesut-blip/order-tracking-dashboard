@@ -19,29 +19,37 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const storeIndex = url.searchParams.get("storeIndex");
 
-    // 1. Get API Key based on Store Index
-    let apiKey = "";
+    // 1. Get API Key strategy:
+    // A) Try to find it in the specific store config (if resuming a setup)
+    // B) Try to find a GLOBAL API KEY (New "Single App" Mode)
+    // C) Fallback to legacy key
 
-    if (storeIndex !== null) {
+    const globalSettings = await db.systemSetting.findUnique({ where: { key: 'etsy_global_api_key' } });
+    let apiKey = globalSettings?.value || "";
+
+    if (storeIndex !== null && !apiKey) {
         const settings = await db.systemSetting.findUnique({ where: { key: 'etsy_stores_json' } });
         if (settings?.value) {
             try {
                 const stores = JSON.parse(settings.value);
-                apiKey = stores[parseInt(storeIndex)]?.apiKey;
+                // If the store has a specific override key, use it. Otherwise keep global.
+                if (stores[parseInt(storeIndex)]?.apiKey) {
+                    apiKey = stores[parseInt(storeIndex)].apiKey;
+                }
             } catch (e) {
                 console.error("JSON Parse Error during Auth", e);
             }
         }
     }
 
-    // Fallback to legacy key if no index or invalid index
+    // Fallback to legacy key if still empty
     if (!apiKey) {
         const settings = await db.systemSetting.findUnique({ where: { key: 'etsy_api_key' } });
         apiKey = settings?.value || "";
     }
 
     if (!apiKey) {
-        return NextResponse.json({ error: "Etsy API Key is missing. Please check your settings." }, { status: 400 });
+        return NextResponse.json({ error: "Etsy API Key is missing. Please enter it in Settings." }, { status: 400 });
     }
 
     // 2. Generate PKCE Verifier & Challenge

@@ -578,6 +578,12 @@ export async function saveEtsySettings(formData: FormData) {
             JSON.parse(storesJson)
             await db.systemSetting.upsert({ where: { key: 'etsy_stores_json' }, update: { value: storesJson }, create: { key: 'etsy_stores_json', value: storesJson } })
 
+            // Save Global API Key if present
+            const globalKey = formData.get("etsy_global_api_key") as string
+            if (globalKey !== null) { // Allow saving empty string to clear it
+                await db.systemSetting.upsert({ where: { key: 'etsy_global_api_key' }, update: { value: globalKey }, create: { key: 'etsy_global_api_key', value: globalKey } })
+            }
+
             revalidatePath("/admin/settings")
             return { success: true, message: "Etsy mağaza ayarları başarıyla kaydedildi." }
         }
@@ -619,7 +625,8 @@ export async function syncEtsyOrders() {
             name: 'Varsayılan',
             shopId: settings['etsy_shop_id'],
             apiKey: settings['etsy_api_key'],
-            accessToken: settings['etsy_access_token']
+            accessToken: settings['etsy_access_token'],
+            refreshToken: settings['etsy_refresh_token'] // Legacy might have it
         })
     }
 
@@ -629,9 +636,11 @@ export async function syncEtsyOrders() {
 
     let totalNew = 0
     let logs: string[] = []
+    let storesUpdated = false
 
     // 2. Iterate Stores
-    for (const store of stores) {
+    for (let i = 0; i < stores.length; i++) {
+        const store = stores[i]
         if (!store.shopId || !store.apiKey || !store.accessToken) {
             logs.push(`[${store.name || 'Mağaza'}] Ayarlar eksik, atlandı.`)
             continue
@@ -640,16 +649,60 @@ export async function syncEtsyOrders() {
         try {
             logs.push(`[${store.name || store.shopId}] Senkronizasyon başlıyor...`)
 
-            const response = await fetch(`https://openapi.etsy.com/v3/application/shops/${store.shopId}/receipts?state=paid&was_paid=true`, {
+            let currentToken = store.accessToken
+            let response = await fetch(`https://openapi.etsy.com/v3/application/shops/${store.shopId}/receipts?state=paid&was_paid=true`, {
                 headers: {
                     'x-api-key': store.apiKey,
-                    'Authorization': `Bearer ${store.accessToken}`
+                    'Authorization': `Bearer ${currentToken}`
                 },
                 cache: 'no-store'
             })
 
+            // TOKEN REFRESH LOGIC
+            if (response.status === 401 && store.refreshToken) {
+                logs.push(`[${store.name}] Token süresi dolmuş, yenileniyor...`)
+                try {
+                    const refreshRes = await fetch("https://api.etsy.com/v3/public/oauth/token", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            grant_type: "refresh_token",
+                            client_id: store.apiKey,
+                            refresh_token: store.refreshToken
+                        })
+                    })
+
+                    if (refreshRes.ok) {
+                        const refreshData = await refreshRes.json()
+                        currentToken = refreshData.access_token
+
+                        // Update Store Object
+                        stores[i].accessToken = refreshData.access_token
+                        stores[i].refreshToken = refreshData.refresh_token
+                        storesUpdated = true
+
+                        logs.push(`[${store.name}] Token yenilendi. Tekrar deneniyor...`)
+
+                        // Retry Request
+                        response = await fetch(`https://openapi.etsy.com/v3/application/shops/${store.shopId}/receipts?state=paid&was_paid=true`, {
+                            headers: {
+                                'x-api-key': store.apiKey,
+                                'Authorization': `Bearer ${currentToken}`
+                            },
+                            cache: 'no-store'
+                        })
+                    } else {
+                        logs.push(`[${store.name}] Token yenileme başarısız: ${refreshRes.status}`)
+                    }
+                } catch (re) {
+                    console.error("Token Refresh Exception", re)
+                }
+            }
+
             if (!response.ok) {
                 logs.push(`[${store.name}] Hata: ${response.status} ${response.statusText}`)
+                // If 403, might be scope issue or shop ID mismatch
+                if (response.status === 403) logs.push(`[${store.name}] Erişim reddedildi. Shop ID veya İzinleri kontrol edin.`)
                 continue
             }
 
@@ -669,22 +722,27 @@ export async function syncEtsyOrders() {
                     quantity: t.quantity,
                     image_src: t.main_image?.url_fullxfull || "https://placehold.co/600x400?text=Etsy+Görsel",
                     sku: t.sku || null,
-                    dimensions: t.variations?.find((v: any) => v.property_id === 200 || v.formatted_name?.includes("Size"))?.formatted_value || null,
-                    material: t.variations?.find((v: any) => v.property_id === 500 || v.formatted_name?.includes("Material"))?.formatted_value || null
+                    // Try to extract dimensions/material from variations
+                    dimensions: t.variations?.find((v: any) => v.property_id === 200 || v.formatted_name?.toLowerCase().includes("size") || v.formatted_name?.toLowerCase().includes("boyut"))?.formatted_value || null,
+                    material: t.variations?.find((v: any) => v.property_id === 500 || v.formatted_name?.toLowerCase().includes("material") || v.formatted_name?.toLowerCase().includes("malzeme"))?.formatted_value || null
                 }))
+
+                // Construct Note from buyer message + gift message
+                let note = eOrder.message_from_buyer || ""
+                if (eOrder.gift_message) note += `\n(Hediye Notu: ${eOrder.gift_message})`
 
                 await db.order.create({
                     data: {
                         customer: eOrder.name || eOrder.recipient_name || "Misafir",
                         total: `${eOrder.grandtotal?.amount / eOrder.grandtotal?.divisor} ${eOrder.grandtotal?.currency_code}`,
-                        status: "Gelen Siparişler",
+                        status: "Gelen Siparişler", // Ensure this status exists or maps to Pending
                         date: new Date(eOrder.create_timestamp * 1000),
                         updatedAt: new Date(eOrder.update_timestamp * 1000),
                         barcode: barcode,
                         email: eOrder.buyer_email,
                         address: `${eOrder.first_line} ${eOrder.second_line || ''}`.trim(),
                         city: `${eOrder.city} / ${eOrder.state || ''} ${eOrder.zip}`,
-                        note: eOrder.message_from_buyer,
+                        note: note.trim(),
                         labels: JSON.stringify(['Etsy', 'Yeni']),
                         hasNotification: true,
                         paymentMethod: 'Etsy Payments',
@@ -700,6 +758,16 @@ export async function syncEtsyOrders() {
             console.error(`Etsy Sync Error (${store.name}):`, e)
             logs.push(`[${store.name}] Hata: ${e.message}`)
         }
+    }
+
+    // Save Updated Tokens if any changed
+    if (storesUpdated) {
+        await db.systemSetting.upsert({
+            where: { key: 'etsy_stores_json' },
+            update: { value: JSON.stringify(stores) },
+            create: { key: 'etsy_stores_json', value: JSON.stringify(stores) }
+        })
+        logs.push("Tokenlar güncellendi ve kaydedildi.")
     }
 
     revalidatePath("/")

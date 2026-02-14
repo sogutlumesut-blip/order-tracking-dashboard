@@ -18,19 +18,33 @@ interface EtsyStore {
 
 interface EtsyMultiStoreSettingsProps {
     initialStores: EtsyStore[]
+    initialGlobalKey: string
 }
 
-export function EtsyMultiStoreSettings({ initialStores }: EtsyMultiStoreSettingsProps) {
+export function EtsyMultiStoreSettings({ initialStores, initialGlobalKey }: EtsyMultiStoreSettingsProps) {
     // Ensure we always have an array
     const [stores, setStores] = useState<EtsyStore[]>(initialStores || [])
+    const [globalApiKey, setGlobalApiKey] = useState(initialGlobalKey || "")
     const [isSaving, setIsSaving] = useState(false)
+
+    // Load Global Key on mount if available (server should pass it, but for now we fetch or rely on props?
+    // Simplified: We need to fetch it separately or pass it.
+    // For this quick fix, let's assume it's passed or we fetch it.
+    // Actually, we should fetch it. But to save roundtrips, let's add a "Global Key" prop in the parent or fetch here.
+    // Let's use a server action to get it? Or just Input that saves to separate key.
+
+    // STARTUP FETCH
+    useEffect(() => {
+        // We can trigger a server action here if we had one.
+        // For now, let's just use the form submission to save it.
+    }, [])
 
     const addStore = () => {
         setStores([...stores, {
             id: crypto.randomUUID(),
-            name: `Mağaza ${stores.length + 1}`,
-            shopId: "",
-            apiKey: "",
+            name: `Yeni Mağaza`,
+            shopId: "", // Auto-filled
+            apiKey: "", // Uses Global
             accessToken: null,
             connected: false
         }])
@@ -56,6 +70,14 @@ export function EtsyMultiStoreSettings({ initialStores }: EtsyMultiStoreSettings
             const formData = new FormData()
             formData.append("etsy_stores_json", JSON.stringify(stores))
 
+            // We need to save the Global Key too.
+            // The existing action saveEtsySettings handles "etsy_stores_json".
+            // We need to patch the action or send it differently.
+            // Let's assume we update the action to handle "etsy_global_api_key".
+            if (globalApiKey) {
+                formData.append("etsy_global_api_key", globalApiKey)
+            }
+
             const result = await saveEtsySettings(formData)
             if (result.success) {
                 toast.success(result.message)
@@ -73,12 +95,26 @@ export function EtsyMultiStoreSettings({ initialStores }: EtsyMultiStoreSettings
         <div className="bg-white p-6 rounded-xl shadow-sm border border-orange-100">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-900">
                 <span className="bg-orange-600 text-white p-1 px-2 rounded text-sm">ETSY</span>
-                Etsy Entegrasyonu (Çoklu Mağaza)
+                Etsy Entegrasyonu <span className="text-xs font-normal text-gray-400">v2.0 (Auto-Connect)</span>
             </h2>
-            <p className="text-sm text-gray-600 mb-6">
-                Birden fazla Etsy mağazasını buradan yönetebilirsiniz.
-                <br />
-                <span className="text-orange-600 font-medium">Etsy Developers</span> portalından her mağaza için App oluşturup bilgileri giriniz.
+
+            <div className="bg-blue-50 p-4 rounded-lg mb-6 border border-blue-100">
+                <label className="block text-sm font-bold text-blue-900 mb-2">Etsy App Keystring (Global API Key)</label>
+                <div className="flex gap-2">
+                    <input
+                        value={globalApiKey}
+                        onChange={(e) => setGlobalApiKey(e.target.value)}
+                        placeholder="Örn: 1aa2bb3cc4dd..."
+                        className="flex-1 p-2 text-sm border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+                    />
+                    <div className="text-xs text-blue-600 self-center">
+                        Tüm mağazalar bu anahtarı kullanarak bağlanacaktır.
+                    </div>
+                </div>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-6 font-medium">
+                Bağlı Mağazalar
             </p>
 
             <div className="space-y-6">
@@ -93,80 +129,50 @@ export function EtsyMultiStoreSettings({ initialStores }: EtsyMultiStoreSettings
                             <Trash2 className="w-4 h-4" />
                         </button>
 
-                        <h3 className="text-sm font-bold text-orange-800 uppercase mb-4 flex items-center gap-2">
-                            <Globe className="w-4 h-4" />
-                            {store.name || `Mağaza ${index + 1}`}
-                        </h3>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Friendly Name */}
-                            <div className="col-span-2">
-                                <label className="block text-xs font-bold text-gray-500 mb-1">Mağaza Takma Adı</label>
-                                <input
-                                    value={store.name}
-                                    onChange={(e) => updateStore(index, 'name', e.target.value)}
-                                    placeholder="Örn: DuvarKağıdıMarketi"
-                                    className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
-                                />
+                        <div className="flex items-center gap-4">
+                            <div className={`p-3 rounded-full ${store.connected ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-500'}`}>
+                                <Globe className="w-6 h-6" />
                             </div>
 
-                            {/* Shop ID */}
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 mb-1">Etsy Shop ID</label>
-                                <input
-                                    value={store.shopId}
-                                    onChange={(e) => updateStore(index, 'shopId', e.target.value)}
-                                    placeholder="Örn: 12345678"
-                                    className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none font-mono"
-                                />
-                            </div>
-
-                            {/* API Key */}
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 mb-1">API Key (Keystring)</label>
-                                <input
-                                    value={store.apiKey}
-                                    onChange={(e) => updateStore(index, 'apiKey', e.target.value)}
-                                    type="password"
-                                    placeholder="x-api-key"
-                                    className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none font-mono"
-                                />
-                            </div>
-
-                            {/* Connection Status & Action */}
-                            <div className="col-span-2 mt-2 pt-4 border-t border-orange-100">
-                                <label className="block text-xs font-bold text-gray-500 mb-2">Bağlantı Durumu</label>
-
-                                {store.accessToken ? (
-                                    <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center text-green-600">
-                                            <Lock className="w-4 h-4" />
-                                        </div>
-                                        <div className="flex-1">
-                                            <p className="text-sm font-bold text-green-700">Bağlantı Aktif</p>
-                                            <p className="text-xs text-green-600">Token Alındı</p>
-                                        </div>
-                                        <Link
-                                            href={`/api/etsy/auth?storeIndex=${index}`}
-                                            className="px-3 py-1.5 text-xs bg-white border border-green-200 text-green-700 rounded-md hover:bg-green-50 flex items-center gap-1"
-                                        >
-                                            <RefreshCw className="w-3 h-3" /> Yenile
-                                        </Link>
-                                    </div>
+                            <div className="flex-1">
+                                {store.connected ? (
+                                    <>
+                                        <h3 className="text-lg font-bold text-gray-900">{store.name}</h3>
+                                        <p className="text-sm text-gray-500 font-mono">ID: {store.shopId}</p>
+                                    </>
                                 ) : (
-                                    <div className="flex items-center gap-3">
-                                        <Link
-                                            href={`/api/etsy/auth?storeIndex=${index}`}
-                                            className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-colors ${store.shopId && store.apiKey
-                                                    ? "bg-orange-600 text-white hover:bg-orange-700 shadow-sm"
-                                                    : "bg-gray-200 text-gray-400 cursor-not-allowed pointer-events-none"
-                                                }`}
-                                        >
-                                            <ExternalLink className="w-4 h-4" />
-                                            Etsy ile Bağla
-                                        </Link>
-                                        {!store.shopId && <span className="text-xs text-red-500">* Önce ID ve Key giriniz.</span>}
-                                    </div>
+                                    <>
+                                        <h3 className="text-md font-bold text-gray-500">Bağlantı Bekleniyor...</h3>
+                                        <p className="text-xs text-gray-400">"Bağla" butonuna basınca mağaza bilgileri otomatik çekilecektir.</p>
+                                    </>
+                                )}
+                            </div>
+
+                            <div>
+                                {store.connected ? (
+                                    <Link
+                                        href={`/api/etsy/auth?storeIndex=${index}`}
+                                        className="px-4 py-2 text-sm bg-white border border-green-200 text-green-700 rounded-lg hover:bg-green-50 flex items-center gap-2 font-bold"
+                                    >
+                                        <RefreshCw className="w-3 h-3" /> Yenile / Değiştir
+                                    </Link>
+                                ) : (
+                                    <Link
+                                        href={`/api/etsy/auth?storeIndex=${index}`}
+                                        className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-sm font-bold transition-colors ${globalApiKey || store.apiKey
+                                            ? "bg-orange-600 text-white hover:bg-orange-700 shadow-sm"
+                                            : "bg-gray-300 text-gray-500 cursor-not-allowed" // Encourage entering Global Key first
+                                            }`}
+                                        onClick={(e) => {
+                                            if (!globalApiKey && !store.apiKey) {
+                                                e.preventDefault();
+                                                toast.error("Önce yukarıya Global API Key giriniz ve kaydediniz.")
+                                            }
+                                        }}
+                                    >
+                                        <ExternalLink className="w-4 h-4" />
+                                        Etsy ile Bağla
+                                    </Link>
                                 )}
                             </div>
                         </div>
@@ -199,6 +205,11 @@ export function EtsyMultiStoreSettings({ initialStores }: EtsyMultiStoreSettings
                         {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                         Tüm Ayarları Kaydet
                     </button>
+                </div>
+
+                {/* ETSY LEGAL DISCLAIMER */}
+                <div className="mt-4 text-[10px] text-gray-400 text-center border-t border-orange-50 pt-2">
+                    The term 'Etsy' is a trademark of Etsy, Inc. This application uses the Etsy API but is not endorsed or certified by Etsy, Inc.
                 </div>
             </div>
         </div>

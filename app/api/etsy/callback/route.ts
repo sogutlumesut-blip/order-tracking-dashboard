@@ -97,8 +97,43 @@ export async function GET(req: Request) {
         if (storeIndex !== null && !isNaN(storeIndex) && stores[storeIndex]) {
             // Save to Multi-Store Array
             stores[storeIndex].accessToken = accessToken;
+            stores[storeIndex].refreshToken = refreshToken;
             stores[storeIndex].connected = true;
-            // We could save refreshToken too if we want to handle refresh logic later
+
+            // 6. AUTO-DISCOVERY: Fetch Shop Details
+            try {
+                // Fetch User's Shops
+                // Note: v3/application/users/{user_id}/shops might require 'shops_r' scope
+                const userId = (data as any).user_id?.split('.')[0];
+                if (userId) {
+                    stores[storeIndex].accountId = userId;
+
+                    const shopRes = await fetch(`https://openapi.etsy.com/v3/application/users/${userId}/shops`, {
+                        headers: {
+                            'x-api-key': clientId,
+                            'Authorization': `Bearer ${accessToken}`
+                        }
+                    });
+
+                    if (shopRes.ok) {
+                        const shopData = await shopRes.json();
+                        if (shopData.shop_id) {
+                            // Single shop returned? Or list? Etsy V3 usually returns the shop object directly for this endpoint
+                            stores[storeIndex].shopId = shopData.shop_id.toString();
+                            stores[storeIndex].name = shopData.shop_name || stores[storeIndex].name;
+                            stores[storeIndex].shopUrl = shopData.url;
+                        }
+                        // Sometimes it returns { count: 1, results: [...] } depending on endpoint version/docs
+                        else if (shopData.results && shopData.results.length > 0) {
+                            stores[storeIndex].shopId = shopData.results[0].shop_id.toString();
+                            stores[storeIndex].name = shopData.results[0].shop_name || stores[storeIndex].name;
+                            stores[storeIndex].shopUrl = shopData.results[0].url;
+                        }
+                    }
+                }
+            } catch (shopErr) {
+                console.error("Auto-Discovery Error:", shopErr);
+            }
 
             await db.systemSetting.upsert({
                 where: { key: 'etsy_stores_json' },
@@ -107,8 +142,9 @@ export async function GET(req: Request) {
             });
         } else {
             // Save to Legacy Keys
-            await db.systemSetting.upsert({ where: { key: 'etsy_access_token' }, update: { value: accessToken }, create: { key: 'etsy_access_token', value: accessToken } });
-            await db.systemSetting.upsert({ where: { key: 'etsy_refresh_token' }, update: { value: refreshToken }, create: { key: 'etsy_refresh_token', value: refreshToken } });
+            // await db.systemSetting.upsert({ where: { key: 'etsy_access_token' }, update: { value: accessToken }, create: { key: 'etsy_access_token', value: accessToken } });
+            // await db.systemSetting.upsert({ where: { key: 'etsy_refresh_token' }, update: { value: refreshToken }, create: { key: 'etsy_refresh_token', value: refreshToken } });
+            console.warn("Legacy Etsy Auth Flow triggered but ignored in favor of Multi-Store.");
         }
 
         revalidatePath("/admin/settings");
