@@ -1301,58 +1301,71 @@ export async function deleteCargoLabel(orderId: number) {
 
 export async function syncCargoKargoEntegrator() {
     const apiKey = process.env.KARGO_ENTEGRATOR_API_KEY || "OylOoz2vKllZtByiBAbl65NpdsnaNPVlpVTRzgNte8e42427";
+    let updatedCount = 0;
+
+    // API limits to 15 per page. We need to fetch multiple pages to cover recent 100 orders.
+    const MAX_PAGES = 7; // 7 * 15 = 105 items
 
     try {
-        const res = await fetch("https://app.kargoentegrator.com/api/shipments?per_page=100", {
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Accept': 'application/json'
-            },
-            cache: 'no-store'
-        });
+        for (let page = 1; page <= MAX_PAGES; page++) {
+            const res = await fetch(`https://app.kargoentegrator.com/api/shipments?per_page=100&page=${page}`, {
+                headers: {
+                    'Authorization': `Bearer ${apiKey}`,
+                    'Accept': 'application/json'
+                },
+                cache: 'no-store'
+            });
 
-        if (!res.ok) {
-            console.error("Cargo API Error:", res.status);
-            return { error: "Kargo API Hatası: " + res.status };
-        }
-
-        const json = await res.json();
-        const shipments = json.data || [];
-        let updatedCount = 0;
-
-        for (const ship of shipments) {
-            if (!ship.platform_id) continue;
-
-            const platformId = String(ship.platform_id);
-            const barcode = ship.barcode;
-            const trackingNum = ship.tracking_number;
-
-            // Construct Print URL (Corrected via User Feedback)
-            const printUrl = `https://app.kargoentegrator.com/print-pdf?shipments[0]=${ship.id}`;
-
-            if (!trackingNum && !barcode && !ship.status) continue;
-
-            // Try matching by Barcode (WC-123 or just 123)
-            let targetBarcode = `WC-${platformId}`;
-
-            // First try strict match by WC- prefix
-            let order = await db.order.findUnique({ where: { barcode: targetBarcode } });
-
-            // If not found, try raw ID
-            if (!order) {
-                order = await db.order.findUnique({ where: { barcode: platformId } });
+            if (!res.ok) {
+                console.error(`Cargo API Error (Page ${page}):`, res.status);
+                // If one page fails, maybe stop? Or continue? Let's stop to be safe.
+                if (page === 1) return { error: "Kargo API Hatası: " + res.status };
+                break;
             }
 
-            if (order) {
-                await db.order.update({
-                    where: { id: order.id },
-                    data: {
-                        cargoTrackingNumber: trackingNum || undefined,
-                        cargoBarcode: barcode || undefined,
-                        cargoLabelPdf: printUrl
+            const json = await res.json();
+            const shipments = json.data || [];
+
+            if (shipments.length === 0) break; // End of list
+
+            for (const ship of shipments) {
+                if (!ship.platform_id) continue;
+
+                const platformId = String(ship.platform_id);
+                const barcode = ship.barcode;
+                const trackingNum = ship.tracking_number;
+
+                // Construct Print URL (Corrected via User Feedback)
+                const printUrl = `https://app.kargoentegrator.com/print-pdf?shipments[0]=${ship.id}`;
+
+                if (!trackingNum && !barcode && !ship.status) continue;
+
+                // Try matching by Barcode (WC-123 or just 123)
+                let targetBarcode = `WC-${platformId}`;
+
+                // First try strict match by WC- prefix
+                let order = await db.order.findUnique({ where: { barcode: targetBarcode } });
+
+                // If not found, try raw ID
+                if (!order) {
+                    order = await db.order.findUnique({ where: { barcode: platformId } });
+                }
+
+                if (order) {
+                    // Only update if something is missing or changed
+                    // To avoid DB spam, check if we actually have new info
+                    if (order.cargoTrackingNumber !== trackingNum || order.cargoBarcode !== barcode || order.cargoLabelPdf !== printUrl) {
+                        await db.order.update({
+                            where: { id: order.id },
+                            data: {
+                                cargoTrackingNumber: trackingNum || undefined,
+                                cargoBarcode: barcode || undefined,
+                                cargoLabelPdf: printUrl
+                            }
+                        });
+                        updatedCount++;
                     }
-                });
-                updatedCount++;
+                }
             }
         }
 
