@@ -63,13 +63,15 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
             if (result.success) {
                 if (typeof result.count === 'number' && result.count > 0) {
-                    toast.success(result.message || "Toplu taşıma başarılı!")
+                    // Show the server message which now contains DEBUG info
+                    toast.success(result.message)
                     // Optimistic update
                     setOrders(prev => prev.map(o => selectedOrders.includes(o.id) ? { ...o, status: targetStatusId as any, updatedAt: new Date().toISOString() } : o))
                     setSelectedOrders([])
                     router.refresh()
                 } else {
-                    toast.warning("Hiçbir sipariş güncellenemedi. Muhtemelen zaten bu durumdalar.")
+                    // Even if 0 updates, show the debug message to know WHY
+                    toast.error(result.message || "Hiçbir sipariş güncellenemedi (Count: 0).")
                     router.refresh()
                 }
             } else {
@@ -826,7 +828,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     <div className="flex items-center gap-3 border-r border-gray-700 pr-6">
                         <span className="font-bold text-lg">{selectedOrders.length}</span>
                         <span className="text-sm text-gray-400">sipariş seçildi</span>
-                        <span className="text-[10px] bg-gray-800 text-gray-500 px-1 rounded">v1.2</span>
+                        <span className="text-[10px] bg-red-800 text-white px-1 rounded">v1.3-DEBUG</span>
                         <button
                             onClick={() => setSelectedOrders([])}
                             className="ml-2 text-xs hover:text-white text-gray-500 hover:underline"

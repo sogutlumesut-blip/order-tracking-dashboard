@@ -46,7 +46,10 @@ export async function bulkUpdateOrderStatus(orderIds: number[], status: string) 
         }
 
         revalidatePath("/")
-        return { success: true, count: result.count, message: `${result.count} sipariş güncellendi.` }
+
+        // LOUD DEBUG MESSAGE
+        const debugMsg = `DEBUG: Recv ${orderIds.length} IDs [${orderIds.slice(0, 3).join(',')}${orderIds.length > 3 ? '...' : ''}] -> '${status}'. DB Updated: ${result.count}`
+        return { success: true, count: result.count, message: debugMsg }
     } catch (e) {
         console.error("bulkUpdateOrderStatus ERROR:", e)
         return { success: false, error: "Toplu güncelleme hatası: " + (e as Error).message }
