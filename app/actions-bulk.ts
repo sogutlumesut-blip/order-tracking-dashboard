@@ -12,12 +12,13 @@ import { revalidatePath } from "next/cache"
 // But circular dependency might be an issue if actions.ts imports from here? No.
 
 export async function bulkUpdateOrderStatus(orderIds: number[], status: string) {
+    const start = Date.now()
     try {
-        console.log(`[BulkUpdate] attempt: ${orderIds.length} orders to '${status}'`)
+        console.log(`[Bulk-v1.4] Start: ${orderIds.length} -> ${status}`)
         const session = await getSession()
         const user = session ? session.user.name : "Sistem"
 
-        // Bulk update
+        // 1. Just Update - No Transactions, No Logging, No Side Effects
         const result = await db.order.updateMany({
             where: { id: { in: orderIds } },
             data: {
@@ -28,30 +29,20 @@ export async function bulkUpdateOrderStatus(orderIds: number[], status: string) 
             }
         })
 
-        console.log(`[BulkUpdate] result:`, result)
+        // 2. Skip Manual Logging for now (Isolate cause)
 
-        // Log activity manually to avoid import issues
-        // We use a regular loop, but we can do createMany if supported for activities?
-        // SQLite/Postgres support createMany. orderActivity probably supports it.
-        // Let's create activity records in bulk for performance
-        if (orderIds.length > 0) {
-            await db.orderActivity.createMany({
-                data: orderIds.map(id => ({
-                    orderId: id,
-                    author: user,
-                    action: "STATUS_CHANGE",
-                    details: `Toplu işlem ile durum '${status}' olarak değiştirildi.`
-                }))
-            })
-        }
+        // 3. Skip RevalidatePath (Let Client handle it via router.refresh())
+        // revalidatePath("/") 
 
-        revalidatePath("/")
+        const end = Date.now()
+        const duration = end - start
 
-        // LOUD DEBUG MESSAGE
-        const debugMsg = `DEBUG: Recv ${orderIds.length} IDs [${orderIds.slice(0, 3).join(',')}${orderIds.length > 3 ? '...' : ''}] -> '${status}'. DB Updated: ${result.count}`
+        const debugMsg = `v1.4-LITE: ${result.count} Updated in ${duration}ms`
+        console.log(debugMsg)
+
         return { success: true, count: result.count, message: debugMsg }
     } catch (e) {
         console.error("bulkUpdateOrderStatus ERROR:", e)
-        return { success: false, error: "Toplu güncelleme hatası: " + (e as Error).message }
+        return { success: false, error: "ERR: " + (e as Error).message }
     }
 }

@@ -58,19 +58,27 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         if (selectedOrders.length === 0) return
         setIsBulkProcessing(true)
         toast.info(`${selectedOrders.length} sipariş taşınıyor...`)
+
         try {
-            const result = await bulkUpdateOrderStatus(selectedOrders, targetStatusId)
+            // Create a timeout promise (10 seconds)
+            const timeoutPromise = new Promise<{ success: boolean, error?: string }>((_, reject) => {
+                setTimeout(() => reject(new Error("Zaman aşımı (Timeout). Sunucu 10 sn içinde cevap vermedi.")), 10000)
+            })
+
+            // Race the server action against the timeout
+            const result = await Promise.race([
+                bulkUpdateOrderStatus(selectedOrders, targetStatusId),
+                timeoutPromise
+            ]) as any // cast because race return type inference can be tricky
 
             if (result.success) {
                 if (typeof result.count === 'number' && result.count > 0) {
-                    // Show the server message which now contains DEBUG info
                     toast.success(result.message)
                     // Optimistic update
                     setOrders(prev => prev.map(o => selectedOrders.includes(o.id) ? { ...o, status: targetStatusId as any, updatedAt: new Date().toISOString() } : o))
                     setSelectedOrders([])
                     router.refresh()
                 } else {
-                    // Even if 0 updates, show the debug message to know WHY
                     toast.error(result.message || "Hiçbir sipariş güncellenemedi (Count: 0).")
                     router.refresh()
                 }
@@ -79,7 +87,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             }
         } catch (e) {
             console.error(e)
-            toast.error("Beklenmedik bir hata oluştu.")
+            toast.error("HATA: " + (e as Error).message)
         } finally {
             setIsBulkProcessing(false)
         }
@@ -827,8 +835,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-gray-900 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-6 animate-in slide-in-from-bottom-4 border border-gray-700">
                     <div className="flex items-center gap-3 border-r border-gray-700 pr-6">
                         <span className="font-bold text-lg">{selectedOrders.length}</span>
-                        <span className="text-sm text-gray-400">sipariş seçildi</span>
-                        <span className="text-[10px] bg-red-800 text-white px-1 rounded">v1.3-DEBUG</span>
+                        <span className="text-[10px] bg-blue-600 text-white px-1 rounded">v1.4-LITE</span>
                         <button
                             onClick={() => setSelectedOrders([])}
                             className="ml-2 text-xs hover:text-white text-gray-500 hover:underline"
