@@ -10,14 +10,29 @@ export default async function Dashboard() {
   const session = await getSession()
   if (!session) redirect("/login")
 
-  const orders = await getOrders()
-  let statuses = await getStatuses()
-  const labels = await getLabels()
+  let orders: any[] = []
+  let statuses: any[] = []
+  let labels: any[] = []
+  let dbError = null
+
+  try {
+    orders = await getOrders()
+    statuses = await getStatuses()
+    labels = await getLabels()
+  } catch (e) {
+    console.error("Dashboard Data Fetch Error:", e)
+    dbError = "Veritabanı bağlantısı kurulamadı. Lütfen 5-10 dakika sonra tekrar deneyiniz."
+    // Provide fallback statuses so UI doesn't crash completely
+    statuses = [
+      { id: "pending", title: "Bekliyor", color: "bg-gray-100", order: 0 },
+      { id: "error", title: "Sistem Hatası", color: "bg-red-100", order: 1 }
+    ]
+  }
 
   // PERMISSION CHECK: Filter statuses if user has restrictions
   let userPermissions: string[] = []
 
-  if (session.user.role !== 'admin') {
+  if (session.user.role !== 'admin' && !dbError) {
     try {
       const user = await db.user.findUnique({
         where: { id: session.user.id },
@@ -29,12 +44,6 @@ export default async function Dashboard() {
 
         // Filter Statuses (ignore MANUAL_SYNC flag for column filtering)
         if (Array.isArray(userPermissions) && userPermissions.length > 0) {
-          // We only filter columns if there are actual column IDs. 
-          // If the array only contains "MANUAL_SYNC", we shouldn't hide all columns.
-          // However, the logic in UserPermissionsForm implies checking boxes adds them.
-          // If 'MANUAL_SYNC' is the only thing checked, then 'statuses.filter' might return empty if not handled.
-          // Actually, standard IDs are like 'pending', 'wc-pending'. 'MANUAL_SYNC' is distinct.
-
           const visibleStatusIds = userPermissions.filter(id => id !== "MANUAL_SYNC")
           if (visibleStatusIds.length > 0) {
             statuses = statuses.filter(s => visibleStatusIds.includes(s.id))
@@ -46,14 +55,15 @@ export default async function Dashboard() {
     }
   }
 
-  // Transform DB orders for UI
-  // No transformation needed anymore, getOrders returns ready UI data
-  // Transform DB orders for UI
-  // No transformation needed anymore, getOrders returns ready UI data
   const formattedOrders = orders || []
 
   return (
     <div className="h-[100dvh] bg-gray-50 flex flex-col overflow-hidden">
+      {dbError && (
+        <div className="bg-red-600 text-white px-4 py-2 text-center font-bold animate-pulse">
+          🚨 {dbError} (Bakım Modu)
+        </div>
+      )}
       <main className="flex-1 overflow-hidden">
         <KanbanBoard
           initialOrders={formattedOrders}
