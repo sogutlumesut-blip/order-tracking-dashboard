@@ -317,7 +317,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 return hasChanges ? mergedOrders : currentOrders
             })
 
-        }, 5000)
+        }, 4000)
         return () => clearInterval(interval)
     }, [activeId])
 
@@ -420,6 +420,36 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     // Lock mechanic to prevent polling overwrite
     const interactionLocks = useRef<Record<string, number>>({})
 
+    const handlePrintCargoLabel = (order: Order) => {
+        if (order.cargoLabelPdf) {
+            const pdfData = order.cargoLabelPdf as string;
+            // Check if it's already a blob URL or external URL
+            if (pdfData.startsWith('http') || pdfData.startsWith('blob:')) {
+                window.open(pdfData, '_blank');
+            } else {
+                // Assume Base64
+                // Best effort base64 decode
+                try {
+                    const byteCharacters = atob(pdfData);
+                    const byteNumbers = new Array(byteCharacters.length);
+                    for (let i = 0; i < byteCharacters.length; i++) {
+                        byteNumbers[i] = byteCharacters.charCodeAt(i);
+                    }
+                    const byteArray = new Uint8Array(byteNumbers);
+                    const blob = new Blob([byteArray], { type: 'application/pdf' });
+                    const url = URL.createObjectURL(blob);
+                    window.open(url, '_blank');
+                } catch (e) {
+                    console.error("PDF Decode Error", e)
+                    window.open(pdfData, '_blank');
+                }
+            }
+            toast.success("Kargo etiketi açılıyor...")
+        } else {
+            toast.warning("Kargo etiketi henüz oluşturulmamış.")
+        }
+    }
+
     const handleBarcodeScan = async (code: string) => {
         const cleanCode = code.trim()
         const targetOrder = orders.find(o =>
@@ -482,14 +512,19 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 } else {
                     // Fallback: If no intermediate states, go to Shipped? 
                     // Or warn user?
-                    // User said "hazır/paketlendi" kısmına geçsin.
                     toast.warning("Hazır/Paketlendi sütunu bulunamadı. Lütfen Ayarlar'dan bu sütunu ekleyin.")
-                    return
+                    // allow print
+                }
+
+                // AUTO-PRINT PDF LOGIC
+                if (targetOrder.cargoLabelPdf) {
+                    handlePrintCargoLabel(targetOrder);
+                    successMessage += " (Etiket Açılıyor...)";
                 }
 
                 // Prevent moving backward or re-scanning same status
                 if (targetOrder.status === nextStatus) {
-                    toast.info(`Sipariş #${targetOrder.id} zaten bu aşamada: ${successMessage}`)
+                    if (!targetOrder.cargoLabelPdf) toast.info(`Sipariş #${targetOrder.id} zaten bu aşamada: ${successMessage}`)
                     return
                 }
                 if (targetOrder.status === 'shipped' || targetOrder.status === 'completed') {
