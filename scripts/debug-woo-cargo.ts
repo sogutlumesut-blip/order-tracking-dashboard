@@ -16,18 +16,25 @@ async function checkWooMeta() {
 
     const response = await fetch(urlWithAuth, {
         headers: {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        },
+            "User-Agent": "Mozilla/5.0 (Debugging Script)"
+        }
     });
 
-    if (!response.ok) {
-        console.error("Failed to fetch orders:", response.status, response.statusText);
-        const text = await response.text();
-        console.error("Response body:", text.substring(0, 500));
+    console.log(`Response Status: ${response.status}`);
+
+    let orders: any[] = [];
+
+    if (response.ok) {
+        orders = await response.json();
+        console.log(`Fetched ${orders.length} orders.`);
+        orders.forEach((o: any) => {
+            console.log(`ID: ${o.id}, Number: ${o.number}, Status: ${o.status}, Customer: ${o.billing.first_name} ${o.billing.last_name}`);
+        });
+    } else {
+        console.log("Error:", await response.text());
         return;
     }
 
-    const orders = await response.json();
     console.log(`Fetched ${orders.length} orders. Inspecting metadata...`);
 
     for (const order of orders) {

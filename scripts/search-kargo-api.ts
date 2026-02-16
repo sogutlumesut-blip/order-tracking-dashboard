@@ -8,10 +8,10 @@ async function searchShipment() {
     console.log("Attempting direct search for 107019...");
 
     const endpoints = [
-        `https://app.kargoentegrator.com/api/shipments?search=107019`,
-        `https://app.kargoentegrator.com/api/shipments?q=107019`,
-        `https://app.kargoentegrator.com/api/shipments?barcode=107019`,
-        `https://app.kargoentegrator.com/api/shipments?platform_id=107019`
+        `https://app.kargoentegrator.com/api/shipments?search=107013`,
+        `https://app.kargoentegrator.com/api/shipments?q=107013`,
+        `https://app.kargoentegrator.com/api/shipments?barcode=107013`,
+        `https://app.kargoentegrator.com/api/shipments?platform_id=107013`
     ];
 
     for (const url of endpoints) {

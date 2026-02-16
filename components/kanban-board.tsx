@@ -3,7 +3,7 @@
 import { Order, OrderStatus, Comment } from "../data/mock-orders"
 import { OrderCard } from "./order-card"
 import { useState, useEffect, useRef, useMemo } from "react"
-import { ChevronDown, ChevronUp, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck } from "lucide-react"
+import { ChevronDown, ChevronUp, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck, Lock, Unlock } from "lucide-react"
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDraggable, useDroppable, closestCorners } from "@dnd-kit/core"
 import { BarcodeScanner } from "./barcode-scanner"
 import { OrderDetailPanel } from "./order-detail-panel"
@@ -104,16 +104,20 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         setOrders(initialOrders)
     }, [initialOrders])
 
-    // Mobile Drag Lock Logic
-    const [isDragDisabled, setIsDragDisabled] = useState(false)
+    // Mobile Drag Lock Logic & Desktop Manual Lock
+    const [isMobile, setIsMobile] = useState(false)
+    const [isDragLocked, setIsDragLocked] = useState(true) // Default Locked as requested
+
     useEffect(() => {
         const checkMobile = () => {
-            setIsDragDisabled(window.innerWidth < 768)
+            setIsMobile(window.innerWidth < 768)
         }
         checkMobile()
         window.addEventListener('resize', checkMobile)
         return () => window.removeEventListener('resize', checkMobile)
     }, [])
+
+    const isDragDisabled = isMobile || isDragLocked
 
     // Use useRef for Audio to avoid hydration mismatch (Audio is not defined on server)
     const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -233,7 +237,9 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     if (!localOrder ||
                         localOrder.status !== serverOrder.status ||
                         localOrder.updatedAt !== serverOrder.updatedAt ||
-                        JSON.stringify(localOrder.labels) !== JSON.stringify(serverOrder.labels)) {
+                        JSON.stringify(localOrder.labels) !== JSON.stringify(serverOrder.labels) ||
+                        localOrder.cargoLabelPdf !== serverOrder.cargoLabelPdf ||
+                        localOrder.trackingNumber !== serverOrder.trackingNumber) {
                         hasChanges = true
                     }
 
@@ -545,6 +551,18 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 </button>
                             </form>
                         )}
+
+                        {/* Drag Lock Toggle */}
+                        <button
+                            onClick={() => {
+                                setIsDragLocked(!isDragLocked)
+                                toast.info(isDragLocked ? "Sürükleme kilidi açıldı" : "Sürükleme kilitlendi")
+                            }}
+                            className={`p-2 rounded-full transition-colors ${isDragLocked ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}
+                            title={isDragLocked ? "Sürükleme Kilitli (Açmak için tıkla)" : "Sürükleme Açık (Kilitlemek için tıkla)"}
+                        >
+                            {isDragLocked ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
+                        </button>
 
 
                         <form action={async () => {
