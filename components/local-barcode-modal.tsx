@@ -26,7 +26,7 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
         }
     })
 
-    if (!isOpen || !order || !order.cargoBarcode) return null
+    if (!isOpen || !order) return null
 
     return (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
