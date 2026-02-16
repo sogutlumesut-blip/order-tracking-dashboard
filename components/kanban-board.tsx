@@ -421,7 +421,16 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     const interactionLocks = useRef<Record<string, number>>({})
 
     const handleBarcodeScan = async (code: string) => {
-        const targetOrder = orders.find(o => o.barcode === code || o.id.toString() === code || o.trackingNumber === code)
+        const cleanCode = code.trim()
+        const targetOrder = orders.find(o =>
+            o.barcode === cleanCode ||
+            o.id.toString() === cleanCode ||
+            o.trackingNumber === cleanCode ||
+            o.cargoBarcode === cleanCode ||
+            o.cargoTrackingNumber === cleanCode ||
+            // Fallback: Check if cargo tracking number contains the code (useful if scanner drops check digits)
+            (o.cargoTrackingNumber && o.cargoTrackingNumber.includes(cleanCode))
+        )
 
         if (targetOrder) {
             let nextStatus = 'shipped'
@@ -468,20 +477,22 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             // Optimistic Update
             setOrders(prev => prev.map(o => o.id === targetOrder.id ? { ...o, status: nextStatus as OrderStatus } : o))
 
+            // Play sound immediately for feedback
+            if (audioRef.current) {
+                audioRef.current.play().catch(() => { })
+            }
+
             try {
                 await updateOrderStatus(targetOrder.id, nextStatus)
                 toast.success(successMessage)
-                // Play sound
-                if (audioRef.current) {
-                    audioRef.current.play().catch(() => { })
-                }
             } catch (e) {
                 toast.error("Durum güncellenemedi")
                 // Revert
                 setOrders(orders)
             }
         } else {
-            toast.error(`Barkod bulunamadı: ${code}`)
+            toast.error(`Barkod bulunamadı: ${cleanCode}`)
+            console.log("Scanned Code not found:", cleanCode)
         }
     }
 
