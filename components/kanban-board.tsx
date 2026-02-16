@@ -114,29 +114,36 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
     useEffect(() => {
         if (showCamera) {
+            let scanner: any = null;
             // Wait for DOM to be ready
-            const timer = setTimeout(() => {
-                const scanner = new Html5QrcodeScanner(
-                    "reader",
-                    { fps: 10, qrbox: { width: 250, height: 250 } },
-                    /* verbose= */ false
-                );
+            const timer = setTimeout(async () => {
+                try {
+                    const { Html5QrcodeScanner } = await import("html5-qrcode")
+                    scanner = new Html5QrcodeScanner(
+                        "reader",
+                        { fps: 10, qrbox: { width: 250, height: 250 } },
+                        /* verbose= */ false
+                    );
 
-                scanner.render((decodedText) => {
-                    // Success callback
-                    handleBarcodeScan(decodedText)
-                    scanner.clear()
-                    setShowCamera(false)
-                }, (error) => {
-                    // Error callback (ignore frequent errors while scanning)
-                });
-
-                // Cleanup function to clear scanner when component unmounts or modal closes
-                return () => {
-                    try { scanner.clear() } catch (e) { }
+                    scanner.render((decodedText: string) => {
+                        // Success callback
+                        handleBarcodeScan(decodedText)
+                        scanner.clear()
+                        setShowCamera(false)
+                    }, (error: any) => {
+                        // Error callback (ignore frequent errors while scanning)
+                    });
+                } catch (e) {
+                    console.error("Scanner failed to load", e)
                 }
             }, 100)
-            return () => clearTimeout(timer)
+
+            return () => {
+                clearTimeout(timer)
+                if (scanner) {
+                    try { scanner.clear() } catch (e) { }
+                }
+            }
         }
     }, [showCamera])
 
