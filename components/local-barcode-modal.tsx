@@ -3,6 +3,7 @@
 
 import { X, Printer } from "lucide-react"
 import Barcode from "react-barcode"
+import QRCode from "react-qr-code"
 import { useRef } from "react"
 import { useReactToPrint } from "react-to-print"
 
@@ -61,15 +62,29 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                             <p className="text-sm mt-1">{order.phone}</p>
                         </div>
 
-                        {/* Bottom: Barcode */}
+                        {/* Bottom: Barcode & QR Code */}
                         <div className="mt-auto w-full flex flex-col items-center justify-end pt-4 border-t-2 border-black">
-                            <Barcode
-                                value={order.cargoBarcode}
-                                width={2}
-                                height={80}
-                                fontSize={16}
-                            />
-                            <p className="text-xs font-mono mt-2">{order.cargoTrackingNumber ? `Takip No: ${order.cargoTrackingNumber}` : ''}</p>
+                            <div className="flex items-end justify-center gap-4 w-full">
+                                <div className="flex flex-col items-center">
+                                    <Barcode
+                                        value={order.cargoBarcode || order.barcode || order.id.toString()}
+                                        width={1.5}
+                                        height={50}
+                                        fontSize={12}
+                                    />
+                                </div>
+                                <div className="flex flex-col items-center mb-1">
+                                    <QRCode
+                                        value={order.cargoBarcode || order.barcode || order.id.toString()}
+                                        size={64}
+                                        style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                                        viewBox={`0 0 256 256`}
+                                    />
+                                </div>
+                            </div>
+                            <p className="text-xs font-mono mt-2 text-center">
+                                {order.cargoTrackingNumber ? `Takip No: ${order.cargoTrackingNumber}` : `ID: ${order.id}`}
+                            </p>
                         </div>
                     </div>
                 </div>
