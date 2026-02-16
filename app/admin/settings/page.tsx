@@ -299,7 +299,6 @@ export default async function SettingsPage() {
                     </form>
                 </div>
             </div>
-        </div >
-        </div >
+        </div>
     )
 }
