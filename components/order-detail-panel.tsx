@@ -265,13 +265,22 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                             </div>
 
                             {/* Cargo Label Button */}
-                            <div className="print:hidden">
+                            <div className="print:hidden space-y-4">
+                                {/* ALWAYS VISIBLE: Manual Barcode/Label Button */}
+                                <button
+                                    onClick={() => setIsBarcodeModalOpen(true)}
+                                    className="w-full py-3 border-2 border-gray-800 bg-gray-50 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-800 hover:text-white transition-all text-gray-800 font-bold"
+                                >
+                                    <Printer className="w-5 h-5" />
+                                    Barkod / Etiket Oluştur (Manuel)
+                                </button>
+
                                 {formData.cargoBarcode && !formData.cargoLabelPdf && (
                                     <div className="mb-4">
                                         <div className="text-center text-xs text-gray-400 mb-2">
                                             Kargo etiketi otomatik çekilemedi.
                                         </div>
-                                        <div className="grid grid-cols-2 gap-2">
+                                        <div className="grid grid-cols-1 gap-2">
                                             <button
                                                 onClick={() => window.open(`https://duvarkagidimarketi.com/wp-admin/post.php?post=${formData.id}&action=edit`, '_blank')}
                                                 className="py-3 border-2 border-gray-300 bg-gray-50 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-gray-100 hover:border-gray-400 transition-all text-gray-600 font-bold text-xs"
@@ -279,16 +288,6 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                 <ExternalLink className="w-5 h-5" />
                                                 WooCommerce'da Aç
                                             </button>
-                                            <button
-                                                onClick={() => setIsBarcodeModalOpen(true)}
-                                                className="py-3 border-2 border-gray-800 bg-gray-50 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-gray-800 hover:text-white transition-all text-gray-800 font-bold text-xs"
-                                            >
-                                                <Printer className="w-5 h-5" />
-                                                Barkod Oluştur
-                                            </button>
-                                        </div>
-                                        <div className="text-center text-[10px] text-gray-400 mt-1">
-                                            (Etiketi WP panelinden yazdırabilirsiniz)
                                         </div>
                                     </div>
                                 )}
