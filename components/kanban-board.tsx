@@ -114,11 +114,12 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
     useEffect(() => {
         if (showCamera) {
-            let scanner: any = null;
+            let html5QrCode: any = null;
+
             // Wait for DOM to be ready
             const timer = setTimeout(async () => {
                 try {
-                    const { Html5QrcodeScanner, Html5QrcodeSupportedFormats } = await import("html5-qrcode")
+                    const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode")
                     const formats = [
                         Html5QrcodeSupportedFormats.QR_CODE,
                         Html5QrcodeSupportedFormats.CODE_128,
@@ -130,40 +131,56 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         Html5QrcodeSupportedFormats.CODABAR
                     ]
 
-                    scanner = new Html5QrcodeScanner(
-                        "reader",
-                        {
-                            fps: 10,
-                            qrbox: { width: 250, height: 250 },
-                            formatsToSupport: formats,
-                            experimentalFeatures: {
-                                useBarCodeDetectorIfSupported: true
-                            }
+                    // Use the verbose=false constructor
+                    html5QrCode = new Html5Qrcode("reader", /* verbose= */ false);
+
+                    const config = {
+                        fps: 10,
+                        qrbox: { width: 250, height: 250 },
+                        aspectRatio: 1.0,
+                        formatsToSupport: formats
+                    };
+
+                    await html5QrCode.start(
+                        { facingMode: "environment" },
+                        config,
+                        (decodedText: string) => {
+                            // Success
+                            handleBarcodeScan(decodedText)
+                            html5QrCode.stop().then(() => {
+                                html5QrCode.clear()
+                                setShowCamera(false)
+                            }).catch((err: any) => {
+                                console.error("Failed to stop scanner", err)
+                                setShowCamera(false)
+                            })
                         },
-                        /* verbose= */ false
+                        (errorMessage: any) => {
+                            // parse error, ignore it.
+                        }
                     );
 
-                    scanner.render((decodedText: string) => {
-                        // Success callback
-                        handleBarcodeScan(decodedText)
-                        scanner.clear()
-                        setShowCamera(false)
-                    }, (error: any) => {
-                        // Error callback (ignore frequent errors while scanning)
-                    });
                 } catch (e) {
-                    console.error("Scanner failed to load", e)
+                    console.error("Scanner failed to start", e)
+                    toast.error("Kamera başlatılamadı. İzinleri kontrol edin.")
                 }
             }, 100)
 
             return () => {
                 clearTimeout(timer)
-                if (scanner) {
-                    try { scanner.clear() } catch (e) { }
+                if (html5QrCode) {
+                    if (html5QrCode.isScanning) {
+                        html5QrCode.stop().then(() => {
+                            html5QrCode.clear()
+                        }).catch((e: any) => console.error("Stop failed", e))
+                    } else {
+                        html5QrCode.clear()
+                    }
                 }
             }
         }
     }, [showCamera])
+
 
     // Use useRef for Audio to avoid hydration mismatch (Audio is not defined on server)
     const audioRef = useRef<HTMLAudioElement | null>(null)
