@@ -286,6 +286,8 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         return () => clearInterval(interval)
     }, [activeId])
 
+    const isDragDisabled = isMobile || isDragLocked
+
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: { distance: 8 },
