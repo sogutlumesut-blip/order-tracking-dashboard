@@ -436,40 +436,66 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             let nextStatus = 'shipped'
             let successMessage = `Sipariş #${targetOrder.id} Kargolandı!`
 
-            // SMART LOGIC:
-            // 1. If currently "Baskıda" -> Move to "Hazır/Paketlendi"
-            if (['baski', 'printing', 'processing'].includes(targetOrder.status)) {
-                // Find "Hazır" or "Paketlendi" column dynamically
+            // 1. Identify Logic Type
+            let isCargoScan = false
+
+            // Determine if strict cargo scan
+            if (targetOrder.cargoBarcode === cleanCode || targetOrder.cargoTrackingNumber === cleanCode || (targetOrder.cargoTrackingNumber && targetOrder.cargoTrackingNumber.includes(cleanCode))) {
+                isCargoScan = true
+            } else if (targetOrder.trackingNumber === cleanCode) {
+                isCargoScan = true // Manually entered tracking number
+            } else if (cleanCode.length > 20 || (cleanCode.length > 7 && !cleanCode.startsWith("WC-"))) {
+                // Heuristic: Long codes are likely cargo
+                isCargoScan = true
+            }
+
+            if (isCargoScan) {
+                // CARGO SCAN -> SHIPPED
+                if (targetOrder.status !== 'shipped' && targetOrder.status !== 'completed') {
+                    nextStatus = 'shipped'
+                    successMessage = `Sipariş #${targetOrder.id} Kargolandı! (Kargo Ekranı)`
+                } else if (targetOrder.status === 'shipped') {
+                    toast.info(`Sipariş #${targetOrder.id} zaten kargolanmış.`)
+                    return
+                }
+            } else {
+                // INTERNAL SCAN (WC-*, ID) -> READY / PACKED / PRINTED
+
+                // Find "Ready", "Packed" or "Printed" column
+                // Priority: Ready/Packed > Printed > Processing
                 const readyCol = cols.find(c =>
-                    c.title.toLowerCase().includes("hazır") ||
                     c.title.toLowerCase().includes("paket") ||
+                    c.title.toLowerCase().includes("hazır") ||
                     c.id === 'ready' ||
                     c.id === 'packed'
                 )
 
+                const printedCol = cols.find(c => c.id === 'printed' || c.title.toLowerCase().includes("basıl"))
+
+                // Logic: Move to the state BEFORE shipping
                 if (readyCol) {
                     nextStatus = readyCol.id
-                    successMessage = `Sipariş #${targetOrder.id} Paketlendi (${readyCol.title})!`
+                    successMessage = `Sipariş #${targetOrder.id} Hazırlandı/Paketlendi!`
+                } else if (printedCol) {
+                    nextStatus = printedCol.id
+                    successMessage = `Sipariş #${targetOrder.id} Basıldı/Hazırlandı.`
                 } else {
-                    // Fallback if no "Ready" column exists? 
-                    // Use 'shipped' or stay? 
-                    // If user doesn't have that column, maybe it's better to just go to shipped?
-                    // User said: "hazır/paketlendi" kısmına geçsin.
-                    toast.warning("Hazır/Paketlendi sütunu bulunamadı, direkt kargolandı.")
-                    nextStatus = 'shipped'
+                    // Fallback: If no intermediate states, go to Shipped? 
+                    // Or warn user?
+                    // User said "hazır/paketlendi" kısmına geçsin.
+                    toast.warning("Hazır/Paketlendi sütunu bulunamadı. Lütfen Ayarlar'dan bu sütunu ekleyin.")
+                    return
                 }
 
-                // If already ready, move to shipped
-            } else if (['ready', 'packed'].includes(targetOrder.status) ||
-                // Check if current status title contains "hazır" or "paket"
-                cols.find(c => c.id === targetOrder.status)?.title.toLowerCase().includes('hazır') ||
-                cols.find(c => c.id === targetOrder.status)?.title.toLowerCase().includes('paket')
-            ) {
-                nextStatus = 'shipped'
-                successMessage = `Sipariş #${targetOrder.id} Kargolandı!`
-            } else if (targetOrder.status === 'shipped') {
-                toast.info(`Sipariş #${targetOrder.id} zaten kargolanmış.`)
-                return
+                // Prevent moving backward or re-scanning same status
+                if (targetOrder.status === nextStatus) {
+                    toast.info(`Sipariş #${targetOrder.id} zaten bu aşamada: ${successMessage}`)
+                    return
+                }
+                if (targetOrder.status === 'shipped' || targetOrder.status === 'completed') {
+                    toast.info(`Sipariş #${targetOrder.id} zaten tamamlanmış/kargolanmış.`)
+                    return
+                }
             }
 
             interactionLocks.current[targetOrder.id] = Date.now()
