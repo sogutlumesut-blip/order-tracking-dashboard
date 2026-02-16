@@ -118,10 +118,28 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             // Wait for DOM to be ready
             const timer = setTimeout(async () => {
                 try {
-                    const { Html5QrcodeScanner } = await import("html5-qrcode")
+                    const { Html5QrcodeScanner, Html5QrcodeSupportedFormats } = await import("html5-qrcode")
+                    const formats = [
+                        Html5QrcodeSupportedFormats.QR_CODE,
+                        Html5QrcodeSupportedFormats.CODE_128,
+                        Html5QrcodeSupportedFormats.CODE_39,
+                        Html5QrcodeSupportedFormats.EAN_13,
+                        Html5QrcodeSupportedFormats.EAN_8,
+                        Html5QrcodeSupportedFormats.UPC_A,
+                        Html5QrcodeSupportedFormats.UPC_E,
+                        Html5QrcodeSupportedFormats.CODABAR
+                    ]
+
                     scanner = new Html5QrcodeScanner(
                         "reader",
-                        { fps: 10, qrbox: { width: 250, height: 250 } },
+                        {
+                            fps: 10,
+                            qrbox: { width: 250, height: 250 },
+                            formatsToSupport: formats,
+                            experimentalFeatures: {
+                                useBarCodeDetectorIfSupported: true
+                            }
+                        },
                         /* verbose= */ false
                     );
 
