@@ -3,7 +3,8 @@
 import { Order, OrderStatus, Comment } from "../data/mock-orders"
 import { OrderCard } from "./order-card"
 import { useState, useEffect, useRef, useMemo } from "react"
-import { ChevronDown, ChevronUp, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck, Lock, Unlock } from "lucide-react"
+import { ChevronDown, ChevronUp, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck, Lock, Unlock, ScanBarcode } from "lucide-react"
+import { Html5QrcodeScanner } from "html5-qrcode"
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDraggable, useDroppable, closestCorners } from "@dnd-kit/core"
 import { BarcodeScanner } from "./barcode-scanner"
 import { OrderDetailPanel } from "./order-detail-panel"
@@ -108,16 +109,36 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     const [isMobile, setIsMobile] = useState(false)
     const [isDragLocked, setIsDragLocked] = useState(true) // Default Locked as requested
 
-    useEffect(() => {
-        const checkMobile = () => {
-            setIsMobile(window.innerWidth < 768)
-        }
-        checkMobile()
-        window.addEventListener('resize', checkMobile)
-        return () => window.removeEventListener('resize', checkMobile)
-    }, [])
+    // CAMERA SCANNER LOGIC
+    const [showCamera, setShowCamera] = useState(false)
 
-    const isDragDisabled = isMobile || isDragLocked
+    useEffect(() => {
+        if (showCamera) {
+            // Wait for DOM to be ready
+            const timer = setTimeout(() => {
+                const scanner = new Html5QrcodeScanner(
+                    "reader",
+                    { fps: 10, qrbox: { width: 250, height: 250 } },
+                    /* verbose= */ false
+                );
+
+                scanner.render((decodedText) => {
+                    // Success callback
+                    handleBarcodeScan(decodedText)
+                    scanner.clear()
+                    setShowCamera(false)
+                }, (error) => {
+                    // Error callback (ignore frequent errors while scanning)
+                });
+
+                // Cleanup function to clear scanner when component unmounts or modal closes
+                return () => {
+                    try { scanner.clear() } catch (e) { }
+                }
+            }, 100)
+            return () => clearTimeout(timer)
+        }
+    }, [showCamera])
 
     // Use useRef for Audio to avoid hydration mismatch (Audio is not defined on server)
     const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -356,14 +377,65 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     const interactionLocks = useRef<Record<string, number>>({})
 
     const handleBarcodeScan = async (code: string) => {
-        const targetOrder = orders.find(o => o.barcode === code || o.id.toString() === code)
+        const targetOrder = orders.find(o => o.barcode === code || o.id.toString() === code || o.trackingNumber === code)
+
         if (targetOrder) {
+            let nextStatus = 'shipped'
+            let successMessage = `Sipariş #${targetOrder.id} Kargolandı!`
+
+            // SMART LOGIC:
+            // 1. If currently "Baskıda" -> Move to "Hazır/Paketlendi"
+            if (['baski', 'printing', 'processing'].includes(targetOrder.status)) {
+                // Find "Hazır" or "Paketlendi" column dynamically
+                const readyCol = cols.find(c =>
+                    c.title.toLowerCase().includes("hazır") ||
+                    c.title.toLowerCase().includes("paket") ||
+                    c.id === 'ready' ||
+                    c.id === 'packed'
+                )
+
+                if (readyCol) {
+                    nextStatus = readyCol.id
+                    successMessage = `Sipariş #${targetOrder.id} Paketlendi (${readyCol.title})!`
+                } else {
+                    // Fallback if no "Ready" column exists? 
+                    // Use 'shipped' or stay? 
+                    // If user doesn't have that column, maybe it's better to just go to shipped?
+                    // User said: "hazır/paketlendi" kısmına geçsin.
+                    toast.warning("Hazır/Paketlendi sütunu bulunamadı, direkt kargolandı.")
+                    nextStatus = 'shipped'
+                }
+
+                // If already ready, move to shipped
+            } else if (['ready', 'packed'].includes(targetOrder.status) ||
+                // Check if current status title contains "hazır" or "paket"
+                cols.find(c => c.id === targetOrder.status)?.title.toLowerCase().includes('hazır') ||
+                cols.find(c => c.id === targetOrder.status)?.title.toLowerCase().includes('paket')
+            ) {
+                nextStatus = 'shipped'
+                successMessage = `Sipariş #${targetOrder.id} Kargolandı!`
+            } else if (targetOrder.status === 'shipped') {
+                toast.info(`Sipariş #${targetOrder.id} zaten kargolanmış.`)
+                return
+            }
+
             interactionLocks.current[targetOrder.id] = Date.now()
-            setOrders(prev => prev.map(o => o.id === targetOrder.id ? { ...o, status: 'shipped' } : o))
+
+            // Optimistic Update
+            setOrders(prev => prev.map(o => o.id === targetOrder.id ? { ...o, status: nextStatus as OrderStatus } : o))
+
             try {
-                await updateOrderStatus(targetOrder.id, 'shipped')
-                toast.success(`Sipariş #${targetOrder.id} Kargolandı!`)
-            } catch (e) { toast.error("Hata oluştu") }
+                await updateOrderStatus(targetOrder.id, nextStatus)
+                toast.success(successMessage)
+                // Play sound
+                if (audioRef.current) {
+                    audioRef.current.play().catch(() => { })
+                }
+            } catch (e) {
+                toast.error("Durum güncellenemedi")
+                // Revert
+                setOrders(orders)
+            }
         } else {
             toast.error(`Barkod bulunamadı: ${code}`)
         }
@@ -564,6 +636,14 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                             {isDragLocked ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
                         </button>
 
+                        {/* CAMERA SCANNER TRIGGER (Mobile/Desktop) */}
+                        <button
+                            onClick={() => setShowCamera(true)}
+                            className="p-2 bg-gray-900 text-white rounded-full hover:bg-gray-800 transition-colors shadow-sm"
+                            title="Kamera ile Barkod Tara"
+                        >
+                            <ScanBarcode className="w-5 h-5" />
+                        </button>
 
                         <form action={async () => {
                             await logoutAction()
@@ -576,6 +656,14 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
                     {/* Mobile Menu Trigger */}
                     <div className="md:hidden flex items-center gap-2">
+                        {/* Mobile Camera Trigger */}
+                        <button
+                            onClick={() => setShowCamera(true)}
+                            className="p-2 bg-gray-900 text-white rounded-full hover:bg-gray-800 transition-colors shadow-sm mr-1"
+                        >
+                            <ScanBarcode className="w-5 h-5" />
+                        </button>
+
                         <button
                             onClick={() => setIsManualOrderOpen(true)}
                             className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
@@ -589,6 +677,26 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         </button>
                     </div>
                 </header>
+
+                {/* CAMERA SCANNER MODAL */}
+                {showCamera && (
+                    <div className="fixed inset-0 z-[60] bg-black/90 flex flex-col items-center justify-center p-4">
+                        <div className="bg-white rounded-xl w-full max-w-md overflow-hidden relative">
+                            <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+                                <h3 className="font-bold text-lg">Barkod Okut</h3>
+                                <button onClick={() => setShowCamera(false)} className="p-2 hover:bg-gray-200 rounded-full">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="p-4">
+                                <div id="reader" className="w-full"></div>
+                                <p className="text-center text-xs text-gray-500 mt-4">
+                                    Kamerayı barkoda veya QR koda tutun.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Mobile Menu Dropdown */}
                 {mobileMenuOpen && (

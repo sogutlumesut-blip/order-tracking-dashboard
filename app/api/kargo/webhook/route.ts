@@ -38,6 +38,13 @@ export async function POST(req: Request) {
             if (trackingNumber) updateData.cargoTrackingNumber = trackingNumber
             if (barcode) updateData.cargoBarcode = barcode
 
+            // AUTOMATION: If Kargo sends a signal, it means it's shipped/processed
+            // Update status to 'shipped' if not already completed/cancelled
+            if (['pending', 'processing', 'baski', 'printing', 'ready', 'packed'].includes(order.status)) {
+                updateData.status = 'shipped'
+                updateData.updatedAt = new Date() // Force refresh
+            }
+
             // Generate print URL (Standardizing on what we think works or will work)
             // If the user confirms a different URL, we will update this logic.
             // For now, let's stick to the pattern we are trying to fix:
@@ -56,7 +63,7 @@ export async function POST(req: Request) {
                     orderId: order.id,
                     author: 'Kargo Entegrator',
                     action: 'WEBHOOK',
-                    details: `Kargo durumu güncellendi: ${status || 'Bilinmiyor'}. Takip No: ${trackingNumber || '-'}`
+                    details: `Kargo durumu güncellendi: ${status || 'Yola Çıktı'} -> Sipariş Kargolandı.`
                 }
             })
 

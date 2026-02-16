@@ -12,6 +12,7 @@ import { StatusList } from "@/components/settings/status-list"
 
 import { WooSettingsForm } from "@/components/settings/woo-settings-form"
 import { EtsyMultiStoreSettings } from "@/components/settings/etsy-multi-store-settings"
+import { CronTrigger } from "@/components/settings/cron-trigger"
 
 export const dynamic = 'force-dynamic'
 
@@ -204,52 +205,101 @@ export default async function SettingsPage() {
                     </div>
 
                     {/* LABEL MANAGEMENT */}
-                    <div className="bg-white p-6 rounded-xl shadow-sm border">
-                        <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-900">
-                            <span className="bg-purple-100 text-purple-800 p-1 px-2 rounded text-sm font-bold">2</span>
-                            Sipariş Etiketleri
-                        </h2>
-                        <div className="flex flex-wrap gap-2 mb-6">
-                            {labels.map((label) => {
-                                const colors = getColorClasses(label.color)
-                                return (
-                                    <div key={label.id} className={`group flex items-center gap-2 px-3 py-1 rounded-full border ${colors.bg} ${colors.text} ${colors.border}`}>
-                                        <span className="text-sm font-bold uppercase text-[10px]">{label.name}</span>
-                                        <form action={async () => {
-                                            "use server"
-                                            await deleteLabel(label.id)
-                                        }}>
-                                            <button className="text-gray-400 hover:text-red-500 opacity-50 hover:opacity-100 transition-opacity">
-                                                <Trash2 className="w-3 h-3" />
-                                            </button>
-                                        </form>
-                                    </div>
-                                )
-                            })}
+                    <div className="space-y-8">
+                        <div className="bg-white p-6 rounded-xl shadow-sm border">
+                            <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-900">
+                                <span className="bg-purple-100 text-purple-800 p-1 px-2 rounded text-sm font-bold">2</span>
+                                Sipariş Etiketleri
+                            </h2>
+                            {/* ... (labels content) ... */}
+                            <div className="flex flex-wrap gap-2 mb-6">
+                                {labels.map((label) => {
+                                    const colors = getColorClasses(label.color)
+                                    return (
+                                        <div key={label.id} className={`group flex items-center gap-2 px-3 py-1 rounded-full border ${colors.bg} ${colors.text} ${colors.border}`}>
+                                            <span className="text-sm font-bold uppercase text-[10px]">{label.name}</span>
+                                            <form action={async () => {
+                                                "use server"
+                                                await deleteLabel(label.id)
+                                            }}>
+                                                <button className="text-gray-400 hover:text-red-500 opacity-50 hover:opacity-100 transition-opacity">
+                                                    <Trash2 className="w-3 h-3" />
+                                                </button>
+                                            </form>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+
+                            <form action={createLabel} className="p-4 bg-gray-50 rounded-lg border border-dashed">
+                                <h3 className="text-sm font-bold mb-3 text-gray-900">Yeni Etiket Ekle</h3>
+                                <div className="space-y-3">
+                                    <input name="name" placeholder="Etiket İsmi (Örn: VIP)" className="w-full text-sm p-2 border rounded text-gray-900 placeholder:text-gray-400 font-medium" required />
+                                    <select name="color" className="w-full text-sm p-2 border rounded text-gray-900 font-medium">
+                                        <option value="gray">Gri</option>
+                                        <option value="blue">Mavi</option>
+                                        <option value="green">Yeşil</option>
+                                        <option value="red">Kırmızı</option>
+                                        <option value="orange">Turuncu</option>
+                                        <option value="purple">Mor</option>
+                                        <option value="pink">Pembe</option>
+                                        <option value="black">Siyah</option>
+                                    </select>
+                                    <button className="w-full bg-black text-white p-2 rounded text-sm font-medium hover:bg-gray-800 flex items-center justify-center gap-2">
+                                        <Plus className="w-4 h-4" /> Ekle
+                                    </button>
+                                </div>
+                            </form>
                         </div>
 
-                        <form action={createLabel} className="p-4 bg-gray-50 rounded-lg border border-dashed">
-                            <h3 className="text-sm font-bold mb-3 text-gray-900">Yeni Etiket Ekle</h3>
-                            <div className="space-y-3">
-                                <input name="name" placeholder="Etiket İsmi (Örn: VIP)" className="w-full text-sm p-2 border rounded text-gray-900 placeholder:text-gray-400 font-medium" required />
-                                <select name="color" className="w-full text-sm p-2 border rounded text-gray-900 font-medium">
-                                    <option value="gray">Gri</option>
-                                    <option value="blue">Mavi</option>
-                                    <option value="green">Yeşil</option>
-                                    <option value="red">Kırmızı</option>
-                                    <option value="orange">Turuncu</option>
-                                    <option value="purple">Mor</option>
-                                    <option value="pink">Pembe</option>
-                                    <option value="black">Siyah</option>
-                                </select>
-                                <button className="w-full bg-black text-white p-2 rounded text-sm font-medium hover:bg-gray-800 flex items-center justify-center gap-2">
-                                    <Plus className="w-4 h-4" /> Ekle
-                                </button>
-                            </div>
-                        </form>
+                        {/* CRON TRIGGER */}
+                        <CronTrigger />
                     </div>
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-900">
+                        <span className="bg-purple-100 text-purple-800 p-1 px-2 rounded text-sm font-bold">2</span>
+                        Sipariş Etiketleri
+                    </h2>
+                    <div className="flex flex-wrap gap-2 mb-6">
+                        {labels.map((label) => {
+                            const colors = getColorClasses(label.color)
+                            return (
+                                <div key={label.id} className={`group flex items-center gap-2 px-3 py-1 rounded-full border ${colors.bg} ${colors.text} ${colors.border}`}>
+                                    <span className="text-sm font-bold uppercase text-[10px]">{label.name}</span>
+                                    <form action={async () => {
+                                        "use server"
+                                        await deleteLabel(label.id)
+                                    }}>
+                                        <button className="text-gray-400 hover:text-red-500 opacity-50 hover:opacity-100 transition-opacity">
+                                            <Trash2 className="w-3 h-3" />
+                                        </button>
+                                    </form>
+                                </div>
+                            )
+                        })}
+                    </div>
+
+                    <form action={createLabel} className="p-4 bg-gray-50 rounded-lg border border-dashed">
+                        <h3 className="text-sm font-bold mb-3 text-gray-900">Yeni Etiket Ekle</h3>
+                        <div className="space-y-3">
+                            <input name="name" placeholder="Etiket İsmi (Örn: VIP)" className="w-full text-sm p-2 border rounded text-gray-900 placeholder:text-gray-400 font-medium" required />
+                            <select name="color" className="w-full text-sm p-2 border rounded text-gray-900 font-medium">
+                                <option value="gray">Gri</option>
+                                <option value="blue">Mavi</option>
+                                <option value="green">Yeşil</option>
+                                <option value="red">Kırmızı</option>
+                                <option value="orange">Turuncu</option>
+                                <option value="purple">Mor</option>
+                                <option value="pink">Pembe</option>
+                                <option value="black">Siyah</option>
+                            </select>
+                            <button className="w-full bg-black text-white p-2 rounded text-sm font-medium hover:bg-gray-800 flex items-center justify-center gap-2">
+                                <Plus className="w-4 h-4" /> Ekle
+                            </button>
+                        </div>
+                    </form>
                 </div>
-            </div >
+            </div>
+        </div >
         </div >
     )
 }
