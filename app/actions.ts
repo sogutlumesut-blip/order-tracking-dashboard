@@ -51,7 +51,7 @@ export async function logoutAction() {
 
 
 
-export async function getOrders() {
+export async function getOrders(timestamp?: number) {
     noStore(); // Disable Cache
     const session = await getSession()
     if (!session) return []
@@ -76,9 +76,7 @@ export async function getOrders() {
     } catch (e) {
         console.error("Failed to fetch user permissions:", e)
     }
-    // const isAdmin removed from here
 
-    // Condition: If admin, see all. If allowedStatuses is set, filter. Else see all (default).
     // Condition: If admin, see all. If allowedStatuses is set, filter. Else see all (default).
     const where: any = {}
     if (!isAdmin && allowedStatuses && Array.isArray(allowedStatuses)) {

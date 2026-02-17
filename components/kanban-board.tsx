@@ -27,7 +27,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     const [orders, setOrders] = useState<Order[]>(initialOrders)
     const [collapsedIds, setCollapsedIds] = useState<string[]>([])
     const [searchTerm, setSearchTerm] = useState("")
-    const [isSyncing, setIsSyncing] = useState(false)
+
     const router = useRouter()
 
     useEffect(() => {
@@ -43,8 +43,10 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
     const [isPanelOpen, setIsPanelOpen] = useState(false)
     const [isManualOrderOpen, setIsManualOrderOpen] = useState(false)
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+    const [isSyncing, setIsSyncing] = useState(false)
     const [lastSynced, setLastSynced] = useState<Date | null>(null)
+    const [currentTime, setCurrentTime] = useState(Date.now()) // Force re-render for timer
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
     // BULK SELECTION STATE
     const [selectedOrders, setSelectedOrders] = useState<number[]>([])
@@ -206,6 +208,12 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     const previousOrderIds = useRef<Set<number>>(new Set(initialOrders.map(o => o.id)))
     const lastKargoSyncRef = useRef<number>(Date.now())
 
+    // Timer for UI
+    useEffect(() => {
+        const timer = setInterval(() => setCurrentTime(Date.now()), 1000)
+        return () => clearInterval(timer)
+    }, [])
+
     // Unified Polling & Sync Logic is handled in the next useEffect
     // Removed naive checkSync useEffect to prevent state clobbering
 
@@ -251,76 +259,80 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             }
 
 
-            const latestOrders = await getOrders()
-            const currentOrders = ordersRef.current
+            try {
+                const latestOrders = await getOrders(Date.now()) // Cache Busting with Timestamp
+                setLastSynced(new Date()) // Update time immediately on success
+                const currentOrders = ordersRef.current
 
-            // ... rest of polling logic ...
-            // Sound Logic: Check for NEW IDs
-            const latestIds = new Set<number>(latestOrders.map((o: Order) => o.id))
-            const prevIds = previousOrderIds.current
+                // ... rest of polling logic ...
+                // Sound Logic: Check for NEW IDs
+                const latestIds = new Set<number>(latestOrders.map((o: Order) => o.id))
+                const prevIds = previousOrderIds.current
 
-            // Find IDs that are in latest but NOT in previous (New arrivals)
-            const newArrivals = latestOrders.filter((o: Order) => !prevIds.has(o.id))
+                // Find IDs that are in latest but NOT in previous (New arrivals)
+                const newArrivals = latestOrders.filter((o: Order) => !prevIds.has(o.id))
 
-            if (newArrivals.length > 0) {
-                console.log("New Orders Detected:", newArrivals.map((o: Order) => o.id))
+                if (newArrivals.length > 0) {
+                    console.log("New Orders Detected:", newArrivals.map((o: Order) => o.id))
 
-                if (audioRef.current) {
-                    audioRef.current.play()
-                        .then(() => toast.success(`${newArrivals.length} yeni sipariş geldi! 🔔`))
-                        .catch((e) => {
-                            console.log("Audio play failed (Autoplay detection):", e)
-                            toast.info("Yeni sipariş var! (Sesi açmak için sayfaya tıklayın)")
-                        })
+                    if (audioRef.current) {
+                        audioRef.current.play()
+                            .then(() => toast.success(`${newArrivals.length} yeni sipariş geldi! 🔔`))
+                            .catch((e) => {
+                                console.log("Audio play failed (Autoplay detection):", e)
+                                toast.info("Yeni sipariş var! (Sesi açmak için sayfaya tıklayın)")
+                            })
+                    }
                 }
-            }
 
-            // Update previous IDs for next poll
-            previousOrderIds.current = latestIds
+                // Update previous IDs for next poll
+                previousOrderIds.current = latestIds
 
-            // Sync Logic
-            setOrders(currentOrders => {
-                let hasChanges = false
+                // Sync Logic
+                setOrders(currentOrders => {
+                    let hasChanges = false
 
-                // Update Last Synced UI
-                setLastSynced(new Date())
+                    // setLastSynced removed from here
 
-                const mergedOrders = latestOrders.map((serverOrder: any) => {
-                    const localOrder = currentOrders.find(o => o.id === serverOrder.id)
+                    const mergedOrders = latestOrders.map((serverOrder: any) => {
+                        const localOrder = currentOrders.find(o => o.id === serverOrder.id)
 
-                    // 1. STATUS PRIORITY CHECK (Crucial for Desktop Sync)
-                    // If status changed on server, we accept it regardless of timestamp.
-                    if (localOrder && localOrder.status !== serverOrder.status) {
+                        // 1. STATUS PRIORITY CHECK (Crucial for Desktop Sync)
+                        // If status changed on server, we accept it regardless of timestamp.
+                        if (localOrder && localOrder.status !== serverOrder.status) {
+                            hasChanges = true
+                            return serverOrder
+                        }
+
+                        // 2. Timestamp Check (For non-status fields)
+                        // If local is strictly newer, keep local. Otherwise trust server (including equal).
+                        if (localOrder && new Date(localOrder.updatedAt).getTime() > new Date(serverOrder.updatedAt).getTime()) {
+                            return localOrder
+                        }
+
+                        // Check if this specific order changed from what we have
+                        if (!localOrder ||
+                            localOrder.status !== serverOrder.status ||
+                            localOrder.updatedAt !== serverOrder.updatedAt ||
+                            JSON.stringify(localOrder.labels) !== JSON.stringify(serverOrder.labels) ||
+                            localOrder.cargoLabelPdf !== serverOrder.cargoLabelPdf ||
+                            localOrder.trackingNumber !== serverOrder.trackingNumber) {
+                            hasChanges = true
+                        }
+
+                        return serverOrder as Order
+                    })
+
+                    // Also check if any orders were deleted (existed in current but not in latest)
+                    if (currentOrders.length !== latestOrders.length) {
                         hasChanges = true
-                        return serverOrder
                     }
 
-                    // 2. Timestamp Check (For non-status fields)
-                    if (localOrder && new Date(localOrder.updatedAt).getTime() > new Date(serverOrder.updatedAt).getTime()) {
-                        return localOrder
-                    }
-
-                    // Check if this specific order changed from what we have
-                    if (!localOrder ||
-                        localOrder.status !== serverOrder.status ||
-                        localOrder.updatedAt !== serverOrder.updatedAt ||
-                        JSON.stringify(localOrder.labels) !== JSON.stringify(serverOrder.labels) ||
-                        localOrder.cargoLabelPdf !== serverOrder.cargoLabelPdf ||
-                        localOrder.trackingNumber !== serverOrder.trackingNumber) {
-                        hasChanges = true
-                    }
-
-                    return serverOrder as Order
+                    return hasChanges ? mergedOrders : currentOrders
                 })
-
-                // Also check if any orders were deleted (existed in current but not in latest)
-                if (currentOrders.length !== latestOrders.length) {
-                    hasChanges = true
-                }
-
-                return hasChanges ? mergedOrders : currentOrders
-            })
-
+            } catch (error) {
+                console.error("Polling Error:", error)
+            }
         }, 4000)
         return () => clearInterval(interval)
     }, [activeId])
@@ -447,27 +459,56 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     url = URL.createObjectURL(blob);
                 } catch (e) {
                     console.error("PDF Decode Error", e)
-                    url = pdfData; // Fallback to raw string if decode fails (might be a link)
+                    url = pdfData;
                 }
             }
 
-            // Mobile Handling: Pop-ups are often blocked. 
-            // We TRY to open, but if it fails (returns null) or we are on mobile, we also show a Toast with a button.
-            const newWindow = window.open(url, '_blank');
+            // DIRECT PRINT IMPLEMENTATION (Mobile Friendly)
+            // 1. Try invisible Iframe (Best for "Direct" feel)
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = url;
+            document.body.appendChild(iframe);
 
-            if (!newWindow || typeof window.orientation !== 'undefined') {
-                // Blocked or Mobile
-                toast("Kargo Etiketi Hazır", {
-                    description: "Otomatik açılmadıysa tıklayın.",
-                    action: {
-                        label: "ETİKETİ AÇ",
-                        onClick: () => window.open(url, '_blank')
-                    },
-                    duration: 10000, // Stay longer
-                })
-            } else {
-                toast.success("Kargo etiketi açılıyor...")
+            iframe.onload = () => {
+                try {
+                    iframe.contentWindow?.print();
+                    toast.success("Yazdırma penceresi açıldı.");
+                } catch (e) {
+                    console.error("Iframe print failed", e);
+                    fallbackPrint(url);
+                } finally {
+                    // Cleanup after a delay
+                    setTimeout(() => document.body.removeChild(iframe), 60000);
+                }
+            };
+
+            // Fallback function if iframe hangs or fails
+            const fallbackPrint = (pdfUrl: string) => {
+                const newWindow = window.open(pdfUrl, '_blank');
+                if (!newWindow || typeof window.orientation !== 'undefined') {
+                    toast("Yazdırma Penceresi Engellendi", {
+                        description: "Lütfen manuel olarak 'YAZDIR' butonuna basın.",
+                        action: {
+                            label: "YAZDIR",
+                            onClick: () => window.open(pdfUrl, '_blank')
+                        },
+                        duration: 10000,
+                    });
+                }
             }
+
+            // Safety timeout for iframe
+            setTimeout(() => {
+                if (document.body.contains(iframe)) {
+                    // If it's been 3 seconds and likely nothing happened (mobile often ignores iframe print)
+                    // Trigger fallback strictly on mobile, or just let it be.
+                    // A better UX: trigger fallback if user interaction starts again?
+                    // For now, let's trust the onload.
+                }
+            }, 3000)
+
+            toast.success("Yazdırılıyor...")
         } else {
             toast.warning("Kargo etiketi henüz oluşturulmamış.")
         }
@@ -632,7 +673,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     console.log("---------------------")
                 }
                 // Refresh local state immediately
-                const latest = await getOrders()
+                const latest = await getOrders(Date.now())
                 setOrders(latest as any)
             } else {
                 toast.error(result.error)
@@ -663,7 +704,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         >
             <div className="flex flex-col h-full">
                 {/* Header moved from page.tsx */}
-                <header className="bg-white border-b h-16 flex items-center justify-between px-4 md:px-6 shrink-0 z-20 relative">
+                <header className="bg-red-600 text-white border-b h-16 flex items-center justify-between px-4 md:px-6 shrink-0 z-20 relative">
                     <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
                         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shrink-0">
                             OMS
@@ -675,7 +716,8 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     <div className="hidden md:flex items-center gap-4">
                         <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
                             <Clock className="w-3 h-3" />
-                            <span>Son: {lastSynced ? lastSynced.toLocaleTimeString() : '...'}</span>
+                            <span>Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}</span>
+                            <span className="ml-1 text-[10px] text-blue-600 font-bold bg-blue-50 px-1 rounded">v1.2 Live</span>
                         </div>
 
                         {/* Sound Toggle */}
@@ -1163,7 +1205,6 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-gray-900 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-6 animate-in slide-in-from-bottom-4 border border-gray-700">
                     <div className="flex items-center gap-3 border-r border-gray-700 pr-6">
                         <span className="font-bold text-lg">{selectedOrders.length}</span>
-                        <span className="text-[10px] bg-blue-600 text-white px-1 rounded">v1.4-LITE</span>
                         <button
                             onClick={() => setSelectedOrders([])}
                             className="ml-2 text-xs hover:text-white text-gray-500 hover:underline"
@@ -1172,9 +1213,15 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         </button>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                        <span className="text-sm text-gray-400">Taşı:</span>
-                        <div className="flex gap-2">
+                    <div className="flex items-center gap-4">
+                        <div className="flex flex-col items-end mr-2">
+                            <span className="text-xs text-slate-500 font-medium">
+                                Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}
+                            </span>
+                            <span className="text-[10px] text-slate-400">v1.2 Live</span>
+                        </div>
+
+                        <div className="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm p-1">
                             {cols.map(col => (
                                 <button
                                     key={col.id}
