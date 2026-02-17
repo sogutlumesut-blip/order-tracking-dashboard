@@ -423,12 +423,13 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     const handlePrintCargoLabel = (order: Order) => {
         if (order.cargoLabelPdf) {
             const pdfData = order.cargoLabelPdf as string;
+            let url = '';
+
             // Check if it's already a blob URL or external URL
             if (pdfData.startsWith('http') || pdfData.startsWith('blob:')) {
-                window.open(pdfData, '_blank');
+                url = pdfData;
             } else {
                 // Assume Base64
-                // Best effort base64 decode
                 try {
                     const byteCharacters = atob(pdfData);
                     const byteNumbers = new Array(byteCharacters.length);
@@ -437,14 +438,30 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     }
                     const byteArray = new Uint8Array(byteNumbers);
                     const blob = new Blob([byteArray], { type: 'application/pdf' });
-                    const url = URL.createObjectURL(blob);
-                    window.open(url, '_blank');
+                    url = URL.createObjectURL(blob);
                 } catch (e) {
                     console.error("PDF Decode Error", e)
-                    window.open(pdfData, '_blank');
+                    url = pdfData; // Fallback to raw string if decode fails (might be a link)
                 }
             }
-            toast.success("Kargo etiketi açılıyor...")
+
+            // Mobile Handling: Pop-ups are often blocked. 
+            // We TRY to open, but if it fails (returns null) or we are on mobile, we also show a Toast with a button.
+            const newWindow = window.open(url, '_blank');
+
+            if (!newWindow || typeof window.orientation !== 'undefined') {
+                // Blocked or Mobile
+                toast("Kargo Etiketi Hazır", {
+                    description: "Otomatik açılmadıysa tıklayın.",
+                    action: {
+                        label: "ETİKETİ AÇ",
+                        onClick: () => window.open(url, '_blank')
+                    },
+                    duration: 10000, // Stay longer
+                })
+            } else {
+                toast.success("Kargo etiketi açılıyor...")
+            }
         } else {
             toast.warning("Kargo etiketi henüz oluşturulmamış.")
         }
@@ -535,8 +552,14 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
             interactionLocks.current[targetOrder.id] = Date.now()
 
-            // Optimistic Update
-            setOrders(prev => prev.map(o => o.id === targetOrder.id ? { ...o, status: nextStatus as OrderStatus } : o))
+            // Optimistic Update: Also update 'assignedTo' to 'Siz' (or current user name if we had it, but 'Siz' is clear)
+            // The server will overwrite with actual name, but this gives immediate feedback.
+            setOrders(prev => prev.map(o => o.id === targetOrder.id ? {
+                ...o,
+                status: nextStatus as OrderStatus,
+                assignedTo: "Siz (Kayıt Ediliyor...)", // Temporary feedback
+                updatedAt: new Date().toISOString() // Force timestamp update for local checks
+            } : o))
 
             // Play sound immediately for feedback
             if (audioRef.current) {
