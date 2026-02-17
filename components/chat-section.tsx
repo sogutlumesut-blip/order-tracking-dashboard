@@ -45,9 +45,9 @@ export function ChatSection({ comments = [], onAddComment, currentUser }: ChatSe
     }
 
     return (
-        <div className="flex flex-col h-[400px] border dark:border-neutral-700 rounded-xl overflow-hidden bg-gray-50/50 dark:bg-neutral-900/50">
+        <div className="flex flex-col h-[400px] border dark:border-slate-700 rounded-xl overflow-hidden bg-gray-50/50 dark:bg-slate-900/50">
             {/* Header */}
-            <div className="p-3 border-b dark:border-neutral-700 bg-white dark:bg-neutral-800 flex items-center justify-between text-xs">
+            <div className="p-3 border-b dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-between text-xs">
                 <span className="font-semibold text-gray-500 dark:text-gray-400">Yazışma Geçmişi</span>
                 {/* No user selector anymore, automated */}
                 <span className="text-blue-600 dark:text-blue-400 font-medium">{currentUser.name} olarak yazıyorsunuz</span>
@@ -72,7 +72,7 @@ export function ChatSection({ comments = [], onAddComment, currentUser }: ChatSe
 
                             <div className={`max-w-[85%] p-3 rounded-2xl text-sm ${isMe
                                 ? 'bg-blue-600 text-white rounded-tr-sm'
-                                : 'bg-white dark:bg-neutral-800 border dark:border-neutral-700 rounded-tl-sm shadow-sm text-gray-900 dark:text-neutral-100 font-medium'
+                                : 'bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-tl-sm shadow-sm text-gray-900 dark:text-slate-100 font-medium'
                                 }`}>
                                 {comment.message && <p>{comment.message}</p>}
 
@@ -96,7 +96,7 @@ export function ChatSection({ comments = [], onAddComment, currentUser }: ChatSe
             </div>
 
             {/* Input Area */}
-            <div className="p-3 bg-white dark:bg-neutral-800 border-t dark:border-neutral-700 space-y-2">
+            <div className="p-3 bg-white dark:bg-slate-800 border-t dark:border-slate-700 space-y-2">
                 {attachment && (
                     <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 p-2 rounded-lg text-sm w-fit">
                         {attachment.type === 'image' ? <ImageIcon className="w-4 h-4" /> : <FileIcon className="w-4 h-4" />}
@@ -108,7 +108,7 @@ export function ChatSection({ comments = [], onAddComment, currentUser }: ChatSe
                 <div className="flex gap-2">
                     <button
                         onClick={() => fileInputRef.current?.click()}
-                        className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-neutral-700 rounded-full transition-colors"
+                        className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full transition-colors"
                     >
                         <Paperclip className="w-5 h-5" />
                     </button>
@@ -122,7 +122,7 @@ export function ChatSection({ comments = [], onAddComment, currentUser }: ChatSe
 
                     <input
                         type="text"
-                        className="flex-1 bg-gray-50 dark:bg-neutral-700 border-none rounded-full px-4 text-sm focus:ring-1 focus:ring-blue-500 outline-none text-gray-900 dark:text-neutral-100 font-medium placeholder:text-gray-500 dark:placeholder:text-neutral-400"
+                        className="flex-1 bg-gray-50 dark:bg-slate-700 border-none rounded-full px-4 text-sm focus:ring-1 focus:ring-blue-500 outline-none text-gray-900 dark:text-slate-100 font-medium placeholder:text-gray-500 dark:placeholder:text-slate-400"
                         placeholder="Mesaj yazın..."
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
@@ -133,7 +133,7 @@ export function ChatSection({ comments = [], onAddComment, currentUser }: ChatSe
                         onClick={handleSend}
                         className={`p-2 rounded-full transition-colors ${message.trim() || attachment
                             ? 'bg-blue-600 text-white hover:bg-blue-700'
-                            : 'bg-gray-100 dark:bg-neutral-700 text-gray-400 dark:text-neutral-500 cursor-not-allowed'
+                            : 'bg-gray-100 dark:bg-slate-700 text-gray-400 dark:text-slate-500 cursor-not-allowed'
                             }`}
                         disabled={!message.trim() && !attachment}
                     >

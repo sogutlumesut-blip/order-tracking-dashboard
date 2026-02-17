@@ -715,18 +715,18 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         >
             <div className="flex flex-col h-full">
                 {/* Header moved from page.tsx */}
-                <header className="bg-white dark:bg-neutral-900 border-b dark:border-neutral-800 h-16 flex items-center justify-between px-4 md:px-6 shrink-0 z-20 relative transition-colors">
+                <header className="bg-white dark:bg-slate-900 border-b dark:border-slate-800 h-16 flex items-center justify-between px-4 md:px-6 shrink-0 z-20 relative transition-colors">
                     <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
                         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shrink-0">
                             OMS
                         </div>
-                        <h1 className="font-bold text-sm md:text-lg text-gray-800 dark:text-neutral-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-gray-400 font-normal">v2.3 (Sütunlar: {cols.length})</span></h1>
+                        <h1 className="font-bold text-sm md:text-lg text-gray-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-gray-400 font-normal">v2.3 (Sütunlar: {cols.length})</span></h1>
                     </div>
 
                     {/* Desktop Menu */}
                     <div className="hidden md:flex items-center gap-4">
                         <ThemeToggle />
-                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-neutral-400 bg-gray-50 dark:bg-neutral-800 px-3 py-1.5 rounded-full border border-gray-100 dark:border-neutral-700">
+                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400 bg-gray-50 dark:bg-slate-800 px-3 py-1.5 rounded-full border border-gray-100 dark:border-slate-700">
                             <Clock className="w-3 h-3" />
                             <span>Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}</span>
                             <span className="ml-1 text-[10px] text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-900/30 px-1 rounded">v1.2 Live</span>
@@ -987,7 +987,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 )}
                 {/* Search Toolbar */}
                 {/* Search Toolbar */}
-                <div className="px-6 py-4 bg-white dark:bg-neutral-900 border-b dark:border-neutral-800 flex items-center justify-between shrink-0 gap-4 transition-colors">
+                <div className="px-6 py-4 bg-white dark:bg-slate-900 border-b dark:border-slate-800 flex items-center justify-between shrink-0 gap-4 transition-colors">
                     <div className="relative w-full max-w-md">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <Search className="h-5 w-5 text-gray-400" />
@@ -995,7 +995,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         <input
                             type="text"
                             placeholder="Sipariş ara (Müşteri, No, Tel, Barkod)..."
-                            className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-neutral-700 rounded-lg leading-5 bg-white dark:bg-neutral-800 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out text-gray-900 dark:text-neutral-100 font-medium"
+                            className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-700 rounded-lg leading-5 bg-white dark:bg-slate-800 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out text-gray-900 dark:text-slate-100 font-medium"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
@@ -1011,7 +1011,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         </form>
 
                         <div className="hidden md:flex items-center gap-1">
-                            <span className="font-semibold text-gray-900 dark:text-neutral-100">{filteredOrders.length}</span>
+                            <span className="font-semibold text-gray-900 dark:text-slate-100">{filteredOrders.length}</span>
                             <span>sipariş</span>
                         </div>
                     </div>
@@ -1081,12 +1081,12 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         }
 
                         return (
-                            <div key={column.id} className="flex-shrink-0 w-80 max-w-[90vw] flex flex-col h-full rounded-xl bg-gray-50 dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 transition-all snap-center shadow-sm">
-                                <div className={`px-3 py-3 border-b dark:border-neutral-800 rounded-t-xl relative z-30 flex flex-col gap-2 transition-colors ${column.color || 'bg-gray-100 dark:bg-neutral-800'} shadow-sm`}>
+                            <div key={column.id} className="flex-shrink-0 w-80 max-w-[90vw] flex flex-col h-full rounded-xl bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-800 transition-all snap-center shadow-sm">
+                                <div className={`px-3 py-3 border-b dark:border-slate-800 rounded-t-xl relative z-30 flex flex-col gap-2 transition-colors ${column.color || 'bg-gray-100 dark:bg-slate-800'} shadow-sm`}>
                                     <div className="flex justify-between items-center w-full relative">
                                         <div className="flex items-center gap-2">
                                             <h2 className="font-bold text-gray-800 dark:text-gray-200 text-sm">{column.title}</h2>
-                                            <span className="bg-white/80 dark:bg-neutral-700/80 text-gray-900 dark:text-neutral-100 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-black/5 dark:border-white/10 shadow-sm">
+                                            <span className="bg-white/80 dark:bg-slate-700/80 text-gray-900 dark:text-slate-100 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-black/5 dark:border-white/10 shadow-sm">
                                                 {columnOrders.length}
                                             </span>
                                         </div>
@@ -1158,7 +1158,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
                                 {/* SCROLLABLE DROPPABLE AREA */}
                                 <div className="flex-1 min-h-0 overflow-hidden relative">
-                                    <DroppableId id={column.id} className="h-full overflow-y-auto p-3 space-y-3 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-neutral-700 hover:scrollbar-thumb-gray-300 dark:hover:scrollbar-thumb-neutral-600">
+                                    <DroppableId id={column.id} className="h-full overflow-y-auto p-3 space-y-3 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-slate-700 hover:scrollbar-thumb-gray-300 dark:hover:scrollbar-thumb-slate-600">
                                         {columnOrders.map(order => (
                                             <DraggableItem key={order.id} id={order.id} disabled={isDragDisabled}>
                                                 <OrderCard

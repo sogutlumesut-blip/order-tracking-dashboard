@@ -182,8 +182,10 @@ export async function bulkUpdateOrderStatus(orderIds: number[], status: string) 
         const session = await getSession()
         const user = session ? session.user.name : "Sistem"
 
+        console.log(`[BULK_MOVE] Attempting to move ${orderIds.length} orders to '${status}' by '${user}'`)
+
         // Update all orders
-        await db.order.updateMany({
+        const result = await db.order.updateMany({
             where: { id: { in: orderIds } },
             data: {
                 status,
@@ -193,20 +195,23 @@ export async function bulkUpdateOrderStatus(orderIds: number[], status: string) 
             }
         })
 
-        // Log activity for each (doing it in loop for individual logs, or one bulk log? Individual is better for history)
-        // Prisma doesn't support createMany for SQLite/some DBs easily with relations in older versions, 
-        // but OrderActivity is simple. optimizing:
+        console.log(`[BULK_MOVE] DB Update Result: ${result.count} orders updated.`)
 
-        // For accurate logs, valid.
+        if (result.count === 0) {
+            console.warn(`[BULK_MOVE] Warning: 0 orders were updated. IDs provided: ${orderIds.join(', ')}`)
+            return { success: false, message: "Hiçbir sipariş güncellenemedi (Veritabanı eşleşmedi)." }
+        }
+
+        // Log activity for each (using loop for detailed history)
         for (const id of orderIds) {
             await logActivity(id, user, "STATUS_CHANGE", `Toplu işlem: Durum '${status}' olarak değiştirildi.`)
         }
 
         revalidatePath("/")
-        return { success: true, count: orderIds.length }
+        return { success: true, count: result.count, message: `${result.count} sipariş başarıyla taşındı.` }
     } catch (e: any) {
         console.error("bulkUpdateOrderStatus ERROR:", e)
-        return { error: e.message }
+        return { success: false, error: e.message || "Sunucu hatası oluştu." }
     }
 }
 
