@@ -3,7 +3,7 @@
 import { Order, OrderStatus, Comment } from "../data/mock-orders"
 import { OrderCard } from "./order-card"
 import { useState, useEffect, useRef, useMemo } from "react"
-import { ChevronDown, ChevronUp, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck, Lock, Unlock, ScanBarcode } from "lucide-react"
+import { ChevronDown, ChevronUp, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck, Lock, Unlock, ScanBarcode, Clock } from "lucide-react"
 import { Html5QrcodeScanner } from "html5-qrcode"
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDraggable, useDroppable, closestCorners } from "@dnd-kit/core"
 import { BarcodeScanner } from "./barcode-scanner"
@@ -44,6 +44,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     const [isPanelOpen, setIsPanelOpen] = useState(false)
     const [isManualOrderOpen, setIsManualOrderOpen] = useState(false)
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+    const [lastSynced, setLastSynced] = useState<Date | null>(null)
 
     // BULK SELECTION STATE
     const [selectedOrders, setSelectedOrders] = useState<number[]>([])
@@ -279,27 +280,22 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
             // Sync Logic
             setOrders(currentOrders => {
-                // Check if any significant change exists first to avoid re-renders
-                // But we must do the mapping to check timestamps mixed with server data
                 let hasChanges = false
 
-                // We need to merge server data with local optimistic data
+                // Update Last Synced UI
+                setLastSynced(new Date())
+
                 const mergedOrders = latestOrders.map((serverOrder: any) => {
                     const localOrder = currentOrders.find(o => o.id === serverOrder.id)
 
-                    // 1. Interaction Lock Check (Grace period of 15 seconds)
-                    if (interactionLocks.current[serverOrder.id] && Date.now() - interactionLocks.current[serverOrder.id] < 15000) {
-                        return localOrder || serverOrder
-                    }
-
-                    // 2. STATUS PRIORITY CHECK (Crucial for Desktop Sync)
-                    // If status changed on server, we accept it regardless of timestamp unless locked.
+                    // 1. STATUS PRIORITY CHECK (Crucial for Desktop Sync)
+                    // If status changed on server, we accept it regardless of timestamp.
                     if (localOrder && localOrder.status !== serverOrder.status) {
                         hasChanges = true
                         return serverOrder
                     }
 
-                    // 3. Timestamp Check (For non-status fields)
+                    // 2. Timestamp Check (For non-status fields)
                     if (localOrder && new Date(localOrder.updatedAt).getTime() > new Date(serverOrder.updatedAt).getTime()) {
                         return localOrder
                     }
@@ -411,7 +407,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             }
             return o
         })
-        interactionLocks.current[activeId] = Date.now()
+        // interactionLocks.current[activeId] = Date.now() // Removed lock
         setOrders(newOrders)
         setActiveId(null)
 
@@ -425,8 +421,10 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         }
     }
 
-    // Lock mechanic to prevent polling overwrite
-    const interactionLocks = useRef<Record<string, number>>({})
+    // Lock mechanic REMOVED
+    const interactionLocks = useRef<Record<string, number>>({}) // Keeping definitions to avoid breaking other refs if referenced, but unused. 
+    // Actually better to keep it for now but empty logic to avoid complex deletions of usage elsewhere if I missed one.
+    // But I will remove usage.
 
     const handlePrintCargoLabel = (order: Order) => {
         if (order.cargoLabelPdf) {
@@ -558,7 +556,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 }
             }
 
-            interactionLocks.current[targetOrder.id] = Date.now()
+            // interactionLocks.current[targetOrder.id] = Date.now() // Removed lock
 
             // Optimistic Update: Also update 'assignedTo' to 'Siz' (or current user name if we had it, but 'Siz' is clear)
             // The server will overwrite with actual name, but this gives immediate feedback.
@@ -589,7 +587,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     }
 
     const handleOrderUpdate = async (updatedOrder: Order) => {
-        interactionLocks.current[updatedOrder.id] = Date.now()
+        // interactionLocks.current[updatedOrder.id] = Date.now() // Removed lock
         const orderWithNotification = { ...updatedOrder, hasNotification: true, updatedAt: new Date().toISOString() }
         setOrders(prev => prev.map(o => o.id === updatedOrder.id ? orderWithNotification : o))
 
@@ -675,6 +673,11 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
                     {/* Desktop Menu */}
                     <div className="hidden md:flex items-center gap-4">
+                        <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100">
+                            <Clock className="w-3 h-3" />
+                            <span>Son: {lastSynced ? lastSynced.toLocaleTimeString() : '...'}</span>
+                        </div>
+
                         {/* Sound Toggle */}
                         <button
                             onClick={() => {
