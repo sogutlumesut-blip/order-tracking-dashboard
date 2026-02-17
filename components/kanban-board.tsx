@@ -217,8 +217,9 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         initialSync()
 
         const interval = setInterval(async () => {
-            // Don't poll while dragging or if user is editing in a modal
-            if (activeId || isPanelOpenRef.current || isManualOrderOpenRef.current) return;
+            // Don't poll while dragging. 
+            // We REMOVED isPanelOpenRef check to allow background updates even if user is viewing a detail.
+            if (activeId) return;
 
             // 1. AUTO-SYNC: Trigger server-side sync check
             // We poll every 10 seconds. Server handles rate limiting (15s).
@@ -291,7 +292,14 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         return localOrder || serverOrder
                     }
 
-                    // 2. Timestamp Check
+                    // 2. STATUS PRIORITY CHECK (Crucial for Desktop Sync)
+                    // If status changed on server, we accept it regardless of timestamp unless locked.
+                    if (localOrder && localOrder.status !== serverOrder.status) {
+                        hasChanges = true
+                        return serverOrder
+                    }
+
+                    // 3. Timestamp Check (For non-status fields)
                     if (localOrder && new Date(localOrder.updatedAt).getTime() > new Date(serverOrder.updatedAt).getTime()) {
                         return localOrder
                     }
