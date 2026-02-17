@@ -37,8 +37,11 @@ export default function RootLayout({
         >
           {children}
           {/* <Toaster /> Moved to Dashboard to prevent login blocking */}
+          <div className="fixed top-0 left-0 w-full bg-red-600 text-white text-center font-bold py-2 z-[99999]">
+            ⚠️ SYSTEM UPDATE: v1.4 - GLOBAL BLUE MODE (Refreshed at {new Date().toLocaleTimeString()})
+          </div>
           <div className="fixed bottom-1 right-1 bg-black text-white text-[10px] px-1 rounded opacity-50 pointer-events-none z-50">
-            v1.2 (Dark Mode)
+            v1.4 (Dark Mode)
           </div>
         </ThemeProvider>
       </body>

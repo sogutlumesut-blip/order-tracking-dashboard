@@ -625,6 +625,9 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
             toast.success(result.message || `${selectedOrders.length} sipariş taşındı`, { id: toastId })
             setSelectedOrders([]) // Clear selection
+
+            // Force Router Refresh to update Server Components
+            router.refresh()
         } catch (e: any) {
             toast.error(`Hata: ${e.message}`, { id: toastId })
             // Revert would be complex here, assuming server sync will fix it eventually or refresh
@@ -1066,9 +1069,9 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                             {column.title}
                                         </div>
                                         <div className="flex flex-col h-full">
-                                            {/* DEBUG BANNER */}
-                                            <div className="bg-red-600 text-white font-bold text-center py-1 text-xs z-[9999] shrink-0">
-                                                SYSTEM UPDATED: v1.3 - BLUE MODE ACTIVE
+                                            {/* CORRECTLY PLACED DEBUG BANNER */}
+                                            <div className="md:hidden bg-red-600 text-white font-bold text-center py-1 text-xs">
+                                                MOBILE BANNER v1.4
                                             </div>
                                             <div className="flex flex-col items-center gap-1 mt-auto pb-4">
                                                 <span className="bg-white text-slate-900 text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shadow-sm">
