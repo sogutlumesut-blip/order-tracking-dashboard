@@ -98,9 +98,9 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                 {/* Header */}
                 <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-gray-50 dark:bg-slate-950 print:hidden">
                     <div>
-                        <h2 className="text-lg font-bold dark:text-gray-100">Sipariş #{formData.id}</h2>
+                        <h2 className="text-lg font-bold dark:text-slate-100">Sipariş #{formData.id}</h2>
                         {/* Compact user info for header */}
-                        <p className="font-medium text-gray-900 dark:text-gray-300">{formData.customer}</p>
+                        <p className="font-medium text-gray-900 dark:text-slate-300">{formData.customer}</p>
                     </div>
                     <div className="flex gap-2">
                         <button onClick={handlePrint} className="p-2 hover:bg-gray-200 dark:hover:bg-slate-800 rounded-full text-gray-600 dark:text-slate-400" title="Yazdır">
@@ -163,9 +163,9 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                         <div className="space-y-6">
                             {/* Customer Details Card (Screen Only) */}
                             <div className="print:hidden bg-gray-50 dark:bg-slate-800/50 p-4 rounded-lg border dark:border-slate-700">
-                                <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">Müşteri Bilgileri</h3>
+                                <h3 className="font-semibold text-gray-900 dark:text-slate-100 mb-2">Müşteri Bilgileri</h3>
                                 <div className="text-sm space-y-2">
-                                    <p className="font-bold text-lg text-gray-900 dark:text-gray-100">{formData.customer}</p>
+                                    <p className="font-bold text-lg text-gray-900 dark:text-slate-100">{formData.customer}</p>
 
                                     <div className="text-gray-600 dark:text-slate-400 text-sm space-y-1">
                                         {formData.phone && <p className="flex items-center gap-2">📞 {formData.phone}</p>}
@@ -173,7 +173,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     </div>
 
                                     {formData.address && (
-                                        <div className="text-gray-800 dark:text-gray-300 text-sm border-t border-gray-200 dark:border-slate-700 pt-2 mt-2">
+                                        <div className="text-gray-800 dark:text-slate-300 text-sm border-t border-gray-200 dark:border-slate-700 pt-2 mt-2">
                                             <p className="font-semibold mb-1 flex items-center gap-1">📍 Teslimat Adresi:</p>
                                             <p className="leading-relaxed">
                                                 {formData.address}
@@ -211,7 +211,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-start justify-between flex-wrap gap-y-2">
-                                                    <p className="font-bold text-gray-900 dark:text-gray-100 line-clamp-2">{item.name}</p>
+                                                    <p className="font-bold text-gray-900 dark:text-slate-100 line-clamp-2">{item.name}</p>
                                                     {item.sku && (
                                                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-slate-700 text-gray-800 dark:text-slate-200 border border-gray-200 dark:border-slate-600 ml-2 whitespace-nowrap">
                                                             Stok Kodu: {item.sku}
@@ -448,10 +448,10 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                         <input
                                             type="text"
                                             readOnly
-                                            className="w-full p-2 border border-gray-300 dark:border-slate-700 rounded-lg bg-gray-100 dark:bg-slate-800 text-black dark:text-gray-300 font-bold cursor-not-allowed"
+                                            className="w-full p-2 border border-gray-300 dark:border-slate-700 rounded-lg bg-gray-100 dark:bg-slate-800 text-black dark:text-slate-300 font-bold cursor-not-allowed"
                                             value={currentUser.name}
                                         />
-                                        <span className="absolute right-3 top-2.5 text-xs text-black dark:text-gray-300 font-bold">Sabit (Sen)</span>
+                                        <span className="absolute right-3 top-2.5 text-xs text-black dark:text-slate-300 font-bold">Sabit (Sen)</span>
                                     </div>
                                     <p className="text-[10px] text-gray-900 dark:text-slate-400 font-bold">
                                         * Kaydettiğinizde siparişin sorumlusu otomatik olarak siz olursunuz.
@@ -510,7 +510,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                             <div className="pt-4 border-t border-gray-200 dark:border-slate-700 mt-2">
                                 <button
                                     onClick={() => setIsActivityLogOpen(!isActivityLogOpen)}
-                                    className="flex items-center gap-2 text-xs font-bold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 p-2 rounded-lg border border-gray-200 dark:border-slate-700 transition-colors w-full text-left"
+                                    className="flex items-center gap-2 text-xs font-bold text-gray-700 dark:text-slate-300 bg-gray-50 dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 p-2 rounded-lg border border-gray-200 dark:border-slate-700 transition-colors w-full text-left"
                                 >
                                     {isActivityLogOpen ? <ChevronDown className="w-4 h-4 text-blue-600" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
                                     <History className="w-3.5 h-3.5" />

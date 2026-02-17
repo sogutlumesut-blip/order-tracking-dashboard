@@ -48,7 +48,7 @@ export function ChatSection({ comments = [], onAddComment, currentUser }: ChatSe
         <div className="flex flex-col h-[400px] border dark:border-slate-700 rounded-xl overflow-hidden bg-gray-50/50 dark:bg-slate-900/50">
             {/* Header */}
             <div className="p-3 border-b dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-between text-xs">
-                <span className="font-semibold text-gray-500 dark:text-gray-400">Yazışma Geçmişi</span>
+                <span className="font-semibold text-gray-500 dark:text-slate-400">Yazışma Geçmişi</span>
                 {/* No user selector anymore, automated */}
                 <span className="text-blue-600 dark:text-blue-400 font-medium">{currentUser.name} olarak yazıyorsunuz</span>
             </div>

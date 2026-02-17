@@ -40,7 +40,7 @@ export function ActivityLog({ activities }: ActivityLogProps) {
                         </div>
                         <div className="flex-1">
                             <div className="flex justify-between items-start">
-                                <span className="font-bold text-gray-900 dark:text-gray-200">{activity.author}</span>
+                                <span className="font-bold text-gray-900 dark:text-slate-200">{activity.author}</span>
                                 <span className="text-gray-400 dark:text-slate-500 text-[10px]">{activity.timestamp}</span>
                             </div>
                             <p className="text-gray-600 dark:text-slate-400 mt-0.5 font-medium">{activity.details}</p>

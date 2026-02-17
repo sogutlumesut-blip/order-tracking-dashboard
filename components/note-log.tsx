@@ -24,8 +24,8 @@ export function NoteLog({ comments = [], onAddNote, currentUser, className }: No
         <div className={`flex flex-col border dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-900 shadow-sm ${className || 'h-[400px]'}`}>
             {/* Header */}
             <div className="p-3 border-b dark:border-slate-700 bg-gray-50 dark:bg-slate-800 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                <span className="font-bold text-gray-700 dark:text-gray-200 text-sm">İşlem Notları ve Tarihçe</span>
+                <FileText className="w-4 h-4 text-gray-500 dark:text-slate-400" />
+                <span className="font-bold text-gray-700 dark:text-slate-200 text-sm">İşlem Notları ve Tarihçe</span>
             </div>
 
             {/* Log Area */}
@@ -39,7 +39,7 @@ export function NoteLog({ comments = [], onAddNote, currentUser, className }: No
                 {comments.map(comment => (
                     <div key={comment.id} className="relative bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-lg p-3 shadow-sm group hover:shadow-md transition-shadow">
                         {/* Note Content */}
-                        <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap font-medium mb-4">
+                        <p className="text-sm text-gray-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap font-medium mb-4">
                             {comment.message}
                         </p>
 
@@ -93,7 +93,7 @@ export function NoteLog({ comments = [], onAddNote, currentUser, className }: No
                         <Send className="w-4 h-4" />
                     </button>
                 </div>
-                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-2 ml-1">
+                <p className="text-[10px] text-gray-500 dark:text-slate-400 mt-2 ml-1">
                     * Eklenen notlar silinemez ve değiştirilemez.
                 </p>
             </div>

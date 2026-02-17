@@ -121,8 +121,8 @@ export function OrderCard({ order, onClick, tags, selected = false, onSelect, se
             <div className="p-4 space-y-3">
                 <div className="flex justify-between items-start">
                     <div>
-                        <h3 className="font-bold text-gray-900 dark:text-gray-100">#{order.id}</h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">{order.customer}</p>
+                        <h3 className="font-bold text-gray-900 dark:text-slate-100">#{order.id}</h3>
+                        <p className="text-sm text-gray-600 dark:text-slate-400 font-medium">{order.customer}</p>
                     </div>
                     <div className="flex flex-col items-end gap-1">
                         <span className={`text-sm font-semibold px-2 py-1 rounded-md ${isPaymentFailed ? 'text-red-700 bg-red-100 line-through' : 'text-green-600 bg-green-50'}`}>
@@ -160,10 +160,10 @@ export function OrderCard({ order, onClick, tags, selected = false, onSelect, se
                 <div className="pt-2 border-t flex flex-col gap-1.5">
                     {/* Product Name */}
                     <div className="flex flex-col gap-0.5">
-                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200 line-clamp-1">
+                        <p className="text-sm font-medium text-gray-800 dark:text-slate-200 line-clamp-1">
                             {order.items && order.items.length > 0 ? order.items[0].name : "Ürün detayı yok"}
                         </p>
-                        <div className="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
+                        <div className="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-slate-400">
                             {order.items && order.items.length > 0 && order.items[0].sku && (
                                 <span className="bg-gray-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-gray-700 dark:text-slate-300 font-medium">
                                     Kod: {order.items[0].sku}
@@ -204,7 +204,7 @@ export function OrderCard({ order, onClick, tags, selected = false, onSelect, se
 
                     {/* Date & Assignee */}
                     <div className="flex items-center justify-between mt-1">
-                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400">
                             <Calendar className="w-3 h-3" />
                             <span>{order.date}</span>
                         </div>

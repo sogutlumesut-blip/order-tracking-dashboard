@@ -621,11 +621,11 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
             const result = await bulkUpdateOrderStatus(selectedOrders, targetStatusId)
 
-            if (result.error) {
-                throw new Error(result.error)
+            if (!result.success) { // Fixed: check success flag, not just error key
+                throw new Error(result.error || result.message || "Bilinmeyen hata")
             }
 
-            toast.success(`${selectedOrders.length} sipariş taşındı`, { id: toastId })
+            toast.success(result.message || `${selectedOrders.length} sipariş taşındı`, { id: toastId })
             setSelectedOrders([]) // Clear selection
         } catch (e: any) {
             toast.error(`Hata: ${e.message}`, { id: toastId })
@@ -1085,7 +1085,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 <div className={`px-3 py-3 border-b dark:border-slate-800 rounded-t-xl relative z-30 flex flex-col gap-2 transition-colors ${column.color || 'bg-gray-100 dark:bg-slate-800'} shadow-sm`}>
                                     <div className="flex justify-between items-center w-full relative">
                                         <div className="flex items-center gap-2">
-                                            <h2 className="font-bold text-gray-800 dark:text-gray-200 text-sm">{column.title}</h2>
+                                            <h2 className="font-bold text-gray-800 dark:text-slate-200 text-sm">{column.title}</h2>
                                             <span className="bg-white/80 dark:bg-slate-700/80 text-gray-900 dark:text-slate-100 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-black/5 dark:border-white/10 shadow-sm">
                                                 {columnOrders.length}
                                             </span>
