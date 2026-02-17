@@ -93,9 +93,9 @@ export function EtsyMultiStoreSettings({ initialStores, initialGlobalKey }: Etsy
 
     return (
         <div className="bg-white p-6 rounded-xl shadow-sm border border-orange-100">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-900">
+            <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-900">
                 <span className="bg-orange-600 text-white p-1 px-2 rounded text-sm">ETSY</span>
-                Etsy Entegrasyonu <span className="text-xs font-normal text-gray-400">v2.0 (Auto-Connect)</span>
+                Etsy Entegrasyonu <span className="text-xs font-normal text-slate-400">v2.0 (Auto-Connect)</span>
             </h2>
 
             <div className="bg-blue-50 p-4 rounded-lg mb-6 border border-blue-100">
@@ -113,7 +113,7 @@ export function EtsyMultiStoreSettings({ initialStores, initialGlobalKey }: Etsy
                 </div>
             </div>
 
-            <p className="text-sm text-gray-600 mb-6 font-medium">
+            <p className="text-sm text-slate-600 mb-6 font-medium">
                 Bağlı Mağazalar
             </p>
 
@@ -130,20 +130,20 @@ export function EtsyMultiStoreSettings({ initialStores, initialGlobalKey }: Etsy
                         </button>
 
                         <div className="flex items-center gap-4">
-                            <div className={`p-3 rounded-full ${store.connected ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-500'}`}>
+                            <div className={`p-3 rounded-full ${store.connected ? 'bg-green-100 text-green-600' : 'bg-slate-200 text-slate-500'}`}>
                                 <Globe className="w-6 h-6" />
                             </div>
 
                             <div className="flex-1">
                                 {store.connected ? (
                                     <>
-                                        <h3 className="text-lg font-bold text-gray-900">{store.name}</h3>
-                                        <p className="text-sm text-gray-500 font-mono">ID: {store.shopId}</p>
+                                        <h3 className="text-lg font-bold text-slate-900">{store.name}</h3>
+                                        <p className="text-sm text-slate-500 font-mono">ID: {store.shopId}</p>
                                     </>
                                 ) : (
                                     <>
-                                        <h3 className="text-md font-bold text-gray-500">Bağlantı Bekleniyor...</h3>
-                                        <p className="text-xs text-gray-400">"Bağla" butonuna basınca mağaza bilgileri otomatik çekilecektir.</p>
+                                        <h3 className="text-md font-bold text-slate-500">Bağlantı Bekleniyor...</h3>
+                                        <p className="text-xs text-slate-400">"Bağla" butonuna basınca mağaza bilgileri otomatik çekilecektir.</p>
                                     </>
                                 )}
                             </div>
@@ -161,7 +161,7 @@ export function EtsyMultiStoreSettings({ initialStores, initialGlobalKey }: Etsy
                                         href={`/api/etsy/auth?storeIndex=${index}`}
                                         className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-sm font-bold transition-colors ${globalApiKey || store.apiKey
                                             ? "bg-orange-600 text-white hover:bg-orange-700 shadow-sm"
-                                            : "bg-gray-300 text-gray-500 cursor-not-allowed" // Encourage entering Global Key first
+                                            : "bg-slate-300 text-slate-500 cursor-not-allowed" // Encourage entering Global Key first
                                             }`}
                                         onClick={(e) => {
                                             if (!globalApiKey && !store.apiKey) {
@@ -181,7 +181,7 @@ export function EtsyMultiStoreSettings({ initialStores, initialGlobalKey }: Etsy
 
                 {/* Empty State */}
                 {stores.length === 0 && (
-                    <div className="text-center p-8 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200 text-gray-500">
+                    <div className="text-center p-8 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 text-slate-500">
                         <Globe className="w-8 h-8 mx-auto mb-2 opacity-50" />
                         <p>Henüz mağaza eklenmemiş.</p>
                     </div>
@@ -191,7 +191,7 @@ export function EtsyMultiStoreSettings({ initialStores, initialGlobalKey }: Etsy
                 <div className="flex flex-col md:flex-row gap-4 justify-between pt-4 border-t">
                     <button
                         onClick={addStore}
-                        className="flex items-center justify-center gap-2 px-4 py-2 bg-white border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-orange-400 hover:text-orange-600 hover:bg-orange-50 transition-all font-medium"
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-white border-2 border-dashed border-slate-300 rounded-lg text-slate-600 hover:border-orange-400 hover:text-orange-600 hover:bg-orange-50 transition-all font-medium"
                     >
                         <Plus className="w-5 h-5" />
                         Yeni Mağaza Ekle
@@ -208,7 +208,7 @@ export function EtsyMultiStoreSettings({ initialStores, initialGlobalKey }: Etsy
                 </div>
 
                 {/* ETSY LEGAL DISCLAIMER */}
-                <div className="mt-4 text-[10px] text-gray-400 text-center border-t border-orange-50 pt-2">
+                <div className="mt-4 text-[10px] text-slate-400 text-center border-t border-orange-50 pt-2">
                     The term 'Etsy' is a trademark of Etsy, Inc. This application uses the Etsy API but is not endorsed or certified by Etsy, Inc.
                 </div>
             </div>

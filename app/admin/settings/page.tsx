@@ -28,27 +28,27 @@ export default async function SettingsPage() {
     const systemSettings = await getSystemSettings()
 
     return (
-        <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+        <div className="min-h-screen bg-slate-50 p-4 md:p-8">
             <div className="max-w-4xl mx-auto space-y-6 md:space-y-8">
 
                 {/* Header */}
                 <div className="flex items-center gap-4 mb-8">
                     <Link href="/" className="p-2 hover:bg-white rounded-full transition-colors">
-                        <ArrowLeft className="w-6 h-6 text-gray-600" />
+                        <ArrowLeft className="w-6 h-6 text-slate-600" />
                     </Link>
                     <div>
-                        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Ayarlar</h1>
-                        <p className="text-sm md:text-base text-gray-500">Sistem yapılandırmasını yönetin.</p>
+                        <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Ayarlar</h1>
+                        <p className="text-sm md:text-base text-slate-500">Sistem yapılandırmasını yönetin.</p>
                     </div>
                 </div>
 
                 {/* WOOCOMMERCE INTEGRATION */}
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100">
-                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-900">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-900">
                         <span className="bg-blue-600 text-white p-1 px-2 rounded text-sm">WC</span>
                         WooCommerce Entegrasyonu
                     </h2>
-                    <p className="text-sm text-gray-600 mb-6">
+                    <p className="text-sm text-slate-600 mb-6">
                         Sitenizdeki siparişleri otomatik çekmek için API bilgilerini giriniz.
                         <br />
                         <span className="text-blue-600 font-medium">WooCommerce &gt; Ayarlar &gt; Gelişmiş &gt; REST API</span> yolunu izleyerek anahtar oluşturabilirsiniz.
@@ -95,11 +95,11 @@ export default async function SettingsPage() {
                 <div className="bg-white p-6 rounded-xl shadow-sm border">
                     <div className="flex justify-between items-start mb-4">
                         <div>
-                            <h2 className="text-xl font-bold flex items-center gap-2 text-gray-900">
+                            <h2 className="text-xl font-bold flex items-center gap-2 text-slate-900">
                                 <span className="bg-orange-100 text-orange-700 p-1 px-2 rounded text-sm">3</span>
                                 Personel & Yetki Yönetimi
                             </h2>
-                            <p className="text-sm text-gray-600 mt-1">
+                            <p className="text-sm text-slate-600 mt-1">
                                 Sisteme kayıt olan kullanıcıların yetkilerini buradan yönetebilirsiniz.
                                 <br />
                                 <span className="text-amber-700 font-bold">* "Pending" (Bekleyen)</span> kullanıcılar onaylanana kadar sisteme giremez.
@@ -112,22 +112,22 @@ export default async function SettingsPage() {
 
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm">
-                            <thead className="bg-gray-50 border-b">
+                            <thead className="bg-slate-50 border-b">
                                 <tr>
-                                    <th className="p-3 font-bold text-gray-900">Ad Soyad</th>
-                                    <th className="p-3 font-bold text-gray-900">Kullanıcı Adı</th>
-                                    <th className="p-3 font-bold text-gray-900">Kayıt Tarihi</th>
-                                    <th className="p-3 font-bold text-gray-900">Yetki (Rol)</th>
-                                    <th className="p-3 font-bold text-gray-900">Sütun Yetkileri</th>
-                                    <th className="p-3 font-bold text-gray-900 text-right">İşlem</th>
+                                    <th className="p-3 font-bold text-slate-900">Ad Soyad</th>
+                                    <th className="p-3 font-bold text-slate-900">Kullanıcı Adı</th>
+                                    <th className="p-3 font-bold text-slate-900">Kayıt Tarihi</th>
+                                    <th className="p-3 font-bold text-slate-900">Yetki (Rol)</th>
+                                    <th className="p-3 font-bold text-slate-900">Sütun Yetkileri</th>
+                                    <th className="p-3 font-bold text-slate-900 text-right">İşlem</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y">
                                 {users.map(user => (
-                                    <tr key={user.id} className="hover:bg-gray-50 group">
-                                        <td className="p-3 font-medium text-gray-900">{user.name}</td>
-                                        <td className="p-3 text-gray-700 font-medium">{user.username}</td>
-                                        <td className="p-3 text-gray-700">{new Date(user.createdAt).toLocaleDateString("tr-TR")}</td>
+                                    <tr key={user.id} className="hover:bg-slate-50 group">
+                                        <td className="p-3 font-medium text-slate-900">{user.name}</td>
+                                        <td className="p-3 text-slate-700 font-medium">{user.username}</td>
+                                        <td className="p-3 text-slate-700">{new Date(user.createdAt).toLocaleDateString("tr-TR")}</td>
                                         <td className="p-3">
                                             <form action={async (formData) => {
                                                 "use server"
@@ -142,11 +142,11 @@ export default async function SettingsPage() {
                                                             'bg-amber-100 text-amber-900 border-amber-200'
                                                         }`}
                                                 >
-                                                    <option value="pending" className="text-gray-900">Onay Bekliyor</option>
-                                                    <option value="staff" className="text-gray-900">Personel</option>
-                                                    <option value="admin" className="text-gray-900">Yönetici</option>
+                                                    <option value="pending" className="text-slate-900">Onay Bekliyor</option>
+                                                    <option value="staff" className="text-slate-900">Personel</option>
+                                                    <option value="admin" className="text-slate-900">Yönetici</option>
                                                 </select>
-                                                <button className="ml-2 text-xs bg-gray-900 text-white px-2 py-1.5 rounded hover:bg-black transition-colors opacity-100 font-medium">
+                                                <button className="ml-2 text-xs bg-slate-900 text-white px-2 py-1.5 rounded hover:bg-black transition-colors opacity-100 font-medium">
                                                     Kaydet
                                                 </button>
                                             </form>
@@ -162,7 +162,7 @@ export default async function SettingsPage() {
                                                     "use server"
                                                     await deleteUser(user.id)
                                                 }}>
-                                                    <button className="p-2 text-gray-400 hover:text-red-600 transition-colors" title="Kullanıcıyı Sil">
+                                                    <button className="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Kullanıcıyı Sil">
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>
                                                 </form>
@@ -178,26 +178,26 @@ export default async function SettingsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* STATUS MANAGEMENT */}
                     <div className="bg-white p-6 rounded-xl shadow-sm border">
-                        <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-900">
+                        <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-900">
                             <span className="bg-blue-100 text-blue-800 p-1 px-2 rounded text-sm font-bold">1</span>
                             Durum Kolonları
                         </h2>
                         <StatusList initialStatuses={statuses} />
 
-                        <form action={createStatus} className="p-4 bg-gray-50 rounded-lg border border-dashed">
-                            <h3 className="text-sm font-bold mb-3 text-gray-900">Yeni Kolon Ekle</h3>
+                        <form action={createStatus} className="p-4 bg-slate-50 rounded-lg border border-dashed">
+                            <h3 className="text-sm font-bold mb-3 text-slate-900">Yeni Kolon Ekle</h3>
                             <div className="space-y-3">
-                                <input name="title" placeholder="Görünen Başlık (Örn: Paketlemede)" className="w-full text-sm p-2 border rounded text-gray-900 placeholder:text-gray-400 font-medium" required />
-                                <input name="id" placeholder="Teknik Kod (Örn: packing)" className="w-full text-sm p-2 border rounded text-gray-900 placeholder:text-gray-400 font-medium" required />
-                                <select name="color" className="w-full text-sm p-2 border rounded text-gray-900 font-medium">
-                                    <option value="bg-gray-50">Gri</option>
+                                <input name="title" placeholder="Görünen Başlık (Örn: Paketlemede)" className="w-full text-sm p-2 border rounded text-slate-900 placeholder:text-slate-400 font-medium" required />
+                                <input name="id" placeholder="Teknik Kod (Örn: packing)" className="w-full text-sm p-2 border rounded text-slate-900 placeholder:text-slate-400 font-medium" required />
+                                <select name="color" className="w-full text-sm p-2 border rounded text-slate-900 font-medium">
+                                    <option value="bg-slate-50">Gri</option>
                                     <option value="bg-blue-50">Mavi</option>
                                     <option value="bg-green-50">Yeşil</option>
                                     <option value="bg-yellow-50">Sarı</option>
                                     <option value="bg-red-50">Kırmızı</option>
                                     <option value="bg-purple-50">Mor</option>
                                 </select>
-                                <button className="w-full bg-black text-white p-2 rounded text-sm font-medium hover:bg-gray-800 flex items-center justify-center gap-2">
+                                <button className="w-full bg-black text-white p-2 rounded text-sm font-medium hover:bg-slate-800 flex items-center justify-center gap-2">
                                     <Plus className="w-4 h-4" /> Ekle
                                 </button>
                             </div>
@@ -207,7 +207,7 @@ export default async function SettingsPage() {
                     {/* LABEL MANAGEMENT */}
                     <div className="space-y-8">
                         <div className="bg-white p-6 rounded-xl shadow-sm border">
-                            <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-900">
+                            <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-900">
                                 <span className="bg-purple-100 text-purple-800 p-1 px-2 rounded text-sm font-bold">2</span>
                                 Sipariş Etiketleri
                             </h2>
@@ -222,7 +222,7 @@ export default async function SettingsPage() {
                                                 "use server"
                                                 await deleteLabel(label.id)
                                             }}>
-                                                <button className="text-gray-400 hover:text-red-500 opacity-50 hover:opacity-100 transition-opacity">
+                                                <button className="text-slate-400 hover:text-red-500 opacity-50 hover:opacity-100 transition-opacity">
                                                     <Trash2 className="w-3 h-3" />
                                                 </button>
                                             </form>
@@ -231,11 +231,11 @@ export default async function SettingsPage() {
                                 })}
                             </div>
 
-                            <form action={createLabel} className="p-4 bg-gray-50 rounded-lg border border-dashed">
-                                <h3 className="text-sm font-bold mb-3 text-gray-900">Yeni Etiket Ekle</h3>
+                            <form action={createLabel} className="p-4 bg-slate-50 rounded-lg border border-dashed">
+                                <h3 className="text-sm font-bold mb-3 text-slate-900">Yeni Etiket Ekle</h3>
                                 <div className="space-y-3">
-                                    <input name="name" placeholder="Etiket İsmi (Örn: VIP)" className="w-full text-sm p-2 border rounded text-gray-900 placeholder:text-gray-400 font-medium" required />
-                                    <select name="color" className="w-full text-sm p-2 border rounded text-gray-900 font-medium">
+                                    <input name="name" placeholder="Etiket İsmi (Örn: VIP)" className="w-full text-sm p-2 border rounded text-slate-900 placeholder:text-slate-400 font-medium" required />
+                                    <select name="color" className="w-full text-sm p-2 border rounded text-slate-900 font-medium">
                                         <option value="gray">Gri</option>
                                         <option value="blue">Mavi</option>
                                         <option value="green">Yeşil</option>
@@ -245,7 +245,7 @@ export default async function SettingsPage() {
                                         <option value="pink">Pembe</option>
                                         <option value="black">Siyah</option>
                                     </select>
-                                    <button className="w-full bg-black text-white p-2 rounded text-sm font-medium hover:bg-gray-800 flex items-center justify-center gap-2">
+                                    <button className="w-full bg-black text-white p-2 rounded text-sm font-medium hover:bg-slate-800 flex items-center justify-center gap-2">
                                         <Plus className="w-4 h-4" /> Ekle
                                     </button>
                                 </div>
@@ -255,7 +255,7 @@ export default async function SettingsPage() {
                         {/* CRON TRIGGER */}
                         <CronTrigger />
                     </div>
-                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-900">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-900">
                         <span className="bg-purple-100 text-purple-800 p-1 px-2 rounded text-sm font-bold">2</span>
                         Sipariş Etiketleri
                     </h2>
@@ -269,7 +269,7 @@ export default async function SettingsPage() {
                                         "use server"
                                         await deleteLabel(label.id)
                                     }}>
-                                        <button className="text-gray-400 hover:text-red-500 opacity-50 hover:opacity-100 transition-opacity">
+                                        <button className="text-slate-400 hover:text-red-500 opacity-50 hover:opacity-100 transition-opacity">
                                             <Trash2 className="w-3 h-3" />
                                         </button>
                                     </form>
@@ -278,11 +278,11 @@ export default async function SettingsPage() {
                         })}
                     </div>
 
-                    <form action={createLabel} className="p-4 bg-gray-50 rounded-lg border border-dashed">
-                        <h3 className="text-sm font-bold mb-3 text-gray-900">Yeni Etiket Ekle</h3>
+                    <form action={createLabel} className="p-4 bg-slate-50 rounded-lg border border-dashed">
+                        <h3 className="text-sm font-bold mb-3 text-slate-900">Yeni Etiket Ekle</h3>
                         <div className="space-y-3">
-                            <input name="name" placeholder="Etiket İsmi (Örn: VIP)" className="w-full text-sm p-2 border rounded text-gray-900 placeholder:text-gray-400 font-medium" required />
-                            <select name="color" className="w-full text-sm p-2 border rounded text-gray-900 font-medium">
+                            <input name="name" placeholder="Etiket İsmi (Örn: VIP)" className="w-full text-sm p-2 border rounded text-slate-900 placeholder:text-slate-400 font-medium" required />
+                            <select name="color" className="w-full text-sm p-2 border rounded text-slate-900 font-medium">
                                 <option value="gray">Gri</option>
                                 <option value="blue">Mavi</option>
                                 <option value="green">Yeşil</option>
@@ -292,7 +292,7 @@ export default async function SettingsPage() {
                                 <option value="pink">Pembe</option>
                                 <option value="black">Siyah</option>
                             </select>
-                            <button className="w-full bg-black text-white p-2 rounded text-sm font-medium hover:bg-gray-800 flex items-center justify-center gap-2">
+                            <button className="w-full bg-black text-white p-2 rounded text-sm font-medium hover:bg-slate-800 flex items-center justify-center gap-2">
                                 <Plus className="w-4 h-4" /> Ekle
                             </button>
                         </div>

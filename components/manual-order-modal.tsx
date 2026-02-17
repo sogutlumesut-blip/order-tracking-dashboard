@@ -147,13 +147,13 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
             <div className="relative bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
 
                 {/* Header */}
-                <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-gray-50 dark:bg-slate-950/50">
+                <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950/50">
                     <h2 className="text-lg font-bold flex items-center gap-2 dark:text-slate-100">
                         <Plus className="w-5 h-5 text-blue-600" />
                         Manuel Sipariş Oluştur
                     </h2>
-                    <button onClick={onClose} className="p-1 hover:bg-gray-200 dark:hover:bg-slate-800 rounded-full transition-colors">
-                        <X className="w-5 h-5 text-gray-500" />
+                    <button onClick={onClose} className="p-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors">
+                        <X className="w-5 h-5 text-slate-500" />
                     </button>
                 </div>
 
@@ -163,55 +163,55 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
 
                         {/* Section: Customer */}
                         <div className="space-y-4">
-                            <h3 className="text-sm font-bold text-gray-900 dark:text-slate-200 border-b dark:border-slate-800 pb-1">👤 Müşteri Bilgileri</h3>
+                            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200 border-b dark:border-slate-800 pb-1">👤 Müşteri Bilgileri</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-gray-700 dark:text-slate-400">Ad Soyad *</label>
+                                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Ad Soyad *</label>
                                     <input
                                         name="customer"
                                         value={formData.customer}
                                         onChange={handleChange}
-                                        className="w-full p-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm text-gray-900 dark:text-slate-100 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
+                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
                                         placeholder="Örn: Ahmet Yılmaz"
                                     />
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-gray-700 dark:text-slate-400">Telefon</label>
+                                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Telefon</label>
                                     <input
                                         name="phone"
                                         value={formData.phone}
                                         onChange={handleChange}
-                                        className="w-full p-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm text-gray-900 dark:text-slate-100 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
+                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
                                         placeholder="0555..."
                                     />
                                 </div>
                                 <div className="space-y-1 md:col-span-2">
-                                    <label className="text-xs font-semibold text-gray-700 dark:text-slate-400">Adres</label>
+                                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Adres</label>
                                     <input
                                         name="address"
                                         value={formData.address}
                                         onChange={handleChange}
-                                        className="w-full p-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm text-gray-900 dark:text-slate-100 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
+                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
                                         placeholder="Tam adres..."
                                     />
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-gray-700 dark:text-slate-400">Şehir</label>
+                                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Şehir</label>
                                     <input
                                         name="city"
                                         value={formData.city}
                                         onChange={handleChange}
-                                        className="w-full p-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm text-gray-900 dark:text-slate-100 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
+                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
                                         placeholder="İstanbul"
                                     />
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-gray-700 dark:text-slate-400">E-posta</label>
+                                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">E-posta</label>
                                     <input
                                         name="email"
                                         value={formData.email}
                                         onChange={handleChange}
-                                        className="w-full p-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm text-gray-900 dark:text-slate-100 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
+                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
                                         placeholder="mail@ornek.com"
                                     />
                                 </div>
@@ -220,49 +220,49 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
 
                         {/* Section: Product */}
                         <div className="space-y-4">
-                            <h3 className="text-sm font-bold text-gray-900 dark:text-slate-200 border-b dark:border-slate-800 pb-1">📦 Ürün Bilgileri</h3>
+                            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200 border-b dark:border-slate-800 pb-1">📦 Ürün Bilgileri</h3>
 
                             <div className="space-y-1">
-                                <label className="text-xs font-semibold text-gray-700 dark:text-slate-400">Ürün Adı *</label>
+                                <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Ürün Adı *</label>
                                 <input
                                     name="productName"
                                     value={formData.productName}
                                     onChange={handleChange}
-                                    className="w-full p-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm text-gray-900 dark:text-slate-100 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
+                                    className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
                                     placeholder="Özel Duvar Kağıdı - Orman Temalı"
                                 />
                             </div>
 
                             <div className="grid grid-cols-3 gap-4">
                                 <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-gray-700 dark:text-slate-400">Genişlik</label>
+                                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Genişlik</label>
                                     <input
                                         type="number"
                                         name="width"
                                         value={formData.width}
                                         onChange={handleChange}
-                                        className="w-full p-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm text-gray-900 dark:text-slate-100 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
+                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
                                         placeholder="0"
                                     />
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-gray-700 dark:text-slate-400">Yükseklik</label>
+                                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Yükseklik</label>
                                     <input
                                         type="number"
                                         name="height"
                                         value={formData.height}
                                         onChange={handleChange}
-                                        className="w-full p-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm text-gray-900 dark:text-slate-100 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
+                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
                                         placeholder="0"
                                     />
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-gray-700 dark:text-slate-400">Birim</label>
+                                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Birim</label>
                                     <select
                                         name="unit"
                                         value={formData.unit}
                                         onChange={handleChange}
-                                        className="w-full p-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm text-gray-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
+                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
                                     >
                                         <option value="cm">cm</option>
                                         <option value="inch">inç</option>
@@ -271,12 +271,12 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                             </div>
 
                             <div className="space-y-1">
-                                <label className="text-xs font-semibold text-gray-700 dark:text-slate-400">Kağıt Cinsi / Doku</label>
+                                <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Kağıt Cinsi / Doku</label>
                                 <select
                                     name="material"
                                     value={formData.material}
                                     onChange={handleChange}
-                                    className="w-full p-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm text-gray-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
+                                    className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
                                 >
                                     <option value="">Kağıt Türü Seç</option>
                                     <option value="Dokusuz Duvar Kağıdı">Dokusuz Duvar Kağıdı</option>
@@ -292,13 +292,13 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                             </div>
 
                             <div className="space-y-1">
-                                <label className="text-xs font-semibold text-gray-700 dark:text-slate-400">Sipariş Notu</label>
+                                <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Sipariş Notu</label>
                                 <textarea
                                     name="note"
                                     value={formData.note}
                                     onChange={handleChange}
                                     rows={3}
-                                    className="w-full p-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm text-gray-900 dark:text-slate-100 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all resize-none"
+                                    className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all resize-none"
                                     placeholder="Özel notlar..."
                                 />
                             </div>
@@ -306,11 +306,11 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
 
                         {/* Section: Files */}
                         <div className="space-y-4">
-                            <h3 className="text-sm font-bold text-gray-900 dark:text-slate-200 border-b dark:border-slate-800 pb-1">📎 Dosyalar (Görsel & PDF)</h3>
+                            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200 border-b dark:border-slate-800 pb-1">📎 Dosyalar (Görsel & PDF)</h3>
 
                             <div className="flex flex-wrap gap-3">
                                 {files.map((file, idx) => (
-                                    <div key={idx} className="relative group border dark:border-slate-700 rounded-lg p-2 w-20 h-20 flex items-center justify-center bg-gray-50 dark:bg-slate-800 overflow-hidden">
+                                    <div key={idx} className="relative group border dark:border-slate-700 rounded-lg p-2 w-20 h-20 flex items-center justify-center bg-slate-50 dark:bg-slate-800 overflow-hidden">
                                         <button
                                             type="button"
                                             onClick={() => removeFile(idx)}
@@ -323,7 +323,7 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                                         ) : (
                                             <div className="flex flex-col items-center">
                                                 <FileText className="w-8 h-8 text-red-500" />
-                                                <span className="text-[9px] text-gray-500 truncate max-w-full">{file.name}</span>
+                                                <span className="text-[9px] text-slate-500 truncate max-w-full">{file.name}</span>
                                             </div>
                                         )}
                                     </div>
@@ -332,7 +332,7 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                                 <button
                                     type="button"
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="border-2 border-dashed border-gray-300 rounded-lg w-20 h-20 flex flex-col items-center justify-center text-gray-400 hover:border-blue-500 hover:text-blue-500 transition-colors"
+                                    className="border-2 border-dashed border-slate-300 rounded-lg w-20 h-20 flex flex-col items-center justify-center text-slate-400 hover:border-blue-500 hover:text-blue-500 transition-colors"
                                 >
                                     <Upload className="w-6 h-6" />
                                     <span className="text-[10px] mt-1">Yükle</span>
@@ -345,13 +345,13 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                                     onChange={handleFileChange}
                                 />
                             </div>
-                            <p className="text-[10px] text-gray-500">* PDF veya Görsel yükleyebilirsiniz. Yüklenen ilk görsel ürün görseli olarak kullanılacaktır.</p>
+                            <p className="text-[10px] text-slate-500">* PDF veya Görsel yükleyebilirsiniz. Yüklenen ilk görsel ürün görseli olarak kullanılacaktır.</p>
                         </div>
                     </form>
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 border-t dark:border-slate-800 bg-gray-50 dark:bg-slate-950/50 flex justify-between gap-3">
+                <div className="p-4 border-t dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 flex justify-between gap-3">
                     <button
                         type="button"
                         onClick={() => setFormData({
@@ -377,7 +377,7 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                     <div className="flex gap-3">
                         <button
                             onClick={onClose}
-                            className="px-4 py-2 text-sm text-gray-600 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-800 rounded-lg transition-colors font-medium"
+                            className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-colors font-medium"
                         >
                             İptal
                         </button>

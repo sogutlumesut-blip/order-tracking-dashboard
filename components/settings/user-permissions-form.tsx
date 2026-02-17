@@ -52,7 +52,7 @@ export function UserPermissionsForm({ user, statuses }: UserPermissionsFormProps
                 }}
                 className={`cursor-pointer relative z-10 flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-bold border shadow-sm transition-all active:scale-95 ${allowed.length > 0
                     ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
-                    : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50"
                     }`}
             >
                 <Shield className="w-3.5 h-3.5" />
@@ -65,20 +65,20 @@ export function UserPermissionsForm({ user, statuses }: UserPermissionsFormProps
                     // setIsOpen(false) // Optional: close on backdrop click? Better to force explicit close to avoid accidental clicks
                 }}>
                     <div
-                        className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm border border-gray-200 relative animate-in zoom-in-95 duration-200"
+                        className="bg-white p-6 rounded-xl shadow-2xl w-full max-w-sm border border-slate-200 relative animate-in zoom-in-95 duration-200"
                         onClick={e => e.stopPropagation()}
                     >
                         <div className="flex justify-between items-center mb-4">
                             <div>
-                                <h3 className="font-bold text-lg text-gray-900">Görülecek Kolonlar</h3>
-                                <p className="text-xs text-gray-500">{user.name}</p>
+                                <h3 className="font-bold text-lg text-slate-900">Görülecek Kolonlar</h3>
+                                <p className="text-xs text-slate-500">{user.name}</p>
                             </div>
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation()
                                     setIsOpen(false)
                                 }}
-                                className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors"
+                                className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors"
                             >
                                 <X className="w-5 h-5" />
                             </button>
@@ -92,8 +92,8 @@ export function UserPermissionsForm({ user, statuses }: UserPermissionsFormProps
                             {statuses.map(status => {
                                 const isChecked = allowed.includes(status.id)
                                 return (
-                                    <label key={status.id} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer group transition-all select-none">
-                                        <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isChecked ? "bg-blue-600 border-blue-600" : "border-gray-300 bg-white"
+                                    <label key={status.id} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-slate-50 cursor-pointer group transition-all select-none">
+                                        <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isChecked ? "bg-blue-600 border-blue-600" : "border-slate-300 bg-white"
                                             }`}>
                                             {isChecked && <Check className="w-3.5 h-3.5 text-white" />}
                                         </div>
@@ -103,14 +103,14 @@ export function UserPermissionsForm({ user, statuses }: UserPermissionsFormProps
                                             checked={isChecked}
                                             onChange={() => handleToggle(status.id)}
                                         />
-                                        <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
+                                        <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900">
                                             {status.title}
                                         </span>
                                     </label>
                                 )
                             })}
 
-                            <div className="my-2 border-t border-gray-100"></div>
+                            <div className="my-2 border-t border-slate-100"></div>
 
                             <label className="flex items-center gap-3 p-3 border border-orange-200 bg-orange-50 rounded-lg hover:bg-orange-100 cursor-pointer group transition-all select-none">
                                 <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${allowed.includes("MANUAL_SYNC") ? "bg-orange-600 border-orange-600" : "border-orange-300 bg-white"
@@ -134,7 +134,7 @@ export function UserPermissionsForm({ user, statuses }: UserPermissionsFormProps
                                     e.stopPropagation()
                                     setIsOpen(false)
                                 }}
-                                className="px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                             >
                                 İptal
                             </button>
@@ -143,7 +143,7 @@ export function UserPermissionsForm({ user, statuses }: UserPermissionsFormProps
                                     e.stopPropagation()
                                     handleSave()
                                 }}
-                                className="bg-black text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-gray-800 transition-colors shadow-lg"
+                                className="bg-black text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-slate-800 transition-colors shadow-lg"
                             >
                                 Kaydet
                             </button>

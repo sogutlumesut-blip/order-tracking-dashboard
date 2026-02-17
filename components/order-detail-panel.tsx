@@ -81,7 +81,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
             {/* Image Preview Modal */}
             {previewImage && (
                 <div className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setPreviewImage(null)}>
-                    <button className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors">
+                    <button className="absolute top-4 right-4 text-white hover:text-slate-300 transition-colors">
                         <X className="w-8 h-8" />
                     </button>
                     <img
@@ -96,17 +96,17 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
             <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
 
                 {/* Header */}
-                <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-gray-50 dark:bg-slate-950 print:hidden">
+                <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950 print:hidden">
                     <div>
                         <h2 className="text-lg font-bold dark:text-slate-100">Sipariş #{formData.id}</h2>
                         {/* Compact user info for header */}
-                        <p className="font-medium text-gray-900 dark:text-slate-300">{formData.customer}</p>
+                        <p className="font-medium text-slate-900 dark:text-slate-300">{formData.customer}</p>
                     </div>
                     <div className="flex gap-2">
-                        <button onClick={handlePrint} className="p-2 hover:bg-gray-200 dark:hover:bg-slate-800 rounded-full text-gray-600 dark:text-slate-400" title="Yazdır">
+                        <button onClick={handlePrint} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full text-slate-600 dark:text-slate-400" title="Yazdır">
                             <Printer className="w-5 h-5" />
                         </button>
-                        <button onClick={onClose} className="p-2 hover:bg-gray-200 dark:hover:bg-slate-800 rounded-full dark:text-slate-400">
+                        <button onClick={onClose} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full dark:text-slate-400">
                             <X className="w-5 h-5" />
                         </button>
                     </div>
@@ -131,7 +131,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                 className="h-12 w-auto object-contain"
                             />
                         </div>
-                        <div className="text-right text-xs text-gray-500">
+                        <div className="text-right text-xs text-slate-500">
                             <p>{APP_CONFIG.companyWeb}</p>
                             <p>{APP_CONFIG.companyPhone}</p>
                         </div>
@@ -152,7 +152,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                             <p className="text-xl font-bold mt-2">{formData.total}</p>
                         </div>
                     </div>
-                    {formData.note && <div className="mt-4 p-4 border border-dashed border-gray-300"><strong>Müşteri Notu:</strong> {formData.note}</div>}
+                    {formData.note && <div className="mt-4 p-4 border border-dashed border-slate-300"><strong>Müşteri Notu:</strong> {formData.note}</div>}
                 </div>
 
                 {/* Content - Two Column Layout */}
@@ -162,23 +162,23 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                         {/* LEFT COLUMN: Order Details */}
                         <div className="space-y-6">
                             {/* Customer Details Card (Screen Only) */}
-                            <div className="print:hidden bg-gray-50 dark:bg-slate-800/50 p-4 rounded-lg border dark:border-slate-700">
-                                <h3 className="font-semibold text-gray-900 dark:text-slate-100 mb-2">Müşteri Bilgileri</h3>
+                            <div className="print:hidden bg-slate-50 dark:bg-slate-800/50 p-4 rounded-lg border dark:border-slate-700">
+                                <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-2">Müşteri Bilgileri</h3>
                                 <div className="text-sm space-y-2">
-                                    <p className="font-bold text-lg text-gray-900 dark:text-slate-100">{formData.customer}</p>
+                                    <p className="font-bold text-lg text-slate-900 dark:text-slate-100">{formData.customer}</p>
 
-                                    <div className="text-gray-600 dark:text-slate-400 text-sm space-y-1">
+                                    <div className="text-slate-600 dark:text-slate-400 text-sm space-y-1">
                                         {formData.phone && <p className="flex items-center gap-2">📞 {formData.phone}</p>}
                                         {formData.email && <p className="flex items-center gap-2">📧 {formData.email}</p>}
                                     </div>
 
                                     {formData.address && (
-                                        <div className="text-gray-800 dark:text-slate-300 text-sm border-t border-gray-200 dark:border-slate-700 pt-2 mt-2">
+                                        <div className="text-slate-800 dark:text-slate-300 text-sm border-t border-slate-200 dark:border-slate-700 pt-2 mt-2">
                                             <p className="font-semibold mb-1 flex items-center gap-1">📍 Teslimat Adresi:</p>
                                             <p className="leading-relaxed">
                                                 {formData.address}
                                                 {formData.city && (
-                                                    <span className="font-bold block text-gray-900 mt-1">
+                                                    <span className="font-bold block text-slate-900 mt-1">
                                                         {formData.city.toLocaleUpperCase('tr-TR')}
                                                     </span>
                                                 )}
@@ -196,11 +196,11 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                             {/* Product Details (Enhanced) */}
                             <div>
-                                <h3 className="font-semibold text-gray-700 mb-3">Ürünler</h3>
+                                <h3 className="font-semibold text-slate-700 mb-3">Ürünler</h3>
                                 <div className="space-y-4">
                                     {formData.items.map(item => (
                                         <div key={item.id} className="flex gap-4 border dark:border-slate-700 p-3 rounded-lg bg-white dark:bg-slate-800 shadow-sm">
-                                            <div className="w-24 h-24 shrink-0 bg-gray-100 dark:bg-slate-700 rounded-md overflow-hidden border dark:border-slate-600">
+                                            <div className="w-24 h-24 shrink-0 bg-slate-100 dark:bg-slate-700 rounded-md overflow-hidden border dark:border-slate-600">
                                                 {/* Use real img tag for printing support */}
                                                 <img
                                                     src={item.image_src}
@@ -211,9 +211,9 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-start justify-between flex-wrap gap-y-2">
-                                                    <p className="font-bold text-gray-900 dark:text-slate-100 line-clamp-2">{item.name}</p>
+                                                    <p className="font-bold text-slate-900 dark:text-slate-100 line-clamp-2">{item.name}</p>
                                                     {item.sku && (
-                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-slate-700 text-gray-800 dark:text-slate-200 border border-gray-200 dark:border-slate-600 ml-2 whitespace-nowrap">
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-600 ml-2 whitespace-nowrap">
                                                             Stok Kodu: {item.sku}
                                                         </span>
                                                     )}
@@ -235,7 +235,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                         🔗 Özel Dosya Linki
                                                     </a>
                                                 )}
-                                                <div className="text-sm text-gray-600 dark:text-slate-400 mt-1 space-y-0.5">
+                                                <div className="text-sm text-slate-600 dark:text-slate-400 mt-1 space-y-0.5">
                                                     {item.material && <p>📄 <span className="font-medium">Doku:</span> {item.material}</p>}
                                                     {(() => {
                                                         if (!item.dimensions) return null;
@@ -269,7 +269,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                 {/* ALWAYS VISIBLE: Manual Barcode/Label Button */}
                                 <button
                                     onClick={() => setIsBarcodeModalOpen(true)}
-                                    className="w-full py-3 border-2 border-gray-800 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-800 dark:hover:bg-slate-700 hover:text-white transition-all text-gray-800 dark:text-slate-200 font-bold"
+                                    className="w-full py-3 border-2 border-slate-800 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center justify-center gap-2 hover:bg-slate-800 dark:hover:bg-slate-700 hover:text-white transition-all text-slate-800 dark:text-slate-200 font-bold"
                                 >
                                     <Printer className="w-5 h-5" />
                                     Barkod / Etiket Oluştur (Manuel)
@@ -277,13 +277,13 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                                 {formData.cargoBarcode && !formData.cargoLabelPdf && (
                                     <div className="mb-4">
-                                        <div className="text-center text-xs text-gray-400 mb-2">
+                                        <div className="text-center text-xs text-slate-400 mb-2">
                                             Kargo etiketi otomatik çekilemedi.
                                         </div>
                                         <div className="grid grid-cols-1 gap-2">
                                             <button
                                                 onClick={() => window.open(`https://duvarkagidimarketi.com/wp-admin/post.php?post=${formData.id}&action=edit`, '_blank')}
-                                                className="py-3 border-2 border-gray-300 bg-gray-50 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-gray-100 hover:border-gray-400 transition-all text-gray-600 font-bold text-xs"
+                                                className="py-3 border-2 border-slate-300 bg-slate-50 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-slate-100 hover:border-slate-400 transition-all text-slate-600 font-bold text-xs"
                                             >
                                                 <ExternalLink className="w-5 h-5" />
                                                 WooCommerce'da Aç
@@ -335,7 +335,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                 <X className="w-5 h-5" />
                                             </button>
                                         </div>
-                                        <p className="text-[10px] text-center text-gray-400">Yüklü Belge Var</p>
+                                        <p className="text-[10px] text-center text-slate-400">Yüklü Belge Var</p>
                                     </div>
                                 ) : (
                                     <div className="relative">
@@ -367,7 +367,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                 reader.readAsDataURL(file);
                                             }}
                                         />
-                                        <div className="w-full py-3 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-50 dark:hover:bg-slate-800 hover:border-blue-400 hover:text-blue-600 transition-all text-gray-500 dark:text-slate-400 font-bold">
+                                        <div className="w-full py-3 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-blue-400 hover:text-blue-600 transition-all text-slate-500 dark:text-slate-400 font-bold">
                                             <Upload className="w-5 h-5" />
                                             Kargo Etiketi Yükle (PDF)
                                         </div>
@@ -377,28 +377,28 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                             {/* Print Only: Process Notes History */}
                             <div className="hidden print:block mt-8 border-t pt-4">
-                                <h3 className="font-bold text-gray-900 mb-2">İşlem Notları / Yazışma Geçmişi</h3>
+                                <h3 className="font-bold text-slate-900 mb-2">İşlem Notları / Yazışma Geçmişi</h3>
                                 {formData.comments && formData.comments.length > 0 ? (
                                     <ul className="space-y-2 text-sm font-mono">
                                         {formData.comments.map((comment: any, idx: number) => (
                                             <li key={idx} className="border-b pb-1">
-                                                <span className="font-bold">{comment.author}</span> <span className="text-gray-500">[{comment.timestamp}]:</span> {comment.message}
+                                                <span className="font-bold">{comment.author}</span> <span className="text-slate-500">[{comment.timestamp}]:</span> {comment.message}
                                             </li>
                                         ))}
                                     </ul>
                                 ) : (
-                                    <p className="text-gray-500 italic">Henüz not eklenmemiş.</p>
+                                    <p className="text-slate-500 italic">Henüz not eklenmemiş.</p>
                                 )}
                             </div>
 
                             {/* EDITABLE FIELDS (Hidden in Print) */}
                             <div className="space-y-6 print:hidden">
-                                <div className="h-px bg-gray-200 my-4" />
+                                <div className="h-px bg-slate-200 my-4" />
                                 {/* Status */}
                                 <div className="space-y-2">
-                                    <label className="text-sm font-bold text-gray-900 dark:text-slate-200">Durum</label>
+                                    <label className="text-sm font-bold text-slate-900 dark:text-slate-200">Durum</label>
                                     <select
-                                        className="w-full p-2 border border-gray-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 text-black dark:text-white font-bold focus:ring-2 focus:ring-blue-500"
+                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 text-black dark:text-white font-bold focus:ring-2 focus:ring-blue-500"
                                         value={formData.status}
                                         onChange={(e) => setFormData({ ...formData, status: e.target.value as OrderStatus })}
                                     >
@@ -410,7 +410,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                                 {/* Labels */}
                                 <div className="space-y-2">
-                                    <label className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-slate-200">
+                                    <label className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-200">
                                         <Tag className="w-4 h-4" /> Etiketler
                                     </label>
                                     <div className="flex flex-wrap gap-2">
@@ -429,7 +429,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                     }}
                                                     className={`px-3 py-1 text-xs rounded-full border transition-colors ${isSelected
                                                         ? `${colors.bg} ${colors.text} ${colors.border} font-bold`
-                                                        : "bg-gray-50 dark:bg-slate-800 text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700 border-gray-200 dark:border-slate-700"
+                                                        : "bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700"
                                                         }`}
                                                 >
                                                     {tag.name}
@@ -441,19 +441,19 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                                 {/* Assigned To */}
                                 <div className="space-y-2">
-                                    <label className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-slate-200">
+                                    <label className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-200">
                                         <User className="w-4 h-4" /> {APP_CONFIG.assigneeLabel}
                                     </label>
                                     <div className="relative">
                                         <input
                                             type="text"
                                             readOnly
-                                            className="w-full p-2 border border-gray-300 dark:border-slate-700 rounded-lg bg-gray-100 dark:bg-slate-800 text-black dark:text-slate-300 font-bold cursor-not-allowed"
+                                            className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-100 dark:bg-slate-800 text-black dark:text-slate-300 font-bold cursor-not-allowed"
                                             value={currentUser.name}
                                         />
                                         <span className="absolute right-3 top-2.5 text-xs text-black dark:text-slate-300 font-bold">Sabit (Sen)</span>
                                     </div>
-                                    <p className="text-[10px] text-gray-900 dark:text-slate-400 font-bold">
+                                    <p className="text-[10px] text-slate-900 dark:text-slate-400 font-bold">
                                         * Kaydettiğinizde siparişin sorumlusu otomatik olarak siz olursunuz.
                                     </p>
                                 </div>
@@ -467,7 +467,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                         <input
                                             type="text"
                                             placeholder="Kargo Takip No Giriniz"
-                                            className="w-full p-2 border border-gray-300 rounded-md text-black font-bold placeholder:text-gray-500"
+                                            className="w-full p-2 border border-slate-300 rounded-md text-black font-bold placeholder:text-slate-500"
                                             value={formData.trackingNumber || ""}
                                             onChange={(e) => setFormData({ ...formData, trackingNumber: e.target.value })}
                                         />
@@ -484,7 +484,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                             {/* Note Log (Top Right) */}
                             <div>
-                                <label className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-slate-200 mb-3">
+                                <label className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-200 mb-3">
                                     <FileText className="w-4 h-4" /> İşlem Notları
                                 </label>
                                 <NoteLog
@@ -496,7 +496,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                             </div>
 
                             <div>
-                                <label className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-slate-200 mb-3">
+                                <label className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-200 mb-3">
                                     <Upload className="w-4 h-4" /> Yazışma & Dosyalar
                                 </label>
                                 <ChatSection
@@ -507,18 +507,18 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                             </div>
 
                             {/* Activity Log - Collapsible & Compact */}
-                            <div className="pt-4 border-t border-gray-200 dark:border-slate-700 mt-2">
+                            <div className="pt-4 border-t border-slate-200 dark:border-slate-700 mt-2">
                                 <button
                                     onClick={() => setIsActivityLogOpen(!isActivityLogOpen)}
-                                    className="flex items-center gap-2 text-xs font-bold text-gray-700 dark:text-slate-300 bg-gray-50 dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 p-2 rounded-lg border border-gray-200 dark:border-slate-700 transition-colors w-full text-left"
+                                    className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 p-2 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors w-full text-left"
                                 >
-                                    {isActivityLogOpen ? <ChevronDown className="w-4 h-4 text-blue-600" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
+                                    {isActivityLogOpen ? <ChevronDown className="w-4 h-4 text-blue-600" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
                                     <History className="w-3.5 h-3.5" />
                                     İşlem Geçmişi (Logs)
                                 </button>
 
                                 {isActivityLogOpen && (
-                                    <div className="mt-2 border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm animate-in slide-in-from-top-2 duration-200">
+                                    <div className="mt-2 border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm animate-in slide-in-from-top-2 duration-200">
                                         <ActivityLog activities={(formData as any).activities} />
                                     </div>
                                 )}
@@ -529,8 +529,8 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 border-t dark:border-slate-800 bg-gray-50 dark:bg-slate-950/50 flex justify-between print:hidden">
-                    <span className="text-xs text-gray-400 font-mono self-center">Barkod: {formData.barcode}</span>
+                <div className="p-4 border-t dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 flex justify-between print:hidden">
+                    <span className="text-xs text-slate-400 font-mono self-center">Barkod: {formData.barcode}</span>
                     <button
                         onClick={handleSave}
                         className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium flex items-center gap-2"

@@ -50,13 +50,13 @@ export default function RegisterPage() {
     }
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-gray-100">
+        <div className="flex min-h-screen items-center justify-center bg-slate-100">
             <div className="w-full max-w-md space-y-8 rounded-xl bg-white p-10 shadow-2xl">
                 <div className="text-center">
-                    <h2 className="mt-6 text-3xl font-bold tracking-tight text-gray-900">
+                    <h2 className="mt-6 text-3xl font-bold tracking-tight text-slate-900">
                         Ekibe Katıl
                     </h2>
-                    <p className="mt-2 text-sm text-gray-600">
+                    <p className="mt-2 text-sm text-slate-600">
                         Siparişlerinizi takip etmek için kayıt olun.
                     </p>
                 </div>
@@ -70,45 +70,45 @@ export default function RegisterPage() {
                         )}
 
                         <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700">Şirket Kodu</label>
+                            <label className="block text-sm font-medium text-slate-700">Şirket Kodu</label>
                             <input
                                 name="code"
                                 type="text"
                                 required
                                 placeholder="Örn: DKM2025"
-                                className="relative block w-full rounded-md border-0 py-1.5 p-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
+                                className="relative block w-full rounded-md border-0 py-1.5 p-2 text-slate-900 ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
                             />
-                            <p className="text-xs text-gray-500 mt-1">* Bu kodu yöneticinizden almalısınız.</p>
+                            <p className="text-xs text-slate-500 mt-1">* Bu kodu yöneticinizden almalısınız.</p>
                         </div>
 
                         <div className="my-2">
-                            <label className="block text-sm font-medium text-gray-700">Ad Soyad</label>
+                            <label className="block text-sm font-medium text-slate-700">Ad Soyad</label>
                             <input
                                 name="name"
                                 type="text"
                                 required
                                 placeholder="Ahmet Yılmaz"
-                                className="relative block w-full rounded-md border-0 py-1.5 p-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
+                                className="relative block w-full rounded-md border-0 py-1.5 p-2 text-slate-900 ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
                             />
                         </div>
 
                         <div className="my-2">
-                            <label className="block text-sm font-medium text-gray-700">Kullanıcı Adı</label>
+                            <label className="block text-sm font-medium text-slate-700">Kullanıcı Adı</label>
                             <input
                                 name="username"
                                 type="text"
                                 required
-                                className="relative block w-full rounded-md border-0 py-1.5 p-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
+                                className="relative block w-full rounded-md border-0 py-1.5 p-2 text-slate-900 ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
                             />
                         </div>
 
                         <div className="my-2">
-                            <label className="block text-sm font-medium text-gray-700">Şifre</label>
+                            <label className="block text-sm font-medium text-slate-700">Şifre</label>
                             <input
                                 name="password"
                                 type="password"
                                 required
-                                className="relative block w-full rounded-md border-0 py-1.5 p-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
+                                className="relative block w-full rounded-md border-0 py-1.5 p-2 text-slate-900 ring-1 ring-inset ring-slate-300 placeholder:text-slate-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
                             />
                         </div>
                     </div>

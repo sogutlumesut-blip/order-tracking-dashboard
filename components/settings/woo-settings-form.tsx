@@ -41,9 +41,9 @@ export function WooSettingsForm({ initialSettings }: WooSettingsFormProps) {
     return (
         <form action={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-blue-50/50 p-6 rounded-xl border border-blue-100">
             <div className="col-span-2">
-                <label className="block text-sm font-bold text-gray-700 mb-2">Site Adresi (URL) <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Site Adresi (URL) <span className="text-red-500">*</span></label>
                 <div className="relative">
-                    <Globe className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                    <Globe className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
                     <input
                         name="wc_url"
                         defaultValue={initialSettings.wc_url || ''}
@@ -55,9 +55,9 @@ export function WooSettingsForm({ initialSettings }: WooSettingsFormProps) {
             </div>
 
             <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Consumer Key (CK) <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Consumer Key (CK) <span className="text-red-500">*</span></label>
                 <div className="relative">
-                    <Key className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                    <Key className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
                     <input
                         name="wc_key"
                         type="password"
@@ -70,9 +70,9 @@ export function WooSettingsForm({ initialSettings }: WooSettingsFormProps) {
             </div>
 
             <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Consumer Secret (CS) <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Consumer Secret (CS) <span className="text-red-500">*</span></label>
                 <div className="relative">
-                    <Lock className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                    <Lock className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
                     <input
                         name="wc_secret"
                         type="password"

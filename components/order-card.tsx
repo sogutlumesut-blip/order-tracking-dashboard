@@ -39,7 +39,7 @@ export function OrderCard({ order, onClick, tags, selected = false, onSelect, se
             className={`bg-white dark:bg-slate-900 rounded-xl shadow-sm cursor-pointer hover:shadow-md transition-all relative group overflow-hidden border-2 ${selected ? 'border-blue-600 ring-2 ring-blue-300 transform scale-[1.02]' :
                 isPaymentFailed ? 'border-red-600 bg-red-50 dark:bg-red-900/20' :
                     order.hasNotification ? 'border-blue-500 bg-blue-50/30 dark:bg-blue-900/20' :
-                        isStuck ? 'border-amber-400 bg-amber-50/30' : 'border-gray-200 dark:border-slate-800'
+                        isStuck ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200 dark:border-slate-800'
                 }`}
         >
             {/* SELECTION CHECKBOX (Visible on hover or if selected or if selectionMode is active) */}
@@ -50,7 +50,7 @@ export function OrderCard({ order, onClick, tags, selected = false, onSelect, se
                     if (onSelect) onSelect(!selected)
                 }}
             >
-                <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center shadow-lg transition-colors ${selected ? 'bg-blue-600 border-blue-600' : 'bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-600 hover:border-blue-500'}`}>
+                <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center shadow-lg transition-colors ${selected ? 'bg-blue-600 border-blue-600' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 hover:border-blue-500'}`}>
                     {selected && <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                 </div>
             </div>
@@ -61,7 +61,7 @@ export function OrderCard({ order, onClick, tags, selected = false, onSelect, se
             )}
 
             {/* 1. VISUAL HERO SECTION */}
-            <div className="aspect-video relative bg-gray-100 dark:bg-slate-900 border-b dark:border-slate-800 z-10">
+            <div className="aspect-video relative bg-slate-100 dark:bg-slate-900 border-b dark:border-slate-800 z-10">
                 {mainImage ? (
                     <Image
                         src={mainImage}
@@ -71,7 +71,7 @@ export function OrderCard({ order, onClick, tags, selected = false, onSelect, se
                         className={`object-cover group-hover:scale-105 transition-transform duration-500 ${isPaymentFailed ? 'grayscale' : ''}`}
                     />
                 ) : (
-                    <div className="flex items-center justify-center h-full text-gray-400">
+                    <div className="flex items-center justify-center h-full text-slate-400">
                         <Package className="w-8 h-8" />
                     </div>
                 )}
@@ -121,8 +121,8 @@ export function OrderCard({ order, onClick, tags, selected = false, onSelect, se
             <div className="p-4 space-y-3">
                 <div className="flex justify-between items-start">
                     <div>
-                        <h3 className="font-bold text-gray-900 dark:text-slate-100">#{order.id}</h3>
-                        <p className="text-sm text-gray-600 dark:text-slate-400 font-medium">{order.customer}</p>
+                        <h3 className="font-bold text-slate-900 dark:text-slate-100">#{order.id}</h3>
+                        <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">{order.customer}</p>
                     </div>
                     <div className="flex flex-col items-end gap-1">
                         <span className={`text-sm font-semibold px-2 py-1 rounded-md ${isPaymentFailed ? 'text-red-700 bg-red-100 line-through' : 'text-green-600 bg-green-50'}`}>
@@ -132,7 +132,7 @@ export function OrderCard({ order, onClick, tags, selected = false, onSelect, se
                         {order.paymentMethod && (
                             <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border ${order.paymentMethod.toLowerCase().includes('havale') || order.paymentMethod.toLowerCase().includes('eft')
                                 ? 'text-purple-700 bg-purple-100 border-purple-200'
-                                : 'text-gray-500 bg-gray-100 border-gray-200'
+                                : 'text-slate-500 bg-slate-100 border-slate-200'
                                 }`}>
                                 {order.paymentMethod}
                             </span>
@@ -160,17 +160,17 @@ export function OrderCard({ order, onClick, tags, selected = false, onSelect, se
                 <div className="pt-2 border-t flex flex-col gap-1.5">
                     {/* Product Name */}
                     <div className="flex flex-col gap-0.5">
-                        <p className="text-sm font-medium text-gray-800 dark:text-slate-200 line-clamp-1">
+                        <p className="text-sm font-medium text-slate-800 dark:text-slate-200 line-clamp-1">
                             {order.items && order.items.length > 0 ? order.items[0].name : "Ürün detayı yok"}
                         </p>
-                        <div className="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-slate-400">
+                        <div className="flex flex-wrap gap-2 text-xs text-slate-500 dark:text-slate-400">
                             {order.items && order.items.length > 0 && order.items[0].sku && (
-                                <span className="bg-gray-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-gray-700 dark:text-slate-300 font-medium">
+                                <span className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300 font-medium">
                                     Kod: {order.items[0].sku}
                                 </span>
                             )}
                             {order.items && order.items.length > 0 && order.items[0].dimensions && (
-                                <span className="bg-gray-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-gray-700 dark:text-slate-300 font-medium flex items-center gap-1">
+                                <span className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300 font-medium flex items-center gap-1">
                                     <span>📏 {order.items[0].dimensions}</span>
                                     {/* Auto M2 Calculation */}
                                     {(() => {
@@ -181,7 +181,7 @@ export function OrderCard({ order, onClick, tags, selected = false, onSelect, se
                                             const h = parseInt(dims[2])
                                             // Assuming cm, convert to m²
                                             const m2 = (w * h) / 10000
-                                            return <span className="text-gray-400">({m2.toFixed(2)} m²)</span>
+                                            return <span className="text-slate-400">({m2.toFixed(2)} m²)</span>
                                         }
                                         return null
                                     })()}
@@ -204,7 +204,7 @@ export function OrderCard({ order, onClick, tags, selected = false, onSelect, se
 
                     {/* Date & Assignee */}
                     <div className="flex items-center justify-between mt-1">
-                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400">
+                        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                             <Calendar className="w-3 h-3" />
                             <span>{order.date}</span>
                         </div>

@@ -45,10 +45,10 @@ export function ChatSection({ comments = [], onAddComment, currentUser }: ChatSe
     }
 
     return (
-        <div className="flex flex-col h-[400px] border dark:border-slate-700 rounded-xl overflow-hidden bg-gray-50/50 dark:bg-slate-900/50">
+        <div className="flex flex-col h-[400px] border dark:border-slate-700 rounded-xl overflow-hidden bg-slate-50/50 dark:bg-slate-900/50">
             {/* Header */}
             <div className="p-3 border-b dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-between text-xs">
-                <span className="font-semibold text-gray-500 dark:text-slate-400">Yazışma Geçmişi</span>
+                <span className="font-semibold text-slate-500 dark:text-slate-400">Yazışma Geçmişi</span>
                 {/* No user selector anymore, automated */}
                 <span className="text-blue-600 dark:text-blue-400 font-medium">{currentUser.name} olarak yazıyorsunuz</span>
             </div>
@@ -56,7 +56,7 @@ export function ChatSection({ comments = [], onAddComment, currentUser }: ChatSe
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {comments.length === 0 && (
-                    <div className="text-center text-gray-400 text-sm mt-10">
+                    <div className="text-center text-slate-400 text-sm mt-10">
                         Henüz mesaj yok.
                     </div>
                 )}
@@ -65,14 +65,14 @@ export function ChatSection({ comments = [], onAddComment, currentUser }: ChatSe
                     const isMe = comment.author === currentUser.name; // Simple check by name for now
                     return (
                         <div key={comment.id} className={`flex flex-col gap-1 ${isMe ? 'items-end' : 'items-start'}`}>
-                            <div className="flex items-center gap-2 text-xs text-gray-500">
-                                <span className="font-bold text-gray-700">{comment.author}</span>
+                            <div className="flex items-center gap-2 text-xs text-slate-500">
+                                <span className="font-bold text-slate-700">{comment.author}</span>
                                 <span>{comment.timestamp}</span>
                             </div>
 
                             <div className={`max-w-[85%] p-3 rounded-2xl text-sm ${isMe
                                 ? 'bg-blue-600 text-white rounded-tr-sm'
-                                : 'bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-tl-sm shadow-sm text-gray-900 dark:text-slate-100 font-medium'
+                                : 'bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-tl-sm shadow-sm text-slate-900 dark:text-slate-100 font-medium'
                                 }`}>
                                 {comment.message && <p>{comment.message}</p>}
 
@@ -108,7 +108,7 @@ export function ChatSection({ comments = [], onAddComment, currentUser }: ChatSe
                 <div className="flex gap-2">
                     <button
                         onClick={() => fileInputRef.current?.click()}
-                        className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full transition-colors"
+                        className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors"
                     >
                         <Paperclip className="w-5 h-5" />
                     </button>
@@ -122,7 +122,7 @@ export function ChatSection({ comments = [], onAddComment, currentUser }: ChatSe
 
                     <input
                         type="text"
-                        className="flex-1 bg-gray-50 dark:bg-slate-700 border-none rounded-full px-4 text-sm focus:ring-1 focus:ring-blue-500 outline-none text-gray-900 dark:text-slate-100 font-medium placeholder:text-gray-500 dark:placeholder:text-slate-400"
+                        className="flex-1 bg-slate-50 dark:bg-slate-700 border-none rounded-full px-4 text-sm focus:ring-1 focus:ring-blue-500 outline-none text-slate-900 dark:text-slate-100 font-medium placeholder:text-slate-500 dark:placeholder:text-slate-400"
                         placeholder="Mesaj yazın..."
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
@@ -133,7 +133,7 @@ export function ChatSection({ comments = [], onAddComment, currentUser }: ChatSe
                         onClick={handleSend}
                         className={`p-2 rounded-full transition-colors ${message.trim() || attachment
                             ? 'bg-blue-600 text-white hover:bg-blue-700'
-                            : 'bg-gray-100 dark:bg-slate-700 text-gray-400 dark:text-slate-500 cursor-not-allowed'
+                            : 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
                             }`}
                         disabled={!message.trim() && !attachment}
                     >

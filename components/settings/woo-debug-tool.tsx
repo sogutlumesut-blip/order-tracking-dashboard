@@ -51,11 +51,11 @@ export function WooDebugTool() {
 
     return (
         <div className="bg-white p-6 rounded-xl shadow-sm border border-amber-100">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-900">
+            <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-900">
                 <span className="bg-amber-100 text-amber-700 p-1 px-2 rounded text-sm font-bold">🛠️</span>
                 WooCommerce Veri Analizi
             </h2>
-            <p className="text-sm text-gray-600 mb-6">
+            <p className="text-sm text-slate-600 mb-6">
                 Kargo barkodu veya özel alanları bulmak için son siparişin tüm ham verisini buradan inceleyebilirsiniz.
             </p>
 
@@ -63,7 +63,7 @@ export function WooDebugTool() {
                 <input
                     type="text"
                     placeholder="Sipariş No (Opsiyonel)"
-                    className="border border-gray-300 rounded px-3 py-2 text-sm w-full sm:w-40"
+                    className="border border-slate-300 rounded px-3 py-2 text-sm w-full sm:w-40"
                     value={orderIdInput}
                     onChange={(e) => setOrderIdInput(e.target.value)}
                 />
@@ -101,7 +101,7 @@ export function WooDebugTool() {
                 data && (
                     <div className="mt-4">
                         <div className="flex justify-between items-center mb-2">
-                            <span className="text-xs font-bold text-gray-500">HAM JSON VERİSİ (Son Sipariş)</span>
+                            <span className="text-xs font-bold text-slate-500">HAM JSON VERİSİ (Son Sipariş)</span>
                             <button
                                 onClick={() => {
                                     navigator.clipboard.writeText(data)
@@ -112,10 +112,10 @@ export function WooDebugTool() {
                                 Kopyala
                             </button>
                         </div>
-                        <pre className="bg-gray-900 text-green-400 p-4 rounded-lg text-xs overflow-auto max-h-96 font-mono whitespace-pre-wrap break-all">
+                        <pre className="bg-slate-900 text-green-400 p-4 rounded-lg text-xs overflow-auto max-h-96 font-mono whitespace-pre-wrap break-all">
                             {data}
                         </pre>
-                        <p className="mt-2 text-xs text-gray-500">
+                        <p className="mt-2 text-xs text-slate-500">
                             * Bu veriyi kopyalayıp geliştiriciye (bana) göndererek hangi alanın kargo barkodu olduğunu bulabiliriz.
                         </p>
                     </div>

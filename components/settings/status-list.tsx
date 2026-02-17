@@ -108,22 +108,22 @@ function SortableItem({ status }: { status: Status }) {
         <div
             ref={setNodeRef}
             style={style}
-            className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border group relative"
+            className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border group relative"
         >
             <div className="flex items-center gap-3">
                 {/* DRAG HANDLE */}
                 <button
                     {...attributes}
                     {...listeners}
-                    className="cursor-grab text-gray-400 hover:text-gray-600 active:cursor-grabbing p-1 -ml-1"
+                    className="cursor-grab text-slate-400 hover:text-slate-600 active:cursor-grabbing p-1 -ml-1"
                 >
                     <GripVertical className="w-5 h-5" />
                 </button>
 
-                <div className={`w-4 h-4 rounded-full ${status.color.replace('bg-', 'bg-') || 'bg-gray-200'} border`} />
+                <div className={`w-4 h-4 rounded-full ${status.color.replace('bg-', 'bg-') || 'bg-slate-200'} border`} />
                 <div>
-                    <p className="font-bold text-sm text-gray-900">{status.title}</p>
-                    <p className="text-xs text-gray-500 font-mono font-medium">{status.id}</p>
+                    <p className="font-bold text-sm text-slate-900">{status.title}</p>
+                    <p className="text-xs text-slate-500 font-mono font-medium">{status.id}</p>
                 </div>
             </div>
 

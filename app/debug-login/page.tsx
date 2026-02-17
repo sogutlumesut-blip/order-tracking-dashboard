@@ -122,15 +122,15 @@ export default async function DebugLoginPage() {
                 V3.3 SİPARİŞ KURTARMA (SON DÜZELTME)
             </h1>
 
-            <div className="bg-gray-900 p-6 rounded-lg w-full max-w-2xl mb-8 overflow-auto">
-                <pre className="text-sm text-gray-300">
+            <div className="bg-slate-900 p-6 rounded-lg w-full max-w-2xl mb-8 overflow-auto">
+                <pre className="text-sm text-slate-300">
                     {JSON.stringify(checks, null, 2)}
                 </pre>
             </div>
 
             <div className="border border-red-200 bg-red-50 p-6 rounded-lg text-center">
                 <h3 className="text-lg font-bold text-red-700 mb-2">Acil Durum: Admin Yetkisi Ver</h3>
-                <p className="mb-4 text-gray-600">
+                <p className="mb-4 text-slate-600">
                     Aşağıdaki butona bastığınızda, sistemdeki tüm "staff" (personel) kullanıcıları "admin" (yönetici) yapılır.
                     <br />
                     (Sayfa yenilenecektir)
@@ -143,7 +143,7 @@ export default async function DebugLoginPage() {
 
                 <form action={seedStatuses} className="border-t pt-4 mt-4">
                     <h3 className="text-lg font-bold text-blue-700 mb-2">Veritabanı Onarımı</h3>
-                    <p className="mb-2 text-gray-600 text-xs">Kolonlar (Bekliyor, Hazırlanıyor vb.) görünmüyorsa buna basın:</p>
+                    <p className="mb-2 text-slate-600 text-xs">Kolonlar (Bekliyor, Hazırlanıyor vb.) görünmüyorsa buna basın:</p>
                     <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow transition-colors w-full">
                         Varsayılan Kolonları Geri Getir ♻️
                     </button>
@@ -151,14 +151,14 @@ export default async function DebugLoginPage() {
 
                 <form action={resetOrdersToPending} className="border-t pt-4 mt-4">
                     <h3 className="text-lg font-bold text-orange-700 mb-2">Sipariş Taşıma</h3>
-                    <p className="mb-2 text-gray-600 text-xs">Siparişler yanlış yerde geliyorsa buna basın:</p>
+                    <p className="mb-2 text-slate-600 text-xs">Siparişler yanlış yerde geliyorsa buna basın:</p>
                     <button type="submit" className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded-lg shadow transition-colors w-full">
                         Tüm Siparişleri "Bekliyor"a Taşı 📦
                     </button>
                 </form>
             </div>
 
-            <div className="mt-8 text-xs text-gray-400 text-center">
+            <div className="mt-8 text-xs text-slate-400 text-center">
                 Time: {new Date().toISOString()}
             </div>
         </div>

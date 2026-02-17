@@ -39,12 +39,12 @@ export function LoginForm({ debugInfo }: { debugInfo: any }) {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 relative z-50">
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 relative z-50">
             <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 space-y-6">
                 <div className="text-center space-y-2">
-                    <h1 className="text-3xl font-bold text-gray-900">OMS Giriş (Debug)</h1>
-                    <p className="text-gray-500">Sipariş Yönetim Sistemine Hoşgeldiniz</p>
-                    <div className="text-xs font-mono text-left bg-gray-100 p-2 rounded mt-2 overflow-auto max-h-20">
+                    <h1 className="text-3xl font-bold text-slate-900">OMS Giriş (Debug)</h1>
+                    <p className="text-slate-500">Sipariş Yönetim Sistemine Hoşgeldiniz</p>
+                    <div className="text-xs font-mono text-left bg-slate-100 p-2 rounded mt-2 overflow-auto max-h-20">
                         DB Status: {debugInfo.status}<br />
                         Connected: {debugInfo.db ? 'YES' : 'NO'}<br />
                         Error: {debugInfo.err}
@@ -53,23 +53,23 @@ export function LoginForm({ debugInfo }: { debugInfo: any }) {
 
                 <form action={clientAction} className="space-y-4">
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700">Kullanıcı Adı</label>
+                        <label className="text-sm font-medium text-slate-700">Kullanıcı Adı</label>
                         <input
                             name="username"
                             type="text"
                             required
-                            className="w-full p-3 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                            className="w-full p-3 border rounded-lg bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                             placeholder="Örn: admin"
                         />
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700">Şifre</label>
+                        <label className="text-sm font-medium text-slate-700">Şifre</label>
                         <input
                             name="password"
                             type="password"
                             required
-                            className="w-full p-3 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                            className="w-full p-3 border rounded-lg bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                             placeholder="••••••"
                         />
                     </div>
@@ -84,7 +84,7 @@ export function LoginForm({ debugInfo }: { debugInfo: any }) {
                     <LoginButton />
                 </form>
 
-                <div className="pt-4 border-t text-center text-xs text-gray-400">
+                <div className="pt-4 border-t text-center text-xs text-slate-400">
                     Varsayılan: admin / admin
                 </div>
                 <div className="text-center text-sm">

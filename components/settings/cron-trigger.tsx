@@ -27,11 +27,11 @@ export function CronTrigger() {
 
     return (
         <div className="bg-white p-6 rounded-xl shadow-sm border border-orange-100">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-gray-900">
+            <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-900">
                 <span className="bg-orange-100 text-orange-800 p-1 px-2 rounded text-sm font-bold">4</span>
                 Otomasyon Tetikleyicileri
             </h2>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-slate-600 mb-4">
                 "Kargolandı" durumunda olup, üzerinden 3 gün geçen siparişleri otomatik olarak "Tamamlandı" durumuna alır.
             </p>
             <button
@@ -42,7 +42,7 @@ export function CronTrigger() {
                 {loading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5" />}
                 {loading ? "İşleniyor..." : "Eski Siparişleri Şimdi Temizle (3+ Gün)"}
             </button>
-            <p className="text-[10px] text-gray-400 mt-2 text-center">
+            <p className="text-[10px] text-slate-400 mt-2 text-center">
                 * Bu işlem normalde günde 1 kez otomatik çalışacak şekilde ayarlanabilir.
             </p>
         </div>

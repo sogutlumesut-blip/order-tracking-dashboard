@@ -33,18 +33,18 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
 
                 {/* Header */}
-                <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+                <div className="p-4 border-b flex justify-between items-center bg-slate-50">
                     <h3 className="font-bold text-lg">Barkod Yazdır</h3>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
+                    <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
 
                 {/* Printable Content Area */}
-                <div className="flex-1 overflow-auto p-8 bg-gray-100 flex justify-center">
+                <div className="flex-1 overflow-auto p-8 bg-slate-100 flex justify-center">
                     <div
                         ref={printRef}
-                        className="bg-white p-6 rounded shadow-sm border border-gray-200 w-[10cm] min-h-[10cm] flex flex-col items-center text-center print:shadow-none print:border-none print:w-full print:h-full"
+                        className="bg-white p-6 rounded shadow-sm border border-slate-200 w-[10cm] min-h-[10cm] flex flex-col items-center text-center print:shadow-none print:border-none print:w-full print:h-full"
                         style={{ width: "100mm", height: "100mm" }} // Standard generic label size (10x10cm) or fit to content
                     >
                         {/* Sender / Header */}
@@ -55,7 +55,7 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
 
                         {/* Middle: Receiver Info */}
                         <div className="w-full text-left mb-6 space-y-1 flex-1">
-                            <p className="text-xs text-gray-500 uppercase font-bold">ALICI:</p>
+                            <p className="text-xs text-slate-500 uppercase font-bold">ALICI:</p>
                             <p className="font-bold text-lg leading-tight">{order.customer}</p>
                             <p className="text-sm">{order.address}</p>
                             <p className="text-sm font-bold">{order.city}</p>
@@ -90,7 +90,7 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                 </div>
 
                 {/* Footer Actions */}
-                <div className="p-4 border-t bg-gray-50 flex gap-3">
+                <div className="p-4 border-t bg-slate-50 flex gap-3">
                     <button
                         onClick={() => handlePrint()}
                         className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl"
@@ -100,7 +100,7 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                     </button>
                     <button
                         onClick={onClose}
-                        className="px-6 py-3 border border-gray-300 hover:bg-gray-100 rounded-lg font-medium text-gray-700 transition-colors"
+                        className="px-6 py-3 border border-slate-300 hover:bg-slate-100 rounded-lg font-medium text-slate-700 transition-colors"
                     >
                         Kapat
                     </button>

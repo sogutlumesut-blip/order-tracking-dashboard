@@ -720,13 +720,13 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shrink-0">
                             OMS
                         </div>
-                        <h1 className="font-bold text-sm md:text-lg text-gray-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-gray-400 font-normal">v2.3 (Sütunlar: {cols.length})</span></h1>
+                        <h1 className="font-bold text-sm md:text-lg text-slate-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-slate-400 font-normal">v2.3 (Sütunlar: {cols.length})</span></h1>
                     </div>
 
                     {/* Desktop Menu */}
                     <div className="hidden md:flex items-center gap-4">
                         <ThemeToggle />
-                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400 bg-gray-50 dark:bg-slate-800 px-3 py-1.5 rounded-full border border-gray-100 dark:border-slate-700">
+                        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-100 dark:border-slate-700">
                             <Clock className="w-3 h-3" />
                             <span>Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}</span>
                             <span className="ml-1 text-[10px] text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-900/30 px-1 rounded">v1.2 Live</span>
@@ -744,20 +744,20 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                         .catch(() => toast.error("Ses çalınamadı. Tarayıcı izinlerini kontrol edin."))
                                 }
                             }}
-                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
                             title="Bildirim sesini test et"
                         >
                             <Volume2 className="w-5 h-5" />
                         </button>
 
-                        <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full">
+                        <div className="flex items-center gap-2 text-sm text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">
                             <User className="w-4 h-4" />
                             <span className="font-medium">{currentUser.name}</span>
-                            <span className="text-xs text-gray-400">({currentUser.role})</span>
+                            <span className="text-xs text-slate-400">({currentUser.role})</span>
                         </div>
 
                         {currentUser.role === 'admin' && (
-                            <Link href="/admin/settings" className="p-2 text-gray-600 hover:bg-gray-100 rounded-full transition-colors" title="Ayarlar">
+                            <Link href="/admin/settings" className="p-2 text-slate-600 hover:bg-slate-100 rounded-full transition-colors" title="Ayarlar">
                                 <Settings className="w-5 h-5" />
                             </Link>
                         )}
@@ -843,7 +843,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         {/* CAMERA SCANNER TRIGGER (Mobile/Desktop) */}
                         <button
                             onClick={() => setShowCamera(true)}
-                            className="p-2 bg-gray-900 text-white rounded-full hover:bg-gray-800 transition-colors shadow-sm"
+                            className="p-2 bg-slate-900 text-white rounded-full hover:bg-slate-800 transition-colors shadow-sm"
                             title="Kamera ile Barkod Tara"
                         >
                             <ScanBarcode className="w-5 h-5" />
@@ -863,7 +863,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         {/* Mobile Camera Trigger */}
                         <button
                             onClick={() => setShowCamera(true)}
-                            className="p-2 bg-gray-900 text-white rounded-full hover:bg-gray-800 transition-colors shadow-sm mr-1"
+                            className="p-2 bg-slate-900 text-white rounded-full hover:bg-slate-800 transition-colors shadow-sm mr-1"
                         >
                             <ScanBarcode className="w-5 h-5" />
                         </button>
@@ -876,7 +876,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                             <span>Ekle</span>
                         </button>
 
-                        <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 text-gray-700 hover:bg-gray-100 rounded-md">
+                        <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 text-slate-700 hover:bg-slate-100 rounded-md">
                             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Settings className="w-6 h-6" />}
                         </button>
                     </div>
@@ -886,15 +886,15 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 {showCamera && (
                     <div className="fixed inset-0 z-[60] bg-black/90 flex flex-col items-center justify-center p-4">
                         <div className="bg-white rounded-xl w-full max-w-md overflow-hidden relative">
-                            <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+                            <div className="p-4 border-b flex justify-between items-center bg-slate-50">
                                 <h3 className="font-bold text-lg">Barkod Okut</h3>
-                                <button onClick={() => setShowCamera(false)} className="p-2 hover:bg-gray-200 rounded-full">
+                                <button onClick={() => setShowCamera(false)} className="p-2 hover:bg-slate-200 rounded-full">
                                     <X className="w-5 h-5" />
                                 </button>
                             </div>
                             <div className="p-4">
                                 <div id="reader" className="w-full"></div>
-                                <p className="text-center text-xs text-gray-500 mt-4">
+                                <p className="text-center text-xs text-slate-500 mt-4">
                                     Kamerayı barkoda veya QR koda tutun.
                                 </p>
                             </div>
@@ -905,12 +905,12 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 {/* Mobile Menu Dropdown */}
                 {mobileMenuOpen && (
                     <div className="md:hidden bg-white border-b p-4 flex flex-col gap-4 absolute top-16 left-0 w-full z-30 shadow-xl animate-in slide-in-from-top-2">
-                        <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
-                            <div className="flex items-center gap-2 text-sm text-gray-700">
+                        <div className="flex items-center justify-between bg-slate-50 p-3 rounded-lg">
+                            <div className="flex items-center gap-2 text-sm text-slate-700">
                                 <User className="w-4 h-4" />
                                 <span className="font-bold">{currentUser.name}</span>
                             </div>
-                            <span className="text-xs bg-gray-200 px-2 py-1 rounded-full">{currentUser.role}</span>
+                            <span className="text-xs bg-slate-200 px-2 py-1 rounded-full">{currentUser.role}</span>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
@@ -955,7 +955,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                             )}
 
                             {currentUser.role === 'admin' && (
-                                <Link onClick={() => setMobileMenuOpen(false)} href="/admin/settings" className="col-span-2 flex items-center justify-center gap-2 p-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-bold text-sm border border-gray-200">
+                                <Link onClick={() => setMobileMenuOpen(false)} href="/admin/settings" className="col-span-2 flex items-center justify-center gap-2 p-3 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-bold text-sm border border-slate-200">
                                     <Settings className="w-4 h-4" />
                                     Tüm Ayarlar
                                 </Link>
@@ -970,7 +970,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                         toast.success("Ses test edildi")
                                     }
                                 }}
-                                className="flex items-center gap-2 text-sm text-gray-600 px-2 py-1"
+                                className="flex items-center gap-2 text-sm text-slate-600 px-2 py-1"
                             >
                                 <Volume2 className="w-4 h-4" />
                                 Test Ses
@@ -990,19 +990,19 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 <div className="px-6 py-4 bg-white dark:bg-slate-900 border-b dark:border-slate-800 flex items-center justify-between shrink-0 gap-4 transition-colors">
                     <div className="relative w-full max-w-md">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <Search className="h-5 w-5 text-gray-400" />
+                            <Search className="h-5 w-5 text-slate-400" />
                         </div>
                         <input
                             type="text"
                             placeholder="Sipariş ara (Müşteri, No, Tel, Barkod)..."
-                            className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-700 rounded-lg leading-5 bg-white dark:bg-slate-800 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out text-gray-900 dark:text-slate-100 font-medium"
+                            className="block w-full pl-10 pr-3 py-2 border border-slate-300 dark:border-slate-700 rounded-lg leading-5 bg-white dark:bg-slate-800 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out text-slate-900 dark:text-slate-100 font-medium"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
 
 
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                    <div className="flex items-center gap-4 text-sm text-slate-500">
                         <form action={simulateWooCommerceOrder} className="hidden">
                             <button className="flex items-center gap-2 px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-md transition-colors font-medium">
                                 <Plus className="w-4 h-4" />
@@ -1011,7 +1011,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         </form>
 
                         <div className="hidden md:flex items-center gap-1">
-                            <span className="font-semibold text-gray-900 dark:text-slate-100">{filteredOrders.length}</span>
+                            <span className="font-semibold text-slate-900 dark:text-slate-100">{filteredOrders.length}</span>
                             <span>sipariş</span>
                         </div>
                     </div>
@@ -1062,17 +1062,17 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 <div key={column.id} className="h-full pt-6">
                                     <div
                                         onClick={() => toggleCollapse()}
-                                        className={`w-12 h-full rounded-full ${column.color || 'bg-gray-100'} border border-gray-200 flex flex-col items-center py-4 gap-4 cursor-pointer hover:bg-gray-200 transition-colors shadow-sm`}
+                                        className={`w-12 h-full rounded-full ${column.color || 'bg-slate-100'} border border-slate-200 flex flex-col items-center py-4 gap-4 cursor-pointer hover:bg-slate-200 transition-colors shadow-sm`}
                                     >
-                                        <div className="writing-vertical-lr transform rotate-180 text-sm font-bold text-gray-600 whitespace-nowrap tracking-wider">
+                                        <div className="writing-vertical-lr transform rotate-180 text-sm font-bold text-slate-600 whitespace-nowrap tracking-wider">
                                             {column.title}
                                         </div>
                                         <div className="flex flex-col items-center gap-1 mt-auto pb-4">
-                                            <span className="bg-white text-gray-900 text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shadow-sm">
+                                            <span className="bg-white text-slate-900 text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shadow-sm">
                                                 {columnOrders.length}
                                             </span>
                                             <div className="p-1.5 rounded-full bg-white/40 hover:bg-white/80 transition-colors backdrop-blur-sm">
-                                                <ChevronDown className="w-4 h-4 text-gray-700" />
+                                                <ChevronDown className="w-4 h-4 text-slate-700" />
                                             </div>
                                         </div>
                                     </div>
@@ -1081,12 +1081,12 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         }
 
                         return (
-                            <div key={column.id} className="flex-shrink-0 w-80 max-w-[90vw] flex flex-col h-full rounded-xl bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-800 transition-all snap-center shadow-sm">
-                                <div className={`px-3 py-3 border-b dark:border-slate-800 rounded-t-xl relative z-30 flex flex-col gap-2 transition-colors ${column.color || 'bg-gray-100 dark:bg-slate-800'} shadow-sm`}>
+                            <div key={column.id} className="flex-shrink-0 w-80 max-w-[90vw] flex flex-col h-full rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 transition-all snap-center shadow-sm">
+                                <div className={`px-3 py-3 border-b dark:border-slate-800 rounded-t-xl relative z-30 flex flex-col gap-2 transition-colors ${column.color || 'bg-slate-100 dark:bg-slate-800'} shadow-sm`}>
                                     <div className="flex justify-between items-center w-full relative">
                                         <div className="flex items-center gap-2">
-                                            <h2 className="font-bold text-gray-800 dark:text-slate-200 text-sm">{column.title}</h2>
-                                            <span className="bg-white/80 dark:bg-slate-700/80 text-gray-900 dark:text-slate-100 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-black/5 dark:border-white/10 shadow-sm">
+                                            <h2 className="font-bold text-slate-800 dark:text-slate-200 text-sm">{column.title}</h2>
+                                            <span className="bg-white/80 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-black/5 dark:border-white/10 shadow-sm">
                                                 {columnOrders.length}
                                             </span>
                                         </div>
@@ -1094,7 +1094,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                             {/* Filter Toggle */}
                                             <div className="relative">
                                                 <button
-                                                    className={`p-1.5 rounded-md transition-all filter-menu-trigger ${columnFilters && columnFilters[column.id] ? 'bg-blue-100 text-blue-600 ring-1 ring-blue-500' : 'hover:bg-black/5 text-gray-500'}`}
+                                                    className={`p-1.5 rounded-md transition-all filter-menu-trigger ${columnFilters && columnFilters[column.id] ? 'bg-blue-100 text-blue-600 ring-1 ring-blue-500' : 'hover:bg-black/5 text-slate-500'}`}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         if (typeof toggleFilter === 'function') toggleFilter(column.id);
@@ -1105,14 +1105,14 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
                                                 {/* Custom Dropdown Menu */}
                                                 {openFilterId === column.id && (
-                                                    <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-50 filter-menu overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                                    <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-xl border border-slate-200 z-50 filter-menu overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                                                         <div className="p-1 max-h-64 overflow-y-auto">
                                                             <button
                                                                 onClick={() => {
                                                                     setColumnFilters(prev => { const n = { ...prev }; delete n[column.id]; return n; });
                                                                     setOpenFilterId(null);
                                                                 }}
-                                                                className={`w-full text-left px-3 py-2 text-xs font-medium rounded-md transition-colors ${!columnFilters[column.id] ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                                                                className={`w-full text-left px-3 py-2 text-xs font-medium rounded-md transition-colors ${!columnFilters[column.id] ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50'}`}
                                                             >
                                                                 Tümü
                                                             </button>
@@ -1123,7 +1123,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                                                         setColumnFilters(prev => ({ ...prev, [column.id]: texture }));
                                                                         setOpenFilterId(null);
                                                                     }}
-                                                                    className={`w-full text-left px-3 py-2 text-xs font-medium rounded-md transition-colors ${columnFilters[column.id] === texture ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                                                                    className={`w-full text-left px-3 py-2 text-xs font-medium rounded-md transition-colors ${columnFilters[column.id] === texture ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50'}`}
                                                                 >
                                                                     {texture}
                                                                 </button>
@@ -1135,7 +1135,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
                                             <button
                                                 onClick={() => toggleCollapse()}
-                                                className="p-1.5 hover:bg-black/5 rounded-md transition-colors text-gray-600"
+                                                className="p-1.5 hover:bg-black/5 rounded-md transition-colors text-slate-600"
                                             >
                                                 <ChevronUp className="w-3.5 h-3.5" strokeWidth={2.5} />
                                             </button>
@@ -1183,7 +1183,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                             </DraggableItem>
                                         ))}
                                         {columnOrders.length === 0 && (
-                                            <div className="h-24 flex items-center justify-center text-sm text-gray-400 border-2 border-dashed border-gray-200 rounded-lg pointer-events-none">
+                                            <div className="h-24 flex items-center justify-center text-sm text-slate-400 border-2 border-dashed border-slate-200 rounded-lg pointer-events-none">
                                                 {searchTerm ? "Sonuç yok" : "Sipariş Yok"}
                                             </div>
                                         )}
@@ -1215,12 +1215,12 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
             {/* BULK ACTION BAR */}
             {selectedOrders.length > 0 && (
-                <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-gray-900 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-6 animate-in slide-in-from-bottom-4 border border-gray-700">
-                    <div className="flex items-center gap-3 border-r border-gray-700 pr-6">
+                <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-slate-900 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-6 animate-in slide-in-from-bottom-4 border border-slate-700">
+                    <div className="flex items-center gap-3 border-r border-slate-700 pr-6">
                         <span className="font-bold text-lg">{selectedOrders.length}</span>
                         <button
                             onClick={() => setSelectedOrders([])}
-                            className="ml-2 text-xs hover:text-white text-gray-500 hover:underline"
+                            className="ml-2 text-xs hover:text-white text-slate-500 hover:underline"
                         >
                             İptal
                         </button>
@@ -1228,19 +1228,19 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
                     <div className="flex items-center gap-4">
                         <div className="flex flex-col items-end mr-2">
-                            <span className="text-xs text-gray-500 font-medium">
+                            <span className="text-xs text-slate-500 font-medium">
                                 Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}
                             </span>
-                            <span className="text-[10px] text-gray-400">v1.2 Live</span>
+                            <span className="text-[10px] text-slate-400">v1.2 Live</span>
                         </div>
 
-                        <div className="flex items-center bg-white rounded-lg border border-gray-200 shadow-sm p-1">
+                        <div className="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm p-1">
                             {cols.map(col => (
                                 <button
                                     key={col.id}
                                     disabled={isBulkProcessing}
                                     onClick={() => handleBulkMove(col.id)}
-                                    className={`px-3 py-2 rounded-md text-xs font-bold transition-transform active:scale-95 border shadow-sm whitespace-nowrap ${col.color || 'bg-gray-100 border-gray-200'} text-gray-900 border-black/5 hover:brightness-95`}
+                                    className={`px-3 py-2 rounded-md text-xs font-bold transition-transform active:scale-95 border shadow-sm whitespace-nowrap ${col.color || 'bg-slate-100 border-slate-200'} text-slate-900 border-black/5 hover:brightness-95`}
                                 >
                                     {col.title}
                                 </button>

@@ -23,15 +23,15 @@ export function NoteLog({ comments = [], onAddNote, currentUser, className }: No
     return (
         <div className={`flex flex-col border dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-900 shadow-sm ${className || 'h-[400px]'}`}>
             {/* Header */}
-            <div className="p-3 border-b dark:border-slate-700 bg-gray-50 dark:bg-slate-800 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-gray-500 dark:text-slate-400" />
-                <span className="font-bold text-gray-700 dark:text-slate-200 text-sm">İşlem Notları ve Tarihçe</span>
+            <div className="p-3 border-b dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                <span className="font-bold text-slate-700 dark:text-slate-200 text-sm">İşlem Notları ve Tarihçe</span>
             </div>
 
             {/* Log Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/50 dark:bg-slate-900/50">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50 dark:bg-slate-900/50">
                 {comments.length === 0 && (
-                    <div className="text-center text-gray-400 text-xs mt-10 italic">
+                    <div className="text-center text-slate-400 text-xs mt-10 italic">
                         Henüz not eklenmemiş.
                     </div>
                 )}
@@ -39,7 +39,7 @@ export function NoteLog({ comments = [], onAddNote, currentUser, className }: No
                 {comments.map(comment => (
                     <div key={comment.id} className="relative bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-lg p-3 shadow-sm group hover:shadow-md transition-shadow">
                         {/* Note Content */}
-                        <p className="text-sm text-gray-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap font-medium mb-4">
+                        <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap font-medium mb-4">
                             {comment.message}
                         </p>
 
@@ -69,10 +69,10 @@ export function NoteLog({ comments = [], onAddNote, currentUser, className }: No
             </div>
 
             {/* Input Area */}
-            <div className="p-3 bg-gray-50 dark:bg-slate-800 border-t dark:border-slate-700">
+            <div className="p-3 bg-slate-50 dark:bg-slate-800 border-t dark:border-slate-700">
                 <div className="relative">
                     <textarea
-                        className="w-full p-3 pr-12 text-sm border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[80px] resize-none font-medium text-gray-900 dark:text-slate-100 placeholder:font-normal placeholder:text-gray-500 dark:placeholder:text-slate-400 bg-white dark:bg-slate-900"
+                        className="w-full p-3 pr-12 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[80px] resize-none font-medium text-slate-900 dark:text-slate-100 placeholder:font-normal placeholder:text-slate-500 dark:placeholder:text-slate-400 bg-white dark:bg-slate-900"
                         placeholder="Yeni not ekle..."
                         value={note}
                         onChange={(e) => setNote(e.target.value)}
@@ -86,14 +86,14 @@ export function NoteLog({ comments = [], onAddNote, currentUser, className }: No
                     <button
                         onClick={handleSend}
                         disabled={!note.trim()}
-                        className={`absolute right-2 bottom-2 p-2 rounded-full transition-colors ${note.trim() ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 dark:bg-slate-700 text-gray-400 dark:text-slate-500'
+                        className={`absolute right-2 bottom-2 p-2 rounded-full transition-colors ${note.trim() ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500'
                             }`}
                         title="Notu Kaydet"
                     >
                         <Send className="w-4 h-4" />
                     </button>
                 </div>
-                <p className="text-[10px] text-gray-500 dark:text-slate-400 mt-2 ml-1">
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-2 ml-1">
                     * Eklenen notlar silinemez ve değiştirilemez.
                 </p>
             </div>
