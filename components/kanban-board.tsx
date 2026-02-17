@@ -10,8 +10,8 @@ import { BarcodeScanner } from "./barcode-scanner"
 import { OrderDetailPanel } from "./order-detail-panel"
 import { toast } from "sonner"
 import { Toaster } from "sonner"
-import { updateOrderStatus, updateOrderDetails, addCommentAction, getOrders, markOrderAsRead, syncWooCommerceOrders, syncEtsyOrders, syncCargoKargoEntegrator, createManualOrder, simulateWooCommerceOrder, logoutAction } from "../app/actions"
-import { bulkUpdateOrderStatus } from "../app/actions-bulk"
+// Removed duplicate import
+import { updateOrderStatus, updateOrderDetails, addCommentAction, getOrders, markOrderAsRead, syncWooCommerceOrders, syncEtsyOrders, syncCargoKargoEntegrator, createManualOrder, simulateWooCommerceOrder, logoutAction, bulkUpdateOrderStatus } from "../app/actions"
 import Link from "next/link"
 import { ManualOrderModal } from "./manual-order-modal"
 import { useRouter } from "next/navigation"
@@ -60,44 +60,9 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         )
     }
 
-    const handleBulkMove = async (targetStatusId: string) => {
-        if (selectedOrders.length === 0) return
-        setIsBulkProcessing(true)
-        toast.info(`${selectedOrders.length} sipariş taşınıyor...`)
+    // Removed duplicate handleBulkMove function
+    // The correct implementation is further down in the file
 
-        try {
-            // Create a timeout promise (10 seconds)
-            const timeoutPromise = new Promise<{ success: boolean, error?: string }>((_, reject) => {
-                setTimeout(() => reject(new Error("Zaman aşımı (Timeout). Sunucu 10 sn içinde cevap vermedi.")), 10000)
-            })
-
-            // Race the server action against the timeout
-            const result = await Promise.race([
-                bulkUpdateOrderStatus(selectedOrders, targetStatusId),
-                timeoutPromise
-            ]) as any // cast because race return type inference can be tricky
-
-            if (result.success) {
-                if (typeof result.count === 'number' && result.count > 0) {
-                    toast.success(result.message)
-                    // Optimistic update
-                    setOrders(prev => prev.map(o => selectedOrders.includes(o.id) ? { ...o, status: targetStatusId as any, updatedAt: new Date().toISOString() } : o))
-                    setSelectedOrders([])
-                    router.refresh()
-                } else {
-                    toast.error(result.message || "Hiçbir sipariş güncellenemedi (Count: 0).")
-                    router.refresh()
-                }
-            } else {
-                toast.error(result.error || "İşlem başarısız oldu.")
-            }
-        } catch (e) {
-            console.error(e)
-            toast.error("HATA: " + (e as Error).message)
-        } finally {
-            setIsBulkProcessing(false)
-        }
-    }
 
     // Refs to track modal state allows accessing current state inside setInterval closure
     const isPanelOpenRef = useRef(isPanelOpen)
@@ -628,620 +593,665 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             console.log("Scanned Code not found:", cleanCode)
         }
     }
+}
 
-    const handleOrderUpdate = async (updatedOrder: Order) => {
-        // interactionLocks.current[updatedOrder.id] = Date.now() // Removed lock
-        const orderWithNotification = { ...updatedOrder, hasNotification: true, updatedAt: new Date().toISOString() }
-        setOrders(prev => prev.map(o => o.id === updatedOrder.id ? orderWithNotification : o))
+const handleBulkMove = async (targetStatusId: string) => {
+    if (selectedOrders.length === 0) return
+    if (isBulkProcessing) return
 
-        await updateOrderDetails(updatedOrder)
-        toast.success("Sipariş güncellendi")
+    if (!confirm(`${selectedOrders.length} adet siparişi "${cols.find(c => c.id === targetStatusId)?.title}" aşamasına taşımak istediğinize emin misiniz?`)) {
+        return
     }
 
-    const handleAddComment = async (orderId: number, message: string, attachments: any[]) => {
-        const newComment: Comment = {
-            id: Date.now().toString(),
-            author: currentUser.name,
-            message,
-            timestamp: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
-            attachments
-        }
+    setIsBulkProcessing(true)
+    const toastId = toast.loading("Toplu taşıma yapılıyor...")
 
+    try {
+        // Optimistic Update
         setOrders(prev => prev.map(o => {
-            if (o.id === orderId) {
+            if (selectedOrders.includes(o.id)) {
                 return {
                     ...o,
-                    hasNotification: true,
-                    updatedAt: new Date().toISOString(),
-                    comments: o.comments ? [...o.comments, newComment] : [newComment]
+                    status: targetStatusId as OrderStatus,
+                    assignedTo: "Siz",
+                    updatedAt: new Date().toISOString()
                 }
             }
             return o
         }))
 
-        await addCommentAction(orderId, message, attachments)
-    }
+        const result = await bulkUpdateOrderStatus(selectedOrders, targetStatusId)
 
-    const handleSync = async () => {
-        setIsSyncing(true)
-        toast.info("WooCommerce ile senkronizasyon yapılıyor...")
-        try {
-            const result = await syncWooCommerceOrders()
-            if (result.success) {
-                toast.success(result.message)
-                if (result.logs && result.logs.length > 0) {
-                    console.log("--- WOO SYNC LOGS ---")
-                    result.logs.forEach((log: string) => console.log(log))
-                    console.log("---------------------")
-                }
-                // Refresh local state immediately
-                const latest = await getOrders(Date.now())
-                setOrders(latest as any)
-            } else {
-                toast.error(result.error)
-            }
-        } catch (e: any) {
-            console.error("Sync Error:", e)
-            toast.error(`Bağlantı hatası: ${e.message || "Bilinmeyen bir sorun oluştu"}`)
-        } finally {
-            setIsSyncing(false)
+        if (result.error) {
+            throw new Error(result.error)
         }
+
+        toast.success(`${selectedOrders.length} sipariş taşındı`, { id: toastId })
+        setSelectedOrders([]) // Clear selection
+    } catch (e: any) {
+        toast.error(`Hata: ${e.message}`, { id: toastId })
+        // Revert would be complex here, assuming server sync will fix it eventually or refresh
+        // Ideally trigger a re-fetch
+        const latest = await getOrders()
+        setOrders(latest as any)
+    } finally {
+        setIsBulkProcessing(false)
+    }
+}
+
+const handleOrderUpdate = async (updatedOrder: Order) => {
+    // interactionLocks.current[updatedOrder.id] = Date.now() // Removed lock
+    const orderWithNotification = { ...updatedOrder, hasNotification: true, updatedAt: new Date().toISOString() }
+    setOrders(prev => prev.map(o => o.id === updatedOrder.id ? orderWithNotification : o))
+
+    await updateOrderDetails(updatedOrder)
+    toast.success("Sipariş güncellendi")
+}
+
+const handleAddComment = async (orderId: number, message: string, attachments: any[]) => {
+    const newComment: Comment = {
+        id: Date.now().toString(),
+        author: currentUser.name,
+        message,
+        timestamp: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+        attachments
     }
 
+    setOrders(prev => prev.map(o => {
+        if (o.id === orderId) {
+            return {
+                ...o,
+                hasNotification: true,
+                updatedAt: new Date().toISOString(),
+                comments: o.comments ? [...o.comments, newComment] : [newComment]
+            }
+        }
+        return o
+    }))
 
-    if (!mounted) {
-        return (
-            <div className="flex items-center justify-center h-full">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-            </div>
-        )
+    await addCommentAction(orderId, message, attachments)
+}
+
+const handleSync = async () => {
+    setIsSyncing(true)
+    toast.info("WooCommerce ile senkronizasyon yapılıyor...")
+    try {
+        const result = await syncWooCommerceOrders()
+        if (result.success) {
+            toast.success(result.message)
+            if (result.logs && result.logs.length > 0) {
+                console.log("--- WOO SYNC LOGS ---")
+                result.logs.forEach((log: string) => console.log(log))
+                console.log("---------------------")
+            }
+            // Refresh local state immediately
+            const latest = await getOrders(Date.now())
+            setOrders(latest as any)
+        } else {
+            toast.error(result.error)
+        }
+    } catch (e: any) {
+        console.error("Sync Error:", e)
+        toast.error(`Bağlantı hatası: ${e.message || "Bilinmeyen bir sorun oluştu"}`)
+    } finally {
+        setIsSyncing(false)
     }
+}
 
+
+if (!mounted) {
     return (
-        <DndContext
-            sensors={sensors}
-            collisionDetection={closestCorners}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-        >
-            <div className="flex flex-col h-full">
-                {/* Header moved from page.tsx */}
-                <header className="bg-white dark:bg-slate-900 border-b dark:border-slate-800 h-16 flex items-center justify-between px-4 md:px-6 shrink-0 z-20 relative transition-colors">
-                    <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
-                        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shrink-0">
-                            OMS
-                        </div>
-                        <h1 className="font-bold text-sm md:text-lg text-gray-800 dark:text-gray-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-gray-400 font-normal">v2.3 (Sütunlar: {cols.length})</span></h1>
+        <div className="flex items-center justify-center h-full">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        </div>
+    )
+}
+
+return (
+    <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+    >
+        <div className="flex flex-col h-full">
+            {/* Header moved from page.tsx */}
+            <header className="bg-white dark:bg-neutral-900 border-b dark:border-neutral-800 h-16 flex items-center justify-between px-4 md:px-6 shrink-0 z-20 relative transition-colors">
+                <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
+                    <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shrink-0">
+                        OMS
+                    </div>
+                    <h1 className="font-bold text-sm md:text-lg text-gray-800 dark:text-neutral-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-gray-400 font-normal">v2.3 (Sütunlar: {cols.length})</span></h1>
+                </div>
+
+                {/* Desktop Menu */}
+                <div className="hidden md:flex items-center gap-4">
+                    <ThemeToggle />
+                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-neutral-400 bg-gray-50 dark:bg-neutral-800 px-3 py-1.5 rounded-full border border-gray-100 dark:border-neutral-700">
+                        <Clock className="w-3 h-3" />
+                        <span>Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}</span>
+                        <span className="ml-1 text-[10px] text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-900/30 px-1 rounded">v1.2 Live</span>
                     </div>
 
-                    {/* Desktop Menu */}
-                    <div className="hidden md:flex items-center gap-4">
-                        <ThemeToggle />
-                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-slate-800 px-3 py-1.5 rounded-full border border-gray-100 dark:border-slate-700">
-                            <Clock className="w-3 h-3" />
-                            <span>Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}</span>
-                            <span className="ml-1 text-[10px] text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-900/30 px-1 rounded">v1.2 Live</span>
-                        </div>
+                    {/* Sound Toggle */}
+                    <button
+                        onClick={() => {
+                            if (audioRef.current) {
+                                audioRef.current.play()
+                                    .then(() => {
+                                        toast.success("Bildirim sesi test edildi 🔔")
+                                        // User interaction unlocked audio
+                                    })
+                                    .catch(() => toast.error("Ses çalınamadı. Tarayıcı izinlerini kontrol edin."))
+                            }
+                        }}
+                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                        title="Bildirim sesini test et"
+                    >
+                        <Volume2 className="w-5 h-5" />
+                    </button>
 
-                        {/* Sound Toggle */}
-                        <button
-                            onClick={() => {
-                                if (audioRef.current) {
-                                    audioRef.current.play()
-                                        .then(() => {
-                                            toast.success("Bildirim sesi test edildi 🔔")
-                                            // User interaction unlocked audio
-                                        })
-                                        .catch(() => toast.error("Ses çalınamadı. Tarayıcı izinlerini kontrol edin."))
-                                }
-                            }}
-                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
-                            title="Bildirim sesini test et"
-                        >
-                            <Volume2 className="w-5 h-5" />
-                        </button>
+                    <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full">
+                        <User className="w-4 h-4" />
+                        <span className="font-medium">{currentUser.name}</span>
+                        <span className="text-xs text-gray-400">({currentUser.role})</span>
+                    </div>
 
-                        <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-100 px-3 py-1.5 rounded-full">
-                            <User className="w-4 h-4" />
-                            <span className="font-medium">{currentUser.name}</span>
-                            <span className="text-xs text-gray-400">({currentUser.role})</span>
-                        </div>
+                    {currentUser.role === 'admin' && (
+                        <Link href="/admin/settings" className="p-2 text-gray-600 hover:bg-gray-100 rounded-full transition-colors" title="Ayarlar">
+                            <Settings className="w-5 h-5" />
+                        </Link>
+                    )}
 
-                        {currentUser.role === 'admin' && (
-                            <Link href="/admin/settings" className="p-2 text-gray-600 hover:bg-gray-100 rounded-full transition-colors" title="Ayarlar">
-                                <Settings className="w-5 h-5" />
-                            </Link>
-                        )}
+                    {/* Manuel Sipariş - Everyone can see */}
+                    <button
+                        onClick={() => setIsManualOrderOpen(true)}
+                        className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
+                        title="Manuel sipariş oluştur"
+                    >
+                        <Plus className="w-4 h-4" />
+                        <span>Manuel Sipariş</span>
+                    </button>
 
-                        {/* Manuel Sipariş - Everyone can see */}
-                        <button
-                            onClick={() => setIsManualOrderOpen(true)}
-                            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
-                            title="Manuel sipariş oluştur"
-                        >
-                            <Plus className="w-4 h-4" />
-                            <span>Manuel Sipariş</span>
-                        </button>
+                    {/* Woo & Etsy Sync - Styled similarly */}
+                    {(currentUser.role === 'admin' || (currentUser as any).allowedStatuses?.includes("MANUAL_SYNC")) && ( // Note: currentUser in props might need mapping for permissions if detailed object passed
+                        <>
+                            <form action={async () => {
+                                toast.info("WooCommerce senkronizasyonu...")
+                                await syncWooCommerceOrders(true) // FORCE SYNC
+                                toast.success("Senkronizasyon tamamlandı")
+                            }}>
+                                <button
+                                    type="submit"
+                                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
+                                    title="WooCommerce'den son siparişleri manuel çek"
+                                >
+                                    <RefreshCw className="w-3.5 h-3.5" />
+                                    Woo Çek
+                                </button>
+                            </form>
 
-                        {/* Woo & Etsy Sync - Styled similarly */}
-                        {(currentUser.role === 'admin' || (currentUser as any).allowedStatuses?.includes("MANUAL_SYNC")) && ( // Note: currentUser in props might need mapping for permissions if detailed object passed
-                            <>
+                            {currentUser.role === 'admin' && (
                                 <form action={async () => {
-                                    toast.info("WooCommerce senkronizasyonu...")
-                                    await syncWooCommerceOrders(true) // FORCE SYNC
+                                    toast.info("Etsy senkronizasyonu...")
+                                    await syncEtsyOrders()
                                     toast.success("Senkronizasyon tamamlandı")
                                 }}>
                                     <button
                                         type="submit"
-                                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
-                                        title="WooCommerce'den son siparişleri manuel çek"
+                                        className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
+                                        title="Etsy'den son siparişleri manuel çek"
                                     >
                                         <RefreshCw className="w-3.5 h-3.5" />
-                                        Woo Çek
+                                        Etsy Çek
                                     </button>
                                 </form>
+                            )}
+                        </>
+                    )}
 
-                                {currentUser.role === 'admin' && (
-                                    <form action={async () => {
-                                        toast.info("Etsy senkronizasyonu...")
-                                        await syncEtsyOrders()
-                                        toast.success("Senkronizasyon tamamlandı")
-                                    }}>
-                                        <button
-                                            type="submit"
-                                            className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
-                                            title="Etsy'den son siparişleri manuel çek"
-                                        >
-                                            <RefreshCw className="w-3.5 h-3.5" />
-                                            Etsy Çek
-                                        </button>
-                                    </form>
-                                )}
-                            </>
-                        )}
+                    {/* Kargo Sync - Admin Only? Or Staff with Permission? Let's say Admin for now or same permission */}
+                    {(currentUser.role === 'admin' || (currentUser as any).allowedStatuses?.includes("MANUAL_SYNC")) && (
+                        <form action={async () => {
+                            toast.info("Kargo entegrasyonu (MNG/DHL) kontrol ediliyor...")
+                            const res = await syncCargoKargoEntegrator()
+                            if (res?.success) toast.success(res.message)
+                            else if (res?.error) toast.error(res.error)
+                        }}>
+                            <button
+                                type="submit"
+                                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
+                                title="Kargo takip numaralarını ve etiketleri çek"
+                            >
+                                <Truck className="w-3.5 h-3.5" />
+                                Kargo Çek
+                            </button>
+                        </form>
+                    )}
 
-                        {/* Kargo Sync - Admin Only? Or Staff with Permission? Let's say Admin for now or same permission */}
+                    {/* Drag Lock Toggle */}
+                    <button
+                        onClick={() => {
+                            setIsDragLocked(!isDragLocked)
+                            toast.info(isDragLocked ? "Sürükleme kilidi açıldı" : "Sürükleme kilitlendi")
+                        }}
+                        className={`p-2 rounded-full transition-colors ${isDragLocked ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}
+                        title={isDragLocked ? "Sürükleme Kilitli (Açmak için tıkla)" : "Sürükleme Açık (Kilitlemek için tıkla)"}
+                    >
+                        {isDragLocked ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
+                    </button>
+
+                    {/* CAMERA SCANNER TRIGGER (Mobile/Desktop) */}
+                    <button
+                        onClick={() => setShowCamera(true)}
+                        className="p-2 bg-gray-900 text-white rounded-full hover:bg-gray-800 transition-colors shadow-sm"
+                        title="Kamera ile Barkod Tara"
+                    >
+                        <ScanBarcode className="w-5 h-5" />
+                    </button>
+
+                    <form action={async () => {
+                        await logoutAction()
+                    }}>
+                        <button className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors" title="Çıkış Yap">
+                            <LogOut className="w-5 h-5" />
+                        </button>
+                    </form>
+                </div>
+
+                {/* Mobile Menu Trigger */}
+                <div className="md:hidden flex items-center gap-2">
+                    {/* Mobile Camera Trigger */}
+                    <button
+                        onClick={() => setShowCamera(true)}
+                        className="p-2 bg-gray-900 text-white rounded-full hover:bg-gray-800 transition-colors shadow-sm mr-1"
+                    >
+                        <ScanBarcode className="w-5 h-5" />
+                    </button>
+
+                    <button
+                        onClick={() => setIsManualOrderOpen(true)}
+                        className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
+                    >
+                        <Plus className="w-4 h-4" />
+                        <span>Ekle</span>
+                    </button>
+
+                    <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 text-gray-700 hover:bg-gray-100 rounded-md">
+                        {mobileMenuOpen ? <X className="w-6 h-6" /> : <Settings className="w-6 h-6" />}
+                    </button>
+                </div>
+            </header>
+
+            {/* CAMERA SCANNER MODAL */}
+            {showCamera && (
+                <div className="fixed inset-0 z-[60] bg-black/90 flex flex-col items-center justify-center p-4">
+                    <div className="bg-white rounded-xl w-full max-w-md overflow-hidden relative">
+                        <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+                            <h3 className="font-bold text-lg">Barkod Okut</h3>
+                            <button onClick={() => setShowCamera(false)} className="p-2 hover:bg-gray-200 rounded-full">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-4">
+                            <div id="reader" className="w-full"></div>
+                            <p className="text-center text-xs text-gray-500 mt-4">
+                                Kamerayı barkoda veya QR koda tutun.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Mobile Menu Dropdown */}
+            {mobileMenuOpen && (
+                <div className="md:hidden bg-white border-b p-4 flex flex-col gap-4 absolute top-16 left-0 w-full z-30 shadow-xl animate-in slide-in-from-top-2">
+                    <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                        <div className="flex items-center gap-2 text-sm text-gray-700">
+                            <User className="w-4 h-4" />
+                            <span className="font-bold">{currentUser.name}</span>
+                        </div>
+                        <span className="text-xs bg-gray-200 px-2 py-1 rounded-full">{currentUser.role}</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
                         {(currentUser.role === 'admin' || (currentUser as any).allowedStatuses?.includes("MANUAL_SYNC")) && (
                             <form action={async () => {
-                                toast.info("Kargo entegrasyonu (MNG/DHL) kontrol ediliyor...")
+                                toast.info("Woo Senkronize ediliyor...")
+                                await syncWooCommerceOrders(true)
+                                setMobileMenuOpen(false)
+                            }} className="col-span-1">
+                                <button className="w-full flex items-center justify-center gap-2 p-3 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 font-bold text-sm border border-blue-100">
+                                    <RefreshCw className="w-4 h-4" />
+                                    Woo Çek
+                                </button>
+                            </form>
+                        )}
+
+                        {currentUser.role === 'admin' && (
+                            <form action={async () => {
+                                toast.info("Etsy Senkronize ediliyor...")
+                                await syncEtsyOrders()
+                                setMobileMenuOpen(false)
+                            }} className="col-span-1">
+                                <button className="w-full flex items-center justify-center gap-2 p-3 bg-orange-50 text-orange-700 rounded-lg hover:bg-orange-100 font-bold text-sm border border-orange-100">
+                                    <RefreshCw className="w-4 h-4" />
+                                    Etsy Çek
+                                </button>
+                            </form>
+                        )}
+
+                        {(currentUser.role === 'admin' || (currentUser as any).allowedStatuses?.includes("MANUAL_SYNC")) && (
+                            <form action={async () => {
+                                toast.info("Kargo Senkronize ediliyor...")
                                 const res = await syncCargoKargoEntegrator()
                                 if (res?.success) toast.success(res.message)
-                                else if (res?.error) toast.error(res.error)
-                            }}>
-                                <button
-                                    type="submit"
-                                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
-                                    title="Kargo takip numaralarını ve etiketleri çek"
-                                >
-                                    <Truck className="w-3.5 h-3.5" />
+                                setMobileMenuOpen(false)
+                            }} className="col-span-1">
+                                <button className="w-full flex items-center justify-center gap-2 p-3 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 font-bold text-sm border border-indigo-100">
+                                    <Truck className="w-4 h-4" />
                                     Kargo Çek
                                 </button>
                             </form>
                         )}
 
-                        {/* Drag Lock Toggle */}
+                        {currentUser.role === 'admin' && (
+                            <Link onClick={() => setMobileMenuOpen(false)} href="/admin/settings" className="col-span-2 flex items-center justify-center gap-2 p-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-bold text-sm border border-gray-200">
+                                <Settings className="w-4 h-4" />
+                                Tüm Ayarlar
+                            </Link>
+                        )}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 pt-2 border-t mt-2">
                         <button
                             onClick={() => {
-                                setIsDragLocked(!isDragLocked)
-                                toast.info(isDragLocked ? "Sürükleme kilidi açıldı" : "Sürükleme kilitlendi")
+                                if (audioRef.current) {
+                                    audioRef.current.play().catch(() => { })
+                                    toast.success("Ses test edildi")
+                                }
                             }}
-                            className={`p-2 rounded-full transition-colors ${isDragLocked ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}
-                            title={isDragLocked ? "Sürükleme Kilitli (Açmak için tıkla)" : "Sürükleme Açık (Kilitlemek için tıkla)"}
+                            className="flex items-center gap-2 text-sm text-gray-600 px-2 py-1"
                         >
-                            {isDragLocked ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
+                            <Volume2 className="w-4 h-4" />
+                            Test Ses
                         </button>
 
-                        {/* CAMERA SCANNER TRIGGER (Mobile/Desktop) */}
-                        <button
-                            onClick={() => setShowCamera(true)}
-                            className="p-2 bg-gray-900 text-white rounded-full hover:bg-gray-800 transition-colors shadow-sm"
-                            title="Kamera ile Barkod Tara"
-                        >
-                            <ScanBarcode className="w-5 h-5" />
-                        </button>
-
-                        <form action={async () => {
-                            await logoutAction()
-                        }}>
-                            <button className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors" title="Çıkış Yap">
-                                <LogOut className="w-5 h-5" />
+                        <form action={async () => await logoutAction()} className="ml-auto">
+                            <button className="flex items-center gap-2 text-sm text-red-600 font-bold px-2 py-1">
+                                <LogOut className="w-4 h-4" />
+                                Çıkış Yap
                             </button>
                         </form>
-                    </div>
-
-                    {/* Mobile Menu Trigger */}
-                    <div className="md:hidden flex items-center gap-2">
-                        {/* Mobile Camera Trigger */}
-                        <button
-                            onClick={() => setShowCamera(true)}
-                            className="p-2 bg-gray-900 text-white rounded-full hover:bg-gray-800 transition-colors shadow-sm mr-1"
-                        >
-                            <ScanBarcode className="w-5 h-5" />
-                        </button>
-
-                        <button
-                            onClick={() => setIsManualOrderOpen(true)}
-                            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
-                        >
-                            <Plus className="w-4 h-4" />
-                            <span>Ekle</span>
-                        </button>
-
-                        <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 text-gray-700 hover:bg-gray-100 rounded-md">
-                            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Settings className="w-6 h-6" />}
-                        </button>
-                    </div>
-                </header>
-
-                {/* CAMERA SCANNER MODAL */}
-                {showCamera && (
-                    <div className="fixed inset-0 z-[60] bg-black/90 flex flex-col items-center justify-center p-4">
-                        <div className="bg-white rounded-xl w-full max-w-md overflow-hidden relative">
-                            <div className="p-4 border-b flex justify-between items-center bg-gray-50">
-                                <h3 className="font-bold text-lg">Barkod Okut</h3>
-                                <button onClick={() => setShowCamera(false)} className="p-2 hover:bg-gray-200 rounded-full">
-                                    <X className="w-5 h-5" />
-                                </button>
-                            </div>
-                            <div className="p-4">
-                                <div id="reader" className="w-full"></div>
-                                <p className="text-center text-xs text-gray-500 mt-4">
-                                    Kamerayı barkoda veya QR koda tutun.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Mobile Menu Dropdown */}
-                {mobileMenuOpen && (
-                    <div className="md:hidden bg-white border-b p-4 flex flex-col gap-4 absolute top-16 left-0 w-full z-30 shadow-xl animate-in slide-in-from-top-2">
-                        <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
-                            <div className="flex items-center gap-2 text-sm text-gray-700">
-                                <User className="w-4 h-4" />
-                                <span className="font-bold">{currentUser.name}</span>
-                            </div>
-                            <span className="text-xs bg-gray-200 px-2 py-1 rounded-full">{currentUser.role}</span>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                            {(currentUser.role === 'admin' || (currentUser as any).allowedStatuses?.includes("MANUAL_SYNC")) && (
-                                <form action={async () => {
-                                    toast.info("Woo Senkronize ediliyor...")
-                                    await syncWooCommerceOrders(true)
-                                    setMobileMenuOpen(false)
-                                }} className="col-span-1">
-                                    <button className="w-full flex items-center justify-center gap-2 p-3 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 font-bold text-sm border border-blue-100">
-                                        <RefreshCw className="w-4 h-4" />
-                                        Woo Çek
-                                    </button>
-                                </form>
-                            )}
-
-                            {currentUser.role === 'admin' && (
-                                <form action={async () => {
-                                    toast.info("Etsy Senkronize ediliyor...")
-                                    await syncEtsyOrders()
-                                    setMobileMenuOpen(false)
-                                }} className="col-span-1">
-                                    <button className="w-full flex items-center justify-center gap-2 p-3 bg-orange-50 text-orange-700 rounded-lg hover:bg-orange-100 font-bold text-sm border border-orange-100">
-                                        <RefreshCw className="w-4 h-4" />
-                                        Etsy Çek
-                                    </button>
-                                </form>
-                            )}
-
-                            {(currentUser.role === 'admin' || (currentUser as any).allowedStatuses?.includes("MANUAL_SYNC")) && (
-                                <form action={async () => {
-                                    toast.info("Kargo Senkronize ediliyor...")
-                                    const res = await syncCargoKargoEntegrator()
-                                    if (res?.success) toast.success(res.message)
-                                    setMobileMenuOpen(false)
-                                }} className="col-span-1">
-                                    <button className="w-full flex items-center justify-center gap-2 p-3 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 font-bold text-sm border border-indigo-100">
-                                        <Truck className="w-4 h-4" />
-                                        Kargo Çek
-                                    </button>
-                                </form>
-                            )}
-
-                            {currentUser.role === 'admin' && (
-                                <Link onClick={() => setMobileMenuOpen(false)} href="/admin/settings" className="col-span-2 flex items-center justify-center gap-2 p-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-bold text-sm border border-gray-200">
-                                    <Settings className="w-4 h-4" />
-                                    Tüm Ayarlar
-                                </Link>
-                            )}
-                        </div>
-
-                        <div className="flex items-center justify-between gap-4 pt-2 border-t mt-2">
-                            <button
-                                onClick={() => {
-                                    if (audioRef.current) {
-                                        audioRef.current.play().catch(() => { })
-                                        toast.success("Ses test edildi")
-                                    }
-                                }}
-                                className="flex items-center gap-2 text-sm text-gray-600 px-2 py-1"
-                            >
-                                <Volume2 className="w-4 h-4" />
-                                Test Ses
-                            </button>
-
-                            <form action={async () => await logoutAction()} className="ml-auto">
-                                <button className="flex items-center gap-2 text-sm text-red-600 font-bold px-2 py-1">
-                                    <LogOut className="w-4 h-4" />
-                                    Çıkış Yap
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                )}
-                {/* Search Toolbar */}
-                {/* Search Toolbar */}
-                <div className="px-6 py-4 bg-white dark:bg-slate-900 border-b dark:border-slate-800 flex items-center justify-between shrink-0 gap-4 transition-colors">
-                    <div className="relative w-full max-w-md">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <Search className="h-5 w-5 text-gray-400" />
-                        </div>
-                        <input
-                            type="text"
-                            placeholder="Sipariş ara (Müşteri, No, Tel, Barkod)..."
-                            className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-slate-700 rounded-lg leading-5 bg-white dark:bg-slate-800 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out text-gray-900 dark:text-gray-100 font-medium"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-
-
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
-                        <form action={simulateWooCommerceOrder} className="hidden">
-                            <button className="flex items-center gap-2 px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-md transition-colors font-medium">
-                                <Plus className="w-4 h-4" />
-                                <span>Manuel Sipariş</span>
-                            </button>
-                        </form>
-
-                        <div className="hidden md:flex items-center gap-1">
-                            <span className="font-semibold text-gray-900 dark:text-gray-100">{filteredOrders.length}</span>
-                            <span>sipariş</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Board Area */}
-                <div className="flex-1 flex gap-3 md:gap-6 overflow-x-auto p-2 md:p-6 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent snap-x snap-mandatory">
-                    <Toaster position="top-center" />
-                    <BarcodeScanner onScan={handleBarcodeScan} />
-
-                    <ManualOrderModal
-                        isOpen={isManualOrderOpen}
-                        onClose={() => setIsManualOrderOpen(false)}
-                        onCreate={async (data) => {
-                            await createManualOrder(data)
-                            const latest = await getOrders()
-                            setOrders(latest as any)
-                        }}
-                    />
-
-                    <OrderDetailPanel
-                        isOpen={isPanelOpen}
-                        onClose={() => setIsPanelOpen(false)}
-                        order={selectedOrder ? orders.find(o => o.id === selectedOrder.id) || selectedOrder : null}
-                        onUpdate={handleOrderUpdate}
-                        onAddComment={handleAddComment}
-                        currentUser={currentUser}
-                        tags={tags}
-                        statuses={cols}
-                    />
-
-                    {cols.map((column) => {
-                        const columnOrders = getOrdersByStatus(column.id, column.title)
-                        const isCollapsed = collapsedIds.includes(column.id)
-
-                        const toggleCollapse = () => {
-                            setCollapsedIds(prev => {
-                                const newSet = prev.includes(column.id)
-                                    ? prev.filter(id => id !== column.id)
-                                    : [...prev, column.id]
-                                localStorage.setItem("collapsedColumns", JSON.stringify(newSet))
-                                return newSet
-                            })
-                        }
-
-                        if (isCollapsed) {
-                            return (
-                                <div key={column.id} className="h-full pt-6">
-                                    <div
-                                        onClick={() => toggleCollapse()}
-                                        className={`w-12 h-full rounded-full ${column.color || 'bg-gray-100'} border border-gray-200 flex flex-col items-center py-4 gap-4 cursor-pointer hover:bg-gray-200 transition-colors shadow-sm`}
-                                    >
-                                        <div className="writing-vertical-lr transform rotate-180 text-sm font-bold text-gray-600 whitespace-nowrap tracking-wider">
-                                            {column.title}
-                                        </div>
-                                        <div className="flex flex-col items-center gap-1 mt-auto pb-4">
-                                            <span className="bg-white text-gray-900 text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shadow-sm">
-                                                {columnOrders.length}
-                                            </span>
-                                            <div className="p-1.5 rounded-full bg-white/40 hover:bg-white/80 transition-colors backdrop-blur-sm">
-                                                <ChevronDown className="w-4 h-4 text-gray-700" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )
-                        }
-
-                        return (
-                            <div key={column.id} className="flex-shrink-0 w-80 max-w-[90vw] flex flex-col h-full rounded-xl bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-800 transition-all snap-center shadow-sm">
-                                <div className={`px-3 py-3 border-b dark:border-slate-800 rounded-t-xl relative z-30 flex flex-col gap-2 transition-colors ${column.color || 'bg-gray-100 dark:bg-slate-800'} shadow-sm`}>
-                                    <div className="flex justify-between items-center w-full relative">
-                                        <div className="flex items-center gap-2">
-                                            <h2 className="font-bold text-gray-800 dark:text-gray-200 text-sm">{column.title}</h2>
-                                            <span className="bg-white/80 dark:bg-slate-700/80 text-gray-900 dark:text-gray-100 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-black/5 dark:border-white/10 shadow-sm">
-                                                {columnOrders.length}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            {/* Filter Toggle */}
-                                            <div className="relative">
-                                                <button
-                                                    className={`p-1.5 rounded-md transition-all filter-menu-trigger ${columnFilters && columnFilters[column.id] ? 'bg-blue-100 text-blue-600 ring-1 ring-blue-500' : 'hover:bg-black/5 text-gray-500'}`}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        if (typeof toggleFilter === 'function') toggleFilter(column.id);
-                                                    }}
-                                                >
-                                                    <Filter className="w-3.5 h-3.5" strokeWidth={2.5} />
-                                                </button>
-
-                                                {/* Custom Dropdown Menu */}
-                                                {openFilterId === column.id && (
-                                                    <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-50 filter-menu overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                                                        <div className="p-1 max-h-64 overflow-y-auto">
-                                                            <button
-                                                                onClick={() => {
-                                                                    setColumnFilters(prev => { const n = { ...prev }; delete n[column.id]; return n; });
-                                                                    setOpenFilterId(null);
-                                                                }}
-                                                                className={`w-full text-left px-3 py-2 text-xs font-medium rounded-md transition-colors ${!columnFilters[column.id] ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
-                                                            >
-                                                                Tümü
-                                                            </button>
-                                                            {uniqueTextures.map(texture => (
-                                                                <button
-                                                                    key={texture}
-                                                                    onClick={() => {
-                                                                        setColumnFilters(prev => ({ ...prev, [column.id]: texture }));
-                                                                        setOpenFilterId(null);
-                                                                    }}
-                                                                    className={`w-full text-left px-3 py-2 text-xs font-medium rounded-md transition-colors ${columnFilters[column.id] === texture ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
-                                                                >
-                                                                    {texture}
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            <button
-                                                onClick={() => toggleCollapse()}
-                                                className="p-1.5 hover:bg-black/5 rounded-md transition-colors text-gray-600"
-                                            >
-                                                <ChevronUp className="w-3.5 h-3.5" strokeWidth={2.5} />
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* Active Filter Badge */}
-                                    {columnFilters[column.id] && (
-                                        <div className="flex items-center justify-between bg-blue-50 border border-blue-100 px-2 py-1 rounded text-xs text-blue-700 animate-in slide-in-from-top-1">
-                                            <span className="font-medium truncate">{columnFilters[column.id]}</span>
-                                            <button
-                                                onClick={() => setColumnFilters(prev => { const n = { ...prev }; delete n[column.id]; return n; })}
-                                                className="ml-1 p-0.5 hover:bg-blue-100 rounded-full"
-                                            >
-                                                <X className="w-3 h-3" />
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* SCROLLABLE DROPPABLE AREA */}
-                                <div className="flex-1 min-h-0 overflow-hidden relative">
-                                    <DroppableId id={column.id} className="h-full overflow-y-auto p-3 space-y-3 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-slate-700 hover:scrollbar-thumb-gray-300 dark:hover:scrollbar-thumb-slate-600">
-                                        {columnOrders.map(order => (
-                                            <DraggableItem key={order.id} id={order.id} disabled={isDragDisabled}>
-                                                <OrderCard
-                                                    order={order}
-                                                    onClick={() => {
-                                                        setSelectedOrder(order);
-                                                        setIsPanelOpen(true);
-                                                        if (order.hasNotification) {
-                                                            markOrderAsRead(order.id)
-                                                            setOrders(prev => prev.map(o => o.id === order.id ? {
-                                                                ...o,
-                                                                hasNotification: false,
-                                                                updatedAt: new Date().toISOString()
-                                                            } : o))
-                                                        }
-                                                    }}
-                                                    tags={tags}
-                                                    selected={selectedOrders.includes(order.id)}
-                                                    onSelect={() => toggleOrderSelection(order.id)}
-                                                    selectionMode={selectedOrders.length > 0}
-                                                />
-                                            </DraggableItem>
-                                        ))}
-                                        {columnOrders.length === 0 && (
-                                            <div className="h-24 flex items-center justify-center text-sm text-gray-400 border-2 border-dashed border-gray-200 rounded-lg pointer-events-none">
-                                                {searchTerm ? "Sonuç yok" : "Sipariş Yok"}
-                                            </div>
-                                        )}
-                                    </DroppableId>
-                                </div>
-                            </div>
-                        )
-                    })}
-
-                </div >
-                <DragOverlay>
-                    {activeId ? (() => {
-                        const activeOrder = orders.find(o => o.id === activeId)
-                        if (!activeOrder) return null
-                        return (
-                            <div className="cursor-grabbing shadow-2xl rounded-xl scale-105 transition-transform">
-                                <div className="w-80 pointer-events-none">
-                                    <OrderCard
-                                        order={activeOrder}
-                                        onClick={() => { }}
-                                        tags={tags}
-                                    />
-                                </div>
-                            </div>
-                        )
-                    })() : null}
-                </DragOverlay>
-            </div>
-
-            {/* BULK ACTION BAR */}
-            {selectedOrders.length > 0 && (
-                <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-gray-900 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-6 animate-in slide-in-from-bottom-4 border border-gray-700">
-                    <div className="flex items-center gap-3 border-r border-gray-700 pr-6">
-                        <span className="font-bold text-lg">{selectedOrders.length}</span>
-                        <button
-                            onClick={() => setSelectedOrders([])}
-                            className="ml-2 text-xs hover:text-white text-gray-500 hover:underline"
-                        >
-                            İptal
-                        </button>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                        <div className="flex flex-col items-end mr-2">
-                            <span className="text-xs text-slate-500 font-medium">
-                                Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}
-                            </span>
-                            <span className="text-[10px] text-slate-400">v1.2 Live</span>
-                        </div>
-
-                        <div className="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm p-1">
-                            {cols.map(col => (
-                                <button
-                                    key={col.id}
-                                    disabled={isBulkProcessing}
-                                    onClick={() => handleBulkMove(col.id)}
-                                    className={`px-3 py-2 rounded-md text-xs font-bold transition-transform active:scale-95 border shadow-sm whitespace-nowrap ${col.color || 'bg-gray-100 border-gray-200'} text-gray-900 border-black/5 hover:brightness-95`}
-                                >
-                                    {col.title}
-                                </button>
-                            ))}
-                        </div>
                     </div>
                 </div>
             )}
-        </DndContext >
-    )
+            {/* Search Toolbar */}
+            {/* Search Toolbar */}
+            <div className="px-6 py-4 bg-white dark:bg-neutral-900 border-b dark:border-neutral-800 flex items-center justify-between shrink-0 gap-4 transition-colors">
+                <div className="relative w-full max-w-md">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Search className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                        type="text"
+                        placeholder="Sipariş ara (Müşteri, No, Tel, Barkod)..."
+                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-neutral-700 rounded-lg leading-5 bg-white dark:bg-neutral-800 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out text-gray-900 dark:text-neutral-100 font-medium"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+
+
+                <div className="flex items-center gap-4 text-sm text-gray-500">
+                    <form action={simulateWooCommerceOrder} className="hidden">
+                        <button className="flex items-center gap-2 px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-md transition-colors font-medium">
+                            <Plus className="w-4 h-4" />
+                            <span>Manuel Sipariş</span>
+                        </button>
+                    </form>
+
+                    <div className="hidden md:flex items-center gap-1">
+                        <span className="font-semibold text-gray-900 dark:text-neutral-100">{filteredOrders.length}</span>
+                        <span>sipariş</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Board Area */}
+            <div className="flex-1 flex gap-3 md:gap-6 overflow-x-auto p-2 md:p-6 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent snap-x snap-mandatory">
+                <Toaster position="top-center" />
+                <BarcodeScanner onScan={handleBarcodeScan} />
+
+                <ManualOrderModal
+                    isOpen={isManualOrderOpen}
+                    onClose={() => setIsManualOrderOpen(false)}
+                    onCreate={async (data) => {
+                        await createManualOrder(data)
+                        const latest = await getOrders()
+                        setOrders(latest as any)
+                    }}
+                />
+
+                <OrderDetailPanel
+                    isOpen={isPanelOpen}
+                    onClose={() => setIsPanelOpen(false)}
+                    order={selectedOrder ? orders.find(o => o.id === selectedOrder.id) || selectedOrder : null}
+                    onUpdate={handleOrderUpdate}
+                    onAddComment={handleAddComment}
+                    currentUser={currentUser}
+                    tags={tags}
+                    statuses={cols}
+                />
+
+                {cols.map((column) => {
+                    const columnOrders = getOrdersByStatus(column.id, column.title)
+                    const isCollapsed = collapsedIds.includes(column.id)
+
+                    const toggleCollapse = () => {
+                        setCollapsedIds(prev => {
+                            const newSet = prev.includes(column.id)
+                                ? prev.filter(id => id !== column.id)
+                                : [...prev, column.id]
+                            localStorage.setItem("collapsedColumns", JSON.stringify(newSet))
+                            return newSet
+                        })
+                    }
+
+                    if (isCollapsed) {
+                        return (
+                            <div key={column.id} className="h-full pt-6">
+                                <div
+                                    onClick={() => toggleCollapse()}
+                                    className={`w-12 h-full rounded-full ${column.color || 'bg-gray-100'} border border-gray-200 flex flex-col items-center py-4 gap-4 cursor-pointer hover:bg-gray-200 transition-colors shadow-sm`}
+                                >
+                                    <div className="writing-vertical-lr transform rotate-180 text-sm font-bold text-gray-600 whitespace-nowrap tracking-wider">
+                                        {column.title}
+                                    </div>
+                                    <div className="flex flex-col items-center gap-1 mt-auto pb-4">
+                                        <span className="bg-white text-gray-900 text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shadow-sm">
+                                            {columnOrders.length}
+                                        </span>
+                                        <div className="p-1.5 rounded-full bg-white/40 hover:bg-white/80 transition-colors backdrop-blur-sm">
+                                            <ChevronDown className="w-4 h-4 text-gray-700" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )
+                    }
+
+                    return (
+                        <div key={column.id} className="flex-shrink-0 w-80 max-w-[90vw] flex flex-col h-full rounded-xl bg-gray-50 dark:bg-neutral-900 border border-gray-200 dark:border-neutral-800 transition-all snap-center shadow-sm">
+                            <div className={`px-3 py-3 border-b dark:border-neutral-800 rounded-t-xl relative z-30 flex flex-col gap-2 transition-colors ${column.color || 'bg-gray-100 dark:bg-neutral-800'} shadow-sm`}>
+                                <div className="flex justify-between items-center w-full relative">
+                                    <div className="flex items-center gap-2">
+                                        <h2 className="font-bold text-gray-800 dark:text-gray-200 text-sm">{column.title}</h2>
+                                        <span className="bg-white/80 dark:bg-neutral-700/80 text-gray-900 dark:text-neutral-100 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-black/5 dark:border-white/10 shadow-sm">
+                                            {columnOrders.length}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        {/* Filter Toggle */}
+                                        <div className="relative">
+                                            <button
+                                                className={`p-1.5 rounded-md transition-all filter-menu-trigger ${columnFilters && columnFilters[column.id] ? 'bg-blue-100 text-blue-600 ring-1 ring-blue-500' : 'hover:bg-black/5 text-gray-500'}`}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (typeof toggleFilter === 'function') toggleFilter(column.id);
+                                                }}
+                                            >
+                                                <Filter className="w-3.5 h-3.5" strokeWidth={2.5} />
+                                            </button>
+
+                                            {/* Custom Dropdown Menu */}
+                                            {openFilterId === column.id && (
+                                                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-50 filter-menu overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                                    <div className="p-1 max-h-64 overflow-y-auto">
+                                                        <button
+                                                            onClick={() => {
+                                                                setColumnFilters(prev => { const n = { ...prev }; delete n[column.id]; return n; });
+                                                                setOpenFilterId(null);
+                                                            }}
+                                                            className={`w-full text-left px-3 py-2 text-xs font-medium rounded-md transition-colors ${!columnFilters[column.id] ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                                                        >
+                                                            Tümü
+                                                        </button>
+                                                        {uniqueTextures.map(texture => (
+                                                            <button
+                                                                key={texture}
+                                                                onClick={() => {
+                                                                    setColumnFilters(prev => ({ ...prev, [column.id]: texture }));
+                                                                    setOpenFilterId(null);
+                                                                }}
+                                                                className={`w-full text-left px-3 py-2 text-xs font-medium rounded-md transition-colors ${columnFilters[column.id] === texture ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
+                                                            >
+                                                                {texture}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <button
+                                            onClick={() => toggleCollapse()}
+                                            className="p-1.5 hover:bg-black/5 rounded-md transition-colors text-gray-600"
+                                        >
+                                            <ChevronUp className="w-3.5 h-3.5" strokeWidth={2.5} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Active Filter Badge */}
+                                {columnFilters[column.id] && (
+                                    <div className="flex items-center justify-between bg-blue-50 border border-blue-100 px-2 py-1 rounded text-xs text-blue-700 animate-in slide-in-from-top-1">
+                                        <span className="font-medium truncate">{columnFilters[column.id]}</span>
+                                        <button
+                                            onClick={() => setColumnFilters(prev => { const n = { ...prev }; delete n[column.id]; return n; })}
+                                            className="ml-1 p-0.5 hover:bg-blue-100 rounded-full"
+                                        >
+                                            <X className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* SCROLLABLE DROPPABLE AREA */}
+                            <div className="flex-1 min-h-0 overflow-hidden relative">
+                                <DroppableId id={column.id} className="h-full overflow-y-auto p-3 space-y-3 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-neutral-700 hover:scrollbar-thumb-gray-300 dark:hover:scrollbar-thumb-neutral-600">
+                                    {columnOrders.map(order => (
+                                        <DraggableItem key={order.id} id={order.id} disabled={isDragDisabled}>
+                                            <OrderCard
+                                                order={order}
+                                                onClick={() => {
+                                                    setSelectedOrder(order);
+                                                    setIsPanelOpen(true);
+                                                    if (order.hasNotification) {
+                                                        markOrderAsRead(order.id)
+                                                        setOrders(prev => prev.map(o => o.id === order.id ? {
+                                                            ...o,
+                                                            hasNotification: false,
+                                                            updatedAt: new Date().toISOString()
+                                                        } : o))
+                                                    }
+                                                }}
+                                                tags={tags}
+                                                selected={selectedOrders.includes(order.id)}
+                                                onSelect={() => toggleOrderSelection(order.id)}
+                                                selectionMode={selectedOrders.length > 0}
+                                            />
+                                        </DraggableItem>
+                                    ))}
+                                    {columnOrders.length === 0 && (
+                                        <div className="h-24 flex items-center justify-center text-sm text-gray-400 border-2 border-dashed border-gray-200 rounded-lg pointer-events-none">
+                                            {searchTerm ? "Sonuç yok" : "Sipariş Yok"}
+                                        </div>
+                                    )}
+                                </DroppableId>
+                            </div>
+                        </div>
+                    )
+                })}
+
+            </div >
+            <DragOverlay>
+                {activeId ? (() => {
+                    const activeOrder = orders.find(o => o.id === activeId)
+                    if (!activeOrder) return null
+                    return (
+                        <div className="cursor-grabbing shadow-2xl rounded-xl scale-105 transition-transform">
+                            <div className="w-80 pointer-events-none">
+                                <OrderCard
+                                    order={activeOrder}
+                                    onClick={() => { }}
+                                    tags={tags}
+                                />
+                            </div>
+                        </div>
+                    )
+                })() : null}
+            </DragOverlay>
+        </div>
+
+        {/* BULK ACTION BAR */}
+        {selectedOrders.length > 0 && (
+            <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-gray-900 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-6 animate-in slide-in-from-bottom-4 border border-gray-700">
+                <div className="flex items-center gap-3 border-r border-gray-700 pr-6">
+                    <span className="font-bold text-lg">{selectedOrders.length}</span>
+                    <button
+                        onClick={() => setSelectedOrders([])}
+                        className="ml-2 text-xs hover:text-white text-gray-500 hover:underline"
+                    >
+                        İptal
+                    </button>
+                </div>
+
+                <div className="flex items-center gap-4">
+                    <div className="flex flex-col items-end mr-2">
+                        <span className="text-xs text-gray-500 font-medium">
+                            Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}
+                        </span>
+                        <span className="text-[10px] text-gray-400">v1.2 Live</span>
+                    </div>
+
+                    <div className="flex items-center bg-white rounded-lg border border-gray-200 shadow-sm p-1">
+                        {cols.map(col => (
+                            <button
+                                key={col.id}
+                                disabled={isBulkProcessing}
+                                onClick={() => handleBulkMove(col.id)}
+                                className={`px-3 py-2 rounded-md text-xs font-bold transition-transform active:scale-95 border shadow-sm whitespace-nowrap ${col.color || 'bg-gray-100 border-gray-200'} text-gray-900 border-black/5 hover:brightness-95`}
+                            >
+                                {col.title}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        )}
+    </DndContext >
+)
 }
 
 function DraggableItem({ id, children, disabled }: { id: number; children: React.ReactNode; disabled?: boolean }) {

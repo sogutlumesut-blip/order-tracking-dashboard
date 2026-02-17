@@ -93,20 +93,20 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
             )}
 
             {/* Panel */}
-            <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+            <div className="relative w-full max-w-2xl bg-white dark:bg-neutral-900 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
 
                 {/* Header */}
-                <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-gray-50 dark:bg-slate-950 print:hidden">
+                <div className="p-4 border-b dark:border-neutral-800 flex justify-between items-center bg-gray-50 dark:bg-neutral-950 print:hidden">
                     <div>
                         <h2 className="text-lg font-bold dark:text-gray-100">Sipariş #{formData.id}</h2>
                         {/* Compact user info for header */}
                         <p className="font-medium text-gray-900 dark:text-gray-300">{formData.customer}</p>
                     </div>
                     <div className="flex gap-2">
-                        <button onClick={handlePrint} className="p-2 hover:bg-gray-200 dark:hover:bg-slate-800 rounded-full text-gray-600 dark:text-gray-400" title="Yazdır">
+                        <button onClick={handlePrint} className="p-2 hover:bg-gray-200 dark:hover:bg-neutral-800 rounded-full text-gray-600 dark:text-neutral-400" title="Yazdır">
                             <Printer className="w-5 h-5" />
                         </button>
-                        <button onClick={onClose} className="p-2 hover:bg-gray-200 dark:hover:bg-slate-800 rounded-full dark:text-gray-400">
+                        <button onClick={onClose} className="p-2 hover:bg-gray-200 dark:hover:bg-neutral-800 rounded-full dark:text-neutral-400">
                             <X className="w-5 h-5" />
                         </button>
                     </div>
@@ -162,18 +162,18 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                         {/* LEFT COLUMN: Order Details */}
                         <div className="space-y-6">
                             {/* Customer Details Card (Screen Only) */}
-                            <div className="print:hidden bg-gray-50 dark:bg-slate-800/50 p-4 rounded-lg border dark:border-slate-700">
+                            <div className="print:hidden bg-gray-50 dark:bg-neutral-800/50 p-4 rounded-lg border dark:border-neutral-700">
                                 <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">Müşteri Bilgileri</h3>
                                 <div className="text-sm space-y-2">
                                     <p className="font-bold text-lg text-gray-900 dark:text-gray-100">{formData.customer}</p>
 
-                                    <div className="text-gray-600 dark:text-gray-400 text-sm space-y-1">
+                                    <div className="text-gray-600 dark:text-neutral-400 text-sm space-y-1">
                                         {formData.phone && <p className="flex items-center gap-2">📞 {formData.phone}</p>}
                                         {formData.email && <p className="flex items-center gap-2">📧 {formData.email}</p>}
                                     </div>
 
                                     {formData.address && (
-                                        <div className="text-gray-800 dark:text-gray-300 text-sm border-t border-gray-200 dark:border-slate-700 pt-2 mt-2">
+                                        <div className="text-gray-800 dark:text-gray-300 text-sm border-t border-gray-200 dark:border-neutral-700 pt-2 mt-2">
                                             <p className="font-semibold mb-1 flex items-center gap-1">📍 Teslimat Adresi:</p>
                                             <p className="leading-relaxed">
                                                 {formData.address}
@@ -199,8 +199,8 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                 <h3 className="font-semibold text-gray-700 mb-3">Ürünler</h3>
                                 <div className="space-y-4">
                                     {formData.items.map(item => (
-                                        <div key={item.id} className="flex gap-4 border dark:border-slate-700 p-3 rounded-lg bg-white dark:bg-slate-800 shadow-sm">
-                                            <div className="w-24 h-24 shrink-0 bg-gray-100 dark:bg-slate-700 rounded-md overflow-hidden border dark:border-slate-600">
+                                        <div key={item.id} className="flex gap-4 border dark:border-neutral-700 p-3 rounded-lg bg-white dark:bg-neutral-800 shadow-sm">
+                                            <div className="w-24 h-24 shrink-0 bg-gray-100 dark:bg-neutral-700 rounded-md overflow-hidden border dark:border-neutral-600">
                                                 {/* Use real img tag for printing support */}
                                                 <img
                                                     src={item.image_src}
@@ -213,7 +213,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                 <div className="flex items-start justify-between flex-wrap gap-y-2">
                                                     <p className="font-bold text-gray-900 dark:text-gray-100 line-clamp-2">{item.name}</p>
                                                     {item.sku && (
-                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-slate-700 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-slate-600 ml-2 whitespace-nowrap">
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-neutral-700 text-gray-800 dark:text-neutral-200 border border-gray-200 dark:border-neutral-600 ml-2 whitespace-nowrap">
                                                             Stok Kodu: {item.sku}
                                                         </span>
                                                     )}
@@ -235,7 +235,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                         🔗 Özel Dosya Linki
                                                     </a>
                                                 )}
-                                                <div className="text-sm text-gray-600 dark:text-gray-400 mt-1 space-y-0.5">
+                                                <div className="text-sm text-gray-600 dark:text-neutral-400 mt-1 space-y-0.5">
                                                     {item.material && <p>📄 <span className="font-medium">Doku:</span> {item.material}</p>}
                                                     {(() => {
                                                         if (!item.dimensions) return null;
@@ -269,7 +269,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                 {/* ALWAYS VISIBLE: Manual Barcode/Label Button */}
                                 <button
                                     onClick={() => setIsBarcodeModalOpen(true)}
-                                    className="w-full py-3 border-2 border-gray-800 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-800 dark:hover:bg-slate-700 hover:text-white transition-all text-gray-800 dark:text-gray-200 font-bold"
+                                    className="w-full py-3 border-2 border-gray-800 dark:border-neutral-600 bg-gray-50 dark:bg-neutral-800 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-800 dark:hover:bg-neutral-700 hover:text-white transition-all text-gray-800 dark:text-neutral-200 font-bold"
                                 >
                                     <Printer className="w-5 h-5" />
                                     Barkod / Etiket Oluştur (Manuel)
@@ -367,7 +367,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                 reader.readAsDataURL(file);
                                             }}
                                         />
-                                        <div className="w-full py-3 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-50 dark:hover:bg-slate-800 hover:border-blue-400 hover:text-blue-600 transition-all text-gray-500 dark:text-gray-400 font-bold">
+                                        <div className="w-full py-3 border-2 border-dashed border-gray-300 dark:border-neutral-600 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-50 dark:hover:bg-neutral-800 hover:border-blue-400 hover:text-blue-600 transition-all text-gray-500 dark:text-neutral-400 font-bold">
                                             <Upload className="w-5 h-5" />
                                             Kargo Etiketi Yükle (PDF)
                                         </div>
@@ -396,9 +396,9 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                 <div className="h-px bg-gray-200 my-4" />
                                 {/* Status */}
                                 <div className="space-y-2">
-                                    <label className="text-sm font-bold text-gray-900 dark:text-gray-200">Durum</label>
+                                    <label className="text-sm font-bold text-gray-900 dark:text-neutral-200">Durum</label>
                                     <select
-                                        className="w-full p-2 border border-gray-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 text-black dark:text-white font-bold focus:ring-2 focus:ring-blue-500"
+                                        className="w-full p-2 border border-gray-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-950 text-black dark:text-white font-bold focus:ring-2 focus:ring-blue-500"
                                         value={formData.status}
                                         onChange={(e) => setFormData({ ...formData, status: e.target.value as OrderStatus })}
                                     >
@@ -410,7 +410,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                                 {/* Labels */}
                                 <div className="space-y-2">
-                                    <label className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-gray-200">
+                                    <label className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-neutral-200">
                                         <Tag className="w-4 h-4" /> Etiketler
                                     </label>
                                     <div className="flex flex-wrap gap-2">
@@ -429,7 +429,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                     }}
                                                     className={`px-3 py-1 text-xs rounded-full border transition-colors ${isSelected
                                                         ? `${colors.bg} ${colors.text} ${colors.border} font-bold`
-                                                        : "bg-gray-50 dark:bg-slate-800 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 border-gray-200 dark:border-slate-700"
+                                                        : "bg-gray-50 dark:bg-neutral-800 text-gray-500 dark:text-neutral-400 hover:bg-gray-100 dark:hover:bg-neutral-700 border-gray-200 dark:border-neutral-700"
                                                         }`}
                                                 >
                                                     {tag.name}
@@ -441,19 +441,19 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                                 {/* Assigned To */}
                                 <div className="space-y-2">
-                                    <label className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-gray-200">
+                                    <label className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-neutral-200">
                                         <User className="w-4 h-4" /> {APP_CONFIG.assigneeLabel}
                                     </label>
                                     <div className="relative">
                                         <input
                                             type="text"
                                             readOnly
-                                            className="w-full p-2 border border-gray-300 dark:border-slate-700 rounded-lg bg-gray-100 dark:bg-slate-800 text-black dark:text-gray-300 font-bold cursor-not-allowed"
+                                            className="w-full p-2 border border-gray-300 dark:border-neutral-700 rounded-lg bg-gray-100 dark:bg-neutral-800 text-black dark:text-gray-300 font-bold cursor-not-allowed"
                                             value={currentUser.name}
                                         />
                                         <span className="absolute right-3 top-2.5 text-xs text-black dark:text-gray-300 font-bold">Sabit (Sen)</span>
                                     </div>
-                                    <p className="text-[10px] text-gray-900 dark:text-gray-400 font-bold">
+                                    <p className="text-[10px] text-gray-900 dark:text-neutral-400 font-bold">
                                         * Kaydettiğinizde siparişin sorumlusu otomatik olarak siz olursunuz.
                                     </p>
                                 </div>
@@ -484,7 +484,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                             {/* Note Log (Top Right) */}
                             <div>
-                                <label className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-gray-200 mb-3">
+                                <label className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-neutral-200 mb-3">
                                     <FileText className="w-4 h-4" /> İşlem Notları
                                 </label>
                                 <NoteLog
@@ -496,7 +496,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                             </div>
 
                             <div>
-                                <label className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-gray-200 mb-3">
+                                <label className="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-neutral-200 mb-3">
                                     <Upload className="w-4 h-4" /> Yazışma & Dosyalar
                                 </label>
                                 <ChatSection
@@ -507,10 +507,10 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                             </div>
 
                             {/* Activity Log - Collapsible & Compact */}
-                            <div className="pt-4 border-t border-gray-200 dark:border-slate-700 mt-2">
+                            <div className="pt-4 border-t border-gray-200 dark:border-neutral-700 mt-2">
                                 <button
                                     onClick={() => setIsActivityLogOpen(!isActivityLogOpen)}
-                                    className="flex items-center gap-2 text-xs font-bold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-slate-800 hover:bg-gray-100 dark:hover:bg-slate-700 p-2 rounded-lg border border-gray-200 dark:border-slate-700 transition-colors w-full text-left"
+                                    className="flex items-center gap-2 text-xs font-bold text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-neutral-800 hover:bg-gray-100 dark:hover:bg-neutral-700 p-2 rounded-lg border border-gray-200 dark:border-neutral-700 transition-colors w-full text-left"
                                 >
                                     {isActivityLogOpen ? <ChevronDown className="w-4 h-4 text-blue-600" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
                                     <History className="w-3.5 h-3.5" />
@@ -529,7 +529,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 border-t dark:border-slate-800 bg-gray-50 dark:bg-slate-950/50 flex justify-between print:hidden">
+                <div className="p-4 border-t dark:border-neutral-800 bg-gray-50 dark:bg-neutral-950/50 flex justify-between print:hidden">
                     <span className="text-xs text-gray-400 font-mono self-center">Barkod: {formData.barcode}</span>
                     <button
                         onClick={handleSave}

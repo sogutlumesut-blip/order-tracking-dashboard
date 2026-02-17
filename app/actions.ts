@@ -177,6 +177,39 @@ export async function updateOrderStatus(orderId: number, status: string) {
     }
 }
 
+export async function bulkUpdateOrderStatus(orderIds: number[], status: string) {
+    try {
+        const session = await getSession()
+        const user = session ? session.user.name : "Sistem"
+
+        // Update all orders
+        await db.order.updateMany({
+            where: { id: { in: orderIds } },
+            data: {
+                status,
+                hasNotification: true,
+                assignedTo: user,
+                updatedAt: new Date()
+            }
+        })
+
+        // Log activity for each (doing it in loop for individual logs, or one bulk log? Individual is better for history)
+        // Prisma doesn't support createMany for SQLite/some DBs easily with relations in older versions, 
+        // but OrderActivity is simple. optimizing:
+
+        // For accurate logs, valid.
+        for (const id of orderIds) {
+            await logActivity(id, user, "STATUS_CHANGE", `Toplu işlem: Durum '${status}' olarak değiştirildi.`)
+        }
+
+        revalidatePath("/")
+        return { success: true, count: orderIds.length }
+    } catch (e: any) {
+        console.error("bulkUpdateOrderStatus ERROR:", e)
+        return { error: e.message }
+    }
+}
+
 // Public action for client-side events (Print, PDF, etc.)
 export async function logManualActivity(orderId: number, action: string, details: string) {
     const session = await getSession()

@@ -21,15 +21,15 @@ export function NoteLog({ comments = [], onAddNote, currentUser, className }: No
     }
 
     return (
-        <div className={`flex flex-col border dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-900 shadow-sm ${className || 'h-[400px]'}`}>
+        <div className={`flex flex-col border dark:border-neutral-700 rounded-xl overflow-hidden bg-white dark:bg-neutral-900 shadow-sm ${className || 'h-[400px]'}`}>
             {/* Header */}
-            <div className="p-3 border-b dark:border-slate-700 bg-gray-50 dark:bg-slate-800 flex items-center gap-2">
+            <div className="p-3 border-b dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800 flex items-center gap-2">
                 <FileText className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                 <span className="font-bold text-gray-700 dark:text-gray-200 text-sm">İşlem Notları ve Tarihçe</span>
             </div>
 
             {/* Log Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/50 dark:bg-slate-900/50">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/50 dark:bg-neutral-900/50">
                 {comments.length === 0 && (
                     <div className="text-center text-gray-400 text-xs mt-10 italic">
                         Henüz not eklenmemiş.
@@ -69,10 +69,10 @@ export function NoteLog({ comments = [], onAddNote, currentUser, className }: No
             </div>
 
             {/* Input Area */}
-            <div className="p-3 bg-gray-50 dark:bg-slate-800 border-t dark:border-slate-700">
+            <div className="p-3 bg-gray-50 dark:bg-neutral-800 border-t dark:border-neutral-700">
                 <div className="relative">
                     <textarea
-                        className="w-full p-3 pr-12 text-sm border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[80px] resize-none font-medium text-gray-900 dark:text-gray-100 placeholder:font-normal placeholder:text-gray-500 dark:placeholder:text-gray-400 bg-white dark:bg-slate-900"
+                        className="w-full p-3 pr-12 text-sm border border-gray-300 dark:border-neutral-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[80px] resize-none font-medium text-gray-900 dark:text-neutral-100 placeholder:font-normal placeholder:text-gray-500 dark:placeholder:text-neutral-400 bg-white dark:bg-neutral-900"
                         placeholder="Yeni not ekle..."
                         value={note}
                         onChange={(e) => setNote(e.target.value)}
@@ -86,7 +86,7 @@ export function NoteLog({ comments = [], onAddNote, currentUser, className }: No
                     <button
                         onClick={handleSend}
                         disabled={!note.trim()}
-                        className={`absolute right-2 bottom-2 p-2 rounded-full transition-colors ${note.trim() ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 dark:bg-slate-700 text-gray-400 dark:text-gray-500'
+                        className={`absolute right-2 bottom-2 p-2 rounded-full transition-colors ${note.trim() ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-200 dark:bg-neutral-700 text-gray-400 dark:text-neutral-500'
                             }`}
                         title="Notu Kaydet"
                     >

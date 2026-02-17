@@ -36,10 +36,10 @@ export function OrderCard({ order, onClick, tags, selected = false, onSelect, se
     return (
         <div
             onClick={onClick}
-            className={`bg-white dark:bg-slate-900 rounded-xl shadow-sm cursor-pointer hover:shadow-md transition-all relative group overflow-hidden border-2 ${selected ? 'border-blue-600 ring-2 ring-blue-300 transform scale-[1.02]' :
+            className={`bg-white dark:bg-neutral-900 rounded-xl shadow-sm cursor-pointer hover:shadow-md transition-all relative group overflow-hidden border-2 ${selected ? 'border-blue-600 ring-2 ring-blue-300 transform scale-[1.02]' :
                 isPaymentFailed ? 'border-red-600 bg-red-50 dark:bg-red-900/20' :
                     order.hasNotification ? 'border-blue-500 bg-blue-50/30 dark:bg-blue-900/20' :
-                        isStuck ? 'border-amber-400 bg-amber-50/30' : 'border-gray-200 dark:border-slate-800'
+                        isStuck ? 'border-amber-400 bg-amber-50/30' : 'border-gray-200 dark:border-neutral-800'
                 }`}
         >
             {/* SELECTION CHECKBOX (Visible on hover or if selected or if selectionMode is active) */}
@@ -50,7 +50,7 @@ export function OrderCard({ order, onClick, tags, selected = false, onSelect, se
                     if (onSelect) onSelect(!selected)
                 }}
             >
-                <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center shadow-lg transition-colors ${selected ? 'bg-blue-600 border-blue-600' : 'bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-600 hover:border-blue-500'}`}>
+                <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center shadow-lg transition-colors ${selected ? 'bg-blue-600 border-blue-600' : 'bg-white dark:bg-neutral-800 border-gray-300 dark:border-neutral-600 hover:border-blue-500'}`}>
                     {selected && <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                 </div>
             </div>
@@ -61,7 +61,7 @@ export function OrderCard({ order, onClick, tags, selected = false, onSelect, se
             )}
 
             {/* 1. VISUAL HERO SECTION */}
-            <div className="aspect-video relative bg-gray-100 dark:bg-slate-900 border-b dark:border-slate-800 z-10">
+            <div className="aspect-video relative bg-gray-100 dark:bg-neutral-900 border-b dark:border-neutral-800 z-10">
                 {mainImage ? (
                     <Image
                         src={mainImage}
@@ -165,12 +165,12 @@ export function OrderCard({ order, onClick, tags, selected = false, onSelect, se
                         </p>
                         <div className="flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
                             {order.items && order.items.length > 0 && order.items[0].sku && (
-                                <span className="bg-gray-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-gray-700 dark:text-gray-300 font-medium">
+                                <span className="bg-gray-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded text-gray-700 dark:text-neutral-300 font-medium">
                                     Kod: {order.items[0].sku}
                                 </span>
                             )}
                             {order.items && order.items.length > 0 && order.items[0].dimensions && (
-                                <span className="bg-gray-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-gray-700 dark:text-gray-300 font-medium flex items-center gap-1">
+                                <span className="bg-gray-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded text-gray-700 dark:text-neutral-300 font-medium flex items-center gap-1">
                                     <span>📏 {order.items[0].dimensions}</span>
                                     {/* Auto M2 Calculation */}
                                     {(() => {
