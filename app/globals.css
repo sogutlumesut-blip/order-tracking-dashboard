@@ -12,22 +12,32 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* 
+  Deep Dark Theme Configuration 
+  Priority: 
+  1. .dark class (Manual Toggle)
+  2. System Preference (Auto)
+*/
+
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #020617;
+    /* Slate 950 */
     --foreground: #f1f5f9;
+    /* Slate 100 */
   }
 }
 
 .dark {
-  /* Deep Dark Blue Background (Slate-950) */
   --background: #020617;
-  /* Light Gray Text (Slate-100) */
+  /* Slate 950 */
   --foreground: #f1f5f9;
+  /* Slate 100 */
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
