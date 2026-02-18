@@ -191,11 +191,11 @@ export async function bulkUpdateOrderStatus(orderIds: number[], status: string) 
 
         console.log(`[BULK_MOVE_DEBUG] IDs: ${JSON.stringify(orderIds)}, Status: ${status}`)
 
-        // Check availability first
-        const countCheck = await db.order.count({
-            where: { id: { in: orderIds } }
-        })
-        console.log(`[BULK_MOVE_DEBUG] Orders found in DB: ${countCheck}`)
+        // Check availability first - REMOVED for Speed
+        // const countCheck = await db.order.count({
+        //     where: { id: { in: orderIds } }
+        // })
+        // console.log(`[BULK_MOVE_DEBUG] Orders found in DB: ${countCheck}`)
 
         // Update all orders
         const result = await db.order.updateMany({

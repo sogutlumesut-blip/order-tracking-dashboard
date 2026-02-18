@@ -637,9 +637,10 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         if (selectedOrders.length === 0) return
         if (isBulkProcessing) return
 
-        if (!confirm(`${selectedOrders.length} adet siparişi "${cols.find(c => c.id === targetStatusId)?.title}" aşamasına taşımak istediğinize emin misiniz?`)) {
-            return
-        }
+        // Confirm dialog removed as per user request for "Instant Action"
+        // if (!confirm(`${selectedOrders.length} adet siparişi "${cols.find(c => c.id === targetStatusId)?.title}" aşamasına taşımak istediğinize emin misiniz?`)) {
+        //     return
+        // }
 
         setIsBulkProcessing(true)
         const toastId = toast.loading("Toplu taşıma yapılıyor...")
