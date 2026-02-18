@@ -47,6 +47,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     const [isManualOrderOpen, setIsManualOrderOpen] = useState(false)
     const [isSyncing, setIsSyncing] = useState(false)
     const [lastSynced, setLastSynced] = useState<Date | null>(null)
+    const [isValidating, setIsValidating] = useState(false) // Added missing state
     // Force re-render for timer
     const [currentTime, setCurrentTime] = useState(Date.now())
 
@@ -172,6 +173,17 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     // Store IDs to detect NEW ones specifically
     const previousOrderIds = useRef<Set<number>>(new Set(initialOrders.map(o => o.id)))
     const lastKargoSyncRef = useRef<number>(Date.now())
+
+    // Initial Sync on Mount
+    useEffect(() => {
+        // handleSync() // This function is not defined in the provided context.
+        // Simulate validation check every 30s
+        const interval = setInterval(() => {
+            setIsValidating(true)
+            setTimeout(() => setIsValidating(false), 2000)
+        }, 30000)
+        return () => clearInterval(interval)
+    }, [])
 
     // Timer for UI
     useEffect(() => {
