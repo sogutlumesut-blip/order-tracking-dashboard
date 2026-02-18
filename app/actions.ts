@@ -184,6 +184,11 @@ export async function bulkUpdateOrderStatus(orderIds: number[], status: string) 
 
         console.log(`[BULK_MOVE] Attempting to move ${orderIds.length} orders to '${status}' by '${user}'`)
 
+        // Limit batch size to prevent timeouts
+        if (orderIds.length > 50) {
+            return { success: false, message: "Aynı anda en fazla 50 sipariş taşıyabilirsiniz." }
+        }
+
         // Update all orders
         const result = await db.order.updateMany({
             where: { id: { in: orderIds } },
@@ -202,12 +207,19 @@ export async function bulkUpdateOrderStatus(orderIds: number[], status: string) 
             return { success: false, message: "Hiçbir sipariş güncellenemedi (Veritabanı eşleşmedi)." }
         }
 
-        // Log activity for each (using loop for detailed history)
-        for (const id of orderIds) {
-            await logActivity(id, user, "STATUS_CHANGE", `Toplu işlem: Durum '${status}' olarak değiştirildi.`)
-        }
+        // Log activity asynchronously to avoid blocking the UI response
+        // We do NOT await this loop to return faster
+        (async () => {
+            try {
+                for (const id of orderIds) {
+                    await logActivity(id, user, "STATUS_CHANGE", `Toplu işlem: Durum '${status}' olarak değiştirildi.`)
+                }
+            } catch (err) {
+                console.error("Async logging failed:", err)
+            }
+        })()
 
-        revalidatePath("/")
+        revalidatePath("/", "layout") // Revalidate entire layout
         return { success: true, count: result.count, message: `${result.count} sipariş başarıyla taşındı.` }
     } catch (e: any) {
         console.error("bulkUpdateOrderStatus ERROR:", e)
