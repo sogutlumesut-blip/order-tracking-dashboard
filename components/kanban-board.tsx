@@ -1066,23 +1066,36 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                             })
                         }
 
+                        // Helper to get dark mode color
+                        const getDarkColor = (lightColor: string) => {
+                            if (lightColor?.includes('slate')) return 'dark:bg-slate-900/50 dark:border-slate-700'
+                            if (lightColor?.includes('blue')) return 'dark:bg-blue-900/40 dark:border-blue-800'
+                            if (lightColor?.includes('emerald') || lightColor?.includes('green')) return 'dark:bg-emerald-900/40 dark:border-emerald-800'
+                            if (lightColor?.includes('amber') || lightColor?.includes('yellow')) return 'dark:bg-amber-900/40 dark:border-amber-800' // Dark Yellow/Amber
+                            if (lightColor?.includes('purple')) return 'dark:bg-purple-900/40 dark:border-purple-800'
+                            if (lightColor?.includes('red')) return 'dark:bg-red-900/40 dark:border-red-800'
+                            return 'dark:bg-slate-900/50 dark:border-slate-800'
+                        }
+
+                        const darkColorClass = getDarkColor(column.color)
+
                         if (isCollapsed) {
                             return (
                                 <div key={column.id} className="h-full pt-6">
                                     <div
                                         onClick={() => toggleCollapse()}
-                                        className={`w-12 h-full rounded-full ${column.color || 'bg-slate-100'} border border-slate-200 flex flex-col items-center py-4 gap-4 cursor-pointer hover:bg-slate-200 transition-colors shadow-sm`}
+                                        className={`w-12 h-full rounded-full ${column.color || 'bg-slate-100'} ${darkColorClass} border border-slate-200 flex flex-col items-center py-4 gap-4 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors shadow-sm`}
                                     >
-                                        <div className="writing-vertical-lr transform rotate-180 text-sm font-bold text-slate-600 whitespace-nowrap tracking-wider">
+                                        <div className="writing-vertical-lr transform rotate-180 text-sm font-bold text-slate-600 dark:text-slate-400 whitespace-nowrap tracking-wider">
                                             {column.title}
                                         </div>
                                         <div className="flex flex-col h-full">
                                             <div className="flex flex-col items-center gap-1 mt-auto pb-4">
-                                                <span className="bg-white text-slate-900 text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shadow-sm">
+                                                <span className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shadow-sm">
                                                     {columnOrders.length}
                                                 </span>
-                                                <div className="p-1.5 rounded-full bg-white/40 hover:bg-white/80 transition-colors backdrop-blur-sm">
-                                                    <ChevronDown className="w-4 h-4 text-slate-700" />
+                                                <div className="p-1.5 rounded-full bg-white/40 dark:bg-black/20 hover:bg-white/80 transition-colors backdrop-blur-sm">
+                                                    <ChevronDown className="w-4 h-4 text-slate-700 dark:text-slate-300" />
                                                 </div>
                                             </div>
                                         </div>
@@ -1092,12 +1105,12 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         }
 
                         return (
-                            <div key={column.id} className="flex-shrink-0 w-80 max-w-[90vw] flex flex-col h-full rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 transition-all snap-center shadow-sm">
-                                <div className={`px-3 py-3 border-b dark:border-slate-800 rounded-t-xl relative z-30 flex flex-col gap-2 transition-colors ${column.color || 'bg-slate-100 dark:bg-slate-800'} shadow-sm`}>
+                            <div key={column.id} className={`flex-shrink-0 w-80 max-w-[90vw] flex flex-col h-full rounded-xl bg-slate-50 border border-slate-200 transition-all snap-center shadow-sm ${darkColorClass}`}>
+                                <div className={`px-3 py-3 border-b rounded-t-xl relative z-30 flex flex-col gap-2 transition-colors shadow-sm ${column.color || 'bg-slate-100'} ${darkColorClass} bg-opacity-90 dark:bg-opacity-100`}>
                                     <div className="flex justify-between items-center w-full relative">
                                         <div className="flex items-center gap-2">
-                                            <h2 className="font-bold text-slate-800 dark:text-slate-200 text-sm">{column.title}</h2>
-                                            <span className="bg-white/80 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-black/5 dark:border-white/10 shadow-sm">
+                                            <h2 className="font-bold text-slate-800 dark:text-slate-100 text-sm">{column.title}</h2>
+                                            <span className="bg-white/80 dark:bg-black/30 text-slate-900 dark:text-slate-100 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-black/5 dark:border-white/10 shadow-sm">
                                                 {columnOrders.length}
                                             </span>
                                         </div>
