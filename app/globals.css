@@ -15,18 +15,14 @@
 /* 
   Deep Dark Theme Configuration 
   Priority: 
-  1. .dark class (Manual Toggle)
-  2. System Preference (Auto)
+  1. .dark class (Control via next-themes)
+  2. Default :root (Light)
+  
+  NOTE: We removed @media (prefers-color-scheme: dark) to prevent it from 
+  forcing dark mode when the user explicitly toggles to Light mode while 
+  their OS is in Dark mode. next-themes handles the system preference 
+  by applying the .dark class automatically.
 */
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #020617;
-    /* Slate 950 */
-    --foreground: #f1f5f9;
-    /* Slate 100 */
-  }
-}
 
 .dark {
   --background: #020617;

@@ -189,6 +189,14 @@ export async function bulkUpdateOrderStatus(orderIds: number[], status: string) 
             return { success: false, message: "Aynı anda en fazla 50 sipariş taşıyabilirsiniz." }
         }
 
+        console.log(`[BULK_MOVE_DEBUG] IDs: ${JSON.stringify(orderIds)}, Status: ${status}`)
+
+        // Check availability first
+        const countCheck = await db.order.count({
+            where: { id: { in: orderIds } }
+        })
+        console.log(`[BULK_MOVE_DEBUG] Orders found in DB: ${countCheck}`)
+
         // Update all orders
         const result = await db.order.updateMany({
             where: { id: { in: orderIds } },

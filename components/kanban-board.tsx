@@ -481,7 +481,9 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
     const handleBarcodeScan = async (code: string) => {
         const cleanCode = code.trim()
-        const targetOrder = orders.find(o =>
+        // Use Ref to ensure we always search in the LATEST orders list, 
+        // even if called from a stale closure (like a keyboard listener initialized via useEffect[])
+        const targetOrder = ordersRef.current.find(o =>
             o.barcode === cleanCode ||
             o.id.toString() === cleanCode ||
             o.trackingNumber === cleanCode ||
@@ -591,6 +593,45 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             console.log("Scanned Code not found:", cleanCode)
         }
     }
+
+    // --------------------------------------------------------------------------
+    // USB BARCODE SCANNER LISTENER (Desktop Support)
+    // --------------------------------------------------------------------------
+    useEffect(() => {
+        let barcodeBuffer = ""
+        let lastKeyTime = Date.now()
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Ignore if user is typing in an input field
+            const target = e.target as HTMLElement
+            if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+                return
+            }
+
+            const now = Date.now()
+
+            // If pauses > 100ms, assume new scan or random typing, reset buffer
+            if (now - lastKeyTime > 100) {
+                barcodeBuffer = ""
+            }
+            lastKeyTime = now
+
+            if (e.key === 'Enter') {
+                if (barcodeBuffer.length > 2) {
+                    console.log("Scanner Input Detected:", barcodeBuffer)
+                    // We can safely call this because we updated it to use ordersRef
+                    handleBarcodeScan(barcodeBuffer)
+                    barcodeBuffer = ""
+                    e.preventDefault()
+                }
+            } else if (e.key.length === 1) {
+                barcodeBuffer += e.key
+            }
+        }
+
+        window.addEventListener('keydown', handleKeyDown)
+        return () => window.removeEventListener('keydown', handleKeyDown)
+    }, [])
 
     const handleBulkMove = async (targetStatusId: string) => {
         if (selectedOrders.length === 0) return
