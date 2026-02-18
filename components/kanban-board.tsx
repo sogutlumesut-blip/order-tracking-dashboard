@@ -1069,10 +1069,6 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                             {column.title}
                                         </div>
                                         <div className="flex flex-col h-full">
-                                            {/* CORRECTLY PLACED DEBUG BANNER */}
-                                            <div className="md:hidden bg-red-600 text-white font-bold text-center py-1 text-xs">
-                                                MOBILE BANNER v1.4
-                                            </div>
                                             <div className="flex flex-col items-center gap-1 mt-auto pb-4">
                                                 <span className="bg-white text-slate-900 text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shadow-sm">
                                                     {columnOrders.length}
