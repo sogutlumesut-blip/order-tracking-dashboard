@@ -771,7 +771,19 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shrink-0">
                             OMS
                         </div>
-                        <h1 className="font-bold text-sm md:text-lg text-slate-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-slate-400 font-normal">v3.0 (Sütunlar: {cols.length})</span></h1>
+                        <h1 className="font-bold text-sm md:text-lg text-slate-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-slate-400 font-normal">v3.3 (Sütunlar: {cols.length})</span></h1>
+                        {/* Status Check Indicator */}
+                        <div className="flex items-center gap-2">
+                            {isValidating ? (
+                                <span className="flex items-center gap-1 text-[10px] text-amber-600 bg-amber-50 dark:bg-amber-900/30 px-1 rounded animate-pulse">
+                                    <RefreshCcw className="w-3 h-3 animate-spin" /> Yükleniyor...
+                                </span>
+                            ) : (
+                                <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">
+                                    <CheckCircle2 className="w-3 h-3" /> v3.3 LIVE
+                                </span>
+                            )}
+                        </div>
                     </div>
 
                     {/* Desktop Menu */}
@@ -780,7 +792,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-100 dark:border-slate-700">
                             <Clock className="w-3 h-3" />
                             <span>Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}</span>
-                            <span className="ml-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">v3.0 FIX</span>
+                            <span className="ml-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">v3.3</span>
                         </div>
 
                         {/* Sound Toggle */}
