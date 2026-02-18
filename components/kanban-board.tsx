@@ -3,7 +3,7 @@
 import { Order, OrderStatus, Comment } from "../data/mock-orders"
 import { OrderCard } from "./order-card"
 import { useState, useEffect, useRef, useMemo } from "react"
-import { ChevronDown, ChevronUp, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck, Lock, Unlock, ScanBarcode, Clock, CheckCircle2, RefreshCcw } from "lucide-react"
+import { ChevronDown, ChevronUp, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck, Lock, Unlock, ScanBarcode, Clock, CheckCircle } from "lucide-react"
 import { Html5QrcodeScanner } from "html5-qrcode"
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDraggable, useDroppable, closestCorners } from "@dnd-kit/core"
 import { BarcodeScanner } from "./barcode-scanner"
@@ -776,11 +776,11 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         <div className="flex items-center gap-2">
                             {isValidating ? (
                                 <span className="flex items-center gap-1 text-[10px] text-amber-600 bg-amber-50 dark:bg-amber-900/30 px-1 rounded animate-pulse">
-                                    <RefreshCcw className="w-3 h-3 animate-spin" /> Yükleniyor...
+                                    <RefreshCw className="w-3 h-3 animate-spin" /> Yükleniyor...
                                 </span>
                             ) : (
                                 <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">
-                                    <CheckCircle2 className="w-3 h-3" /> v3.3 LIVE
+                                    <CheckCircle className="w-3 h-3" /> v3.3 LIVE
                                 </span>
                             )}
                         </div>
