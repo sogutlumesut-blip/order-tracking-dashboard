@@ -123,7 +123,12 @@ export async function getOrders(timestamp?: number) {
             timestamp: c.timestamp.toLocaleString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
             // Map author name from relation
             author: c.author?.name || "Unknown",
-            attachments: c.attachments ? JSON.parse(c.attachments) : undefined
+            attachments: c.attachments ? (() => {
+                try {
+                    const parsed = JSON.parse(c.attachments);
+                    return Array.isArray(parsed) ? parsed : undefined;
+                } catch { return undefined; }
+            })() : undefined
         })),
         activities: order.activities.map(a => ({
             ...a,
@@ -132,10 +137,8 @@ export async function getOrders(timestamp?: number) {
         labels: (() => {
             if (!order.labels) return []
             try {
-                // If it's already an array (Prisma specific), return it. If string, parse it.
-                // In SQLite it was string, in Postgres with string[] it might be different.
-                // Schema labels is String (TEXT).
-                return typeof order.labels === 'string' ? JSON.parse(order.labels) : order.labels
+                const parsed = typeof order.labels === 'string' ? JSON.parse(order.labels) : order.labels
+                return Array.isArray(parsed) ? parsed : []
             } catch (e) {
                 return []
             }
