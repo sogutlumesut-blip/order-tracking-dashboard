@@ -3,7 +3,7 @@
 import { Order, OrderStatus, Comment } from "../data/mock-orders"
 import { OrderCard } from "./order-card"
 import { useState, useEffect, useRef, useMemo } from "react"
-import { ChevronDown, ChevronUp, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck, Lock, Unlock, ScanBarcode, Clock } from "lucide-react"
+import { ChevronDown, ChevronUp, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck, Lock, Unlock, ScanBarcode, Clock, CheckCircle2, RefreshCcw } from "lucide-react"
 import { Html5QrcodeScanner } from "html5-qrcode"
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDraggable, useDroppable, closestCorners } from "@dnd-kit/core"
 import { BarcodeScanner } from "./barcode-scanner"
