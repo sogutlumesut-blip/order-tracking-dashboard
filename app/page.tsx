@@ -58,7 +58,7 @@ export default async function Dashboard() {
   const formattedOrders = orders || []
 
   return (
-    <div className="h-[100dvh] bg-slate-50 flex flex-col overflow-hidden">
+    <div className="h-[100dvh] bg-slate-50 dark:bg-[#020617] flex flex-col overflow-hidden transition-colors duration-300">
       {dbError && (
         <div className="bg-red-600 text-white px-4 py-2 text-center font-bold animate-pulse">
           🚨 {dbError} (Bakım Modu)

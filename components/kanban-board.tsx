@@ -626,6 +626,14 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             toast.success(result.message || `${selectedOrders.length} sipariş taşındı`, { id: toastId })
             setSelectedOrders([]) // Clear selection
 
+            // CRITICAL: Manual fetch to ensure UI updates immediately
+            try {
+                const latestOrders = await getOrders()
+                if (latestOrders) setOrders(latestOrders as any)
+            } catch (err) {
+                console.error("Manual fetch error:", err)
+            }
+
             // Force Router Refresh to update Server Components
             router.refresh()
         } catch (e: any) {
@@ -714,14 +722,14 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
         >
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col h-full bg-transparent">
                 {/* Header moved from page.tsx */}
-                <header className="bg-white dark:bg-slate-900 border-b dark:border-slate-800 h-16 flex items-center justify-between px-4 md:px-6 shrink-0 z-20 relative transition-colors">
+                <header className="bg-white dark:bg-[#020617] border-b border-slate-200 dark:border-slate-800 h-16 flex items-center justify-between px-4 md:px-6 shrink-0 z-20 relative transition-colors duration-300">
                     <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
                         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shrink-0">
                             OMS
                         </div>
-                        <h1 className="font-bold text-sm md:text-lg text-slate-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-slate-400 font-normal">v2.3 (Sütunlar: {cols.length})</span></h1>
+                        <h1 className="font-bold text-sm md:text-lg text-slate-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-slate-400 font-normal">v3.0 (Sütunlar: {cols.length})</span></h1>
                     </div>
 
                     {/* Desktop Menu */}
@@ -730,7 +738,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-100 dark:border-slate-700">
                             <Clock className="w-3 h-3" />
                             <span>Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}</span>
-                            <span className="ml-1 text-[10px] text-blue-600 dark:text-blue-400 font-bold bg-blue-50 dark:bg-blue-900/30 px-1 rounded">v1.2 Live</span>
+                            <span className="ml-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">v3.0 FIX</span>
                         </div>
 
                         {/* Sound Toggle */}
