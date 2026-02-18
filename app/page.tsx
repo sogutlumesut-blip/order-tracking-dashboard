@@ -67,7 +67,12 @@ export default async function Dashboard() {
       <main className="flex-1 overflow-hidden">
         <KanbanBoard
           initialOrders={formattedOrders}
-          currentUser={{ ...session.user, allowedStatuses: userPermissions }}
+          currentUser={{
+            id: session.user.id,
+            name: session.user.name,
+            role: session.user.role,
+            allowedStatuses: userPermissions
+          }}
           cols={statuses}
           tags={labels}
         />

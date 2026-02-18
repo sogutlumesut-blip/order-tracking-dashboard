@@ -20,7 +20,7 @@ import { ThemeToggle } from "@/components/theme-toggle"
 
 interface KanbanBoardProps {
     initialOrders: Order[]
-    currentUser: { id: string; name: string; role: string }
+    currentUser: { id: string; name: string; role: string; allowedStatuses?: string[] }
     cols: { id: string; title: string; color: string }[]
     tags: { id: string; name: string; color: string | null }[]
 }

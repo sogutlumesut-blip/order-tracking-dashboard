@@ -24,7 +24,12 @@ export async function getSession() {
     const session = (await cookies()).get("session")?.value;
     if (!session) return null;
     try {
-        return await decrypt(session);
+        const payload = await decrypt(session);
+        // Serialize dates to strings
+        if (payload?.expires && payload.expires instanceof Date) {
+            payload.expires = payload.expires.toISOString();
+        }
+        return payload;
     } catch (error) {
         return null;
     }
