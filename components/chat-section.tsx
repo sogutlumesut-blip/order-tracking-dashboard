@@ -3,7 +3,6 @@
 import { Comment } from "../data/mock-orders" // Ensure this type matches generic Comment structure
 import { useState, useRef } from "react"
 import { Send, Paperclip, File as FileIcon, Image as ImageIcon } from "lucide-react"
-import { toast } from "sonner"
 
 interface ChatSectionProps {
     comments?: Comment[]
@@ -59,7 +58,7 @@ export function ChatSection({ comments = [], onAddComment, currentUser }: ChatSe
                             type: 'image',
                             url: result
                         })
-                        toast.info("Görsel panodan yapıştırıldı.")
+                        console.log("Görsel panodan yapıştırıldı.")
                     }
                     reader.readAsDataURL(file)
                 }

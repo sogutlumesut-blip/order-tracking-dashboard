@@ -1094,7 +1094,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 Test Ses
                             </button>
 
-                            <form action={logoutAction} className="ml-auto">
+                            <form action={async () => { await logoutAction() }} className="ml-auto">
                                 <button type="submit" className="flex items-center gap-2 text-sm text-red-600 font-bold px-2 py-1">
                                     <LogOut className="w-4 h-4" />
                                     Çıkış Yap
