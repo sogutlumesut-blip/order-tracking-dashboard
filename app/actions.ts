@@ -209,14 +209,20 @@ export async function bulkUpdateOrderStatus(orderIds: number[], status: string) 
             return { success: false, message: "Hiçbir sipariş güncellenemedi." }
         }
 
-        // Log activity safely using Promise.all to ensure they complete but run in parallel
+        // Log activity efficiently using createMany (Single DB Query)
         try {
-            await Promise.all(orderIds.map(id =>
-                logActivity(id, user, "STATUS_CHANGE", `Toplu işlem: Durum '${status}' olarak değiştirildi.`)
-            ));
+            const activities = orderIds.map(id => ({
+                orderId: id,
+                author: user,
+                action: "STATUS_CHANGE",
+                details: `Toplu işlem: Durum '${status}' olarak değiştirildi.`
+            }))
+
+            await db.orderActivity.createMany({
+                data: activities
+            })
         } catch (err) {
-            console.error("Logging failed but update succeeded:", err)
-            // Do not fail the request if logging fails, but log it server-side
+            console.error("Bulk logging failed but update succeeded:", err)
         }
 
         revalidatePath("/")
