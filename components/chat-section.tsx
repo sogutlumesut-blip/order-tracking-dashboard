@@ -3,6 +3,7 @@
 import { Comment } from "../data/mock-orders" // Ensure this type matches generic Comment structure
 import { useState, useRef } from "react"
 import { Send, Paperclip, File as FileIcon, Image as ImageIcon } from "lucide-react"
+import { toast } from "sonner"
 
 interface ChatSectionProps {
     comments?: Comment[]
@@ -44,8 +45,30 @@ export function ChatSection({ comments = [], onAddComment, currentUser }: ChatSe
         reader.readAsDataURL(file)
     }
 
+    const handlePaste = (e: React.ClipboardEvent) => {
+        const items = e.clipboardData.items
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.startsWith('image/')) {
+                const file = items[i].getAsFile()
+                if (file) {
+                    const reader = new FileReader()
+                    reader.onload = (e) => {
+                        const result = e.target?.result as string
+                        setAttachment({
+                            name: `yapistirilan-gorsel-${Date.now()}.png`,
+                            type: 'image',
+                            url: result
+                        })
+                        toast.info("Görsel panodan yapıştırıldı.")
+                    }
+                    reader.readAsDataURL(file)
+                }
+            }
+        }
+    }
+
     return (
-        <div className="flex flex-col h-[400px] border dark:border-slate-700 rounded-xl overflow-hidden bg-slate-50/50 dark:bg-slate-900/50">
+        <div className="flex flex-col h-[600px] border dark:border-slate-700 rounded-xl overflow-hidden bg-slate-50/50 dark:bg-slate-900/50 shadow-sm transition-all">
             {/* Header */}
             <div className="p-3 border-b dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-between text-xs">
                 <span className="font-semibold text-slate-500 dark:text-slate-400">Yazışma Geçmişi</span>
@@ -123,10 +146,11 @@ export function ChatSection({ comments = [], onAddComment, currentUser }: ChatSe
                     <input
                         type="text"
                         className="flex-1 bg-slate-50 dark:bg-slate-700 border-none rounded-full px-4 text-sm focus:ring-1 focus:ring-blue-500 outline-none text-slate-900 dark:text-slate-100 font-medium placeholder:text-slate-500 dark:placeholder:text-slate-400"
-                        placeholder="Mesaj yazın..."
+                        placeholder="Mesaj yazın veya görselleri yapıştırın..."
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                        onPaste={handlePaste}
                     />
 
                     <button
