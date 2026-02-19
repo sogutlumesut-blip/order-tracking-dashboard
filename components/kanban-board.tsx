@@ -1321,7 +1321,8 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                             <span className="text-xs text-slate-500 font-medium">
                                 Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}
                             </span>
-                            <span className="text-[10px] text-slate-400">v1.2 Live</span>
+                            <span className="text-[10px] text-slate-400">...</span>
+                            <span className="text-[10px] text-emerald-600 font-bold">v3.3 Live</span>
                         </div>
 
                         <div className="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm p-1">
