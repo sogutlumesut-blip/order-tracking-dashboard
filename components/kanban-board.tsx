@@ -3,7 +3,7 @@
 import { Order, OrderStatus, Comment } from "../data/mock-orders"
 import { OrderCard } from "./order-card"
 import { useState, useEffect, useRef, useMemo } from "react"
-import { ChevronDown, ChevronUp, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck, Lock, Unlock, ScanBarcode, Clock, CheckCircle } from "lucide-react"
+import { ChevronDown, ChevronUp, ChevronRight, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck, Lock, Unlock, ScanBarcode, Clock, CheckCircle } from "lucide-react"
 import { Html5QrcodeScanner } from "html5-qrcode"
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDraggable, useDroppable, closestCorners } from "@dnd-kit/core"
 import { BarcodeScanner } from "./barcode-scanner"
@@ -817,7 +817,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shrink-0">
                             OMS
                         </div>
-                        <h1 className="font-bold text-sm md:text-lg text-slate-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-slate-400 font-normal">v3.3 (Sütunlar: {cols.length})</span></h1>
+                        <h1 className="font-bold text-sm md:text-lg text-slate-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-slate-400 font-normal">v3.6 [FINAL] (Sütunlar: {cols.length})</span></h1>
                         {/* Status Check Indicator */}
                         <div className="flex items-center gap-2">
                             {isValidating ? (
@@ -826,7 +826,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 </span>
                             ) : (
                                 <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">
-                                    <CheckCircle className="w-3 h-3" /> v3.3 LIVE
+                                    <CheckCircle className="w-3 h-3" /> v3.6 [FINAL]
                                 </span>
                             )}
                         </div>
@@ -838,7 +838,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-100 dark:border-slate-700">
                             <Clock className="w-3 h-3" />
                             <span>Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}</span>
-                            <span className="ml-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">v3.3</span>
+                            <span className="ml-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">v3.6 [FINAL]</span>
                         </div>
 
                         {/* Sound Toggle */}
@@ -1014,24 +1014,30 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 {/* Mobile Menu Dropdown */}
                 {mobileMenuOpen && (
                     <div className="md:hidden bg-white border-b p-4 flex flex-col gap-4 absolute top-16 left-0 w-full z-30 shadow-xl animate-in slide-in-from-top-2">
-                        <div className="flex items-center justify-between bg-slate-50 p-3 rounded-lg">
-                            <div className="flex items-center gap-2 text-sm text-slate-700">
-                                <User className="w-4 h-4" />
-                                <span className="font-bold">{currentUser.name}</span>
+                        <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border dark:border-slate-800">
+                            <div className="flex flex-col">
+                                <div className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                                    <User className="w-4 h-4" />
+                                    <span className="font-bold">{currentUser.name}</span>
+                                </div>
+                                <span className="text-[10px] text-slate-400 uppercase font-bold mt-0.5 tracking-wider">{currentUser.role}</span>
                             </div>
-                            <span className="text-xs bg-slate-200 px-2 py-1 rounded-full">{currentUser.role}</span>
+                            <ThemeToggle />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="flex flex-col gap-2">
                             {(currentUser.role === 'admin' || (currentUser as any).allowedStatuses?.includes("MANUAL_SYNC")) && (
                                 <form action={async () => {
                                     toast.info("Woo Senkronize ediliyor...")
                                     await syncWooCommerceOrders(true)
                                     setMobileMenuOpen(false)
-                                }} className="col-span-1">
-                                    <button className="w-full flex items-center justify-center gap-2 p-3 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 font-bold text-sm border border-blue-100">
-                                        <RefreshCw className="w-4 h-4" />
-                                        Woo Çek
+                                }} className="w-full">
+                                    <button className="w-full flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-lg hover:bg-blue-100 font-bold text-sm border border-blue-100 dark:border-blue-900/30">
+                                        <div className="flex items-center gap-2">
+                                            <RefreshCw className="w-4 h-4" />
+                                            WooCommerce Çek
+                                        </div>
+                                        <ChevronRight className="w-4 h-4 opacity-50" />
                                     </button>
                                 </form>
                             )}
@@ -1041,10 +1047,13 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                     toast.info("Etsy Senkronize ediliyor...")
                                     await syncEtsyOrders()
                                     setMobileMenuOpen(false)
-                                }} className="col-span-1">
-                                    <button className="w-full flex items-center justify-center gap-2 p-3 bg-orange-50 text-orange-700 rounded-lg hover:bg-orange-100 font-bold text-sm border border-orange-100">
-                                        <RefreshCw className="w-4 h-4" />
-                                        Etsy Çek
+                                }} className="w-full">
+                                    <button className="w-full flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 rounded-lg hover:bg-orange-100 font-bold text-sm border border-orange-100 dark:border-orange-900/30">
+                                        <div className="flex items-center gap-2">
+                                            <RefreshCw className="w-4 h-4" />
+                                            Etsy Siparişleri Çek
+                                        </div>
+                                        <ChevronRight className="w-4 h-4 opacity-50" />
                                     </button>
                                 </form>
                             )}
@@ -1055,18 +1064,24 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                     const res = await syncCargoKargoEntegrator()
                                     if (res?.success) toast.success(res.message)
                                     setMobileMenuOpen(false)
-                                }} className="col-span-1">
-                                    <button className="w-full flex items-center justify-center gap-2 p-3 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 font-bold text-sm border border-indigo-100">
-                                        <Truck className="w-4 h-4" />
-                                        Kargo Çek
+                                }} className="w-full">
+                                    <button className="w-full flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 font-bold text-sm border border-indigo-100 dark:border-indigo-900/30">
+                                        <div className="flex items-center gap-2">
+                                            <Truck className="w-4 h-4" />
+                                            Kargo Bilgilerini Çek
+                                        </div>
+                                        <ChevronRight className="w-4 h-4 opacity-50" />
                                     </button>
                                 </form>
                             )}
 
                             {currentUser.role === 'admin' && (
-                                <Link onClick={() => setMobileMenuOpen(false)} href="/admin/settings" className="col-span-2 flex items-center justify-center gap-2 p-3 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 font-bold text-sm border border-slate-200">
-                                    <Settings className="w-4 h-4" />
-                                    Tüm Ayarlar
+                                <Link onClick={() => setMobileMenuOpen(false)} href="/admin/settings" className="w-full flex items-center justify-between p-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 font-bold text-sm border border-slate-200 dark:border-slate-700">
+                                    <div className="flex items-center gap-2">
+                                        <Settings className="w-4 h-4" />
+                                        Tüm Panel Ayarları
+                                    </div>
+                                    <ChevronRight className="w-4 h-4 opacity-50" />
                                 </Link>
                             )}
                         </div>
