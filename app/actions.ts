@@ -181,18 +181,22 @@ export async function updateOrderStatus(orderId: number, status: string) {
 }
 
 export async function bulkUpdateOrderStatus(orderIds: number[], status: string) {
+    const startTime = Date.now();
     try {
         const session = await getSession()
         const user = session ? session.user.name : "Sistem"
 
-        console.log(`[BULK_MOVE] Start: ${orderIds.length} orders -> '${status}' by '${user}'`)
+        console.log(`[BULK_MOVE_DEBUG] Start: ${orderIds.length} orders -> '${status}' by '${user}' at ${new Date().toISOString()}`)
+        console.log(`[BULK_MOVE_DEBUG] Order IDs: ${JSON.stringify(orderIds)}`)
 
         if (orderIds.length > 200) {
+            console.error("[BULK_MOVE_DEBUG] Too many orders requested:", orderIds.length);
             return { success: false, message: "Aynı anda en fazla 200 sipariş taşıyabilirsiniz." }
         }
 
         // 1. Core Update
-        await db.order.updateMany({
+        console.log("[BULK_MOVE_DEBUG] Executing db.order.updateMany...");
+        const result = await db.order.updateMany({
             where: { id: { in: orderIds } },
             data: {
                 status,
@@ -201,31 +205,32 @@ export async function bulkUpdateOrderStatus(orderIds: number[], status: string) 
                 updatedAt: new Date()
             }
         })
+        console.log(`[BULK_MOVE_DEBUG] updateMany DONE. Result count: ${result.count}. Time: ${Date.now() - startTime}ms`);
 
-        // 2. Activity Logs (Outside transaction for speed/reliability on simple setups)
+        // 2. Activity Logs
+        console.log("[BULK_MOVE_DEBUG] Creating activity logs...");
         try {
             const activities = orderIds.map(id => ({
                 orderId: id,
                 author: user,
                 action: "STATUS_CHANGE",
-                details: `Toplu işlem: Durum '${status}' olarak değiştirildi.`
+                details: `Toplu işlem [V2.2]: Durum '${status}' olarak değiştirildi.`
             }))
 
-            await db.orderActivity.createMany({
+            const logResult = await db.orderActivity.createMany({
                 data: activities
             })
+            console.log(`[BULK_MOVE_DEBUG] createMany DONE. Logged ${logResult.count} items. Total Time: ${Date.now() - startTime}ms`);
         } catch (logErr) {
-            console.error("Non-critical log error:", logErr)
+            console.error("[BULK_MOVE_DEBUG] Non-critical log error:", logErr)
         }
-
-        console.log(`[BULK_MOVE] Success: ${orderIds.length} orders updated.`)
 
         // REMOVED revalidatePath("/") here because the client handles its own refresh.
         // revalidatePath in a loop or during bulk ops can cause timeouts on some hostings.
 
         return { success: true, count: orderIds.length, message: "Başarıyla güncellendi." }
     } catch (e: any) {
-        console.error("bulkUpdateOrderStatus ERROR:", e)
+        console.error(`[BULK_MOVE_DEBUG] CATASTROPHIC ERROR after ${Date.now() - startTime}ms:`, e)
         return { success: false, error: e.message || "Sunucu hatası oluştu." }
     }
 }

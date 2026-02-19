@@ -209,6 +209,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
             // 1. AUTO-SYNC: Trigger server-side sync check
             // We poll every 10 seconds. Server handles rate limiting (15s).
+            if (isBulkProcessing) return; // SKIP while processing
             try {
                 const syncRes = await syncWooCommerceOrders(false)
                 if (syncRes && !syncRes.error && !(syncRes as any).skipped) {
