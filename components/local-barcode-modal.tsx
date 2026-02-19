@@ -44,8 +44,8 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                 <div className="flex-1 overflow-auto p-8 bg-slate-100 flex justify-center">
                     <div
                         ref={printRef}
-                        className="bg-white p-6 rounded shadow-sm border border-slate-200 w-[10cm] min-h-[10cm] flex flex-col items-center text-center print:shadow-none print:border-none print:w-full print:h-full"
-                        style={{ width: "100mm", height: "100mm" }} // Standard generic label size (10x10cm) or fit to content
+                        className="bg-white p-6 rounded shadow-sm border border-slate-200 w-[10cm] min-h-[15cm] flex flex-col items-center text-center print:shadow-none print:border-none print:w-[10cm] print:h-[150mm] print:p-4"
+                        style={{ width: "100mm", height: "150mm" }} // Standard 10x15cm label
                     >
                         {/* Sender / Header */}
                         <div className="w-full border-b-2 border-black pb-2 mb-4">

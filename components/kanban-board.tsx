@@ -212,17 +212,16 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             // We REMOVED isPanelOpenRef check to allow background updates even if user is viewing a detail.
             if (activeId) return;
 
-            // 1. AUTO-SYNC: Trigger server-side sync check
-            // We poll every 10 seconds. Server handles rate limiting (15s).
-            if (isBulkProcessingRef.current) {
-                console.log("Polling skipped: Bulk processing is active");
-                return;
-            }
+            // 1. AUTO-SYNC & REFRESH: Trigger server-side sync check
+            // We poll every 15 seconds. Server handles rate limiting (15s).
+            if (isBulkProcessingRef.current) return; // SKIP while processing
             try {
+                // ALWAYS trigger a router.refresh() to catch local DB changes (e.g. scans on other devices)
+                router.refresh()
+
                 const syncRes = await syncWooCommerceOrders(false)
                 if (syncRes && !syncRes.error && !(syncRes as any).skipped) {
-                    console.log("Auto-Sync Success: New data pulled")
-                    router.refresh()
+                    console.log("Auto-Sync Success: New data pulled from WC")
                 }
             } catch (e) { console.error("Auto Force Sync Error", e) }
 
@@ -709,9 +708,10 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             if (failCount > 0) {
                 toast.warning(`${successCount} sipariş taşındı, ${failCount} hata oluştu.`, { id: toastId, duration: 4000 })
             } else {
-                toast.success(`${successCount} sipariş başarıyla taşındı!`, { id: toastId })
+                toast.success(`${successCount} sipariş başarıyla taşındı!`, { id: toastId, duration: 2000 })
             }
 
+            setIsBulkProcessing(false) // Release lock immediately
             setSelectedOrders([]) // Clean up selection
 
             // 4. Force Sync to ensure consistency
@@ -1356,7 +1356,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}
                             </span>
                             <span className="text-[10px] text-slate-400">...</span>
-                            <span className="text-[10px] text-emerald-600 font-bold">v3.5 [STABLE]</span>
+                            <span className="text-[10px] text-emerald-600 font-bold">v3.6 [FINAL]</span>
                         </div>
 
                         <div className="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm p-1">
