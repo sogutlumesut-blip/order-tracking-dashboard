@@ -1,11 +1,13 @@
 
 "use client"
 
-import { X, Printer } from "lucide-react"
+import { X, Printer, RefreshCcw } from "lucide-react"
 import Barcode from "react-barcode"
 import QRCode from "react-qr-code"
-import { useRef } from "react"
+import { useRef, useState } from "react"
 import { useReactToPrint } from "react-to-print"
+import { syncCargoKargoEntegrator } from "@/app/actions"
+import { toast } from "sonner"
 
 interface LocalBarcodeModalProps {
     order: any
@@ -15,11 +17,28 @@ interface LocalBarcodeModalProps {
 
 export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalProps) {
     const printRef = useRef<HTMLDivElement>(null)
+    const [isSyncing, setIsSyncing] = useState(false)
 
     const handlePrint = useReactToPrint({
         contentRef: printRef,
         documentTitle: `Kargo-Barkod-${order.cargoBarcode || order.barcode || order.id}`,
     })
+
+    const handleSync = async () => {
+        setIsSyncing(true)
+        try {
+            const res = await syncCargoKargoEntegrator()
+            if (res.success) {
+                toast.success("Kargo bilgileri güncellendi. Yeni barkod birazdan yansıyacaktır.")
+            } else {
+                toast.error("Kargo bilgisi bulunamadı veya bir hata oluştu.")
+            }
+        } catch (e) {
+            toast.error("Senkronizasyon başarısız.")
+        } finally {
+            setIsSyncing(false)
+        }
+    }
 
     if (!isOpen || !order) return null
 
@@ -29,7 +48,17 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
 
                 {/* Header */}
                 <div className="p-4 border-b flex justify-between items-center bg-slate-50">
-                    <h3 className="font-bold text-lg">Barkod Yazdır</h3>
+                    <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-lg">Barkod Yazdır</h3>
+                        <button
+                            onClick={handleSync}
+                            disabled={isSyncing}
+                            className={`p-1.5 rounded-md transition-all ${isSyncing ? 'animate-spin text-blue-500' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'}`}
+                            title="Kargo Bilgilerini Güncelle"
+                        >
+                            <RefreshCcw className="w-4 h-4" />
+                        </button>
+                    </div>
                     <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
                         <X className="w-5 h-5" />
                     </button>
@@ -59,27 +88,34 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
 
                         {/* Bottom: Barcode & QR Code */}
                         <div className="mt-auto w-full flex flex-col items-center justify-end pt-4 border-t-2 border-black">
-                            <div className="flex items-end justify-center gap-4 w-full">
-                                <div className="flex flex-col items-center">
-                                    <Barcode
-                                        value={order.cargoBarcode || order.barcode || order.id.toString()}
-                                        width={1.5}
-                                        height={50}
-                                        fontSize={12}
-                                    />
-                                </div>
-                                <div className="flex flex-col items-center mb-1">
+                            <div className="flex items-end justify-between gap-4 w-full">
+                                {/* Left: Internal QR for Ready/Packed */}
+                                <div className="flex flex-col items-center flex-1">
+                                    <p className="text-[10px] font-bold mb-1 opacity-70">SİSTEM (QR)</p>
                                     <QRCode
-                                        value={order.cargoBarcode || order.barcode || order.id.toString()}
-                                        size={64}
+                                        value={order.barcode || order.id.toString()}
+                                        size={70}
                                         style={{ height: "auto", maxWidth: "100%", width: "100%" }}
                                         viewBox={`0 0 256 256`}
                                     />
+                                    <p className="text-[10px] font-mono mt-1">{order.barcode || order.id}</p>
+                                </div>
+
+                                {/* Right: Cargo Barcode for Shipped */}
+                                <div className="flex flex-col items-center flex-[2]">
+                                    <p className="text-[10px] font-bold mb-1 opacity-70">KARGO (DHL/STANDART)</p>
+                                    <Barcode
+                                        value={order.cargoBarcode || order.cargoTrackingNumber || order.barcode || order.id.toString()}
+                                        width={1.4}
+                                        height={50}
+                                        fontSize={10}
+                                        margin={0}
+                                    />
+                                    {order.cargoTrackingNumber && (
+                                        <p className="text-[9px] font-mono mt-0.5">Takip: {order.cargoTrackingNumber}</p>
+                                    )}
                                 </div>
                             </div>
-                            <p className="text-xs font-mono mt-2 text-center">
-                                {order.cargoTrackingNumber ? `Takip No: ${order.cargoTrackingNumber}` : `ID: ${order.id}`}
-                            </p>
                         </div>
                     </div>
                 </div>
