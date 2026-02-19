@@ -192,14 +192,6 @@ export async function bulkUpdateOrderStatus(orderIds: number[], status: string) 
             return { success: false, message: "Aynı anda en fazla 50 sipariş taşıyabilirsiniz." }
         }
 
-        console.log(`[BULK_MOVE_DEBUG] IDs: ${JSON.stringify(orderIds)}, Status: ${status}`)
-
-        // Check availability first - REMOVED for Speed
-        // const countCheck = await db.order.count({
-        //     where: { id: { in: orderIds } }
-        // })
-        // console.log(`[BULK_MOVE_DEBUG] Orders found in DB: ${countCheck}`)
-
         // Update all orders
         const result = await db.order.updateMany({
             where: { id: { in: orderIds } },
@@ -214,23 +206,20 @@ export async function bulkUpdateOrderStatus(orderIds: number[], status: string) 
         console.log(`[BULK_MOVE] DB Update Result: ${result.count} orders updated.`)
 
         if (result.count === 0) {
-            console.warn(`[BULK_MOVE] Warning: 0 orders were updated. IDs provided: ${orderIds.join(', ')}`)
-            return { success: false, message: "Hiçbir sipariş güncellenemedi (Veritabanı eşleşmedi)." }
+            return { success: false, message: "Hiçbir sipariş güncellenemedi." }
         }
 
-        // Log activity asynchronously to avoid blocking the UI response
-        // We do NOT await this loop to return faster
-        (async () => {
-            try {
-                for (const id of orderIds) {
-                    await logActivity(id, user, "STATUS_CHANGE", `Toplu işlem: Durum '${status}' olarak değiştirildi.`)
-                }
-            } catch (err) {
-                console.error("Async logging failed:", err)
-            }
-        })()
+        // Log activity safely using Promise.all to ensure they complete but run in parallel
+        try {
+            await Promise.all(orderIds.map(id =>
+                logActivity(id, user, "STATUS_CHANGE", `Toplu işlem: Durum '${status}' olarak değiştirildi.`)
+            ));
+        } catch (err) {
+            console.error("Logging failed but update succeeded:", err)
+            // Do not fail the request if logging fails, but log it server-side
+        }
 
-        revalidatePath("/", "layout") // Revalidate entire layout
+        revalidatePath("/")
         return { success: true, count: result.count, message: `${result.count} sipariş başarıyla taşındı.` }
     } catch (e: any) {
         console.error("bulkUpdateOrderStatus ERROR:", e)
