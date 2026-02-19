@@ -531,19 +531,26 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             }
 
             if (isCargoScan) {
-                // CARGO SCAN -> SHIPPED
-                if (targetOrder.status !== 'shipped' && targetOrder.status !== 'completed') {
+                // CARGO SCAN -> SHIPPED / KARGOLANDI
+                const shippedCol = cols.find(c =>
+                    c.id === 'shipped' ||
+                    c.title.toLowerCase().includes("kargo")
+                )
+
+                if (shippedCol) {
+                    nextStatus = shippedCol.id
+                    successMessage = `Sipariş #${targetOrder.id} Kargolandı!`
+                } else {
                     nextStatus = 'shipped'
-                    successMessage = `Sipariş #${targetOrder.id} Kargolandı! (Kargo Ekranı)`
-                } else if (targetOrder.status === 'shipped') {
+                    successMessage = `Sipariş #${targetOrder.id} Kargolandı!`
+                }
+
+                if (targetOrder.status === nextStatus || targetOrder.status === 'completed') {
                     toast.info(`Sipariş #${targetOrder.id} zaten kargolanmış.`)
                     return
                 }
             } else {
-                // INTERNAL SCAN (WC-*, ID) -> READY / PACKED / PRINTED
-
-                // Find "Ready", "Packed" or "Printed" column
-                // Priority: Ready/Packed > Printed > Processing
+                // INTERNAL SCAN (WC-*, ID) -> READY / PACKED / HAZIR / PAKETLENDİ
                 const readyCol = cols.find(c =>
                     c.title.toLowerCase().includes("paket") ||
                     c.title.toLowerCase().includes("hazır") ||
@@ -551,20 +558,12 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     c.id === 'packed'
                 )
 
-                const printedCol = cols.find(c => c.id === 'printed' || c.title.toLowerCase().includes("basıl"))
-
-                // Logic: Move to the state BEFORE shipping
                 if (readyCol) {
                     nextStatus = readyCol.id
-                    successMessage = `Sipariş #${targetOrder.id} Hazırlandı/Paketlendi!`
-                } else if (printedCol) {
-                    nextStatus = printedCol.id
-                    successMessage = `Sipariş #${targetOrder.id} Basıldı/Hazırlandı.`
+                    successMessage = `Sipariş #${targetOrder.id} Paketlendi / Hazırlandı!`
                 } else {
-                    // Fallback: If no intermediate states, go to Shipped? 
-                    // Or warn user?
-                    toast.warning("Hazır/Paketlendi sütunu bulunamadı. Lütfen Ayarlar'dan bu sütunu ekleyin.")
-                    // allow print
+                    toast.warning("Hazır/Paketlendi sütunu bulunamadı.")
+                    return
                 }
 
                 // AUTO-PRINT PDF LOGIC
@@ -573,13 +572,8 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     successMessage += " (Etiket Açılıyor...)";
                 }
 
-                // Prevent moving backward or re-scanning same status
                 if (targetOrder.status === nextStatus) {
-                    if (!targetOrder.cargoLabelPdf) toast.info(`Sipariş #${targetOrder.id} zaten bu aşamada: ${successMessage}`)
-                    return
-                }
-                if (targetOrder.status === 'shipped' || targetOrder.status === 'completed') {
-                    toast.info(`Sipariş #${targetOrder.id} zaten tamamlanmış/kargolanmış.`)
+                    if (!targetOrder.cargoLabelPdf) toast.info(`Sipariş #${targetOrder.id} zaten bu aşamada.`)
                     return
                 }
             }
@@ -1371,7 +1365,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}
                             </span>
                             <span className="text-[10px] text-slate-400">...</span>
-                            <span className="text-[10px] text-emerald-600 font-bold">v3.6 [FINAL]</span>
+                            <span className="text-[10px] text-emerald-600 font-bold">v3.6.1 [FINAL]</span>
                         </div>
 
                         <div className="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm p-1">

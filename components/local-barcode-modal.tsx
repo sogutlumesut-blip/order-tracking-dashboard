@@ -16,14 +16,9 @@ interface LocalBarcodeModalProps {
 export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalProps) {
     const printRef = useRef<HTMLDivElement>(null)
 
-    // @ts-ignore - react-to-print types might be tricky, but this works
     const handlePrint = useReactToPrint({
-        content: () => printRef.current,
-        documentTitle: `Kargo-Barkod-${order.cargoBarcode || order.id}`,
-        onAfterPrint: () => {
-            // Optional: Close modal after print, or keep open
-            // onClose() 
-        }
+        contentRef: printRef,
+        documentTitle: `Kargo-Barkod-${order.cargoBarcode || order.barcode || order.id}`,
     })
 
     if (!isOpen || !order) return null
