@@ -1194,7 +1194,7 @@ export async function syncWooCommerceOrders(force: boolean = false) {
             console.error("Cargo Sync Failed:", e);
         }
 
-        revalidatePath("/")
+        // revalidatePath("/")
         return { success: true, message: `${newCount} sipariş işlendi. (Sistem v4.0 - Temiz Kurulum)`, logs: logs }
 
     } catch (e: any) {
@@ -1445,7 +1445,7 @@ export async function syncCargoKargoEntegrator() {
             }
         }
 
-        revalidatePath("/");
+        // revalidatePath("/"); - Removed from polling to prevent DO hangs
         return { success: true, message: `${updatedCount} siparişin kargo bilgisi güncellendi.` };
 
     } catch (error: any) {

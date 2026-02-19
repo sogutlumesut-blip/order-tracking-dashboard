@@ -56,6 +56,11 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     // BULK SELECTION STATE
     const [selectedOrders, setSelectedOrders] = useState<number[]>([])
     const [isBulkProcessing, setIsBulkProcessing] = useState(false)
+    const isBulkProcessingRef = useRef(false)
+
+    useEffect(() => {
+        isBulkProcessingRef.current = isBulkProcessing
+    }, [isBulkProcessing])
 
     const toggleOrderSelection = (orderId: number) => {
         setSelectedOrders(prev =>
@@ -209,7 +214,10 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
             // 1. AUTO-SYNC: Trigger server-side sync check
             // We poll every 10 seconds. Server handles rate limiting (15s).
-            if (isBulkProcessing) return; // SKIP while processing
+            if (isBulkProcessingRef.current) {
+                console.log("Polling skipped: Bulk processing is active");
+                return;
+            }
             try {
                 const syncRes = await syncWooCommerceOrders(false)
                 if (syncRes && !syncRes.error && !(syncRes as any).skipped) {
@@ -683,7 +691,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
                 // Update Progress explicitly
                 const processed = (i * chunkSize) + chunk.length
-                toast.loading(`Taşınıyor... ${processed}/${selectedOrders.length}`, { id: toastId })
+                toast.loading(`[V2.3] Taşınıyor... ${processed}/${selectedOrders.length}`, { id: toastId })
 
                 // Server Call for this chunk
                 const result = await bulkUpdateOrderStatus(chunk, targetStatusId)
@@ -1348,7 +1356,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}
                             </span>
                             <span className="text-[10px] text-slate-400">...</span>
-                            <span className="text-[10px] text-emerald-600 font-bold">v3.3 Live</span>
+                            <span className="text-[10px] text-emerald-600 font-bold">v3.4 [BETA]</span>
                         </div>
 
                         <div className="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm p-1">
