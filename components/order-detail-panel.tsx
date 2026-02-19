@@ -210,13 +210,8 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                 />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <div className="flex items-start justify-between flex-wrap gap-y-2">
+                                                <div className="flex items-start justify-between flex-wrap gap-y-2 mb-2">
                                                     <p className="font-bold text-slate-900 dark:text-slate-100 line-clamp-2">{item.name}</p>
-                                                    {item.sku && (
-                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-600 ml-2 whitespace-nowrap">
-                                                            Stok Kodu: {item.sku}
-                                                        </span>
-                                                    )}
                                                     {item.sampleData && (
                                                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-purple-100 text-purple-700 border border-purple-200 ml-2 animate-pulse text-right">
                                                             ✨ NUMUNE: {item.sampleData}
@@ -224,40 +219,77 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                     )}
                                                 </div>
 
+                                                <div className="grid grid-cols-2 gap-x-3 gap-y-2 mb-2">
+                                                    <div className="space-y-1">
+                                                        <label className="text-[10px] uppercase font-bold text-slate-400">Stok Kodu</label>
+                                                        <input
+                                                            type="text"
+                                                            className="w-full text-xs p-1.5 border dark:border-slate-700 rounded bg-slate-50 dark:bg-slate-900 font-medium focus:ring-1 focus:ring-blue-500 outline-none"
+                                                            value={item.sku || ""}
+                                                            onChange={(e) => {
+                                                                const newItems = formData.items.map(i => i.id === item.id ? { ...i, sku: e.target.value } : i)
+                                                                setFormData({ ...formData, items: newItems })
+                                                            }}
+                                                            placeholder="SKU"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <label className="text-[10px] uppercase font-bold text-slate-400">Doku / Malzeme</label>
+                                                        <input
+                                                            type="text"
+                                                            className="w-full text-xs p-1.5 border dark:border-slate-700 rounded bg-slate-50 dark:bg-slate-900 font-medium focus:ring-1 focus:ring-blue-500 outline-none"
+                                                            value={item.material || ""}
+                                                            onChange={(e) => {
+                                                                const newItems = formData.items.map(i => i.id === item.id ? { ...i, material: e.target.value } : i)
+                                                                setFormData({ ...formData, items: newItems })
+                                                            }}
+                                                            placeholder="Doku"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1 col-span-2">
+                                                        <label className="text-[10px] uppercase font-bold text-slate-400">Ölçüler</label>
+                                                        <input
+                                                            type="text"
+                                                            className="w-full text-xs p-1.5 border dark:border-slate-700 rounded bg-slate-50 dark:bg-slate-900 font-medium focus:ring-1 focus:ring-blue-500 outline-none"
+                                                            value={item.dimensions || ""}
+                                                            onChange={(e) => {
+                                                                const newItems = formData.items.map(i => i.id === item.id ? { ...i, dimensions: e.target.value } : i)
+                                                                setFormData({ ...formData, items: newItems })
+                                                            }}
+                                                            placeholder="Ölçüler"
+                                                        />
+                                                    </div>
+                                                </div>
+
                                                 {/* Special URL Link */}
                                                 {item.url && (
-                                                    <a
-                                                        href={item.url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="inline-flex items-center gap-1.5 mt-1 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline transition-colors"
-                                                    >
-                                                        🔗 Özel Dosya Linki
-                                                    </a>
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <a
+                                                            href={item.url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                                                        >
+                                                            🔗 Özel Dosya Linki
+                                                        </a>
+                                                        <input
+                                                            type="text"
+                                                            className="flex-1 text-[10px] p-1 border dark:border-slate-700 rounded bg-slate-50 dark:bg-slate-900 font-medium focus:ring-1 focus:ring-blue-500 outline-none"
+                                                            value={item.url || ""}
+                                                            onChange={(e) => {
+                                                                const newItems = formData.items.map(i => i.id === item.id ? { ...i, url: e.target.value } : i)
+                                                                setFormData({ ...formData, items: newItems })
+                                                            }}
+                                                            placeholder="Dosya Linki"
+                                                        />
+                                                    </div>
                                                 )}
-                                                <div className="text-sm text-slate-600 dark:text-slate-400 mt-1 space-y-0.5">
-                                                    {item.material && <p>📄 <span className="font-medium">Doku:</span> {item.material}</p>}
-                                                    {(() => {
-                                                        if (!item.dimensions) return null;
-                                                        // Extract Area if present in format "Size (Area)"
-                                                        const match = item.dimensions.match(/(.*)\s\((.*)\)/);
-                                                        const size = match ? match[1] : item.dimensions;
-                                                        const area = match ? match[2] : null;
 
-                                                        return (
-                                                            <>
-                                                                <p>📏 <span className="font-medium">Ölçüler:</span> {size}</p>
-                                                                {area && <p>📐 <span className="font-medium">Toplam Alan:</span> {area}</p>}
-                                                            </>
-                                                        )
-                                                    })()}
-                                                    <p>🔢 <span className="font-medium">Adet:</span> {item.quantity}</p>
-                                                    {item.productNote && (
-                                                        <div className="mt-2 text-amber-700 text-xs border border-amber-200 bg-amber-50 p-2 rounded font-medium">
-                                                            📝 <span className="font-bold">Ürün Notu:</span> {item.productNote}
-                                                        </div>
-                                                    )}
-                                                </div>
+                                                {item.productNote && (
+                                                    <div className="mt-2 text-amber-700 text-xs border border-amber-200 bg-amber-50 p-2 rounded font-medium">
+                                                        📝 <span className="font-bold">Ürün Notu:</span> {item.productNote}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     ))}

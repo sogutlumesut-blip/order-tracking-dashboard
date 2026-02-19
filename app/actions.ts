@@ -185,15 +185,14 @@ export async function bulkUpdateOrderStatus(orderIds: number[], status: string) 
         const session = await getSession()
         const user = session ? session.user.name : "Sistem"
 
-        console.log(`[BULK_MOVE] Attempting to move ${orderIds.length} orders to '${status}' by '${user}'`)
+        console.log(`[BULK_MOVE] Start: ${orderIds.length} orders -> '${status}' by '${user}'`)
 
-        // Limit batch size to prevent timeouts
-        if (orderIds.length > 50) {
-            return { success: false, message: "Aynı anda en fazla 50 sipariş taşıyabilirsiniz." }
+        if (orderIds.length > 200) {
+            return { success: false, message: "Aynı anda en fazla 200 sipariş taşıyabilirsiniz." }
         }
 
-        // Update all orders
-        const result = await db.order.updateMany({
+        // 1. Core Update
+        await db.order.updateMany({
             where: { id: { in: orderIds } },
             data: {
                 status,
@@ -203,13 +202,7 @@ export async function bulkUpdateOrderStatus(orderIds: number[], status: string) 
             }
         })
 
-        console.log(`[BULK_MOVE] DB Update Result: ${result.count} orders updated.`)
-
-        if (result.count === 0) {
-            return { success: false, message: "Hiçbir sipariş güncellenemedi." }
-        }
-
-        // Log activity efficiently using createMany (Single DB Query)
+        // 2. Activity Logs (Outside transaction for speed/reliability on simple setups)
         try {
             const activities = orderIds.map(id => ({
                 orderId: id,
@@ -221,12 +214,16 @@ export async function bulkUpdateOrderStatus(orderIds: number[], status: string) 
             await db.orderActivity.createMany({
                 data: activities
             })
-        } catch (err) {
-            console.error("Bulk logging failed but update succeeded:", err)
+        } catch (logErr) {
+            console.error("Non-critical log error:", logErr)
         }
 
-        revalidatePath("/")
-        return { success: true, count: result.count, message: `${result.count} sipariş başarıyla taşındı.` }
+        console.log(`[BULK_MOVE] Success: ${orderIds.length} orders updated.`)
+
+        // REMOVED revalidatePath("/") here because the client handles its own refresh.
+        // revalidatePath in a loop or during bulk ops can cause timeouts on some hostings.
+
+        return { success: true, count: orderIds.length, message: "Başarıyla güncellendi." }
     } catch (e: any) {
         console.error("bulkUpdateOrderStatus ERROR:", e)
         return { success: false, error: e.message || "Sunucu hatası oluştu." }
@@ -246,7 +243,10 @@ export async function updateOrderDetails(order: any) {
     const user = session ? session.user.name : "Sistem"
 
     // Fetch old order to compare
-    const oldOrder = await db.order.findUnique({ where: { id: order.id } })
+    const oldOrder = await db.order.findUnique({
+        where: { id: order.id },
+        include: { items: true }
+    })
 
     if (oldOrder) {
         // 1. Assignee Change
@@ -259,7 +259,7 @@ export async function updateOrderDetails(order: any) {
             await logActivity(order.id, user, "STATUS_CHANGE", `Durum '${order.status}' olarak değiştirildi.`)
         }
 
-        // 3. Customer Details Change (Batch check)
+        // 3. Customer Details Change
         const customerChanged =
             oldOrder.customer !== order.customer ||
             oldOrder.phone !== order.phone ||
@@ -275,7 +275,7 @@ export async function updateOrderDetails(order: any) {
             await logActivity(order.id, user, "TRACKING_UPDATE", `Kargo takip no girildi: ${order.trackingNumber}`)
         }
 
-        // 5. Note Added (Append check logic remains)
+        // 5. Note Added
         if (oldOrder.printNotes !== order.printNotes) {
             await logActivity(order.id, user, "NOTE_ADDED", "Yeni işlem notu ekledi.")
         }
@@ -284,21 +284,45 @@ export async function updateOrderDetails(order: any) {
         if (oldOrder.labels !== order.labels) {
             await logActivity(order.id, user, "LABEL_UPDATE", "Etiketler güncellendi.")
         }
+
+        // 7. Item Updates (Check for changes in material, dimensions, sku)
+        if (order.items && Array.isArray(order.items)) {
+            const itemsChanged = JSON.stringify(oldOrder.items.map(i => ({ sku: i.sku, material: i.material, dimensions: i.dimensions }))) !==
+                JSON.stringify(order.items.map((i: any) => ({ sku: i.sku, material: i.material, dimensions: i.dimensions })));
+            if (itemsChanged) {
+                await logActivity(order.id, user, "ITEM_UPDATE", "Ürün detayları (SKU/Doku/Ölçü) güncellendi.")
+            }
+        }
     }
 
     await db.order.update({
         where: { id: order.id },
         data: {
-            labels: JSON.stringify(order.labels), // Ensure stringify if coming from UI as array
+            labels: typeof order.labels === 'string' ? order.labels : JSON.stringify(order.labels),
             assignedTo: order.assignedTo,
             status: order.status,
             trackingNumber: order.trackingNumber,
             printNotes: order.printNotes,
-            customer: order.customer, // Enable updating these fields
+            customer: order.customer,
             phone: order.phone,
             address: order.address,
             city: order.city,
-            hasNotification: true
+            hasNotification: true,
+            updatedAt: new Date(),
+            items: order.items ? {
+                deleteMany: {},
+                create: order.items.map((item: any) => ({
+                    name: item.name,
+                    quantity: item.quantity,
+                    image_src: item.image_src,
+                    sku: item.sku,
+                    url: item.url,
+                    material: item.material,
+                    dimensions: item.dimensions,
+                    productNote: item.productNote,
+                    sampleData: item.sampleData
+                }))
+            } : undefined
         }
     })
     revalidatePath("/")
@@ -921,7 +945,10 @@ export async function syncWooCommerceOrders(force: boolean = false) {
 
                 const items = (wcOrder.line_items || []).map((item: any) => {
                     // Normalize helper: lowercase, trim, remove accents
-                    const normalizeKey = (k: string) => k.toLowerCase().replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c').trim();
+                    const normalizeKey = (k: string) => k.toLowerCase()
+                        .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's')
+                        .replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
+                        .trim();
 
                     // Helper to find meta value with robust matching
                     const getMeta = (keys: string[]) => {
@@ -937,7 +964,6 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                         let val = found ? (found.display_value || found.value) : null;
 
                         // Strip HTML tags and entities
-                        // CRITICAL: Decode entities FIRST, then strip tags
                         if (val && typeof val === 'string') {
                             val = val
                                 .replace(/&nbsp;/g, ' ')
@@ -946,19 +972,16 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                                 .replace(/&amp;/g, '&')
                                 .replace(/sup&gt;/g, '')
                                 .replace(/&sup2;/g, '2')
-                                .replace(/<[^>]*>?/gm, ''); // Remove tags last
+                                .replace(/<[^>]*>?/gm, '') // Remove tags
+                                .trim();
                         }
                         return val;
                     }
-
-                    // Debug Log
-                    console.log(`Processing Item: ${item.name}`, item.meta_data.map((m: any) => m.key));
 
                     // Image Extraction Logic
                     let imageSrc = item.image?.src;
 
                     if (!imageSrc) {
-                        // Expanded Search for Image
                         const metaImgRaw = item.meta_data?.find((m: any) => {
                             const k = normalizeKey(m.key || '');
                             return ['urun gorselleri', 'gorsel', 'resim', 'image', 'picture', 'foto', 'dosya', 'upload', 'img'].some(term => k.includes(term));
@@ -979,14 +1002,10 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                         imageSrc = "https://placehold.co/600x400?text=Görsel+Yok";
                     }
 
-                    // Material Mapping
                     const material = getMeta(['pa_doku', 'Nitelik', 'Malzeme', 'Kagit Turu', 'Kagit Cinsi', 'Material', 'Paper Type', 'Doku', 'Kagit']);
 
-                    // Dimensions Mapping
-                    // First try to get explicit dimensions string
                     let dimensions = getMeta(['Boyut', 'Olculer', 'Dimensions', 'Ebat', 'Size', 'Olculeriniz', 'Siparis Olcusu']);
 
-                    // If not found, try to construct from Width x Height
                     if (!dimensions) {
                         const width = getMeta(['Genislik', 'Width']);
                         const height = getMeta(['Yukseklik', 'Height']);
@@ -997,12 +1016,10 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                         }
                     }
 
-                    // Total Area mapping (often contains m2 html)
                     const area = getMeta(['Toplam Alan', 'Toplam Olcu', 'Area', 'Metrekare', 'm2', 'Total Size', 'M2']);
 
                     if (area) {
                         const cleanArea = area.replace(/m2/i, ' m²').replace('m2', ' m²');
-                        // Add area to dimensions if we constructed it or if it's new info
                         if (dimensions) {
                             if (!dimensions.includes(cleanArea)) {
                                 dimensions = `${dimensions} (${cleanArea})`;

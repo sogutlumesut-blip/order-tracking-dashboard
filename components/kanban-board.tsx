@@ -667,8 +667,8 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         }))
 
         try {
-            // 2. Client-Side Chunking (Batch Size: 10)
-            const chunkSize = 10
+            // 2. Client-Side Chunking (Batch Size: 50)
+            const chunkSize = 50
             const chunks = []
             for (let i = 0; i < selectedOrders.length; i += chunkSize) {
                 chunks.push(selectedOrders.slice(i, i + chunkSize))
@@ -680,24 +680,25 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             for (let i = 0; i < chunks.length; i++) {
                 const chunk = chunks[i]
 
-                // Update Progress
-                toast.loading(`Taşınıyor... ${Math.min((i * chunkSize) + chunk.length, selectedOrders.length)}/${selectedOrders.length}`, { id: toastId })
+                // Update Progress explicitly
+                const processed = (i * chunkSize) + chunk.length
+                toast.loading(`Taşınıyor... ${processed}/${selectedOrders.length}`, { id: toastId })
 
                 // Server Call for this chunk
                 const result = await bulkUpdateOrderStatus(chunk, targetStatusId)
 
                 if (result.success) {
-                    successCount += result.count || 0
+                    successCount += chunk.length
                 } else {
                     failCount += chunk.length
                     console.error("Chunk failed:", result)
+                    toast.error(`Kısmi hata (${processed}. sipariş civarı): ${result.error}`, { duration: 3000 })
                 }
             }
 
             // 3. Final Result Handling
             if (failCount > 0) {
-                toast.warning(`${successCount} sipariş taşındı, fakat ${failCount} tanesinde hata oluştu.`, { id: toastId, duration: 5000 })
-                // Ideally revert failed ones, but for now we refresh to sync with server truth
+                toast.warning(`${successCount} sipariş taşındı, ${failCount} hata oluştu.`, { id: toastId, duration: 4000 })
             } else {
                 toast.success(`${successCount} sipariş başarıyla taşındı!`, { id: toastId })
             }
