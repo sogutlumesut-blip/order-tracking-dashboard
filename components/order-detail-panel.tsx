@@ -219,46 +219,22 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                     )}
                                                 </div>
 
-                                                <div className="grid grid-cols-2 gap-x-3 gap-y-2 mb-2">
-                                                    <div className="space-y-1">
-                                                        <label className="text-[10px] uppercase font-bold text-slate-400">Stok Kodu</label>
-                                                        <input
-                                                            type="text"
-                                                            className="w-full text-xs p-1.5 border dark:border-slate-700 rounded bg-slate-50 dark:bg-slate-900 font-medium focus:ring-1 focus:ring-blue-500 outline-none"
-                                                            value={item.sku || ""}
-                                                            onChange={(e) => {
-                                                                const newItems = formData.items.map(i => i.id === item.id ? { ...i, sku: e.target.value } : i)
-                                                                setFormData({ ...formData, items: newItems })
-                                                            }}
-                                                            placeholder="SKU"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                        <label className="text-[10px] uppercase font-bold text-slate-400">Doku / Malzeme</label>
-                                                        <input
-                                                            type="text"
-                                                            className="w-full text-xs p-1.5 border dark:border-slate-700 rounded bg-slate-50 dark:bg-slate-900 font-medium focus:ring-1 focus:ring-blue-500 outline-none"
-                                                            value={item.material || ""}
-                                                            onChange={(e) => {
-                                                                const newItems = formData.items.map(i => i.id === item.id ? { ...i, material: e.target.value } : i)
-                                                                setFormData({ ...formData, items: newItems })
-                                                            }}
-                                                            placeholder="Doku"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-1 col-span-2">
-                                                        <label className="text-[10px] uppercase font-bold text-slate-400">Ölçüler</label>
-                                                        <input
-                                                            type="text"
-                                                            className="w-full text-xs p-1.5 border dark:border-slate-700 rounded bg-slate-50 dark:bg-slate-900 font-medium focus:ring-1 focus:ring-blue-500 outline-none"
-                                                            value={item.dimensions || ""}
-                                                            onChange={(e) => {
-                                                                const newItems = formData.items.map(i => i.id === item.id ? { ...i, dimensions: e.target.value } : i)
-                                                                setFormData({ ...formData, items: newItems })
-                                                            }}
-                                                            placeholder="Ölçüler"
-                                                        />
-                                                    </div>
+                                                <div className="flex flex-wrap gap-2 mb-2">
+                                                    {item.sku && (
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 uppercase">
+                                                            Kod: {item.sku}
+                                                        </span>
+                                                    )}
+                                                    {item.material && (
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100">
+                                                            {item.material}
+                                                        </span>
+                                                    )}
+                                                    {item.dimensions && (
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                                            📏 {item.dimensions}
+                                                        </span>
+                                                    )}
                                                 </div>
 
                                                 {/* Special URL Link */}

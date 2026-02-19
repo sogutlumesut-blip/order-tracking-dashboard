@@ -181,22 +181,14 @@ export async function updateOrderStatus(orderId: number, status: string) {
 }
 
 export async function bulkUpdateOrderStatus(orderIds: number[], status: string) {
-    const startTime = Date.now();
     try {
         const session = await getSession()
         const user = session ? session.user.name : "Sistem"
 
-        console.log(`[BULK_MOVE_DEBUG] Start: ${orderIds.length} orders -> '${status}' by '${user}' at ${new Date().toISOString()}`)
-        console.log(`[BULK_MOVE_DEBUG] Order IDs: ${JSON.stringify(orderIds)}`)
+        console.log(`[BULK_MOVE] v3.5: ${orderIds.length} orders -> '${status}' by '${user}'`)
 
-        if (orderIds.length > 200) {
-            console.error("[BULK_MOVE_DEBUG] Too many orders requested:", orderIds.length);
-            return { success: false, message: "Aynı anda en fazla 200 sipariş taşıyabilirsiniz." }
-        }
-
-        // 1. Core Update
-        console.log("[BULK_MOVE_DEBUG] Executing db.order.updateMany...");
-        const result = await db.order.updateMany({
+        // 1. Core Update ONLY
+        await db.order.updateMany({
             where: { id: { in: orderIds } },
             data: {
                 status,
@@ -205,32 +197,19 @@ export async function bulkUpdateOrderStatus(orderIds: number[], status: string) 
                 updatedAt: new Date()
             }
         })
-        console.log(`[BULK_MOVE_DEBUG] updateMany DONE. Result count: ${result.count}. Time: ${Date.now() - startTime}ms`);
 
-        // 2. Activity Logs
-        console.log("[BULK_MOVE_DEBUG] Creating activity logs...");
-        try {
-            const activities = orderIds.map(id => ({
-                orderId: id,
-                author: user,
-                action: "STATUS_CHANGE",
-                details: `Toplu işlem [V2.2]: Durum '${status}' olarak değiştirildi.`
-            }))
+        // 2. Fire and Forget Logging (Background)
+        const activities = orderIds.map(id => ({
+            orderId: id,
+            author: user,
+            action: "STATUS_CHANGE",
+            details: `Toplu durum değişikliği [v3.5]: ${status}`
+        }))
+        db.orderActivity.createMany({ data: activities }).catch(e => console.error("Logging failed:", e))
 
-            const logResult = await db.orderActivity.createMany({
-                data: activities
-            })
-            console.log(`[BULK_MOVE_DEBUG] createMany DONE. Logged ${logResult.count} items. Total Time: ${Date.now() - startTime}ms`);
-        } catch (logErr) {
-            console.error("[BULK_MOVE_DEBUG] Non-critical log error:", logErr)
-        }
-
-        // REMOVED revalidatePath("/") here because the client handles its own refresh.
-        // revalidatePath in a loop or during bulk ops can cause timeouts on some hostings.
-
-        return { success: true, count: orderIds.length, message: "Başarıyla güncellendi." }
+        return { success: true, count: orderIds.length }
     } catch (e: any) {
-        console.error(`[BULK_MOVE_DEBUG] CATASTROPHIC ERROR after ${Date.now() - startTime}ms:`, e)
+        console.error("bulkUpdateOrderStatus ERROR:", e)
         return { success: false, error: e.message || "Sunucu hatası oluştu." }
     }
 }
