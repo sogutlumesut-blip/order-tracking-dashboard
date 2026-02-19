@@ -28,13 +28,7 @@ export default async function LoginPage({ searchParams }: { searchParams: { erro
         <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 relative z-50">
             <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 space-y-6">
                 <div className="text-center space-y-2">
-                    <h1 className="text-3xl font-bold text-slate-900">OMS Giriş (Native)</h1>
-                    <p className="text-slate-500">Sipariş Yönetim Sistemine Hoşgeldiniz</p>
-                    <div className="text-xs font-mono text-left bg-slate-100 p-2 rounded mt-2 overflow-auto max-h-20">
-                        DB Status: {debugInfo.status}<br />
-                        Connected: {debugInfo.db ? 'YES' : 'NO'}<br />
-                        Error: {debugInfo.err}
-                    </div>
+                    <h1 className="text-3xl font-bold text-slate-900">DKM SİPARİŞ PANELİ</h1>
                 </div>
 
                 <form action={loginAction} className="space-y-4">
@@ -70,9 +64,6 @@ export default async function LoginPage({ searchParams }: { searchParams: { erro
 
                 </form>
 
-                <div className="pt-4 border-t text-center text-xs text-slate-400">
-                    Varsayılan: admin / admin
-                </div>
             </div>
         </div>
     )
