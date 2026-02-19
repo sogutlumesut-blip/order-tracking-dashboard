@@ -649,51 +649,75 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         if (selectedOrders.length === 0) return
         if (isBulkProcessing) return
 
-        // Confirm dialog removed as per user request for "Instant Action"
-        // if (!confirm(`${selectedOrders.length} adet siparişi "${cols.find(c => c.id === targetStatusId)?.title}" aşamasına taşımak istediğinize emin misiniz?`)) {
-        //     return
-        // }
-
         setIsBulkProcessing(true)
-        const toastId = toast.loading("Toplu taşıma yapılıyor...")
+        const toastId = toast.loading(`Toplu taşıma başlatılıyor (${selectedOrders.length} sipariş)...`)
+
+        // 1. Optimistic Update (Immediate Feedback for all)
+        const timestamp = new Date().toISOString()
+        setOrders(prev => prev.map(o => {
+            if (selectedOrders.includes(o.id)) {
+                return {
+                    ...o,
+                    status: targetStatusId as OrderStatus,
+                    assignedTo: "Siz",
+                    updatedAt: timestamp
+                }
+            }
+            return o
+        }))
 
         try {
-            // Optimistic Update
-            setOrders(prev => prev.map(o => {
-                if (selectedOrders.includes(o.id)) {
-                    return {
-                        ...o,
-                        status: targetStatusId as OrderStatus,
-                        assignedTo: "Siz",
-                        updatedAt: new Date().toISOString()
-                    }
-                }
-                return o
-            }))
-
-            const result = await bulkUpdateOrderStatus(selectedOrders, targetStatusId)
-
-            if (!result.success) { // Fixed: check success flag, not just error key
-                throw new Error(result.error || result.message || "Bilinmeyen hata")
+            // 2. Client-Side Chunking (Batch Size: 10)
+            const chunkSize = 10
+            const chunks = []
+            for (let i = 0; i < selectedOrders.length; i += chunkSize) {
+                chunks.push(selectedOrders.slice(i, i + chunkSize))
             }
 
-            toast.success(result.message || `${selectedOrders.length} sipariş taşındı`, { id: toastId })
-            setSelectedOrders([]) // Clear selection
+            let successCount = 0
+            let failCount = 0
 
-            // CRITICAL: Manual fetch to ensure UI updates immediately
+            for (let i = 0; i < chunks.length; i++) {
+                const chunk = chunks[i]
+
+                // Update Progress
+                toast.loading(`Taşınıyor... ${Math.min((i * chunkSize) + chunk.length, selectedOrders.length)}/${selectedOrders.length}`, { id: toastId })
+
+                // Server Call for this chunk
+                const result = await bulkUpdateOrderStatus(chunk, targetStatusId)
+
+                if (result.success) {
+                    successCount += result.count || 0
+                } else {
+                    failCount += chunk.length
+                    console.error("Chunk failed:", result)
+                }
+            }
+
+            // 3. Final Result Handling
+            if (failCount > 0) {
+                toast.warning(`${successCount} sipariş taşındı, fakat ${failCount} tanesinde hata oluştu.`, { id: toastId, duration: 5000 })
+                // Ideally revert failed ones, but for now we refresh to sync with server truth
+            } else {
+                toast.success(`${successCount} sipariş başarıyla taşındı!`, { id: toastId })
+            }
+
+            setSelectedOrders([]) // Clean up selection
+
+            // 4. Force Sync to ensure consistency
             try {
+                // Short delay to allow DB consistency (eventual consistency)
+                await new Promise(r => setTimeout(r, 500))
                 const latestOrders = await getOrders()
                 if (latestOrders) setOrders(latestOrders as any)
+                router.refresh()
             } catch (err) {
                 console.error("Manual fetch error:", err)
             }
 
-            // Force Router Refresh to update Server Components
-            router.refresh()
         } catch (e: any) {
-            toast.error(`Hata: ${e.message}`, { id: toastId })
-            // Revert would be complex here, assuming server sync will fix it eventually or refresh
-            // Ideally trigger a re-fetch
+            toast.error(`Beklenmeyen hata: ${e.message}`, { id: toastId })
+            // Revert on catastrophic failure (fetch truth)
             const latest = await getOrders()
             setOrders(latest as any)
         } finally {
