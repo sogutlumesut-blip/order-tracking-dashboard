@@ -7,6 +7,19 @@ import { revalidatePath, unstable_noStore as noStore } from "next/cache"
 import bcrypt from "bcryptjs"
 import { OrderStatus } from "@/data/mock-orders"
 import WooCommerceRestApi from "@woocommerce/woocommerce-rest-api"
+import fs from "fs"
+import path from "path"
+
+const DEBUG_LOG_PATH = path.join(process.cwd(), "oms_debug.log");
+
+function serverLog(msg: string) {
+    const timestamp = new Date().toISOString();
+    const line = `[${timestamp}] ${msg}\n`;
+    try {
+        fs.appendFileSync(DEBUG_LOG_PATH, line);
+        console.log(line.trim());
+    } catch (e) { }
+}
 
 export async function loginAction(formData: FormData) {
     try {
@@ -215,36 +228,53 @@ export async function updateOrderStatus(orderId: number, status: string) {
 }
 
 export async function bulkUpdateOrderStatus(orderIds: number[], status: string) {
-    noStore();
     const startTime = Date.now();
-    console.log(`[BULK_MOVE_TRACE] START: ${orderIds.length} orders -> ${status}`);
+    serverLog(`[BULK_MOVE] START: ${orderIds.length} orders -> ${status}`);
 
     try {
-        const session = await getSession().catch(e => {
-            console.error("[BULK_MOVE_TRACE] Session error:", e);
+        const sessionPromise = getSession().catch(e => {
+            serverLog(`[BULK_MOVE] Session fetch error: ${e.message}`);
             return null;
         });
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Session Timeout")), 3000));
+
+        let session: any = null;
+        try {
+            session = await Promise.race([sessionPromise, timeoutPromise]);
+        } catch (e: any) {
+            serverLog(`[BULK_MOVE] Session race failure: ${e.message}`);
+        }
+
         const user = session?.user?.name || "Sistem";
-        console.log(`[BULK_MOVE_TRACE] User identified: ${user}`);
+        serverLog(`[BULK_MOVE] Identity: ${user}`);
 
-        // 1. Core Update - Using Promise.all for better individual visibility if one hangs
-        console.log(`[BULK_MOVE_TRACE] Executing updates for IDs: ${orderIds.join(', ')}`);
+        // Individual updates with per-row timeout
+        const results = await Promise.all(orderIds.map(async (id) => {
+            try {
+                const updatePromise = db.order.update({
+                    where: { id },
+                    data: {
+                        status,
+                        hasNotification: true,
+                        assignedTo: user,
+                        updatedAt: new Date()
+                    }
+                });
 
-        await Promise.all(orderIds.map(id =>
-            db.order.update({
-                where: { id },
-                data: {
-                    status,
-                    hasNotification: true,
-                    assignedTo: user,
-                    updatedAt: new Date()
-                }
-            })
-        ));
+                const updateTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error(`Timeout #${id}`)), 10000));
 
-        console.log(`[BULK_MOVE_TRACE] Updates committed successfully in ${Date.now() - startTime}ms`);
+                await Promise.race([updatePromise, updateTimeout]);
+                serverLog(`[BULK_MOVE] OK: #${id}`);
+                return { id, success: true };
+            } catch (err: any) {
+                serverLog(`[BULK_MOVE] ERR: #${id} - ${err.message}`);
+                return { id, success: false, error: err.message };
+            }
+        }));
 
-        // 2. Logging (Fire and forget to avoid blocking, but with error catch)
+        const successCount = results.filter(r => r.success).length;
+        serverLog(`[BULK_MOVE] END: ${successCount}/${orderIds.length} in ${Date.now() - startTime}ms`);
+
         const activities = orderIds.map(id => ({
             orderId: id,
             author: user,
@@ -252,13 +282,11 @@ export async function bulkUpdateOrderStatus(orderIds: number[], status: string) 
             details: `Toplu durum değişikliği: ${status}`
         }));
 
-        db.orderActivity.createMany({ data: activities })
-            .then(() => console.log(`[BULK_MOVE_TRACE] Activities logged for ${orderIds.length} orders`))
-            .catch(e => console.error("[BULK_MOVE_TRACE] Activity log failed:", e));
+        db.orderActivity.createMany({ data: activities }).catch(() => { });
 
-        return { success: true, count: orderIds.length };
+        return { success: true, count: successCount };
     } catch (e: any) {
-        console.error(`[BULK_MOVE_TRACE] CRITICAL ERROR after ${Date.now() - startTime}ms:`, e);
+        serverLog(`[BULK_MOVE] FATAL: ${e.message}`);
         return { success: false, error: e.message || "Sunucu hatası oluştu." };
     }
 }
