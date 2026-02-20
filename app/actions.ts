@@ -216,37 +216,50 @@ export async function updateOrderStatus(orderId: number, status: string) {
 
 export async function bulkUpdateOrderStatus(orderIds: number[], status: string) {
     noStore();
+    const startTime = Date.now();
+    console.log(`[BULK_MOVE_TRACE] START: ${orderIds.length} orders -> ${status}`);
+
     try {
-        const session = await getSession()
-        const user = session ? session.user.name : "Sistem"
+        const session = await getSession().catch(e => {
+            console.error("[BULK_MOVE_TRACE] Session error:", e);
+            return null;
+        });
+        const user = session?.user?.name || "Sistem";
+        console.log(`[BULK_MOVE_TRACE] User identified: ${user}`);
 
-        console.log(`[BULK_MOVE] v3.6.5: ${orderIds.length} orders -> '${status}' by '${user}'`)
+        // 1. Core Update - Using Promise.all for better individual visibility if one hangs
+        console.log(`[BULK_MOVE_TRACE] Executing updates for IDs: ${orderIds.join(', ')}`);
 
-        // 1. Core Update
-        await db.order.updateMany({
-            where: { id: { in: orderIds } },
-            data: {
-                status,
-                hasNotification: true,
-                assignedTo: user,
-                updatedAt: new Date()
-            }
-        })
+        await Promise.all(orderIds.map(id =>
+            db.order.update({
+                where: { id },
+                data: {
+                    status,
+                    hasNotification: true,
+                    assignedTo: user,
+                    updatedAt: new Date()
+                }
+            })
+        ));
 
-        // 2. Logging
+        console.log(`[BULK_MOVE_TRACE] Updates committed successfully in ${Date.now() - startTime}ms`);
+
+        // 2. Logging (Fire and forget to avoid blocking, but with error catch)
         const activities = orderIds.map(id => ({
             orderId: id,
             author: user,
             action: "STATUS_CHANGE",
             details: `Toplu durum değişikliği: ${status}`
-        }))
-        await db.orderActivity.createMany({ data: activities })
+        }));
 
-        // revalidatePath("/") // Removed to prevent hang in bulk 
-        return { success: true, count: orderIds.length }
+        db.orderActivity.createMany({ data: activities })
+            .then(() => console.log(`[BULK_MOVE_TRACE] Activities logged for ${orderIds.length} orders`))
+            .catch(e => console.error("[BULK_MOVE_TRACE] Activity log failed:", e));
+
+        return { success: true, count: orderIds.length };
     } catch (e: any) {
-        console.error("bulkUpdateOrderStatus ERROR:", e)
-        return { success: false, error: e.message || "Sunucu hatası oluştu." }
+        console.error(`[BULK_MOVE_TRACE] CRITICAL ERROR after ${Date.now() - startTime}ms:`, e);
+        return { success: false, error: e.message || "Sunucu hatası oluştu." };
     }
 }
 
