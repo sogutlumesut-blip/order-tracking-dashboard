@@ -139,7 +139,7 @@ export async function getOrders(timestamp?: number) {
 }
 
 export async function getOrderDetails(orderId: number) {
-    noStore();
+    // Removed noStore() to allow standard Next.js data caching
     const session = await getSession()
     if (!session) return null
 
@@ -153,7 +153,8 @@ export async function getOrderDetails(orderId: number) {
                     orderBy: { timestamp: "asc" }
                 },
                 activities: {
-                    orderBy: { timestamp: "desc" }
+                    orderBy: { timestamp: "desc" },
+                    take: 20 // Added limit significantly improves response speed
                 }
             }
         })

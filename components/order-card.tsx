@@ -8,6 +8,7 @@ import { getColorClasses } from "@/lib/colors"
 interface OrderCardProps {
     order: Order
     onClick: () => void
+    onPrefetch?: () => void // New callback for hover pre-fetching
     tags: { id: string; name: string; color: string | null }[]
     // New Props for Bulk Selection
     selected?: boolean
@@ -15,7 +16,7 @@ interface OrderCardProps {
     selectionMode?: boolean
 }
 
-export function OrderCard({ order, onClick, tags, selected = false, onSelect, selectionMode = false }: OrderCardProps) {
+export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, onSelect, selectionMode = false }: OrderCardProps) {
     // We use the first item's image as the main visual
     const mainImage = order.items[0]?.image_src
 
@@ -36,6 +37,7 @@ export function OrderCard({ order, onClick, tags, selected = false, onSelect, se
     return (
         <div
             onClick={onClick}
+            onMouseEnter={() => onPrefetch?.()}
             className={`bg-white dark:bg-slate-900 rounded-xl shadow-sm cursor-pointer hover:shadow-md transition-all relative group overflow-hidden border-2 ${selected ? 'border-blue-600 ring-2 ring-blue-300 transform scale-[1.02]' :
                 isPaymentFailed ? 'border-red-600 bg-red-50 dark:bg-red-900/20' :
                     order.hasNotification ? 'border-blue-500 bg-blue-50/30 dark:bg-blue-900/20' :

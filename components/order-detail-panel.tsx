@@ -21,9 +21,10 @@ interface OrderDetailPanelProps {
     currentUser: { id: string; name: string; role: string }
     statuses: { id: string; title: string; color: string }[]
     tags: { id: string; name: string; color: string | null }[]
+    preFetchedDetails?: any // Speed Optimization cache
 }
 
-export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddComment, currentUser, statuses, tags }: OrderDetailPanelProps) {
+export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddComment, currentUser, statuses, tags, preFetchedDetails }: OrderDetailPanelProps) {
     const [formData, setFormData] = useState<Order | null>(null)
     const [isActivityLogOpen, setIsActivityLogOpen] = useState(false)
     const [previewImage, setPreviewImage] = useState<string | null>(null)
@@ -40,12 +41,23 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
             // Trigger Lazy Load
             const fetchDetails = async () => {
+                // 1. Check Pre-fetched Cache First
+                if (preFetchedDetails) {
+                    console.log(`[SPEED] Using pre-fetched data for #${order.id}`);
+                    const formattedComments = (preFetchedDetails.comments || []).map((c: any) => ({
+                        ...c,
+                        timestamp: new Date(c.timestamp).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+                    }))
+                    setLazyComments(formattedComments)
+                    setLazyActivities(preFetchedDetails.activities || [])
+                    return; // EXIT - we have the data!
+                }
+
                 setIsLoadingDetails(true)
                 try {
                     console.log(`[OrderDetailPanel] Loading details for ${order.id}...`)
                     const details = await getOrderDetails(order.id)
                     if (details) {
-                        // Format dates for UI components that expect time strings
                         const formattedComments = (details.comments || []).map(c => ({
                             ...c,
                             timestamp: new Date(c.timestamp).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
@@ -53,17 +65,10 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                         setLazyComments(formattedComments)
                         setLazyActivities(details.activities || [])
-                        console.log(`[OrderDetailPanel] Loaded ${formattedComments.length} comments.`)
-                    } else {
-                        console.warn(`[OrderDetailPanel] No details returned for ${order.id}`)
-                        setLazyComments([])
-                        setLazyActivities([])
                     }
                 } catch (error) {
                     console.error("[OrderDetailPanel] Failed to load details:", error)
                     toast.error("Geçmiş bilgiler yüklenemedi.")
-                    setLazyComments([])
-                    setLazyActivities([])
                 } finally {
                     setIsLoadingDetails(false)
                 }
