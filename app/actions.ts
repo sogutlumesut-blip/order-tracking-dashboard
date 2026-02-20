@@ -130,37 +130,53 @@ export async function getOrderDetails(orderId: number) {
     const session = await getSession()
     if (!session) return null
 
-    const order = await db.order.findUnique({
-        where: { id: orderId },
-        include: {
-            comments: {
-                include: { author: true },
-                orderBy: { timestamp: "asc" }
-            },
-            activities: {
-                orderBy: { timestamp: "desc" }
+    console.log(`[DEBUG] Fetching details for Order #${orderId}...`)
+    try {
+        const order = await db.order.findUnique({
+            where: { id: orderId },
+            include: {
+                comments: {
+                    include: { author: { select: { name: true } } },
+                    orderBy: { timestamp: "asc" }
+                },
+                activities: {
+                    orderBy: { timestamp: "desc" }
+                }
             }
+        })
+
+        if (!order) {
+            console.warn(`[DEBUG] Order #${orderId} not found.`)
+            return null
         }
-    })
 
-    if (!order) return null
-
-    return {
-        comments: order.comments.map(c => ({
-            ...c,
-            timestamp: c.timestamp.toLocaleString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
-            author: c.author?.name || "Unknown",
-            attachments: c.attachments ? (() => {
-                try {
-                    const parsed = JSON.parse(c.attachments);
-                    return Array.isArray(parsed) ? parsed : undefined;
-                } catch { return undefined; }
-            })() : undefined
-        })),
-        activities: order.activities.map(a => ({
-            ...a,
-            timestamp: a.timestamp.toISOString()
-        }))
+        const results = {
+            comments: order.comments.map(c => ({
+                id: c.id,
+                message: c.message,
+                timestamp: c.timestamp.toISOString(), // Use ISO for reliable serialization
+                author: c.author?.name || "Unknown",
+                attachments: (() => {
+                    if (!c.attachments) return undefined
+                    try {
+                        const parsed = JSON.parse(c.attachments);
+                        return Array.isArray(parsed) ? parsed : undefined;
+                    } catch { return undefined; }
+                })()
+            })),
+            activities: order.activities.map(a => ({
+                id: a.id,
+                author: a.author,
+                action: a.action,
+                details: a.details,
+                timestamp: a.timestamp.toISOString()
+            }))
+        }
+        console.log(`[DEBUG] Found ${results.comments.length} comments and ${results.activities.length} activities for #${orderId}`)
+        return results
+    } catch (e: any) {
+        console.error(`[DEBUG] ERROR fetching details for #${orderId}:`, e)
+        return null
     }
 }
 

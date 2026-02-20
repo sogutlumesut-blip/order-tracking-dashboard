@@ -3,11 +3,11 @@ import { PrismaClient } from "@prisma/client"
 const prisma = new PrismaClient()
 
 async function main() {
-    console.log("--- DB Health Diagnostic ---")
+    console.log("--- DB Health Diagnostic (Fixed) ---")
     try {
         const orderCount = await prisma.order.count()
         const activityCount = await prisma.orderActivity.count()
-        const commentCount = await prisma.orderComment.count()
+        const commentCount = await prisma.comment.count()
         const userCount = await prisma.user.count()
 
         console.log(`Order Count: ${orderCount}`)

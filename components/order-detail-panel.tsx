@@ -42,14 +42,28 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
             const fetchDetails = async () => {
                 setIsLoadingDetails(true)
                 try {
+                    console.log(`[OrderDetailPanel] Loading details for ${order.id}...`)
                     const details = await getOrderDetails(order.id)
                     if (details) {
-                        setLazyComments(details.comments)
-                        setLazyActivities(details.activities)
+                        // Format dates for UI components that expect time strings
+                        const formattedComments = (details.comments || []).map(c => ({
+                            ...c,
+                            timestamp: new Date(c.timestamp).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+                        }))
+
+                        setLazyComments(formattedComments)
+                        setLazyActivities(details.activities || [])
+                        console.log(`[OrderDetailPanel] Loaded ${formattedComments.length} comments.`)
+                    } else {
+                        console.warn(`[OrderDetailPanel] No details returned for ${order.id}`)
+                        setLazyComments([])
+                        setLazyActivities([])
                     }
                 } catch (error) {
-                    console.error("Failed to load details:", error)
+                    console.error("[OrderDetailPanel] Failed to load details:", error)
                     toast.error("Geçmiş bilgiler yüklenemedi.")
+                    setLazyComments([])
+                    setLazyActivities([])
                 } finally {
                     setIsLoadingDetails(false)
                 }
