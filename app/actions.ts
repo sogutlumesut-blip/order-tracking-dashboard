@@ -92,15 +92,10 @@ export async function getOrders(timestamp?: number) {
     const orders = await db.order.findMany({
         where,
         orderBy: { updatedAt: "desc" },
+        take: 100, // Limit to 100 to save quota
         include: {
             items: true,
-            comments: {
-                include: { author: true },
-                orderBy: { timestamp: "asc" }
-            },
-            activities: {
-                orderBy: { timestamp: "desc" }
-            }
+            // Removed heavy includes: comments and activities (now lazy loaded)
         }
     })
 
@@ -118,10 +113,42 @@ export async function getOrders(timestamp?: number) {
             material: item.material || null,
             dimensions: item.dimensions || null
         })),
+        labels: (() => {
+            if (!order.labels) return []
+            try {
+                const parsed = typeof order.labels === 'string' ? JSON.parse(order.labels) : order.labels
+                return Array.isArray(parsed) ? parsed : []
+            } catch (e) {
+                return []
+            }
+        })()
+    })) as any
+}
+
+export async function getOrderDetails(orderId: number) {
+    noStore();
+    const session = await getSession()
+    if (!session) return null
+
+    const order = await db.order.findUnique({
+        where: { id: orderId },
+        include: {
+            comments: {
+                include: { author: true },
+                orderBy: { timestamp: "asc" }
+            },
+            activities: {
+                orderBy: { timestamp: "desc" }
+            }
+        }
+    })
+
+    if (!order) return null
+
+    return {
         comments: order.comments.map(c => ({
             ...c,
             timestamp: c.timestamp.toLocaleString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
-            // Map author name from relation
             author: c.author?.name || "Unknown",
             attachments: c.attachments ? (() => {
                 try {
@@ -133,17 +160,8 @@ export async function getOrders(timestamp?: number) {
         activities: order.activities.map(a => ({
             ...a,
             timestamp: a.timestamp.toISOString()
-        })),
-        labels: (() => {
-            if (!order.labels) return []
-            try {
-                const parsed = typeof order.labels === 'string' ? JSON.parse(order.labels) : order.labels
-                return Array.isArray(parsed) ? parsed : []
-            } catch (e) {
-                return []
-            }
-        })()
-    })) as any
+        }))
+    }
 }
 
 export async function logActivity(orderId: number, author: string, action: string, details: string) {

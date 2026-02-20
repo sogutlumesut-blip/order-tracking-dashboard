@@ -8,7 +8,7 @@ import { NoteLog } from "./note-log"
 import { ChatSection } from "./chat-section"
 import { ActivityLog } from "./activity-log"
 import { getColorClasses } from "@/lib/colors"
-import { logManualActivity, uploadCargoLabel, deleteCargoLabel } from "../app/actions"
+import { logManualActivity, uploadCargoLabel, deleteCargoLabel, getOrderDetails } from "../app/actions"
 import { LocalBarcodeModal } from "./local-barcode-modal"
 import { toast } from "sonner"
 
@@ -29,13 +29,57 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
     const [previewImage, setPreviewImage] = useState<string | null>(null)
     const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false)
 
+    // Lazy Loading States
+    const [lazyComments, setLazyComments] = useState<any[] | null>(null)
+    const [lazyActivities, setLazyActivities] = useState<any[] | null>(null)
+    const [isLoadingDetails, setIsLoadingDetails] = useState(false)
+
     useEffect(() => {
-        if (order) {
+        if (order && isOpen) {
             setFormData({ ...order })
+
+            // Trigger Lazy Load
+            const fetchDetails = async () => {
+                setIsLoadingDetails(true)
+                try {
+                    const details = await getOrderDetails(order.id)
+                    if (details) {
+                        setLazyComments(details.comments)
+                        setLazyActivities(details.activities)
+                    }
+                } catch (error) {
+                    console.error("Failed to load details:", error)
+                    toast.error("Geçmiş bilgiler yüklenemedi.")
+                } finally {
+                    setIsLoadingDetails(false)
+                }
+            }
+
+            fetchDetails()
+        } else {
+            // Reset for next time
+            setLazyComments(null)
+            setLazyActivities(null)
         }
-    }, [order])
+    }, [order, isOpen])
 
     if (!isOpen || !formData) return null
+
+    const handleInternalAddComment = async (msg: string, att: any[]) => {
+        const newComment: any = {
+            id: Date.now(),
+            author: currentUser.name,
+            message: msg,
+            timestamp: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+            attachments: att
+        }
+
+        // Update local lazy state for immediate feedback
+        setLazyComments(prev => prev ? [...prev, newComment] : [newComment])
+
+        // Call parent
+        onAddComment(formData.id, msg, att)
+    }
 
     const handleSave = () => {
         if (formData) {
@@ -495,23 +539,31 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                 <label className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-200 mb-3">
                                     <FileText className="w-4 h-4" /> İşlem Notları
                                 </label>
-                                <NoteLog
-                                    comments={formData.comments || []}
-                                    onAddNote={(msg) => onAddComment(formData.id, msg, [])}
-                                    currentUser={currentUser}
-                                    className="h-[300px]"
-                                />
+                                {isLoadingDetails ? (
+                                    <div className="h-[100px] flex items-center justify-center text-xs text-slate-400">Yükleniyor...</div>
+                                ) : (
+                                    <NoteLog
+                                        comments={lazyComments || []}
+                                        onAddNote={(msg) => handleInternalAddComment(msg, [])}
+                                        currentUser={currentUser}
+                                        className="h-[300px]"
+                                    />
+                                )}
                             </div>
 
                             <div>
                                 <label className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-200 mb-3">
                                     <Upload className="w-4 h-4" /> Yazışma & Dosyalar
                                 </label>
-                                <ChatSection
-                                    comments={formData.comments}
-                                    onAddComment={(msg, att) => onAddComment(formData.id, msg, att)}
-                                    currentUser={currentUser}
-                                />
+                                {isLoadingDetails ? (
+                                    <div className="h-[100px] flex items-center justify-center text-xs text-slate-400">Yükleniyor...</div>
+                                ) : (
+                                    <ChatSection
+                                        comments={lazyComments || []}
+                                        onAddComment={(msg, att) => handleInternalAddComment(msg, att)}
+                                        currentUser={currentUser}
+                                    />
+                                )}
                             </div>
 
                             {/* Activity Log - Collapsible & Compact */}
@@ -527,7 +579,11 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                                 {isActivityLogOpen && (
                                     <div className="mt-2 border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm animate-in slide-in-from-top-2 duration-200">
-                                        <ActivityLog activities={(formData as any).activities} />
+                                        {isLoadingDetails ? (
+                                            <div className="p-4 text-center text-xs text-slate-400">Yükleniyor...</div>
+                                        ) : (
+                                            <ActivityLog activities={lazyActivities || []} />
+                                        )}
                                     </div>
                                 )}
                             </div>
