@@ -233,16 +233,16 @@ export async function bulkUpdateOrderStatus(orderIds: number[], status: string) 
             }
         })
 
-        // 2. Logging (Background)
+        // 2. Logging
         const activities = orderIds.map(id => ({
             orderId: id,
             author: user,
             action: "STATUS_CHANGE",
             details: `Toplu durum değişikliği: ${status}`
         }))
-        db.orderActivity.createMany({ data: activities }).catch(e => console.error("Logging failed:", e))
+        await db.orderActivity.createMany({ data: activities })
 
-        revalidatePath("/")
+        // revalidatePath("/") // Removed to prevent hang in bulk 
         return { success: true, count: orderIds.length }
     } catch (e: any) {
         console.error("bulkUpdateOrderStatus ERROR:", e)

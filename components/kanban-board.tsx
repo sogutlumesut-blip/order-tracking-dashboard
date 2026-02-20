@@ -705,25 +705,12 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 toast.success(`${successCount} sipariş başarıyla taşındı!`, { id: toastId, duration: 2000 })
             }
 
-            setIsBulkProcessing(false) // Release lock immediately
             setSelectedOrders([]) // Clean up selection
-
-            // 4. Force Sync to ensure consistency
-            try {
-                // Short delay to allow DB consistency (eventual consistency)
-                await new Promise(r => setTimeout(r, 500))
-                const latestOrders = await getOrders()
-                if (latestOrders) setOrders(latestOrders as any)
-                router.refresh()
-            } catch (err) {
-                console.error("Manual fetch error:", err)
-            }
+            router.refresh() // Trigger Next.js data refresh
 
         } catch (e: any) {
+            console.error("Bulk Move Hook Error:", e)
             toast.error(`Beklenmeyen hata: ${e.message}`, { id: toastId })
-            // Revert on catastrophic failure (fetch truth)
-            const latest = await getOrders()
-            setOrders(latest as any)
         } finally {
             setIsBulkProcessing(false)
         }
