@@ -1095,6 +1095,18 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                     }
                 }
 
+                // Payment Method Extraction & Cleaning
+                let paymentMethod = wcOrder.payment_method_title || "Bilinmiyor"
+                if (typeof paymentMethod === 'string') {
+                    paymentMethod = paymentMethod
+                        .replace(/&nbsp;/g, ' ')
+                        .replace(/&lt;/g, '<')
+                        .replace(/&gt;/g, '>')
+                        .replace(/&amp;/g, '&')
+                        .replace(/<[^>]*>?/gm, '') // Strip tags
+                        .trim();
+                }
+
                 const existingOrder = await db.order.findUnique({
                     where: { barcode: `WC-${wcOrder.id}` }
                 })
@@ -1139,6 +1151,7 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                             note: wcOrder.customer_note,
                             cargoBarcode: cargoBarcodeMeta ? cargoBarcodeMeta.value : null,
                             cargoTrackingNumber: cargoTrackingMeta ? cargoTrackingMeta.value : null,
+                            paymentMethod: paymentMethod,
                             items: {
                                 deleteMany: {}, // Clear old items (safer than trying to sync diffs)
                                 create: items   // Add new/updated items
@@ -1168,6 +1181,7 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                             hasNotification: true,
                             cargoBarcode: cargoBarcodeMeta ? cargoBarcodeMeta.value : null,
                             cargoTrackingNumber: cargoTrackingMeta ? cargoTrackingMeta.value : null,
+                            paymentMethod: paymentMethod,
                             items: {
                                 create: items
                             }

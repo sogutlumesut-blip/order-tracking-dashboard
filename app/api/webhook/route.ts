@@ -96,7 +96,18 @@ export async function POST(req: Request) {
 
         const total = `${body.total} ${body.currency_symbol || '₺'}`
         const note = body.customer_note
-        const paymentMethod = body.payment_method_title || "Bilinmiyor"
+
+        // Clean Payment Method (Strip HTML added by some plugins like %5 discount tags)
+        let paymentMethod = body.payment_method_title || "Bilinmiyor"
+        if (typeof paymentMethod === 'string') {
+            paymentMethod = paymentMethod
+                .replace(/&nbsp;/g, ' ')
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&amp;/g, '&')
+                .replace(/<[^>]*>?/gm, '') // Strip tags
+                .trim();
+        }
 
         // Check if order exists (idempotency)
         // We use barcode field to store WC ID like "WC-12345"
