@@ -684,7 +684,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
                 // Update Progress explicitly
                 const processed = (i * chunkSize) + chunk.length
-                toast.loading(`[V2.3] Taşınıyor... ${processed}/${selectedOrders.length}`, { id: toastId })
+                toast.loading(`Taşınıyor... ${processed}/${selectedOrders.length}`, { id: toastId })
 
                 // Server Call for this chunk
                 const result = await bulkUpdateOrderStatus(chunk, targetStatusId)

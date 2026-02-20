@@ -215,13 +215,14 @@ export async function updateOrderStatus(orderId: number, status: string) {
 }
 
 export async function bulkUpdateOrderStatus(orderIds: number[], status: string) {
+    noStore();
     try {
         const session = await getSession()
         const user = session ? session.user.name : "Sistem"
 
-        console.log(`[BULK_MOVE] v3.5: ${orderIds.length} orders -> '${status}' by '${user}'`)
+        console.log(`[BULK_MOVE] v3.6.5: ${orderIds.length} orders -> '${status}' by '${user}'`)
 
-        // 1. Core Update ONLY
+        // 1. Core Update
         await db.order.updateMany({
             where: { id: { in: orderIds } },
             data: {
@@ -232,15 +233,16 @@ export async function bulkUpdateOrderStatus(orderIds: number[], status: string) 
             }
         })
 
-        // 2. Fire and Forget Logging (Background)
+        // 2. Logging (Background)
         const activities = orderIds.map(id => ({
             orderId: id,
             author: user,
             action: "STATUS_CHANGE",
-            details: `Toplu durum değişikliği [v3.5]: ${status}`
+            details: `Toplu durum değişikliği: ${status}`
         }))
         db.orderActivity.createMany({ data: activities }).catch(e => console.error("Logging failed:", e))
 
+        revalidatePath("/")
         return { success: true, count: orderIds.length }
     } catch (e: any) {
         console.error("bulkUpdateOrderStatus ERROR:", e)
