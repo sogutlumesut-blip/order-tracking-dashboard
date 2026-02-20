@@ -108,7 +108,14 @@ export async function getOrders(timestamp?: number) {
         take: 100, // Limit to 100 to save quota
         include: {
             items: true,
-            // Removed heavy includes: comments and activities (now lazy loaded)
+            comments: {
+                include: { author: { select: { name: true } } },
+                orderBy: { timestamp: "asc" }
+            },
+            activities: {
+                orderBy: { timestamp: "desc" },
+                take: 10 // Last 10 is enough for initial view
+            }
         }
     })
 
@@ -118,13 +125,33 @@ export async function getOrders(timestamp?: number) {
         date: order.date.toISOString(),
         createdAt: order.createdAt.toISOString(),
         updatedAt: order.updatedAt.toISOString(),
-        total: order.total || "0 ₺", // Ensure total is string
+        total: order.total || "0 ₺",
         items: order.items.map(item => ({
             ...item,
             sku: item.sku || null,
             url: item.url || null,
             material: item.material || null,
             dimensions: item.dimensions || null
+        })),
+        comments: order.comments.map(c => ({
+            id: c.id,
+            message: c.message,
+            timestamp: c.timestamp.toISOString(),
+            author: c.author?.name || "Unknown",
+            attachments: (() => {
+                if (!c.attachments) return undefined
+                try {
+                    const parsed = JSON.parse(c.attachments);
+                    return Array.isArray(parsed) ? parsed : undefined;
+                } catch { return undefined; }
+            })()
+        })),
+        activities: order.activities.map(a => ({
+            id: a.id,
+            author: a.author,
+            action: a.action,
+            details: a.details,
+            timestamp: a.timestamp.toISOString()
         })),
         labels: (() => {
             if (!order.labels) return []

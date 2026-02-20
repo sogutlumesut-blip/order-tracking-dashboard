@@ -8,6 +8,14 @@ export interface Comment {
     attachments?: { name: string; type: 'image' | 'file'; url: string }[];
 }
 
+export interface Activity {
+    id: string;
+    author: string;
+    action: string;
+    details: string;
+    timestamp: string;
+}
+
 export interface OrderItem {
     id: number;
     name: string;
@@ -41,6 +49,7 @@ export interface Order {
     barcode?: string; // For auto-scanning (usually same as ID or special SKU)
     paymentMethod?: string; // e.g. "Kredi Kartı", "Havale"
     comments?: Comment[];
+    activities?: Activity[];
     hasNotification?: boolean;
     updatedAt: string; // ISO String
     cargoBarcode?: string; // From kargo entegrator

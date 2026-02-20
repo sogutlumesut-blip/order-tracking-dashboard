@@ -21,60 +21,30 @@ interface OrderDetailPanelProps {
     currentUser: { id: string; name: string; role: string }
     statuses: { id: string; title: string; color: string }[]
     tags: { id: string; name: string; color: string | null }[]
-    preFetchedDetails?: any // Speed Optimization cache
 }
 
-export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddComment, currentUser, statuses, tags, preFetchedDetails }: OrderDetailPanelProps) {
+export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddComment, currentUser, statuses, tags }: OrderDetailPanelProps) {
     const [formData, setFormData] = useState<Order | null>(null)
     const [isActivityLogOpen, setIsActivityLogOpen] = useState(false)
     const [previewImage, setPreviewImage] = useState<string | null>(null)
     const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false)
 
-    // Lazy Loading States
+    // Detaylar artık sipariş objesiyle beraber geliyor
     const [lazyComments, setLazyComments] = useState<any[] | null>(null)
     const [lazyActivities, setLazyActivities] = useState<any[] | null>(null)
-    const [isLoadingDetails, setIsLoadingDetails] = useState(false)
 
     useEffect(() => {
         if (order && isOpen) {
             setFormData({ ...order })
 
-            // Trigger Lazy Load
-            const fetchDetails = async () => {
-                // 1. Check Pre-fetched Cache First
-                if (preFetchedDetails) {
-                    console.log(`[SPEED] Using pre-fetched data for #${order.id}`);
-                    const formattedComments = (preFetchedDetails.comments || []).map((c: any) => ({
-                        ...c,
-                        timestamp: new Date(c.timestamp).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
-                    }))
-                    setLazyComments(formattedComments)
-                    setLazyActivities(preFetchedDetails.activities || [])
-                    return; // EXIT - we have the data!
-                }
+            // Direct mapping from order object (no more network request here!)
+            const formattedComments = (order.comments || []).map(c => ({
+                ...c,
+                timestamp: new Date(c.timestamp).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+            }))
 
-                setIsLoadingDetails(true)
-                try {
-                    console.log(`[OrderDetailPanel] Loading details for ${order.id}...`)
-                    const details = await getOrderDetails(order.id)
-                    if (details) {
-                        const formattedComments = (details.comments || []).map(c => ({
-                            ...c,
-                            timestamp: new Date(c.timestamp).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
-                        }))
-
-                        setLazyComments(formattedComments)
-                        setLazyActivities(details.activities || [])
-                    }
-                } catch (error) {
-                    console.error("[OrderDetailPanel] Failed to load details:", error)
-                    toast.error("Geçmiş bilgiler yüklenemedi.")
-                } finally {
-                    setIsLoadingDetails(false)
-                }
-            }
-
-            fetchDetails()
+            setLazyComments(formattedComments)
+            setLazyActivities(order.activities || [])
         } else {
             // Reset for next time
             setLazyComments(null)
@@ -558,31 +528,23 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                 <label className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-200 mb-3">
                                     <FileText className="w-4 h-4" /> İşlem Notları
                                 </label>
-                                {isLoadingDetails ? (
-                                    <div className="h-[100px] flex items-center justify-center text-xs text-slate-400">Yükleniyor...</div>
-                                ) : (
-                                    <NoteLog
-                                        comments={lazyComments || []}
-                                        onAddNote={(msg) => handleInternalAddComment(msg, [])}
-                                        currentUser={currentUser}
-                                        className="h-[300px]"
-                                    />
-                                )}
+                                <NoteLog
+                                    comments={lazyComments || []}
+                                    onAddNote={(msg) => handleInternalAddComment(msg, [])}
+                                    currentUser={currentUser}
+                                    className="h-[300px]"
+                                />
                             </div>
 
                             <div>
                                 <label className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-200 mb-3">
                                     <Upload className="w-4 h-4" /> Yazışma & Dosyalar
                                 </label>
-                                {isLoadingDetails ? (
-                                    <div className="h-[100px] flex items-center justify-center text-xs text-slate-400">Yükleniyor...</div>
-                                ) : (
-                                    <ChatSection
-                                        comments={lazyComments || []}
-                                        onAddComment={(msg, att) => handleInternalAddComment(msg, att)}
-                                        currentUser={currentUser}
-                                    />
-                                )}
+                                <ChatSection
+                                    comments={lazyComments || []}
+                                    onAddComment={(msg, att) => handleInternalAddComment(msg, att)}
+                                    currentUser={currentUser}
+                                />
                             </div>
 
                             {/* Activity Log - Collapsible & Compact */}
@@ -598,11 +560,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                                 {isActivityLogOpen && (
                                     <div className="mt-2 border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm animate-in slide-in-from-top-2 duration-200">
-                                        {isLoadingDetails ? (
-                                            <div className="p-4 text-center text-xs text-slate-400">Yükleniyor...</div>
-                                        ) : (
-                                            <ActivityLog activities={lazyActivities || []} />
-                                        )}
+                                        <ActivityLog activities={lazyActivities || []} />
                                     </div>
                                 )}
                             </div>
