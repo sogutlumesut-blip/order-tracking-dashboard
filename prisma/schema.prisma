@@ -49,6 +49,24 @@ model Order {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   hasNotification Boolean    @default(false)
+
+  source         String?     // 'etsy', 'woo', etc.
+  externalId     String?     // External order ID (e.g., Etsy receipt_id)
+  
+  @@unique([source, externalId])
+}
+
+model EtsyShop {
+  id            String   @id @default(uuid())
+  userId        String?
+  shopId        String   @unique
+  shopName      String?
+  accessToken   String   // Should be encrypted in a real app
+  refreshToken  String
+  expiresAt     DateTime
+  scopes        String   // Space-separated scopes
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model OrderItem {

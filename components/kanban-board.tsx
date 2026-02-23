@@ -765,22 +765,29 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
     const handleSync = async () => {
         setIsSyncing(true)
-        toast.info("WooCommerce ile senkronizasyon yapılıyor...")
+        toast.info("Entegrasyonlar senkronize ediliyor...")
         try {
-            const result = await syncWooCommerceOrders()
-            if (result.success) {
-                toast.success(result.message)
-                if (result.logs && result.logs.length > 0) {
-                    console.log("--- WOO SYNC LOGS ---")
-                    result.logs.forEach((log: string) => console.log(log))
-                    console.log("---------------------")
-                }
-                // Refresh local state immediately
-                const latest = await getOrders(Date.now())
-                setOrders(latest as any)
-            } else {
-                toast.error(result.error)
+            // Sync WooCommerce
+            const wooResult = await syncWooCommerceOrders()
+            if (wooResult.success) {
+                toast.success(wooResult.message)
+            } else if (wooResult.error) {
+                toast.error(`WooCommerce Hatası: ${wooResult.error}`)
             }
+
+            // Sync Etsy
+            const etsyResult = await syncEtsyOrders()
+            if (etsyResult.success) {
+                toast.success(etsyResult.message)
+            } else if (etsyResult.error) {
+                toast.error(`Etsy Hatası: ${etsyResult.error}`)
+            }
+
+            // Refresh local state immediately
+            const latest = await getOrders(Date.now())
+            setOrders(latest as any)
+            setLastSynced(new Date())
+
         } catch (e: any) {
             console.error("Sync Error:", e)
             toast.error(`Bağlantı hatası: ${e.message || "Bilinmeyen bir sorun oluştu"}`)

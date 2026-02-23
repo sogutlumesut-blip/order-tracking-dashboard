@@ -55,6 +55,8 @@ export interface Order {
     cargoBarcode?: string; // From kargo entegrator
     cargoTrackingNumber?: string;
     cargoLabelPdf?: string | null;
+    source?: string | null;
+    externalId?: string | null;
 }
 
 export const MOCK_ORDERS: Order[] = [

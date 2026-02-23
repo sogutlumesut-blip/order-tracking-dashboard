@@ -123,7 +123,20 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
             <div className="p-4 space-y-3">
                 <div className="flex justify-between items-start">
                     <div>
-                        <h3 className="font-bold text-slate-900 dark:text-slate-100">#{order.id}</h3>
+                        <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-slate-900 dark:text-slate-100">#{order.id}</h3>
+                            {order.source === 'etsy' && (
+                                <span className="bg-[#F1641E] text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm">
+                                    <span className="font-serif italic lowercase font-extrabold translate-y-[1px]">E</span>
+                                    ETSY
+                                </span>
+                            )}
+                            {(order.source === 'woo' || (!order.source && order.barcode?.startsWith('WC-'))) && (
+                                <span className="bg-[#96588A] text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm">
+                                    WOO
+                                </span>
+                            )}
+                        </div>
                         <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">{order.customer}</p>
                     </div>
                     <div className="flex flex-col items-end gap-1">

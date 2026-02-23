@@ -775,171 +775,93 @@ export async function saveEtsySettings(formData: FormData) {
 
 // ETSY SYNC ACTION
 export async function syncEtsyOrders() {
-    const settings = (await getSystemSettings()) as Record<string, string>
-
-    // 1. Prepare Store List
-    let stores: any[] = []
     try {
-        if (settings['etsy_stores_json']) {
-            stores = JSON.parse(settings['etsy_stores_json'])
-        }
-    } catch (e) { console.error("Etsy JSON parse error", e) }
-
-    // Legacy Fallback
-    if (stores.length === 0 && settings['etsy_shop_id']) {
-        stores.push({
-            id: 'legacy',
-            name: 'Varsayılan',
-            shopId: settings['etsy_shop_id'],
-            apiKey: settings['etsy_api_key'],
-            accessToken: settings['etsy_access_token'],
-            refreshToken: settings['etsy_refresh_token'] // Legacy might have it
-        })
-    }
-
-    if (stores.length === 0) {
-        return { error: "Etsy mağazası tanımlanmamış. Ayarlardan ekleyiniz." }
-    }
-
-    let totalNew = 0
-    let logs: string[] = []
-    let storesUpdated = false
-
-    // 2. Iterate Stores
-    for (let i = 0; i < stores.length; i++) {
-        const store = stores[i]
-        if (!store.shopId || !store.apiKey || !store.accessToken) {
-            logs.push(`[${store.name || 'Mağaza'}] Ayarlar eksik, atlandı.`)
-            continue
+        const shops = await db.etsyShop.findMany();
+        if (shops.length === 0) {
+            return { error: "Hiçbir Etsy mağazası bağlanmamış." };
         }
 
-        try {
-            logs.push(`[${store.name || store.shopId}] Senkronizasyon başlıyor...`)
+        const { fetchEtsy } = await import("@/lib/etsy");
+        let totalNew = 0;
+        let logs: string[] = [];
 
-            let currentToken = store.accessToken
-            let response = await fetch(`https://openapi.etsy.com/v3/application/shops/${store.shopId}/receipts?state=paid&was_paid=true`, {
-                headers: {
-                    'x-api-key': store.apiKey,
-                    'Authorization': `Bearer ${currentToken}`
-                },
-                cache: 'no-store'
-            })
+        for (const shop of shops) {
+            logs.push(`[${shop.shopName || shop.shopId}] Senkronizasyon başlıyor...`);
+            try {
+                // Fetch receipts (orders) from Etsy
+                // state=paid, was_paid=true
+                const data = await fetchEtsy(`shops/${shop.shopId}/receipts?limit=50&was_paid=true`, shop.shopId);
 
-            // TOKEN REFRESH LOGIC
-            if (response.status === 401 && store.refreshToken) {
-                logs.push(`[${store.name}] Token süresi dolmuş, yenileniyor...`)
-                try {
-                    const refreshRes = await fetch("https://api.etsy.com/v3/public/oauth/token", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            grant_type: "refresh_token",
-                            client_id: store.apiKey,
-                            refresh_token: store.refreshToken
-                        })
-                    })
+                if (data.results) {
+                    let shopNew = 0;
+                    for (const receipt of data.results) {
+                        const receiptId = receipt.receipt_id.toString();
 
-                    if (refreshRes.ok) {
-                        const refreshData = await refreshRes.json()
-                        currentToken = refreshData.access_token
+                        // Check for existing order using composite unique key [source, externalId]
+                        const existing = await db.order.findUnique({
+                            where: {
+                                source_externalId: {
+                                    source: 'etsy',
+                                    externalId: receiptId
+                                }
+                            }
+                        });
 
-                        // Update Store Object
-                        stores[i].accessToken = refreshData.access_token
-                        stores[i].refreshToken = refreshData.refresh_token
-                        storesUpdated = true
+                        if (existing) continue;
 
-                        logs.push(`[${store.name}] Token yenilendi. Tekrar deneniyor...`)
+                        // Fetch Transactions for items
+                        const transactions = await fetchEtsy(`shops/${shop.shopId}/receipts/${receiptId}/transactions`, shop.shopId);
 
-                        // Retry Request
-                        response = await fetch(`https://openapi.etsy.com/v3/application/shops/${store.shopId}/receipts?state=paid&was_paid=true`, {
-                            headers: {
-                                'x-api-key': store.apiKey,
-                                'Authorization': `Bearer ${currentToken}`
-                            },
-                            cache: 'no-store'
-                        })
-                    } else {
-                        logs.push(`[${store.name}] Token yenileme başarısız: ${refreshRes.status}`)
+                        // Construct note
+                        let note = receipt.message_from_buyer || "";
+                        if (receipt.gift_message) note += `\n(Hediye Notu: ${receipt.gift_message})`;
+
+                        await db.order.create({
+                            data: {
+                                customer: receipt.name || "Misafir",
+                                email: receipt.buyer_email,
+                                address: `${receipt.first_line} ${receipt.second_line || ""}`.trim(),
+                                city: `${receipt.city} / ${receipt.state || ""} ${receipt.zip || ""}`.trim(),
+                                total: `${receipt.total_price.amount / receipt.total_price.divisor} ${receipt.total_price.currency_code}`,
+                                status: 'pending',
+                                source: 'etsy',
+                                externalId: receiptId,
+                                barcode: `ETSY-${receiptId}`,
+                                date: new Date(receipt.created_timestamp * 1000),
+                                note: note.trim(),
+                                labels: JSON.stringify(['Etsy', 'Yeni']),
+                                hasNotification: true,
+                                items: {
+                                    create: transactions.results.map((t: any) => ({
+                                        name: t.title,
+                                        sku: t.sku || t.listing_id.toString(),
+                                        quantity: t.quantity,
+                                        image_src: t.main_image?.url_fullxfull || "https://placehold.co/600x400?text=Etsy+Görsel",
+                                        material: t.variations?.find((v: any) => v.formatted_name?.toLowerCase().includes("material") || v.formatted_name?.toLowerCase().includes("malzeme"))?.formatted_value || "",
+                                        dimensions: t.variations?.find((v: any) => v.formatted_name?.toLowerCase().includes("size") || v.formatted_name?.toLowerCase().includes("boyut"))?.formatted_value || ""
+                                    }))
+                                }
+                            }
+                        });
+                        shopNew++;
+                        totalNew++;
                     }
-                } catch (re) {
-                    console.error("Token Refresh Exception", re)
+                    logs.push(`[${shop.shopName || shop.shopId}] ${shopNew} yeni sipariş eklendi.`);
                 }
+            } catch (err: any) {
+                console.error(`Etsy Shop ${shop.shopId} sync error:`, err);
+                logs.push(`[${shop.shopName || shop.shopId}] Hata: ${err.message}`);
             }
-
-            if (!response.ok) {
-                logs.push(`[${store.name}] Hata: ${response.status} ${response.statusText}`)
-                // If 403, might be scope issue or shop ID mismatch
-                if (response.status === 403) logs.push(`[${store.name}] Erişim reddedildi. Shop ID veya İzinleri kontrol edin.`)
-                continue
-            }
-
-            const data = await response.json()
-            const etsyOrders = data.results || []
-            let storeNewCount = 0
-
-            for (const eOrder of etsyOrders) {
-                const barcode = `ETSY-${eOrder.receipt_id}`
-                const existingOrder = await db.order.findUnique({ where: { barcode } })
-
-                if (existingOrder) continue
-
-                // Process Items
-                const items = (eOrder.transactions || []).map((t: any) => ({
-                    name: t.title,
-                    quantity: t.quantity,
-                    image_src: t.main_image?.url_fullxfull || "https://placehold.co/600x400?text=Etsy+Görsel",
-                    sku: t.sku || null,
-                    // Try to extract dimensions/material from variations
-                    dimensions: t.variations?.find((v: any) => v.property_id === 200 || v.formatted_name?.toLowerCase().includes("size") || v.formatted_name?.toLowerCase().includes("boyut"))?.formatted_value || null,
-                    material: t.variations?.find((v: any) => v.property_id === 500 || v.formatted_name?.toLowerCase().includes("material") || v.formatted_name?.toLowerCase().includes("malzeme"))?.formatted_value || null
-                }))
-
-                // Construct Note from buyer message + gift message
-                let note = eOrder.message_from_buyer || ""
-                if (eOrder.gift_message) note += `\n(Hediye Notu: ${eOrder.gift_message})`
-
-                await db.order.create({
-                    data: {
-                        customer: eOrder.name || eOrder.recipient_name || "Misafir",
-                        total: `${eOrder.grandtotal?.amount / eOrder.grandtotal?.divisor} ${eOrder.grandtotal?.currency_code}`,
-                        status: "Gelen Siparişler", // Ensure this status exists or maps to Pending
-                        date: new Date(eOrder.create_timestamp * 1000),
-                        updatedAt: new Date(eOrder.update_timestamp * 1000),
-                        barcode: barcode,
-                        email: eOrder.buyer_email,
-                        address: `${eOrder.first_line} ${eOrder.second_line || ''}`.trim(),
-                        city: `${eOrder.city} / ${eOrder.state || ''} ${eOrder.zip}`,
-                        note: note.trim(),
-                        labels: JSON.stringify(['Etsy', 'Yeni']),
-                        hasNotification: true,
-                        paymentMethod: 'Etsy Payments',
-                        items: { create: items }
-                    }
-                })
-                storeNewCount++
-                totalNew++
-            }
-            logs.push(`[${store.name}] ${storeNewCount} yeni sipariş.`)
-
-        } catch (e: any) {
-            console.error(`Etsy Sync Error (${store.name}):`, e)
-            logs.push(`[${store.name}] Hata: ${e.message}`)
         }
-    }
 
-    // Save Updated Tokens if any changed
-    if (storesUpdated) {
-        await db.systemSetting.upsert({
-            where: { key: 'etsy_stores_json' },
-            update: { value: JSON.stringify(stores) },
-            create: { key: 'etsy_stores_json', value: JSON.stringify(stores) }
-        })
-        logs.push("Tokenlar güncellendi ve kaydedildi.")
+        revalidatePath("/");
+        return { success: true, message: `${totalNew} yeni Etsy siparişi içe aktarıldı.`, logs };
+    } catch (e: any) {
+        console.error("syncEtsyOrders fatal error:", e);
+        return { error: `Senkronizasyon başarısız: ${e.message}` };
     }
-
-    revalidatePath("/")
-    return { success: true, message: `${totalNew} Etsy siparişi çekildi.`, logs }
 }
+
 
 
 // WOOCOMMERCE SYNC ACTION
