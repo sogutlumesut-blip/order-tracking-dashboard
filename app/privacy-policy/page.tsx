@@ -41,7 +41,7 @@ export default function PrivacyPolicy() {
                 <section>
                     <h2 className="text-xl font-semibold">Your Rights</h2>
                     <p>You may request access to or deletion of your data at any time by contacting:</p>
-                    <p className="font-bold">📧 support@duvarkagidimarketi.com</p>
+                    <p className="font-bold">📧 info@duvarkagidimarketi.com</p>
                 </section>
             </div>
             <div className="mt-12 pt-8 border-t flex gap-4">
