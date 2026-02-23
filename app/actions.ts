@@ -248,6 +248,33 @@ export async function updateOrderStatus(orderId: number, status: string) {
         })
 
         await logActivity(orderId, user, "STATUS_CHANGE", `Durum '${status}' olarak değiştirildi.`)
+
+        // ETSY PUSH: If shipped, try to push tracking information back to Etsy
+        if (status === 'shipped') {
+            const order = await db.order.findUnique({ where: { id: orderId } });
+            if (order && order.source === 'etsy' && order.externalId && order.trackingNumber) {
+                try {
+                    const shop = await db.etsyShop.findFirst(); // In a multi-shop env, we should ideally store shopId on the Order.
+                    // For now, let's try to find the shop that created this order.
+                    if (shop) {
+                        const { fetchEtsy } = await import("@/lib/etsy");
+                        await fetchEtsy(`shops/${shop.shopId}/receipts/${order.externalId}/tracking`, shop.shopId, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                tracking_code: order.trackingNumber,
+                                carrier_name: "Other", // Dynamic carrier detection would be better
+                                send_bcc: false
+                            })
+                        });
+                        serverLog(`[ETSY_PUSH] Tracking pushed successfully for #${order.id}`);
+                    }
+                } catch (err: any) {
+                    serverLog(`[ETSY_PUSH] Error pushing tracking: ${err.message}`);
+                }
+            }
+        }
+
         revalidatePath("/")
     } catch (e) {
         console.error("updateOrderStatus ERROR:", e)
@@ -832,14 +859,23 @@ export async function syncEtsyOrders() {
                                 labels: JSON.stringify(['Etsy', 'Yeni']),
                                 hasNotification: true,
                                 items: {
-                                    create: transactions.results.map((t: any) => ({
-                                        name: t.title,
-                                        sku: t.sku || t.listing_id.toString(),
-                                        quantity: t.quantity,
-                                        image_src: t.main_image?.url_fullxfull || "https://placehold.co/600x400?text=Etsy+Görsel",
-                                        material: t.variations?.find((v: any) => v.formatted_name?.toLowerCase().includes("material") || v.formatted_name?.toLowerCase().includes("malzeme"))?.formatted_value || "",
-                                        dimensions: t.variations?.find((v: any) => v.formatted_name?.toLowerCase().includes("size") || v.formatted_name?.toLowerCase().includes("boyut"))?.formatted_value || ""
-                                    }))
+                                    create: transactions.results.map((t: any) => {
+                                        // Etsy V3 Transaction variations property is an array of objects
+                                        // with property_name and formatted_value
+                                        const getVar = (names: string[]) => t.variations?.find((v: any) =>
+                                            names.some(n => v.formatted_name?.toLowerCase().includes(n.toLowerCase()))
+                                        )?.formatted_value || "";
+
+                                        return {
+                                            name: t.title,
+                                            sku: t.sku || t.listing_id.toString(),
+                                            quantity: t.quantity,
+                                            // V3 Transaction has image_url_75x75. We can try to get 570xN if we want better quality.
+                                            image_src: t.image_url_75x75?.replace("75x75", "570xN") || "https://placehold.co/600x400?text=Etsy+Görsel",
+                                            material: getVar(["material", "malzeme", "doku"]),
+                                            dimensions: getVar(["size", "boyut", "ölçü", "ebat"])
+                                        };
+                                    })
                                 }
                             }
                         });
