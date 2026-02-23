@@ -528,7 +528,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 // Heuristic: Long codes are likely cargo
                 isCargoScan = true
             } else if (isReadyOrPacked) {
-                // USER REQUEST (v3.6.5.9): If already ready/packed, any scan of ID/WC- code moves it to Shipping
+                // USER REQUEST (v3.6.6.0): If already ready/packed, any scan of ID/WC- code moves it to Shipping
                 isCargoScan = true
             }
 
@@ -813,7 +813,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shrink-0">
                             OMS
                         </div>
-                        <h1 className="font-bold text-sm md:text-lg text-slate-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-slate-400 font-normal">v3.6.5.9 (Sütunlar: {cols.length})</span></h1>
+                        <h1 className="font-bold text-sm md:text-lg text-slate-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-slate-400 font-normal">v3.6.6.0 (Sütunlar: {cols.length})</span></h1>
                         {/* Status Check Indicator */}
                         <div className="flex items-center gap-2">
                             {isValidating ? (
@@ -822,7 +822,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 </span>
                             ) : (
                                 <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">
-                                    <CheckCircle className="w-3 h-3" /> v3.6.5.9
+                                    <CheckCircle className="w-3 h-3" /> v3.6.6.0
                                 </span>
                             )}
                         </div>
@@ -834,7 +834,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-100 dark:border-slate-700">
                             <Clock className="w-3 h-3" />
                             <span>Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}</span>
-                            <span className="ml-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">v3.6.5.9</span>
+                            <span className="ml-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">v3.6.6.0</span>
                         </div>
 
                         {/* Sound Toggle */}
@@ -1367,7 +1367,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}
                             </span>
                             <span className="text-[10px] text-slate-400">...</span>
-                            <span className="text-[10px] text-emerald-600 font-bold">v3.6.5.9</span>
+                            <span className="text-[10px] text-emerald-600 font-bold">v3.6.6.0</span>
                         </div>
 
                         <div className="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm p-1">
