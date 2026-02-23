@@ -1188,10 +1188,18 @@ export async function syncWooCommerceOrders(force: boolean = false) {
 
                     let finalStatus = status;
 
-                    // If the incoming status from WC is just the "default/incoming" status,
-                    // but we have already moved it elsewhere locally, keep the local status.
-                    if (existingOrder.status !== defaultStatus && status === defaultStatus) {
-                        finalStatus = existingOrder.status;
+                    if (existingOrder.id === 220 || existingOrder.barcode === 'WC-107270') {
+                    }
+
+                    // CRITICAL FIX: To avoid race conditions, we ONLY update the status
+                    // if it has explicitly moved forward in WooCommerce (e.g. to 'completed')
+                    // OR if we are transitioning from a NULL/Undefined state (shouldn't happen here).
+                    // If WC says 'pending'/'processing' (mapped to defaultStatus), we TRUST THE DASHBOARD's current state.
+
+                    const keepLocalStatus = (status === defaultStatus && existingOrder.status !== defaultStatus);
+
+                    if (keepLocalStatus) {
+                        finalStatus = existingOrder.status; // No-op update for status
                     }
 
                     // PRESERVE LABELS: Don't overwrite locally added labels
@@ -1224,9 +1232,9 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                         data: {
                             customer: newCustomer,
                             total: `${wcOrder.total} ${wcOrder.currency_symbol}`,
-                            status: finalStatus,
+                            // If we identified we should keep local status, we pass undefined so Prisma doesn't update this field
+                            status: keepLocalStatus ? undefined : finalStatus,
                             // Only update timestamp if status changed OR meaningful data changed
-                            // This prevents background syncs from clobbering client polling logic
                             updatedAt: (hasStatusChange || hasDataChange) ? new Date() : existingOrder.updatedAt,
                             email: wcOrder.billing.email,
                             phone: wcOrder.billing.phone,
