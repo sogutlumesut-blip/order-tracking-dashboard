@@ -282,15 +282,9 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     const mergedOrders = latestOrders.map((serverOrder: any) => {
                         const localOrder = currentOrders.find(o => o.id === serverOrder.id)
 
-                        // 1. STATUS PRIORITY CHECK (Crucial for Desktop Sync)
-                        // If status changed on server, we accept it regardless of timestamp.
-                        if (localOrder && localOrder.status !== serverOrder.status) {
-                            hasChanges = true
-                            return serverOrder
-                        }
-
-                        // 2. Timestamp Check (For non-status fields)
-                        // If local is strictly newer, keep local. Otherwise trust server (including equal).
+                        // 1. Timestamp Check (Crucial for stability)
+                        // If local is strictly newer, keep local. This protects optimistic local updates
+                        // from being overwritten by stale background polls.
                         if (localOrder && new Date(localOrder.updatedAt).getTime() > new Date(serverOrder.updatedAt).getTime()) {
                             return localOrder
                         }

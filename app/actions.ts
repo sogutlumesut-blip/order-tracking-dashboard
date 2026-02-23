@@ -1007,7 +1007,7 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                 let labels: string[] = ['WooCommerce'];
 
                 if (wcOrder.status === 'processing') status = defaultStatus
-                if (wcOrder.status === 'completed') status = defaultStatus // Enforce Pending even for Completed
+                if (wcOrder.status === 'completed') status = 'completed' // Map to Completed
                 if (wcOrder.status === 'on-hold') status = defaultStatus
                 if (wcOrder.status === 'pending') status = defaultStatus
 
@@ -1183,34 +1183,63 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                     const cargoTrackingMeta = wcOrder.meta_data?.find((m: any) => m.key === '_gcargo_tracking_exposed')
 
                     // SMART STATUS SYNC
-                    // If WC Status is 'completed' or 'cancelled', we force update.
-                    // If Local Status is already advanced (e.g., 'printed', 'cutting'), and WC is just 'processing', we PRESERVE local status.
+                    // If WC Status is 'completed' or 'cancelled', we might want to respect it.
+                    // But if Local Status is already moved forward, and WC is still 'processing', we PRESERVE local status.
 
-                    let finalStatus = status; // Incoming WC status (mapped to 'pending' usually)
+                    let finalStatus = status;
 
-                    if (existingOrder.status !== 'pending' && existingOrder.status !== 'completed' && status === 'pending') {
-                        // Local has moved forward, WC is still behind. KEEP LOCAL.
+                    // If the incoming status from WC is just the "default/incoming" status,
+                    // but we have already moved it elsewhere locally, keep the local status.
+                    if (existingOrder.status !== defaultStatus && status === defaultStatus) {
                         finalStatus = existingOrder.status;
                     }
+
+                    // PRESERVE LABELS: Don't overwrite locally added labels
+                    let finalLabels = labels;
+                    try {
+                        const localLabels = typeof existingOrder.labels === 'string' ? JSON.parse(existingOrder.labels) : existingOrder.labels;
+                        if (Array.isArray(localLabels) && localLabels.length > 0) {
+                            // Merge labels, keeping uniques
+                            const combined = Array.from(new Set([...localLabels, ...labels]));
+                            finalLabels = combined;
+                        }
+                    } catch (e) {
+                        console.error("Label merge error:", e);
+                    }
+
+                    // DETECT ACTUAL CHANGES to avoid unnecessary updatedAt updates
+                    const oldCustomer = existingOrder.customer;
+                    const newCustomer = `${wcOrder.billing.first_name || ''} ${wcOrder.billing.last_name || ''}`.trim() || 'Misafir';
+
+                    const hasStatusChange = existingOrder.status !== finalStatus;
+                    const hasDataChange =
+                        oldCustomer !== newCustomer ||
+                        existingOrder.city !== city ||
+                        existingOrder.email !== wcOrder.billing.email ||
+                        existingOrder.phone !== wcOrder.billing.phone ||
+                        existingOrder.address !== `${wcOrder.billing.address_1 || ''} ${wcOrder.billing.address_2 || ''}`.trim();
 
                     await db.order.update({
                         where: { id: existingOrder.id },
                         data: {
-                            customer: `${wcOrder.billing.first_name || ''} ${wcOrder.billing.last_name || ''}`.trim() || 'Misafir',
+                            customer: newCustomer,
                             total: `${wcOrder.total} ${wcOrder.currency_symbol}`,
                             status: finalStatus,
-                            updatedAt: new Date(), // Force update
+                            // Only update timestamp if status changed OR meaningful data changed
+                            // This prevents background syncs from clobbering client polling logic
+                            updatedAt: (hasStatusChange || hasDataChange) ? new Date() : existingOrder.updatedAt,
                             email: wcOrder.billing.email,
                             phone: wcOrder.billing.phone,
                             address: `${wcOrder.billing.address_1 || ''} ${wcOrder.billing.address_2 || ''}`.trim(),
                             city: city,
                             note: wcOrder.customer_note,
-                            cargoBarcode: cargoBarcodeMeta ? cargoBarcodeMeta.value : null,
-                            cargoTrackingNumber: cargoTrackingMeta ? cargoTrackingMeta.value : null,
+                            cargoBarcode: cargoBarcodeMeta ? cargoBarcodeMeta.value : (existingOrder.cargoBarcode || null),
+                            cargoTrackingNumber: cargoTrackingMeta ? cargoTrackingMeta.value : (existingOrder.cargoTrackingNumber || null),
                             paymentMethod: paymentMethod,
+                            labels: JSON.stringify(finalLabels),
                             items: {
-                                deleteMany: {}, // Clear old items (safer than trying to sync diffs)
-                                create: items   // Add new/updated items
+                                deleteMany: {}, // Items are still source-of-truth from WC
+                                create: items
                             }
                         }
                     })

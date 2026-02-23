@@ -25,6 +25,7 @@ interface OrderDetailPanelProps {
 
 export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddComment, currentUser, statuses, tags }: OrderDetailPanelProps) {
     const [formData, setFormData] = useState<Order | null>(null)
+    const [isModified, setIsModified] = useState(false)
     const [isActivityLogOpen, setIsActivityLogOpen] = useState(false)
     const [previewImage, setPreviewImage] = useState<string | null>(null)
     const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false)
@@ -35,9 +36,15 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
     useEffect(() => {
         if (order && isOpen) {
-            setFormData({ ...order })
+            // Update formData ONLY if:
+            // 1. It's a different order (ID change)
+            // 2. User hasn't made any local modifications yet (safe to sync)
+            if (!formData || formData.id !== order.id || !isModified) {
+                setFormData({ ...order })
+                setIsModified(false)
+            }
 
-            // Direct mapping from order object (no more network request here!)
+            // Always sync comments and activities as they are usually non-conflicting
             const formattedComments = (order.comments || []).map(c => ({
                 ...c,
                 timestamp: new Date(c.timestamp).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
@@ -45,8 +52,10 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
             setLazyComments(formattedComments)
             setLazyActivities(order.activities || [])
-        } else {
+        } else if (!isOpen) {
             // Reset for next time
+            setFormData(null)
+            setIsModified(false)
             setLazyComments(null)
             setLazyActivities(null)
         }
@@ -288,6 +297,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                             onChange={(e) => {
                                                                 const newItems = formData.items.map(i => i.id === item.id ? { ...i, url: e.target.value } : i)
                                                                 setFormData({ ...formData, items: newItems })
+                                                                setIsModified(true)
                                                             }}
                                                             placeholder="Dosya Linki"
                                                         />
@@ -441,7 +451,10 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     <select
                                         className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-950 text-black dark:text-white font-bold focus:ring-2 focus:ring-blue-500"
                                         value={formData.status}
-                                        onChange={(e) => setFormData({ ...formData, status: e.target.value as OrderStatus })}
+                                        onChange={(e) => {
+                                            setFormData({ ...formData, status: e.target.value as OrderStatus })
+                                            setIsModified(true)
+                                        }}
                                     >
                                         {statuses.map(status => (
                                             <option key={status.id} value={status.id} className="text-black dark:text-white font-bold">{status.title}</option>
@@ -467,6 +480,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                             ? formData.labels.filter(l => l !== tag.name)
                                                             : [...formData.labels, tag.name]
                                                         setFormData({ ...formData, labels: newLabels })
+                                                        setIsModified(true)
                                                     }}
                                                     className={`px-3 py-1 text-xs rounded-full border transition-colors ${isSelected
                                                         ? `${colors.bg} ${colors.text} ${colors.border} font-bold`
@@ -510,7 +524,10 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                             placeholder="Kargo Takip No Giriniz"
                                             className="w-full p-2 border border-slate-300 rounded-md text-black font-bold placeholder:text-slate-500"
                                             value={formData.trackingNumber || ""}
-                                            onChange={(e) => setFormData({ ...formData, trackingNumber: e.target.value })}
+                                            onChange={(e) => {
+                                                setFormData({ ...formData, trackingNumber: e.target.value })
+                                                setIsModified(true)
+                                            }}
                                         />
                                     </div>
                                 )}
