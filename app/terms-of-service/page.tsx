@@ -3,31 +3,26 @@ import Link from "next/link";
 export default function TermsOfService() {
     return (
         <div className="max-w-4xl mx-auto px-4 py-12">
-            <h1 className="text-3xl font-bold mb-8">Kullanım Koşulları (Terms of Service)</h1>
+            <h1 className="text-3xl font-bold mb-8">Terms of Service</h1>
             <div className="prose prose-slate max-w-none space-y-6">
+                <p className="text-lg">By using this platform, you agree to the following terms:</p>
+
                 <section>
-                    <h2 className="text-xl font-semibold">1. Hizmet Tanımı</h2>
-                    <p>Bu uygulama, siparişlerinizi yönetmeniz için Etsy API'sini kullanarak sipariş verilerinizi senkronize eden bir araçtır.</p>
+                    <ul className="list-disc pl-6 space-y-2">
+                        <li>This service provides order tracking and management tools.</li>
+                        <li>We do not guarantee uninterrupted or error-free service.</li>
+                        <li>Users are responsible for maintaining the security of their accounts.</li>
+                        <li>We reserve the right to suspend or terminate access if misuse is detected.</li>
+                    </ul>
                 </section>
 
                 <section>
-                    <h2 className="text-xl font-semibold">2. Sorumluluk Reddi</h2>
-                    <p>Hizmetimiz "olduğu gibi" sunulmaktadır. Servis kesintileri veya Etsy API değişikliklerinden kaynaklanan durumlardan sorumlu tutulamaz.</p>
-                </section>
-
-                <section>
-                    <h2 className="text-xl font-semibold">3. Hesap Güvenliği</h2>
-                    <p>Hesap bilgilerinizin ve Etsy bağlantınızın güvenliğinden siz sorumlusunuz.</p>
-                </section>
-
-                <section>
-                    <h2 className="text-xl font-semibold">4. Değişiklikler</h2>
-                    <p>Bu koşulları dilediğimiz zaman güncelleme hakkını saklı tutarız.</p>
+                    <p className="font-medium">The service is provided "as is" without warranties of any kind.</p>
                 </section>
             </div>
             <div className="mt-12 pt-8 border-t">
                 <Link href="/" className="text-slate-500 hover:text-slate-900 transition-colors">
-                    Ana Sayfaya Dön
+                    Back to Dashboard
                 </Link>
             </div>
         </div>
