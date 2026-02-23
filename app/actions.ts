@@ -303,10 +303,14 @@ export async function bulkUpdateOrderStatus(orderIds: number[], status: string) 
         const user = session?.user?.name || "Sistem";
         serverLog(`[BULK_MOVE] Identity: ${user}`);
 
-        // Individual updates with per-row timeout
-        const results = await Promise.all(orderIds.map(async (id) => {
+        let successCount = 0;
+        const results = [];
+
+        // Sequential updates are safer for DB stability and connection pool
+        for (const id of orderIds) {
             try {
-                const updatePromise = db.order.update({
+                // 1. Update Order
+                await db.order.update({
                     where: { id },
                     data: {
                         status,
@@ -316,29 +320,52 @@ export async function bulkUpdateOrderStatus(orderIds: number[], status: string) 
                     }
                 });
 
-                const updateTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error(`Timeout #${id}`)), 10000));
+                // 2. Log Activity
+                await db.orderActivity.create({
+                    data: {
+                        orderId: id,
+                        author: user,
+                        action: "STATUS_CHANGE",
+                        details: `Toplu durum değişikliği: ${status}`
+                    }
+                });
 
-                await Promise.race([updatePromise, updateTimeout]);
+                // 3. Etsy Push (If applicable)
+                if (status === 'shipped') {
+                    const order = await db.order.findUnique({ where: { id } });
+                    if (order && order.source === 'etsy' && order.externalId && order.trackingNumber) {
+                        try {
+                            const shop = await db.etsyShop.findFirst();
+                            if (shop) {
+                                const { fetchEtsy } = await import("@/lib/etsy");
+                                await fetchEtsy(`shops/${shop.shopId}/receipts/${order.externalId}/tracking`, shop.shopId, {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                        tracking_code: order.trackingNumber,
+                                        carrier_name: "Other",
+                                        send_bcc: false
+                                    })
+                                });
+                            }
+                        } catch (etsyErr) {
+                            serverLog(`[BULK_MOVE_ETSY] Push failed for #${id}`);
+                        }
+                    }
+                }
+
                 serverLog(`[BULK_MOVE] OK: #${id}`);
-                return { id, success: true };
+                results.push({ id, success: true });
+                successCount++;
             } catch (err: any) {
                 serverLog(`[BULK_MOVE] ERR: #${id} - ${err.message}`);
-                return { id, success: false, error: err.message };
+                results.push({ id, success: false, error: err.message });
             }
-        }));
+        }
 
-        const successCount = results.filter(r => r.success).length;
         serverLog(`[BULK_MOVE] END: ${successCount}/${orderIds.length} in ${Date.now() - startTime}ms`);
 
-        const activities = orderIds.map(id => ({
-            orderId: id,
-            author: user,
-            action: "STATUS_CHANGE",
-            details: `Toplu durum değişikliği: ${status}`
-        }));
-
-        db.orderActivity.createMany({ data: activities }).catch(() => { });
-
+        revalidatePath("/");
         return { success: true, count: successCount };
     } catch (e: any) {
         serverLog(`[BULK_MOVE] FATAL: ${e.message}`);
