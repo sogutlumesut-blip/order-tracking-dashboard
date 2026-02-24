@@ -6,11 +6,20 @@ import { updateOrderStatus } from "../actions"
 export default async function DiagPage() {
     let dbStatus = "Checking..."
     let sessionStatus = "Checking..."
-    let testActionResult = "Not run"
+    let dbHost = "Unknown"
+    let recentLogs: any[] = []
 
     try {
         const count = await db.order.count()
         dbStatus = `OK. Order count: ${count}`
+
+        // Try to get host from internal prisma state if possible or just env
+        dbHost = process.env.DATABASE_URL?.split('@')[1]?.split('/')[0] || "No DATABASE_URL in env"
+
+        recentLogs = await db.orderActivity.findMany({
+            orderBy: { timestamp: 'desc' },
+            take: 10
+        })
     } catch (e: any) {
         dbStatus = `FAILED: ${e.message}`
     }
@@ -23,29 +32,58 @@ export default async function DiagPage() {
     }
 
     return (
-        <div className="p-10 font-mono">
-            <h1 className="text-2xl font-bold mb-4">OMS Diagnostic v3.6.6.6</h1>
-            <div className="space-y-2">
+        <div className="p-10 font-mono text-xs sm:text-sm">
+            <h1 className="text-2xl font-bold mb-4">OMS Diagnostic v3.6.6.9</h1>
+            <div className="space-y-2 bg-slate-100 p-4 rounded mb-6">
                 <p><strong>Database:</strong> {dbStatus}</p>
+                <p><strong>DB Host:</strong> {dbHost}</p>
                 <p><strong>Session:</strong> {sessionStatus}</p>
                 <p><strong>Time (Server):</strong> {new Date().toISOString()}</p>
             </div>
-            <div className="mt-8 p-4 border rounded">
-                <h2 className="text-xl mb-2">Manual Actions</h2>
+
+            <div className="mb-8 p-4 border rounded bg-blue-50">
+                <h2 className="text-xl mb-2 font-bold">Manual Test Action</h2>
                 <form action={async () => {
                     'use server'
-                    // This is a server action triggered by a form
                     try {
-                        const result = await updateOrderStatus(236, 'pending')
-                        console.log("Diag result:", result)
-                    } catch (e) {
-                        console.error("Diag error:", e)
+                        console.log("DIAG_ACTION_START: #236 to draft")
+                        const res = await updateOrderStatus(236, 'draft')
+                        console.log("DIAG_ACTION_RESULT:", res)
+                    } catch (e: any) {
+                        console.error("DIAG_ACTION_ERROR:", e)
                     }
                 }}>
-                    <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded">
-                        Run updateOrderStatus(236, 'pending')
+                    <p className="mb-2">Clicking this will try to move Order #236 to 'draft' status.</p>
+                    <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700">
+                        Test updateOrderStatus(236, 'draft')
                     </button>
                 </form>
+            </div>
+
+            <div>
+                <h2 className="text-xl mb-2 font-bold">Recent Order Activity (Top 10)</h2>
+                <div className="overflow-x-auto">
+                    <table className="w-full border-collapse border border-slate-300">
+                        <thead>
+                            <tr className="bg-slate-200">
+                                <th className="border p-1">Time</th>
+                                <th className="border p-1">Order</th>
+                                <th className="border p-1">Action</th>
+                                <th className="border p-1">Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {recentLogs.map((log, i) => (
+                                <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                                    <td className="border p-1 whitespace-nowrap">{new Date(log.timestamp).toLocaleTimeString()}</td>
+                                    <td className="border p-1 text-center">{log.orderId}</td>
+                                    <td className="border p-1">{log.action}</td>
+                                    <td className="border p-1 truncate max-w-xs">{log.details}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     )
