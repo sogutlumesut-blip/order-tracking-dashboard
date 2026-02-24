@@ -1,0 +1,1 @@
+[2026-02-24T10:27:50.741Z] [UPDATE_STATUS] Error: `cookies` was called outside a request scope. Read more: https://nextjs.org/docs/messages/next-dynamic-api-wrong-context

@@ -258,7 +258,7 @@ export async function updateOrderStatus(rawOrderId: any, status: string) {
         })
         const user = session?.user?.name || "Sistem"
 
-        console.log(`[ACTION_START] #${orderId} -> ${status} by ${user} (v3.6.6.7)`);
+        console.log(`[ACTION_START] #${orderId} -> ${status} by ${user} (v3.6.6.9)`);
 
         // DB-BASED DEBUG LOG
         await db.orderActivity.create({
@@ -294,7 +294,7 @@ export async function updateOrderStatus(rawOrderId: any, status: string) {
         }
 
         console.log(`[DB_UPDATE] Success for #${orderId} (v3.6.6.8)`);
-        await logActivity(orderId, user, "STATUS_CHANGE", `Durum '${status}' olarak değiştirildi. (v3.6.6.7)`)
+        await logActivity(orderId, user, "STATUS_CHANGE", `Durum '${status}' olarak değiştirildi. (v3.6.6.9)`)
 
         // ETSY PUSH: If shipped, try to push tracking information back to Etsy
         if (status === 'shipped') {
@@ -328,7 +328,7 @@ export async function updateOrderStatus(rawOrderId: any, status: string) {
                 orderId,
                 author: user,
                 action: "DEBUG_END",
-                details: `updateOrderStatus finished successfully v3.6.6.7. Status: ${status}`
+                details: `updateOrderStatus finished successfully v3.6.6.9. Status: ${status}`
             }
         }).catch(e => console.error("DEBUG_END FAIL:", e))
 
@@ -340,7 +340,7 @@ export async function updateOrderStatus(rawOrderId: any, status: string) {
     } catch (e: any) {
         console.error("updateOrderStatus CRITICAL ERROR:", e)
         serverLog(`[UPDATE_STATUS] Error: ${e.message}`);
-        return { error: e.message || "Bilinmeyen bir hata oluştu (v3.6.6.7)" }
+        return { error: e.message || "Bilinmeyen bir hata oluştu (v3.6.6.9)" }
     }
 }
 
