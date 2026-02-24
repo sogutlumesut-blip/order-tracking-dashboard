@@ -229,14 +229,33 @@ export async function logActivity(orderId: number, author: string, action: strin
             action,
             details
         }
-    })
+    }).catch(e => console.error("logActivity FAIL:", e))
 }
 
+// ROBUST STATUS UPDATE ACTION
 export async function updateOrderStatus(rawOrderId: any, status: string) {
+    // RAW LOGGING BEFORE ANYTHING ELSE
+    console.log(`[RAW_DEBUG] updateOrderStatus called with rawOrderId: ${rawOrderId} (${typeof rawOrderId}), status: ${status}`);
+
     const orderId = Number(rawOrderId)
-    if (isNaN(orderId)) return { error: `Geçersiz sipariş ID: ${rawOrderId}` }
+
     try {
-        const session = await getSession()
+        // Log to DB immediately using a raw query or simple create to avoid any dependency issues
+        await db.orderActivity.create({
+            data: {
+                orderId: isNaN(orderId) ? 0 : orderId,
+                author: "Sistem",
+                action: "RAW_START",
+                details: `Raw call: ID=${rawOrderId} (${typeof rawOrderId}), Status=${status}`
+            }
+        }).catch(e => console.error("RAW LOG FAIL:", e))
+
+        if (isNaN(orderId)) return { error: `Geçersiz sipariş ID: ${rawOrderId}` }
+
+        const session = await getSession().catch(e => {
+            console.error("Session fetch failed:", e)
+            return null
+        })
         const user = session?.user?.name || "Sistem"
 
         // DB-BASED DEBUG LOG
@@ -245,9 +264,9 @@ export async function updateOrderStatus(rawOrderId: any, status: string) {
                 orderId,
                 author: user,
                 action: "DEBUG_START",
-                details: `updateOrderStatus started. Status: ${status}`
+                details: `updateOrderStatus started. Status: ${status}, User: ${user}`
             }
-        })
+        }).catch(e => console.error("DEBUG_START FAIL:", e))
 
         serverLog(`[UPDATE_STATUS] Order: ${orderId}, Status: ${status}, User: ${user}`);
 
