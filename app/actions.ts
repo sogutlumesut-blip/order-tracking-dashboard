@@ -258,6 +258,8 @@ export async function updateOrderStatus(rawOrderId: any, status: string) {
         })
         const user = session?.user?.name || "Sistem"
 
+        console.log(`[ACTION_START] #${orderId} -> ${status} by ${user} (v3.6.6.7)`);
+
         // DB-BASED DEBUG LOG
         await db.orderActivity.create({
             data: {
@@ -270,7 +272,9 @@ export async function updateOrderStatus(rawOrderId: any, status: string) {
 
         serverLog(`[UPDATE_STATUS] Order: ${orderId}, Status: ${status}, User: ${user}`);
 
-        const result = await db.order.update({
+        // DB UPDATE
+        console.log(`[DB_UPDATE] Attempting update for Order #${orderId} to status: ${status}`);
+        const updateResult = await db.order.update({
             where: { id: orderId },
             data: {
                 status,
@@ -280,9 +284,13 @@ export async function updateOrderStatus(rawOrderId: any, status: string) {
             }
         })
 
-        if (!result) return { error: "Veritabanı güncelleme başarısız (Sonuç dönmedi)" };
+        if (!updateResult) {
+            console.error(`[DB_UPDATE] Prisma update returned null for #${orderId}`);
+            throw new Error("Veritabanı güncelleme başarısız (Sonuç dönmedi)");
+        }
 
-        await logActivity(orderId, user, "STATUS_CHANGE", `Durum '${status}' olarak değiştirildi.`)
+        console.log(`[DB_UPDATE] Success for #${orderId}`);
+        await logActivity(orderId, user, "STATUS_CHANGE", `Durum '${status}' olarak değiştirildi. (v3.6.6.7)`)
 
         // ETSY PUSH: If shipped, try to push tracking information back to Etsy
         if (status === 'shipped') {
@@ -316,16 +324,19 @@ export async function updateOrderStatus(rawOrderId: any, status: string) {
                 orderId,
                 author: user,
                 action: "DEBUG_END",
-                details: `updateOrderStatus finished successfully.`
+                details: `updateOrderStatus finished successfully v3.6.6.7. Status: ${status}`
             }
-        })
+        }).catch(e => console.error("DEBUG_END FAIL:", e))
 
-        revalidatePath("/")
-        return { success: true, id: orderId }
+        try {
+            revalidatePath("/")
+        } catch (e) { }
+
+        return { success: true, id: orderId, status: status, v: "3.6.6.7" }
     } catch (e: any) {
-        console.error("updateOrderStatus ERROR:", e)
+        console.error("updateOrderStatus CRITICAL ERROR:", e)
         serverLog(`[UPDATE_STATUS] Error: ${e.message}`);
-        return { error: e.message || "Bilinmeyen bir hata oluştu" }
+        return { error: e.message || "Bilinmeyen bir hata oluştu (v3.6.6.7)" }
     }
 }
 

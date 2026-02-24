@@ -4,7 +4,7 @@ import { updateSession } from './lib/auth'
 
 export async function middleware(request: NextRequest) {
     // 1. Update session expiry
-    await updateSession(request)
+    const res = await updateSession(request) || NextResponse.next()
 
     // 2. Protect routes
     const currentUser = request.cookies.get('session')?.value
@@ -13,7 +13,7 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL('/login', request.url))
     }
 
-    return NextResponse.next()
+    return res
 }
 
 export const config = {
