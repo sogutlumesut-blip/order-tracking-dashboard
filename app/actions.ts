@@ -236,6 +236,17 @@ export async function updateOrderStatus(orderId: number, status: string) {
     try {
         const session = await getSession()
         const user = session?.user?.name || "Sistem"
+
+        // DB-BASED DEBUG LOG
+        await db.orderActivity.create({
+            data: {
+                orderId,
+                author: user,
+                action: "DEBUG_START",
+                details: `updateOrderStatus started. Status: ${status}`
+            }
+        })
+
         serverLog(`[UPDATE_STATUS] Order: ${orderId}, Status: ${status}, User: ${user}`);
 
         const result = await db.order.update({
@@ -277,6 +288,16 @@ export async function updateOrderStatus(orderId: number, status: string) {
                 }
             }
         }
+
+        // DB-BASED DEBUG LOG
+        await db.orderActivity.create({
+            data: {
+                orderId,
+                author: user,
+                action: "DEBUG_END",
+                details: `updateOrderStatus finished successfully.`
+            }
+        })
 
         revalidatePath("/")
     } catch (e) {
@@ -387,6 +408,17 @@ export async function logManualActivity(orderId: number, action: string, details
 export async function updateOrderDetails(order: any) {
     const session = await getSession()
     const user = session?.user?.name || "Sistem"
+
+    // DB-BASED DEBUG LOG
+    await db.orderActivity.create({
+        data: {
+            orderId: order.id,
+            author: user,
+            action: "DEBUG_START",
+            details: `updateOrderDetails started.`
+        }
+    })
+
     serverLog(`[UPDATE_DETAILS] Order: ${order.id}, User: ${user}`);
 
     try {
@@ -475,6 +507,16 @@ export async function updateOrderDetails(order: any) {
         })
 
         if (!result) throw new Error("Database update failed");
+
+        // DB-BASED DEBUG LOG
+        await db.orderActivity.create({
+            data: {
+                orderId: order.id,
+                author: user,
+                action: "DEBUG_END",
+                details: `updateOrderDetails finished successfully.`
+            }
+        })
 
         revalidatePath("/")
         return { success: true }
