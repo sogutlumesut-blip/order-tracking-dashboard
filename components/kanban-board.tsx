@@ -11,7 +11,8 @@ import { OrderDetailPanel } from "./order-detail-panel"
 import { toast } from "sonner"
 import { Toaster } from "sonner"
 // Removed duplicate import
-import { updateOrderStatusV2, updateOrderDetails, addCommentAction, getOrders, getOrderDetails, markOrderAsRead, syncWooCommerceOrders, syncEtsyOrders, syncCargoKargoEntegrator, createManualOrder, simulateWooCommerceOrder, logoutAction, bulkUpdateOrderStatus } from "../app/actions"
+import { updateOrderStatusV3 } from '../app/actionsV2'
+import { getStatuses, getOrders, getLabels, updateOrderDetails, addCommentAction, getOrderDetails, logoutAction, syncWooCommerceOrders, syncEtsyOrders, syncCargoKargoEntegrator, createManualOrder, simulateWooCommerceOrder, markOrderAsRead, bulkUpdateOrderStatus } from '../app/actions'
 import Link from "next/link"
 import { ManualOrderModal } from "./manual-order-modal"
 import { useRouter } from "next/navigation"
@@ -427,8 +428,8 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
         // Server Action
         try {
-            console.log(`[CLIENT_DEBUG] Calling updateOrderStatusV2 for #${activeId} from ${oldStatus} -> ${overId} (v3.6.6.9.2)`);
-            const res = await updateOrderStatusV2(activeId, overId)
+            console.log(`[CLIENT_DEBUG] Calling updateOrderStatusV3 for #${activeId} from ${oldStatus} -> ${overId} (v3.6.6.10)`);
+            const res = await updateOrderStatusV3(activeId, overId)
             console.log(`[CLIENT_DEBUG] Server Response:`, res);
 
             if (res && (res as any).error) throw new Error((res as any).error)
@@ -628,7 +629,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             }
 
             try {
-                await updateOrderStatus(targetOrder.id, nextStatus)
+                await updateOrderStatusV3(targetOrder.id, nextStatus)
                 toast.success(successMessage)
             } catch (e) {
                 toast.error("Durum güncellenemedi")
@@ -860,7 +861,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 </span>
                             ) : (
                                 <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">
-                                    <CheckCircle className="w-3 h-3" /> v3.6.6.9 - DO_FINAL_FIX_TESTING
+                                    <CheckCircle className="w-3 h-3" /> v3.6.6.10 - DO_FORCE_REBUILD_V3
                                 </span>
                             )}
                         </div>
