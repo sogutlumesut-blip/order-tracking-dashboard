@@ -44,3 +44,4 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 # Deployment Trigger Fri Feb  6 09:55:53 +03 2026
 # Deployment Trigger Mon Feb 23 10:45:00 +03 2026 - v3.6.5.9 Barcode Shipping Fix
 # Deployment Trigger Mon Feb 23 16:45:00 +03 2026 - v3.6.6.0 Status Reversion Fix
+# Deployment Trigger Tue Feb 24 10:30:00 +03 2026 - v3.6.6.1 Status Persistence & Polling Fix
