@@ -442,11 +442,6 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
     const interactionLocks = useRef<Record<string, number>>({})
 
-    // Lock mechanic REMOVED
-    const interactionLocks = useRef<Record<string, number>>({}) // Keeping definitions to avoid breaking other refs if referenced, but unused.
-    // Actually better to keep it for now but empty logic to avoid complex deletions of usage elsewhere if I missed one.
-    // But I will remove usage.
-
     const handlePrintCargoLabel = (order: Order) => {
         if (order.cargoLabelPdf) {
             const pdfData = order.cargoLabelPdf as string;
