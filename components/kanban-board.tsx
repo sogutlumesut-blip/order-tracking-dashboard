@@ -427,8 +427,8 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
         // Server Action
         try {
-            console.log(`[CLIENT_DEBUG] Calling updateOrderStatus for #${activeId} from ${oldStatus} -> ${overId} (v3.6.6.8)`);
-            const res = await updateOrderStatus(activeId, overId)
+            console.log(`[CLIENT_DEBUG] Calling updateOrderStatusV2 for #${activeId} from ${oldStatus} -> ${overId} (v3.6.6.9.2)`);
+            const res = await updateOrderStatusV2(activeId, overId)
             console.log(`[CLIENT_DEBUG] Server Response:`, res);
 
             if (res && (res as any).error) throw new Error((res as any).error)

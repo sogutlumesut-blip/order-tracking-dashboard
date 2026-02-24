@@ -1,7 +1,7 @@
 
 import { db } from "@/lib/prisma"
 import { getSession } from "@/lib/auth"
-import { updateOrderStatus } from "../actions"
+import { updateOrderStatusV2 } from "../actions"
 import fs from 'fs'
 import path from 'path'
 
@@ -64,8 +64,8 @@ export default async function DiagPage() {
                 <form action={async () => {
                     'use server'
                     try {
-                        console.log("DIAG_ACTION_START: #236 to draft")
-                        const res = await updateOrderStatus(236, 'draft')
+                        console.log("DIAG_ACTION_START: #236 to draft (V2)")
+                        const res = await updateOrderStatusV2(236, 'draft')
                         console.log("DIAG_ACTION_RESULT:", res)
                     } catch (e: any) {
                         console.error("DIAG_ACTION_ERROR:", e)
