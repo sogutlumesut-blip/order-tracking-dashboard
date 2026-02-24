@@ -11,7 +11,7 @@ import { OrderDetailPanel } from "./order-detail-panel"
 import { toast } from "sonner"
 import { Toaster } from "sonner"
 // Removed duplicate import
-import { updateOrderStatus, updateOrderDetails, addCommentAction, getOrders, getOrderDetails, markOrderAsRead, syncWooCommerceOrders, syncEtsyOrders, syncCargoKargoEntegrator, createManualOrder, simulateWooCommerceOrder, logoutAction, bulkUpdateOrderStatus } from "../app/actions"
+import { updateOrderStatusV2, updateOrderDetails, addCommentAction, getOrders, getOrderDetails, markOrderAsRead, syncWooCommerceOrders, syncEtsyOrders, syncCargoKargoEntegrator, createManualOrder, simulateWooCommerceOrder, logoutAction, bulkUpdateOrderStatus } from "../app/actions"
 import Link from "next/link"
 import { ManualOrderModal } from "./manual-order-modal"
 import { useRouter } from "next/navigation"
