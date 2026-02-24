@@ -283,9 +283,12 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         const localOrder = currentOrders.find(o => o.id === serverOrder.id)
 
                         // 1. Timestamp Check (Crucial for stability)
-                        // If local is strictly newer, keep local. This protects optimistic local updates
-                        // from being overwritten by stale background polls.
-                        if (localOrder && new Date(localOrder.updatedAt).getTime() > new Date(serverOrder.updatedAt).getTime()) {
+                        // If local is newer (with a 2s safety buffer), keep local. 
+                        // This protects optimistic local updates from being overwritten by stale background polls.
+                        const serverTime = new Date(serverOrder.updatedAt).getTime()
+                        const localTime = localOrder ? new Date(localOrder.updatedAt).getTime() : 0
+
+                        if (localOrder && (localTime > serverTime - 2000)) {
                             return localOrder
                         }
 

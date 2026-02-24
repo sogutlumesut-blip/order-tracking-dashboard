@@ -1196,10 +1196,21 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                     // OR if we are transitioning from a NULL/Undefined state (shouldn't happen here).
                     // If WC says 'pending'/'processing' (mapped to defaultStatus), we TRUST THE DASHBOARD's current state.
 
-                    const keepLocalStatus = (status === defaultStatus && existingOrder.status !== defaultStatus);
+                    // Normalize IDs for comparison
+                    const normStatus = status.trim();
+                    const normLocalStatus = existingOrder.status.trim();
+                    const normDefaultStatus = defaultStatus.trim();
+
+                    const keepLocalStatus = (normStatus === normDefaultStatus && normLocalStatus !== normDefaultStatus);
 
                     if (keepLocalStatus) {
                         finalStatus = existingOrder.status; // No-op update for status
+                    }
+
+                    // LOG STATUS CHANGE BY SYNC:
+                    const syncUser = "WC Senkronizasyon"
+                    if (existingOrder.status !== finalStatus && !keepLocalStatus) {
+                        await logActivity(existingOrder.id, syncUser, "STATUS_CHANGE", `Durum WooCommerce tarafından '${finalStatus}' olarak güncellendi.`);
                     }
 
                     // PRESERVE LABELS: Don't overwrite locally added labels
