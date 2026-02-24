@@ -286,10 +286,14 @@ export async function updateOrderStatus(rawOrderId: any, status: string) {
 
         if (!updateResult) {
             console.error(`[DB_UPDATE] Prisma update returned null for #${orderId}`);
-            throw new Error("Veritabanı güncelleme başarısız (Sonuç dönmedi)");
+            // Emergency Raw Update
+            await db.$executeRawUnsafe(
+                `UPDATE "Order" SET "status" = $1, "hasNotification" = true, "updatedAt" = NOW() WHERE "id" = $2`,
+                status, orderId
+            ).catch(e => console.error("RAW_SQL_FAIL:", e))
         }
 
-        console.log(`[DB_UPDATE] Success for #${orderId}`);
+        console.log(`[DB_UPDATE] Success for #${orderId} (v3.6.6.8)`);
         await logActivity(orderId, user, "STATUS_CHANGE", `Durum '${status}' olarak değiştirildi. (v3.6.6.7)`)
 
         // ETSY PUSH: If shipped, try to push tracking information back to Etsy

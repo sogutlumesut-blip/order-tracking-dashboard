@@ -1,4 +1,4 @@
-export type OrderStatus = 'pending' | 'processing' | 'printed' | 'shipped' | 'completed';
+export type OrderStatus = 'pending' | 'draft' | 'Awaiting Approval' | 'Approved' | 'In print' | 'Ready/Packaged' | 'shipped' | 'completed' | 'cancelled' | string;
 
 export interface Comment {
     id: string;
