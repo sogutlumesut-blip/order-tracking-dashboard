@@ -2,12 +2,15 @@
 import { db } from "@/lib/prisma"
 import { getSession } from "@/lib/auth"
 import { updateOrderStatus } from "../actions"
+import fs from 'fs'
+import path from 'path'
 
 export default async function DiagPage() {
     let dbStatus = "Checking..."
     let sessionStatus = "Checking..."
     let dbHost = "Unknown"
     let recentLogs: any[] = []
+    let actionsFingerprint = "Unknown"
 
     try {
         const count = await db.order.count()
@@ -20,6 +23,20 @@ export default async function DiagPage() {
             orderBy: { timestamp: 'desc' },
             take: 10
         })
+
+        // Read fingerprint of actions.ts
+        try {
+            const actionsPath = path.join(process.cwd(), 'app', 'actions.ts')
+            if (fs.existsSync(actionsPath)) {
+                const content = fs.readFileSync(actionsPath, 'utf8')
+                actionsFingerprint = `Size: ${content.length}, Start: ${content.substring(0, 50).replace(/\n/g, ' ')}`
+            } else {
+                actionsFingerprint = "File NOT FOUND at " + actionsPath
+            }
+        } catch (e: any) {
+            actionsFingerprint = "Error: " + e.message
+        }
+
     } catch (e: any) {
         dbStatus = `FAILED: ${e.message}`
     }
@@ -39,6 +56,7 @@ export default async function DiagPage() {
                 <p><strong>DB Host:</strong> {dbHost}</p>
                 <p><strong>Session:</strong> {sessionStatus}</p>
                 <p><strong>Time (Server):</strong> {new Date().toISOString()}</p>
+                <p><strong>Actions.ts Fingerprint:</strong> {actionsFingerprint}</p>
             </div>
 
             <div className="mb-8 p-4 border rounded bg-blue-50">
