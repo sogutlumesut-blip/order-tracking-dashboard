@@ -397,12 +397,50 @@ export async function updateOrderDetails(order: any) {
         })
 
         if (oldOrder) {
-            // ... (keeping identical logging logic for brevity in replacement, but it's preceded by try)
             // 1. Assignee Change
             if (oldOrder.assignedTo !== order.assignedTo) {
                 await logActivity(order.id, user, "ASSIGN_CHANGE", `Sorumluluk alındı: ${order.assignedTo}`)
             }
-            // ... rest of logging ...
+
+            // 2. Status Change
+            if (oldOrder.status !== order.status) {
+                await logActivity(order.id, user, "STATUS_CHANGE", `Durum '${order.status}' olarak değiştirildi.`)
+            }
+
+            // 3. Customer Details Change
+            const customerChanged =
+                oldOrder.customer !== order.customer ||
+                oldOrder.phone !== order.phone ||
+                oldOrder.address !== order.address ||
+                oldOrder.city !== order.city;
+
+            if (customerChanged) {
+                await logActivity(order.id, user, "DETAILS_UPDATE", "Müşteri ve teslimat bilgileri güncellendi.")
+            }
+
+            // 4. Tracking Number
+            if (oldOrder.trackingNumber !== order.trackingNumber && order.trackingNumber) {
+                await logActivity(order.id, user, "TRACKING_UPDATE", `Kargo takip no girildi: ${order.trackingNumber}`)
+            }
+
+            // 5. Note Added
+            if (oldOrder.printNotes !== order.printNotes) {
+                await logActivity(order.id, user, "NOTE_ADDED", "Yeni işlem notu ekledi.")
+            }
+
+            // 6. Labels Change
+            if (oldOrder.labels !== order.labels) {
+                await logActivity(order.id, user, "LABEL_UPDATE", "Etiketler güncellendi.")
+            }
+
+            // 7. Item Updates
+            if (order.items && Array.isArray(order.items)) {
+                const itemsChanged = JSON.stringify(oldOrder.items.map(i => ({ sku: i.sku, material: i.material, dimensions: i.dimensions }))) !==
+                    JSON.stringify(order.items.map((i: any) => ({ sku: i.sku, material: i.material, dimensions: i.dimensions })));
+                if (itemsChanged) {
+                    await logActivity(order.id, user, "ITEM_UPDATE", "Ürün detayları (SKU/Doku/Ölçü) güncellendi.")
+                }
+            }
         }
 
         const result = await db.order.update({
