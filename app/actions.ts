@@ -232,7 +232,9 @@ export async function logActivity(orderId: number, author: string, action: strin
     })
 }
 
-export async function updateOrderStatus(orderId: number, status: string) {
+export async function updateOrderStatus(rawOrderId: any, status: string) {
+    const orderId = Number(rawOrderId)
+    if (isNaN(orderId)) return { error: `Geçersiz sipariş ID: ${rawOrderId}` }
     try {
         const session = await getSession()
         const user = session?.user?.name || "Sistem"
@@ -259,7 +261,7 @@ export async function updateOrderStatus(orderId: number, status: string) {
             }
         })
 
-        if (!result) throw new Error("Database update failed (No record updated)");
+        if (!result) return { error: "Veritabanı güncelleme başarısız (Sonuç dönmedi)" };
 
         await logActivity(orderId, user, "STATUS_CHANGE", `Durum '${status}' olarak değiştirildi.`)
 
@@ -300,9 +302,11 @@ export async function updateOrderStatus(orderId: number, status: string) {
         })
 
         revalidatePath("/")
-    } catch (e) {
+        return { success: true, id: orderId }
+    } catch (e: any) {
         console.error("updateOrderStatus ERROR:", e)
-        throw e // Re-throw to trigger client-side catch
+        serverLog(`[UPDATE_STATUS] Error: ${e.message}`);
+        return { error: e.message || "Bilinmeyen bir hata oluştu" }
     }
 }
 
@@ -405,7 +409,11 @@ export async function logManualActivity(orderId: number, action: string, details
     revalidatePath("/")
 }
 
-export async function updateOrderDetails(order: any) {
+export async function updateOrderDetails(rawOrder: any) {
+    const orderId = Number(rawOrder.id)
+    if (isNaN(orderId)) return { error: `Geçersiz sipariş ID: ${rawOrder.id}` }
+    const order = { ...rawOrder, id: orderId }
+
     const session = await getSession()
     const user = session?.user?.name || "Sistem"
 
@@ -521,8 +529,9 @@ export async function updateOrderDetails(order: any) {
         revalidatePath("/")
         return { success: true }
     } catch (e: any) {
+        console.error("updateOrderDetails ERROR:", e)
         serverLog(`[UPDATE_DETAILS] Error: ${e.message}`);
-        throw e;
+        return { error: e.message || "Güncelleme hatası oluştu" }
     }
 }
 
