@@ -21,6 +21,7 @@ import { CSS } from "@dnd-kit/utilities"
 import { Trash2, GripVertical } from "lucide-react"
 import { updateStatusOrder, deleteStatus } from "@/app/actions"
 import { toast } from "sonner"
+import { useRouter } from "next/navigation"
 
 interface Status {
     id: string
@@ -35,6 +36,8 @@ interface StatusListProps {
 
 export function StatusList({ initialStatuses }: StatusListProps) {
     const [items, setItems] = useState(initialStatuses)
+    const router = useRouter()
+
     const sensors = useSensors(
         useSensor(PointerSensor),
         useSensor(KeyboardSensor, {
@@ -46,24 +49,27 @@ export function StatusList({ initialStatuses }: StatusListProps) {
         const { active, over } = event
 
         if (over && active.id !== over.id) {
-            setItems((items) => {
-                const oldIndex = items.findIndex((item) => item.id === active.id)
-                const newIndex = items.findIndex((item) => item.id === over.id)
-                const newItems = arrayMove(items, oldIndex, newIndex)
+            const oldIndex = items.findIndex((item) => item.id === active.id)
+            const newIndex = items.findIndex((item) => item.id === over.id)
+            const newItems = arrayMove(items, oldIndex, newIndex)
 
-                // Update order property
-                const reordered = newItems.map((item, index) => ({
-                    ...item,
-                    order: index
-                }))
+            // Update order property
+            const reordered = newItems.map((item, index) => ({
+                ...item,
+                order: index
+            }))
 
-                // Call Server Action
-                updateStatusOrder(reordered.map(i => ({ id: i.id, order: i.order })))
-                    .then(() => toast.success("Sıralama güncellendi"))
-                    .catch(() => toast.error("Sıralama hatası"))
+            setItems(reordered)
 
-                return reordered
-            })
+            // Call Server Action
+            try {
+                await updateStatusOrder(reordered.map(i => ({ id: i.id, order: i.order })))
+                toast.success("Sıralama güncellendi")
+                router.refresh()
+            } catch (error) {
+                toast.error("Sıralama hatası")
+                setItems(initialStatuses) // Revert on failure
+            }
         }
     }
 

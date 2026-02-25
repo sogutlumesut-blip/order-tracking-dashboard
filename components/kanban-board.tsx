@@ -5,14 +5,16 @@ import { OrderCard } from "./order-card"
 import { useState, useEffect, useRef, useMemo } from "react"
 import { ChevronDown, ChevronUp, ChevronRight, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck, Lock, Unlock, ScanBarcode, Clock, CheckCircle } from "lucide-react"
 import { Html5QrcodeScanner } from "html5-qrcode"
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDraggable, useDroppable, closestCorners } from "@dnd-kit/core"
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDraggable, useDroppable, closestCorners, defaultDropAnimationSideEffects } from "@dnd-kit/core"
+import { arrayMove, SortableContext, horizontalListSortingStrategy, useSortable } from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 import { BarcodeScanner } from "./barcode-scanner"
 import { OrderDetailPanel } from "./order-detail-panel"
 import { toast } from "sonner"
 import { Toaster } from "sonner"
 // Removed duplicate import
 import { updateOrderStatusV3 } from '../app/actionsV2'
-import { getStatuses, getOrders, getLabels, updateOrderDetails, addCommentAction, getOrderDetails, logoutAction, syncWooCommerceOrders, syncEtsyOrders, syncCargoKargoEntegrator, createManualOrder, simulateWooCommerceOrder, markOrderAsRead, bulkUpdateOrderStatus } from '../app/actions'
+import { getStatuses, getOrders, getLabels, updateOrderDetails, addCommentAction, getOrderDetails, logoutAction, syncWooCommerceOrders, syncEtsyOrders, syncCargoKargoEntegrator, createManualOrder, simulateWooCommerceOrder, markOrderAsRead, bulkUpdateOrderStatus, updateStatusOrder } from '../app/actions'
 import Link from "next/link"
 import { ManualOrderModal } from "./manual-order-modal"
 import { useRouter } from "next/navigation"
@@ -28,6 +30,7 @@ interface KanbanBoardProps {
 
 export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBoardProps) {
     const [orders, setOrders] = useState<Order[]>(initialOrders)
+    const [orderedCols, setOrderedCols] = useState(cols)
     const [collapsedIds, setCollapsedIds] = useState<string[]>([])
     const [searchTerm, setSearchTerm] = useState("")
 
@@ -42,7 +45,11 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         }
     }, [])
 
-    const [activeId, setActiveId] = useState<number | null>(null)
+    useEffect(() => {
+        setOrderedCols(cols)
+    }, [cols])
+
+    const [activeId, setActiveId] = useState<number | string | null>(null)
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
     const [isPanelOpen, setIsPanelOpen] = useState(false)
     const [isManualOrderOpen, setIsManualOrderOpen] = useState(false)
@@ -386,7 +393,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     }
 
     const handleDragStart = (event: DragStartEvent) => {
-        setActiveId(event.active.id as number)
+        setActiveId(event.active.id as number | string)
     }
 
     const handleDragEnd = async (event: DragEndEvent) => {
@@ -397,6 +404,30 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             return
         }
 
+        // --- COLUMN REORDERING LOGIC ---
+        if (typeof active.id === 'string' && typeof over.id === 'string') {
+            if (active.id !== over.id) {
+                const oldIndex = orderedCols.findIndex((col) => col.id === active.id)
+                const newIndex = orderedCols.findIndex((col) => col.id === over.id)
+                const newCols = arrayMove(orderedCols, oldIndex, newIndex)
+
+                const reordered = newCols.map((col, index) => ({ ...col, order: index }))
+                setOrderedCols(reordered)
+
+                try {
+                    await updateStatusOrder(reordered.map(c => ({ id: c.id, order: c.order || 0 })))
+                    toast.success("Sütun sırası güncellendi")
+                    router.refresh()
+                } catch (e) {
+                    toast.error("Sütun sırası kaydedilemedi")
+                    setOrderedCols(orderedCols)
+                }
+            }
+            setActiveId(null)
+            return
+        }
+
+        // --- ORDER MOVEMENT LOGIC ---
         const activeId = active.id as number
         let overId = over.id as string // status id or order id
 
@@ -560,7 +591,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 // Heuristic: Long codes are likely cargo
                 isCargoScan = true
             } else if (isReadyOrPacked) {
-                // USER REQUEST (v3.6.6.9 - DO_FINAL_FIX_TESTING): If already ready/packed, any scan of ID/WC- code moves it to Shipping
+                // USER REQUEST (v3.6.6.10 - COLUMN_REORDER_FIX): If already ready/packed, any scan of ID/WC- code moves it to Shipping
                 isCargoScan = true
             }
 
@@ -852,7 +883,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shrink-0">
                             OMS
                         </div>
-                        <h1 className="font-bold text-sm md:text-lg text-slate-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-slate-400 font-normal">v3.6.6.9 - DO_FINAL_FIX_TESTING (Sütunlar: {cols.length})</span></h1>
+                        <h1 className="font-bold text-sm md:text-lg text-slate-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-slate-400 font-normal">v3.6.6.10 - COLUMN_REORDER_FIX (Sütunlar: {orderedCols.length})</span></h1>
                         {/* Status Check Indicator */}
                         <div className="flex items-center gap-2">
                             {isValidating ? (
@@ -873,7 +904,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-100 dark:border-slate-700">
                             <Clock className="w-3 h-3" />
                             <span>Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}</span>
-                            <span className="ml-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">v3.6.6.9 - DO_FINAL_FIX_TESTING</span>
+                            <span className="ml-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">v3.6.6.10 - COLUMN_REORDER_FIX</span>
                         </div>
 
                         {/* Sound Toggle */}
@@ -1145,7 +1176,6 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     </div>
                 )}
                 {/* Search Toolbar */}
-                {/* Search Toolbar */}
                 <div className="px-6 py-4 bg-white dark:bg-slate-900 border-b dark:border-slate-800 flex items-center justify-between shrink-0 gap-4 transition-colors">
                     <div className="relative w-full max-w-md">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -1199,177 +1229,64 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         onAddComment={handleAddComment}
                         currentUser={currentUser}
                         tags={tags}
-                        statuses={cols}
+                        statuses={orderedCols}
                     />
 
-                    {cols.map((column) => {
-                        const columnOrders = getOrdersByStatus(column.id, column.title)
-                        const isCollapsed = collapsedIds.includes(column.id)
+                    <SortableContext items={orderedCols.map(c => c.id)} strategy={horizontalListSortingStrategy}>
+                        {orderedCols.map((column) => (
+                            <SortableColumn
+                                key={column.id}
+                                column={column}
+                                columnOrders={getOrdersByStatus(column.id, column.title)}
+                                isCollapsed={collapsedIds.includes(column.id)}
+                                toggleCollapse={() => {
+                                    setCollapsedIds(prev => {
+                                        const newSet = prev.includes(column.id)
+                                            ? prev.filter(id => id !== column.id)
+                                            : [...prev, column.id]
+                                        localStorage.setItem("collapsedColumns", JSON.stringify(newSet))
+                                        return newSet
+                                    })
+                                }}
+                                columnFilters={columnFilters}
+                                openFilterId={openFilterId}
+                                toggleFilter={toggleFilter}
+                                setColumnFilters={setColumnFilters}
+                                setOpenFilterId={setOpenFilterId}
+                                uniqueTextures={uniqueTextures}
+                                searchTerm={searchTerm}
+                                isDragDisabled={isDragDisabled}
+                                orders={orders}
+                                tags={tags}
+                                selectedOrders={selectedOrders}
+                                toggleOrderSelection={toggleOrderSelection}
+                                setSelectedOrder={setSelectedOrder}
+                                setIsPanelOpen={setIsPanelOpen}
+                            />
+                        ))}
+                    </SortableContext>
+                </div>
 
-                        const toggleCollapse = () => {
-                            setCollapsedIds(prev => {
-                                const newSet = prev.includes(column.id)
-                                    ? prev.filter(id => id !== column.id)
-                                    : [...prev, column.id]
-                                localStorage.setItem("collapsedColumns", JSON.stringify(newSet))
-                                return newSet
-                            })
-                        }
-
-                        // Helper to get dark mode color
-                        const getDarkColor = (lightColor: string) => {
-                            if (lightColor?.includes('slate')) return 'dark:bg-slate-900/50 dark:border-slate-700'
-                            if (lightColor?.includes('blue')) return 'dark:bg-blue-900/40 dark:border-blue-800'
-                            if (lightColor?.includes('emerald') || lightColor?.includes('green')) return 'dark:bg-emerald-900/40 dark:border-emerald-800'
-                            if (lightColor?.includes('amber') || lightColor?.includes('yellow')) return 'dark:bg-amber-900/40 dark:border-amber-800' // Dark Yellow/Amber
-                            if (lightColor?.includes('purple')) return 'dark:bg-purple-900/40 dark:border-purple-800'
-                            if (lightColor?.includes('red')) return 'dark:bg-red-900/40 dark:border-red-800'
-                            return 'dark:bg-slate-900/50 dark:border-slate-800'
-                        }
-
-                        const darkColorClass = getDarkColor(column.color)
-
-                        if (isCollapsed) {
+                <DragOverlay>
+                    {activeId ? (() => {
+                        if (typeof activeId === 'string') {
+                            const column = orderedCols.find(c => c.id === activeId)
+                            if (!column) return null
                             return (
-                                <div key={column.id} className="h-full pt-6">
-                                    <div
-                                        onClick={() => toggleCollapse()}
-                                        className={`w-12 h-full rounded-full ${column.color || 'bg-slate-100'} ${darkColorClass} border border-slate-200 flex flex-col items-center py-4 gap-4 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors shadow-sm`}
-                                    >
-                                        <div className="writing-vertical-lr transform rotate-180 text-sm font-bold text-slate-600 dark:text-slate-400 whitespace-nowrap tracking-wider">
-                                            {column.title}
+                                <div className="opacity-80 scale-105 transition-transform rotate-2 origin-top-left">
+                                    <div className={`w-80 h-[80vh] flex flex-col rounded-xl bg-slate-50 border-2 border-blue-500 shadow-2xl overflow-hidden`}>
+                                        <div className={`px-3 py-3 border-b ${column.color || 'bg-slate-100'}`}>
+                                            <h2 className="font-bold text-slate-800 text-sm">{column.title}</h2>
                                         </div>
-                                        <div className="flex flex-col h-full">
-                                            <div className="flex flex-col items-center gap-1 mt-auto pb-4">
-                                                <span className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shadow-sm">
-                                                    {columnOrders.length}
-                                                </span>
-                                                <div className="p-1.5 rounded-full bg-white/40 dark:bg-black/20 hover:bg-white/80 transition-colors backdrop-blur-sm">
-                                                    <ChevronDown className="w-4 h-4 text-slate-700 dark:text-slate-300" />
-                                                </div>
-                                            </div>
+                                        <div className="flex-1 bg-slate-50/50 p-4 flex flex-col gap-4">
+                                            <div className="h-20 bg-slate-200 rounded-lg animate-pulse" />
+                                            <div className="h-32 bg-slate-200 rounded-lg animate-pulse" />
                                         </div>
                                     </div>
                                 </div>
                             )
                         }
 
-                        return (
-                            <div key={column.id} className={`flex-shrink-0 w-80 max-w-[90vw] flex flex-col h-full rounded-xl bg-slate-50 border border-slate-200 transition-all snap-center shadow-sm ${darkColorClass}`}>
-                                <div className={`px-3 py-3 border-b rounded-t-xl relative z-30 flex flex-col gap-2 transition-colors shadow-sm ${column.color || 'bg-slate-100'} ${darkColorClass} bg-opacity-90 dark:bg-opacity-100`}>
-                                    <div className="flex justify-between items-center w-full relative">
-                                        <div className="flex items-center gap-2">
-                                            <h2 className="font-bold text-slate-800 dark:text-slate-100 text-sm">{column.title}</h2>
-                                            <span className="bg-white/80 dark:bg-black/30 text-slate-900 dark:text-slate-100 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-black/5 dark:border-white/10 shadow-sm">
-                                                {columnOrders.length}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            {/* Filter Toggle */}
-                                            <div className="relative">
-                                                <button
-                                                    className={`p-1.5 rounded-md transition-all filter-menu-trigger ${columnFilters && columnFilters[column.id] ? 'bg-blue-100 text-blue-600 ring-1 ring-blue-500' : 'hover:bg-black/5 text-slate-500'}`}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        if (typeof toggleFilter === 'function') toggleFilter(column.id);
-                                                    }}
-                                                >
-                                                    <Filter className="w-3.5 h-3.5" strokeWidth={2.5} />
-                                                </button>
-
-                                                {/* Custom Dropdown Menu */}
-                                                {openFilterId === column.id && (
-                                                    <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-xl border border-slate-200 z-50 filter-menu overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                                                        <div className="p-1 max-h-64 overflow-y-auto">
-                                                            <button
-                                                                onClick={() => {
-                                                                    setColumnFilters(prev => { const n = { ...prev }; delete n[column.id]; return n; });
-                                                                    setOpenFilterId(null);
-                                                                }}
-                                                                className={`w-full text-left px-3 py-2 text-xs font-medium rounded-md transition-colors ${!columnFilters[column.id] ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50'}`}
-                                                            >
-                                                                Tümü
-                                                            </button>
-                                                            {uniqueTextures.map(texture => (
-                                                                <button
-                                                                    key={texture}
-                                                                    onClick={() => {
-                                                                        setColumnFilters(prev => ({ ...prev, [column.id]: texture }));
-                                                                        setOpenFilterId(null);
-                                                                    }}
-                                                                    className={`w-full text-left px-3 py-2 text-xs font-medium rounded-md transition-colors ${columnFilters[column.id] === texture ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50'}`}
-                                                                >
-                                                                    {texture}
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            <button
-                                                onClick={() => toggleCollapse()}
-                                                className="p-1.5 hover:bg-black/5 rounded-md transition-colors text-slate-600"
-                                            >
-                                                <ChevronUp className="w-3.5 h-3.5" strokeWidth={2.5} />
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* Active Filter Badge */}
-                                    {columnFilters[column.id] && (
-                                        <div className="flex items-center justify-between bg-blue-50 border border-blue-100 px-2 py-1 rounded text-xs text-blue-700 animate-in slide-in-from-top-1">
-                                            <span className="font-medium truncate">{columnFilters[column.id]}</span>
-                                            <button
-                                                onClick={() => setColumnFilters(prev => { const n = { ...prev }; delete n[column.id]; return n; })}
-                                                className="ml-1 p-0.5 hover:bg-blue-100 rounded-full"
-                                            >
-                                                <X className="w-3 h-3" />
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* SCROLLABLE DROPPABLE AREA */}
-                                <div className="flex-1 min-h-0 overflow-hidden relative">
-                                    <DroppableId id={column.id} className="h-full overflow-y-auto p-3 space-y-3 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-slate-700 hover:scrollbar-thumb-gray-300 dark:hover:scrollbar-thumb-slate-600">
-                                        {columnOrders.map(order => (
-                                            <DraggableItem key={order.id} id={order.id} disabled={isDragDisabled}>
-                                                <OrderCard
-                                                    order={order}
-                                                    onClick={() => {
-                                                        setSelectedOrder(order);
-                                                        setIsPanelOpen(true);
-                                                        if (order.hasNotification) {
-                                                            markOrderAsRead(order.id)
-                                                            setOrders(prev => prev.map(o => o.id === order.id ? {
-                                                                ...o,
-                                                                hasNotification: false,
-                                                                updatedAt: new Date().toISOString()
-                                                            } : o))
-                                                        }
-                                                    }}
-                                                    tags={tags}
-                                                    selected={selectedOrders.includes(order.id)}
-                                                    onSelect={() => toggleOrderSelection(order.id)}
-                                                    selectionMode={selectedOrders.length > 0}
-                                                />
-                                            </DraggableItem>
-                                        ))}
-                                        {columnOrders.length === 0 && (
-                                            <div className="h-24 flex items-center justify-center text-sm text-slate-400 border-2 border-dashed border-slate-200 rounded-lg pointer-events-none">
-                                                {searchTerm ? "Sonuç yok" : "Sipariş Yok"}
-                                            </div>
-                                        )}
-                                    </DroppableId>
-                                </div>
-                            </div>
-                        )
-                    })}
-
-                </div >
-                <DragOverlay>
-                    {activeId ? (() => {
                         const activeOrder = orders.find(o => o.id === activeId)
                         if (!activeOrder) return null
                         return (
@@ -1385,46 +1302,46 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         )
                     })() : null}
                 </DragOverlay>
+
+                {/* BULK ACTION BAR */}
+                {selectedOrders.length > 0 && (
+                    <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-slate-900 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-6 animate-in slide-in-from-bottom-4 border border-slate-700">
+                        <div className="flex items-center gap-3 border-r border-slate-700 pr-6">
+                            <span className="font-bold text-lg">{selectedOrders.length}</span>
+                            <button
+                                onClick={() => setSelectedOrders([])}
+                                className="ml-2 text-xs hover:text-white text-slate-500 hover:underline"
+                            >
+                                İptal
+                            </button>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                            <div className="flex flex-col items-end mr-2">
+                                <span className="text-xs text-slate-500 font-medium">
+                                    Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}
+                                </span>
+                                <span className="text-[10px] text-slate-400">...</span>
+                                <span className="text-[10px] text-emerald-600 font-bold">v3.6.6.10 - COLUMN_REORDER_FIX</span>
+                            </div>
+
+                            <div className="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm p-1">
+                                {orderedCols.map(col => (
+                                    <button
+                                        key={col.id}
+                                        disabled={isBulkProcessing}
+                                        onClick={() => handleBulkMove(col.id)}
+                                        className={`px-3 py-2 rounded-md text-xs font-bold transition-transform active:scale-95 border shadow-sm whitespace-nowrap ${col.color || 'bg-slate-100 border-slate-200'} text-slate-900 border-black/5 hover:brightness-95`}
+                                    >
+                                        {col.title}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
-
-            {/* BULK ACTION BAR */}
-            {selectedOrders.length > 0 && (
-                <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-slate-900 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-6 animate-in slide-in-from-bottom-4 border border-slate-700">
-                    <div className="flex items-center gap-3 border-r border-slate-700 pr-6">
-                        <span className="font-bold text-lg">{selectedOrders.length}</span>
-                        <button
-                            onClick={() => setSelectedOrders([])}
-                            className="ml-2 text-xs hover:text-white text-slate-500 hover:underline"
-                        >
-                            İptal
-                        </button>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                        <div className="flex flex-col items-end mr-2">
-                            <span className="text-xs text-slate-500 font-medium">
-                                Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}
-                            </span>
-                            <span className="text-[10px] text-slate-400">...</span>
-                            <span className="text-[10px] text-emerald-600 font-bold">v3.6.6.9 - DO_FINAL_FIX_TESTING</span>
-                        </div>
-
-                        <div className="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm p-1">
-                            {cols.map(col => (
-                                <button
-                                    key={col.id}
-                                    disabled={isBulkProcessing}
-                                    onClick={() => handleBulkMove(col.id)}
-                                    className={`px-3 py-2 rounded-md text-xs font-bold transition-transform active:scale-95 border shadow-sm whitespace-nowrap ${col.color || 'bg-slate-100 border-slate-200'} text-slate-900 border-black/5 hover:brightness-95`}
-                                >
-                                    {col.title}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
-        </DndContext >
+        </DndContext>
     )
 }
 
@@ -1448,6 +1365,200 @@ function DroppableId({ id, children, className }: { id: string; children: React.
     return (
         <div ref={setNodeRef} className={className || "h-full"}>
             {children}
+        </div>
+    )
+}
+
+function SortableColumn({
+    column,
+    columnOrders,
+    isCollapsed,
+    toggleCollapse,
+    columnFilters,
+    openFilterId,
+    toggleFilter,
+    setColumnFilters,
+    setOpenFilterId,
+    uniqueTextures,
+    searchTerm,
+    isDragDisabled,
+    orders,
+    tags,
+    selectedOrders,
+    toggleOrderSelection,
+    setSelectedOrder,
+    setIsPanelOpen
+}: any) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging
+    } = useSortable({ id: column.id })
+
+    const style = {
+        transform: CSS.Translate.toString(transform),
+        transition,
+        opacity: isDragging ? 0 : 1,
+    }
+
+    // Helper to get dark mode color
+    const getDarkColor = (lightColor: string) => {
+        if (lightColor?.includes('slate')) return 'dark:bg-slate-900/50 dark:border-slate-700'
+        if (lightColor?.includes('blue')) return 'dark:bg-blue-900/40 dark:border-blue-800'
+        if (lightColor?.includes('emerald') || lightColor?.includes('green')) return 'dark:bg-emerald-900/40 dark:border-emerald-800'
+        if (lightColor?.includes('amber') || lightColor?.includes('yellow')) return 'dark:bg-amber-900/40 dark:border-amber-800'
+        if (lightColor?.includes('purple')) return 'dark:bg-purple-900/40 dark:border-purple-800'
+        if (lightColor?.includes('red')) return 'dark:bg-red-900/40 dark:border-red-800'
+        return 'dark:bg-slate-900/50 dark:border-slate-800'
+    }
+
+    const darkColorClass = getDarkColor(column.color)
+
+    if (isCollapsed) {
+        return (
+            <div
+                ref={setNodeRef}
+                style={style}
+                key={column.id}
+                className="h-full pt-6"
+            >
+                <div
+                    onClick={() => toggleCollapse()}
+                    {...attributes}
+                    {...listeners}
+                    className={`w-12 h-full rounded-full ${column.color || 'bg-slate-100'} ${darkColorClass} border border-slate-200 flex flex-col items-center py-4 gap-4 cursor-grab hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors shadow-sm`}
+                >
+                    <div className="writing-vertical-lr transform rotate-180 text-sm font-bold text-slate-600 dark:text-slate-400 whitespace-nowrap tracking-wider">
+                        {column.title}
+                    </div>
+                    <div className="flex flex-col h-full">
+                        <div className="flex flex-col items-center gap-1 mt-auto pb-4">
+                            <span className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full shadow-sm">
+                                {columnOrders.length}
+                            </span>
+                            <div className="p-1.5 rounded-full bg-white/40 dark:bg-black/20 hover:bg-white/80 transition-colors backdrop-blur-sm">
+                                <ChevronDown className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            key={column.id}
+            className={`flex-shrink-0 w-80 max-w-[90vw] flex flex-col h-full rounded-xl bg-slate-50 border border-slate-200 transition-all snap-center shadow-sm ${darkColorClass}`}
+        >
+            <div
+                {...attributes}
+                {...listeners}
+                className={`px-3 py-3 border-b rounded-t-xl relative z-30 flex flex-col gap-2 transition-colors cursor-grab active:cursor-grabbing shadow-sm ${column.color || 'bg-slate-100'} ${darkColorClass} bg-opacity-90 dark:bg-opacity-100`}
+            >
+                <div className="flex justify-between items-center w-full relative">
+                    <div className="flex items-center gap-2">
+                        <h2 className="font-bold text-slate-800 dark:text-slate-100 text-sm">{column.title}</h2>
+                        <span className="bg-white/80 dark:bg-black/30 text-slate-900 dark:text-slate-100 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-black/5 dark:border-white/10 shadow-sm">
+                            {columnOrders.length}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <div className="relative">
+                            <button
+                                className={`p-1.5 rounded-md transition-all filter-menu-trigger ${columnFilters && columnFilters[column.id] ? 'bg-blue-100 text-blue-600 ring-1 ring-blue-500' : 'hover:bg-black/5 text-slate-500'}`}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (typeof toggleFilter === 'function') toggleFilter(column.id);
+                                }}
+                            >
+                                <Filter className="w-3.5 h-3.5" strokeWidth={2.5} />
+                            </button>
+
+                            {openFilterId === column.id && (
+                                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-xl border border-slate-200 z-50 filter-menu overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                                    <div className="p-1 max-h-64 overflow-y-auto">
+                                        <button
+                                            onClick={() => {
+                                                setColumnFilters((prev: any) => { const n = { ...prev }; delete n[column.id]; return n; });
+                                                setOpenFilterId(null);
+                                            }}
+                                            className={`w-full text-left px-3 py-2 text-xs font-medium rounded-md transition-colors ${!columnFilters[column.id] ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50'}`}
+                                        >
+                                            Tümü
+                                        </button>
+                                        {uniqueTextures.map((texture: string) => (
+                                            <button
+                                                key={texture}
+                                                onClick={() => {
+                                                    setColumnFilters((prev: any) => ({ ...prev, [column.id]: texture }));
+                                                    setOpenFilterId(null);
+                                                }}
+                                                className={`w-full text-left px-3 py-2 text-xs font-medium rounded-md transition-colors ${columnFilters[column.id] === texture ? 'bg-blue-50 text-blue-700' : 'text-slate-700 hover:bg-slate-50'}`}
+                                            >
+                                                {texture}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <button
+                            onClick={(e) => { e.stopPropagation(); toggleCollapse(); }}
+                            className="p-1.5 hover:bg-black/5 rounded-md transition-colors text-slate-600"
+                        >
+                            <ChevronUp className="w-3.5 h-3.5" strokeWidth={2.5} />
+                        </button>
+                    </div>
+                </div>
+
+                {columnFilters[column.id] && (
+                    <div className="flex items-center justify-between bg-blue-50 border border-blue-100 px-2 py-1 rounded text-xs text-blue-700 animate-in slide-in-from-top-1">
+                        <span className="font-medium truncate">{columnFilters[column.id]}</span>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setColumnFilters((prev: any) => { const n = { ...prev }; delete n[column.id]; return n; }); }}
+                            className="ml-1 p-0.5 hover:bg-blue-100 rounded-full"
+                        >
+                            <X className="w-3 h-3" />
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-hidden relative">
+                <DroppableId id={column.id} className="h-full overflow-y-auto p-3 space-y-3 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-slate-700 hover:scrollbar-thumb-gray-300 dark:hover:scrollbar-thumb-slate-600">
+                    {columnOrders.map((order: any) => (
+                        <DraggableItem key={order.id} id={order.id} disabled={isDragDisabled}>
+                            <OrderCard
+                                order={order}
+                                onClick={() => {
+                                    setSelectedOrder(order);
+                                    setIsPanelOpen(true);
+                                    if (order.hasNotification) {
+                                        markOrderAsRead(order.id)
+                                        // Update state locally removed as it causes complex sync issues, router.refresh handles it
+                                    }
+                                }}
+                                tags={tags}
+                                selected={selectedOrders.includes(order.id)}
+                                onSelect={() => toggleOrderSelection(order.id)}
+                                selectionMode={selectedOrders.length > 0}
+                            />
+                        </DraggableItem>
+                    ))}
+                    {columnOrders.length === 0 && (
+                        <div className="h-24 flex items-center justify-center text-sm text-slate-400 border-2 border-dashed border-slate-200 rounded-lg pointer-events-none">
+                            {searchTerm ? "Sonuç yok" : "Sipariş Yok"}
+                        </div>
+                    )}
+                </DroppableId>
+            </div>
         </div>
     )
 }
