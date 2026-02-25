@@ -209,10 +209,9 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     useEffect(() => {
         // Initial Sync on Mount
         const initialSync = async () => {
-            console.log("Mount sync disabled in v3.6.6.14 for debugging persistence.");
-            // toast.info("Siparişler kontrol ediliyor...", { duration: 2000, id: "init-sync" })
-            // await syncWooCommerceOrders(true) // Force sync on load
-            // router.refresh()
+            toast.info("Siparişler kontrol ediliyor...", { duration: 2000, id: "init-sync" })
+            await syncWooCommerceOrders(true) // Force sync on load
+            router.refresh()
         }
         initialSync()
 
@@ -448,12 +447,17 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
         // Server Action / API
         try {
-            console.log(`[CLIENT_DEBUG] Calling API update-status for #${activeId} -> ${overId} (v3.6.6.14)`);
+            console.log(`[CLIENT_DEBUG] Calling Unified API for #${activeId} -> ${overId} (v3.6.6.15)`);
 
             const response = await fetch('/api/update-status', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderId: activeId, status: overId, version: "v3.6.6.14" })
+                body: JSON.stringify({
+                    mode: 'single_status',
+                    orderId: activeId,
+                    status: overId,
+                    version: "v3.6.6.15"
+                })
             });
 
             const res = await response.json();
@@ -461,7 +465,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
             if (!response.ok || (res && res.error)) throw new Error(res?.error || "API Hatası")
 
-            toast.success(`Sipariş #${activeId} durumu güncellendi (v3.6.6.14)`)
+            toast.success(`Sipariş #${activeId} durumu güncellendi (v3.6.6.15)`)
 
             // Mark last successful interaction
             if (activeId !== null) {
@@ -656,7 +660,19 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             }
 
             try {
-                await updateOrderStatusV3(targetOrder.id, nextStatus)
+                console.log(`[CLIENT_DEBUG] Calling Unified API (Scan) for #${targetOrder.id} -> ${nextStatus}`);
+                const response = await fetch('/api/update-status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        mode: 'single_status',
+                        orderId: targetOrder.id,
+                        status: nextStatus,
+                        version: "v3.6.6.15"
+                    })
+                });
+                const res = await response.json();
+                if (!response.ok || (res && res.error)) throw new Error(res?.error || "API Hatası")
                 toast.success(successMessage)
             } catch (e) {
                 toast.error("Durum güncellenemedi")
@@ -747,8 +763,20 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 const processed = (i * chunkSize) + chunk.length
                 toast.loading(`Taşınıyor... ${processed}/${selectedOrders.length}`, { id: toastId })
 
-                // Server Call for this chunk
-                const result = await bulkUpdateOrderStatus(chunk, targetStatusId)
+                // Unified API for this chunk
+                const response = await fetch('/api/update-status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        mode: 'bulk_status',
+                        orderIds: chunk,
+                        status: targetStatusId,
+                        version: "v3.6.6.15"
+                    })
+                });
+
+                const result = await response.json();
+                if (!response.ok) result.success = false; // Normalizing for the loop logic
 
                 if (result.success) {
                     successCount += chunk.length
@@ -789,8 +817,20 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         setOrders(prev => prev.map(o => o.id === updatedOrder.id ? orderWithNotification : o))
 
         try {
-            const res = await updateOrderDetails(updatedOrder)
-            if (res && (res as any).error) throw new Error((res as any).error)
+            console.log(`[CLIENT_DEBUG] Using Unified API for Detail Update #${updatedOrder.id}`);
+            const response = await fetch('/api/update-status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    mode: 'full_update',
+                    orderData: updatedOrder,
+                    version: "v3.6.6.15"
+                })
+            });
+
+            const res = await response.json();
+            if (!response.ok || (res && res.error)) throw new Error(res?.error || "API Hatası")
+
             toast.success("Sipariş güncellendi")
         } catch (error: any) {
             console.error("Update failed:", error)
@@ -879,7 +919,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shrink-0">
                             OMS
                         </div>
-                        <h1 className="font-bold text-sm md:text-lg text-slate-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-slate-400 font-normal">v3.6.6.11 - FINAL_STABILITY_FIX (Sütunlar: {orderedCols.length})</span></h1>
+                        <h1 className="font-bold text-sm md:text-lg text-slate-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-slate-400 font-normal">v3.6.6.15 - UNIFIED_API (Sütunlar: {orderedCols.length})</span></h1>
                         {/* Status Check Indicator */}
                         <div className="flex items-center gap-2">
                             {isValidating ? (
@@ -888,7 +928,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 </span>
                             ) : (
                                 <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">
-                                    <CheckCircle className="w-3 h-3" /> v3.6.6.14 - API_PERSISTENCE_V1
+                                    <CheckCircle className="w-3 h-3" /> v3.6.6.15 - UNIFIED_API
                                 </span>
                             )}
                         </div>
@@ -900,7 +940,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-100 dark:border-slate-700">
                             <Clock className="w-3 h-3" />
                             <span>Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}</span>
-                            <span className="ml-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">v3.6.6.14 - API_MODE_ACTIVE</span>
+                            <span className="ml-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">v3.6.6.15 - TOTAL_RELIABILITY</span>
                         </div>
 
                         {/* Sound Toggle */}
@@ -1307,7 +1347,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                     Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}
                                 </span>
                                 <span className="text-[10px] text-slate-400">...</span>
-                                <span className="text-[10px] text-emerald-600 font-bold">v3.6.6.14 - API_ACTIVE</span>
+                                <span className="text-[10px] text-emerald-600 font-bold">v3.6.6.15 - UNIFIED_API</span>
                             </div>
 
                             <div className="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm p-1">
