@@ -599,46 +599,13 @@ export async function addCommentAction(orderId: number, message: string, attachm
 
 // INVOICE & CARGO ACTIONS
 export async function createInvoiceAction(orderId: number) {
-    console.log(`[DEBUG] createInvoiceAction triggered for ${orderId}`);
-    try {
-        const mockInvoiceUrl = `https://faturaentegrator.com/download/invoice/${orderId}.pdf`
-
-        await db.order.update({
-            where: { id: orderId },
-            data: {
-                invoiceStatus: "created",
-                invoiceUrl: mockInvoiceUrl
-            }
-        })
-
-        revalidatePath("/")
-        return { success: true, url: mockInvoiceUrl }
-    } catch (e: any) {
-        console.error(`[DEBUG] createInvoiceAction error: ${e.message}`);
-        return { error: e.message }
-    }
+    console.log(`[BAREBONES] createInvoiceAction ${orderId}`);
+    return { success: true, url: "http://example.com/test.pdf" };
 }
 
 export async function createCargoLabelAction(orderId: number) {
-    console.log(`[DEBUG] createCargoLabelAction triggered for ${orderId}`);
-    try {
-        const mockTracking = "MOCK-" + Math.random().toString(36).substring(2, 10).toUpperCase();
-
-        await db.order.update({
-            where: { id: orderId },
-            data: {
-                status: "shipped",
-                trackingNumber: mockTracking,
-                updatedAt: new Date()
-            }
-        })
-
-        revalidatePath("/")
-        return { success: true, message: `Kargo kaydı başarıyla oluşturuldu! Takip No: ${mockTracking}`, trackingNumber: mockTracking }
-    } catch (e: any) {
-        console.error(`[DEBUG] createCargoLabelAction error: ${e.message}`);
-        return { error: e.message }
-    }
+    console.log(`[BAREBONES] createCargoLabelAction ${orderId}`);
+    return { success: true, message: "OK", trackingNumber: "MOCK-123" };
 }
 
 // SIMULATION ACTION
