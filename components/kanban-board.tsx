@@ -3,7 +3,7 @@
 import { Order, OrderStatus, Comment } from "../data/mock-orders"
 import { OrderCard } from "./order-card"
 import { useState, useEffect, useRef, useMemo } from "react"
-import { ChevronDown, ChevronUp, ChevronRight, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck, Lock, Unlock, ScanBarcode, Clock, CheckCircle } from "lucide-react"
+import { ChevronDown, ChevronUp, ChevronRight, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck, ScanBarcode, Clock, CheckCircle } from "lucide-react"
 import { Html5QrcodeScanner } from "html5-qrcode"
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDraggable, useDroppable, closestCorners, defaultDropAnimationSideEffects } from "@dnd-kit/core"
 import { arrayMove, SortableContext, horizontalListSortingStrategy, useSortable } from "@dnd-kit/sortable"
@@ -87,21 +87,8 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         setOrders(initialOrders)
     }, [initialOrders])
 
-    // Mobile Drag Lock Logic & Desktop Manual Lock
+    // Mobile Menu Drag (Always enabled on desktop, disabled by default on touch if necessary)
     const [isMobile, setIsMobile] = useState(false)
-    const [isDragLocked, setIsDragLocked] = useState(true) // Initial fallback
-
-    useEffect(() => {
-        const savedLock = localStorage.getItem("isDragLocked")
-        if (savedLock !== null) {
-            setIsDragLocked(savedLock === "true")
-        }
-    }, [])
-
-    const toggleDragLock = (val: boolean) => {
-        setIsDragLocked(val)
-        localStorage.setItem("isDragLocked", val.toString())
-    }
 
     // CAMERA SCANNER LOGIC
     const [showCamera, setShowCamera] = useState(false)
@@ -341,7 +328,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         return () => clearInterval(interval)
     }, [activeId])
 
-    const isDragDisabled = isMobile || isDragLocked
+    const isDragDisabled = isMobile
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -883,7 +870,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shrink-0">
                             OMS
                         </div>
-                        <h1 className="font-bold text-sm md:text-lg text-slate-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-slate-400 font-normal">v3.6.6.10 - COLUMN_REORDER_FIX (Sütunlar: {orderedCols.length})</span></h1>
+                        <h1 className="font-bold text-sm md:text-lg text-slate-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-slate-400 font-normal">v3.6.6.11 - FINAL_STABILITY_FIX (Sütunlar: {orderedCols.length})</span></h1>
                         {/* Status Check Indicator */}
                         <div className="flex items-center gap-2">
                             {isValidating ? (
@@ -892,7 +879,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 </span>
                             ) : (
                                 <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">
-                                    <CheckCircle className="w-3 h-3" /> v3.6.6.10 - DO_FORCE_REBUILD_V3
+                                    <CheckCircle className="w-3 h-3" /> v3.6.6.11 - STABILITY_VERIFIED
                                 </span>
                             )}
                         </div>
@@ -904,7 +891,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-100 dark:border-slate-700">
                             <Clock className="w-3 h-3" />
                             <span>Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}</span>
-                            <span className="ml-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">v3.6.6.10 - COLUMN_REORDER_FIX</span>
+                            <span className="ml-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">v3.6.6.11 - FINAL_STABILITY_FIX</span>
                         </div>
 
                         {/* Sound Toggle */}
@@ -1003,17 +990,6 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                             </form>
                         )}
 
-                        {/* Drag Lock Toggle */}
-                        <button
-                            onClick={() => {
-                                setIsDragLocked(!isDragLocked)
-                                toast.info(isDragLocked ? "Sürükleme kilidi açıldı" : "Sürükleme kilitlendi")
-                            }}
-                            className={`p-2 rounded-full transition-colors ${isDragLocked ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}
-                            title={isDragLocked ? "Sürükleme Kilitli (Açmak için tıkla)" : "Sürükleme Açık (Kilitlemek için tıkla)"}
-                        >
-                            {isDragLocked ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
-                        </button>
 
                         {/* CAMERA SCANNER TRIGGER (Mobile/Desktop) */}
                         <button
@@ -1322,7 +1298,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                     Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}
                                 </span>
                                 <span className="text-[10px] text-slate-400">...</span>
-                                <span className="text-[10px] text-emerald-600 font-bold">v3.6.6.10 - COLUMN_REORDER_FIX</span>
+                                <span className="text-[10px] text-emerald-600 font-bold">v3.6.6.11 - FINAL_STABILITY_FIX</span>
                             </div>
 
                             <div className="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm p-1">

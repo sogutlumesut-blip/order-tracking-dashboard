@@ -258,7 +258,7 @@ export async function updateOrderStatusV2(rawOrderId: any, status: string) {
         })
         const user = session?.user?.name || "Sistem"
 
-        console.log(`[ACTION_START] #${orderId} -> ${status} by ${user} (v3.6.6.10)`);
+        console.log(`[ACTION_START] #${orderId} -> ${status} by ${user} (v3.6.6.11)`);
 
         // DB-BASED DEBUG LOG
         await db.orderActivity.create({
@@ -294,7 +294,7 @@ export async function updateOrderStatusV2(rawOrderId: any, status: string) {
         }
 
         console.log(`[DB_UPDATE] Success for #${orderId} (v3.6.6.8)`);
-        await logActivity(orderId, user, "STATUS_CHANGE", `Durum '${status}' olarak değiştirildi. (v3.6.6.10)`)
+        await logActivity(orderId, user, "STATUS_CHANGE", `Durum '${status}' olarak değiştirildi. (v3.6.6.11)`)
 
         // ETSY PUSH: If shipped, try to push tracking information back to Etsy
         if (status === 'shipped') {
@@ -328,7 +328,7 @@ export async function updateOrderStatusV2(rawOrderId: any, status: string) {
                 orderId,
                 author: user,
                 action: "DEBUG_END",
-                details: `updateOrderStatusV2 finished successfully v3.6.6.10. Status: ${status}`
+                details: `updateOrderStatusV2 finished successfully v3.6.6.11. Status: ${status}`
             }
         }).catch(e => console.error("DEBUG_END FAIL:", e))
 
@@ -340,7 +340,7 @@ export async function updateOrderStatusV2(rawOrderId: any, status: string) {
     } catch (e: any) {
         console.error("updateOrderStatus CRITICAL ERROR:", e)
         serverLog(`[UPDATE_STATUS] Error: ${e.message}`);
-        return { error: e.message || "Bilinmeyen bir hata oluştu (v3.6.6.10)" }
+        return { error: e.message || "Bilinmeyen bir hata oluştu (v3.6.6.11)" }
     }
 }
 
@@ -1281,29 +1281,25 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                     const cargoBarcodeMeta = wcOrder.meta_data?.find((m: any) => m.key === '_gcargo_barcode_exposed')
                     const cargoTrackingMeta = wcOrder.meta_data?.find((m: any) => m.key === '_gcargo_tracking_exposed')
 
-                    // SMART STATUS SYNC
-                    // If WC Status is 'completed' or 'cancelled', we might want to respect it.
-                    // But if Local Status is already moved forward, and WC is still 'processing', we PRESERVE local status.
-
+                    // SMARTER STATUS SYNC (v3.6.6.11)
                     let finalStatus = status;
+                    // If the order already exists in our system, we should almost NEVER let WooCommerce 
+                    // revert its status backwards (e.g. from "In Print" back to "Incoming").
+                    // We only allow override if WC status is TERMINAL (completed, cancelled).
 
-                    if (existingOrder.id === 220 || existingOrder.barcode === 'WC-107270') {
-                    }
+                    const terminalStatuses = ['completed', 'cancelled', 'refunded', 'failed'];
+                    const isTerminalWC = terminalStatuses.includes(wcOrder.status);
 
-                    // CRITICAL FIX: To avoid race conditions, we ONLY update the status
-                    // if it has explicitly moved forward in WooCommerce (e.g. to 'completed')
-                    // OR if we are transitioning from a NULL/Undefined state (shouldn't happen here).
-                    // If WC says 'pending'/'processing' (mapped to defaultStatus), we TRUST THE DASHBOARD's current state.
-
-                    // Normalize IDs for comparison
-                    const normStatus = status.trim();
+                    // If local status is already set and not the default "Incoming" status, 
+                    // and WC is still in a non-terminal state, we ALWAYS PRESERVE LOCAL STATUS.
                     const normLocalStatus = existingOrder.status.trim();
                     const normDefaultStatus = defaultStatus.trim();
 
-                    const keepLocalStatus = (normStatus === normDefaultStatus && normLocalStatus !== normDefaultStatus);
+                    const isLocalModified = normLocalStatus !== normDefaultStatus;
+                    const keepLocalStatus = isLocalModified && !isTerminalWC;
 
                     if (keepLocalStatus) {
-                        finalStatus = existingOrder.status; // No-op update for status
+                        finalStatus = existingOrder.status;
                     }
 
                     // LOG STATUS CHANGE BY SYNC:
