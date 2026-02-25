@@ -50,7 +50,7 @@ export default async function DiagPage() {
 
     return (
         <div className="p-10 font-mono text-xs sm:text-sm">
-            <h1 className="text-2xl font-bold mb-4">OMS Diagnostic v3.6.6.13</h1>
+            <h1 className="text-2xl font-bold mb-4">OMS Diagnostic v3.6.6.14</h1>
             <div className="space-y-2 bg-slate-100 p-4 rounded mb-6">
                 <p><strong>Database:</strong> {dbStatus}</p>
                 <p><strong>DB Host:</strong> {dbHost}</p>

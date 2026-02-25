@@ -209,9 +209,10 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     useEffect(() => {
         // Initial Sync on Mount
         const initialSync = async () => {
-            toast.info("Siparişler kontrol ediliyor...", { duration: 2000, id: "init-sync" })
-            await syncWooCommerceOrders(true) // Force sync on load
-            router.refresh()
+            console.log("Mount sync disabled in v3.6.6.14 for debugging persistence.");
+            // toast.info("Siparişler kontrol ediliyor...", { duration: 2000, id: "init-sync" })
+            // await syncWooCommerceOrders(true) // Force sync on load
+            // router.refresh()
         }
         initialSync()
 
@@ -445,15 +446,22 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         setOrders(newOrders)
         setActiveId(null)
 
-        // Server Action
+        // Server Action / API
         try {
-            console.log(`[CLIENT_DEBUG] Calling updateOrderStatusV3 for #${activeId} from ${oldStatus} -> ${overId} (v3.6.6.12)`);
-            const res = await updateOrderStatusV3(activeId, overId)
-            console.log(`[CLIENT_DEBUG] Server Response:`, res);
+            console.log(`[CLIENT_DEBUG] Calling API update-status for #${activeId} -> ${overId} (v3.6.6.14)`);
 
-            if (res && (res as any).error) throw new Error((res as any).error)
+            const response = await fetch('/api/update-status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId: activeId, status: overId, version: "v3.6.6.14" })
+            });
 
-            toast.success(`Sipariş #${activeId} durumu güncellendi (v3.6.6.8)`)
+            const res = await response.json();
+            console.log(`[CLIENT_DEBUG] API Response:`, res);
+
+            if (!response.ok || (res && res.error)) throw new Error(res?.error || "API Hatası")
+
+            toast.success(`Sipariş #${activeId} durumu güncellendi (v3.6.6.14)`)
 
             // Mark last successful interaction
             if (activeId !== null) {
@@ -880,7 +888,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 </span>
                             ) : (
                                 <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">
-                                    <CheckCircle className="w-3 h-3" /> v3.6.6.13 - ULTIMATE_PROTECTION
+                                    <CheckCircle className="w-3 h-3" /> v3.6.6.14 - API_PERSISTENCE_V1
                                 </span>
                             )}
                         </div>
@@ -892,7 +900,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-100 dark:border-slate-700">
                             <Clock className="w-3 h-3" />
                             <span>Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}</span>
-                            <span className="ml-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">v3.6.6.13 - STATUS_PROTECTION_V2</span>
+                            <span className="ml-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">v3.6.6.14 - API_MODE_ACTIVE</span>
                         </div>
 
                         {/* Sound Toggle */}
@@ -1299,7 +1307,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                     Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}
                                 </span>
                                 <span className="text-[10px] text-slate-400">...</span>
-                                <span className="text-[10px] text-emerald-600 font-bold">v3.6.6.13 - ULTIMATE_PROTECTION</span>
+                                <span className="text-[10px] text-emerald-600 font-bold">v3.6.6.14 - API_ACTIVE</span>
                             </div>
 
                             <div className="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm p-1">
