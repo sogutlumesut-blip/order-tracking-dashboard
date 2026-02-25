@@ -9,7 +9,14 @@ export async function middleware(request: NextRequest) {
     // 2. Protect routes
     const currentUser = request.cookies.get('session')?.value
 
-    if (!currentUser && !request.nextUrl.pathname.startsWith('/login') && !request.nextUrl.pathname.startsWith('/debug-login') && !request.nextUrl.pathname.startsWith('/register')) {
+    if (!currentUser &&
+        !request.nextUrl.pathname.startsWith('/login') &&
+        !request.nextUrl.pathname.startsWith('/debug-login') &&
+        !request.nextUrl.pathname.startsWith('/register') &&
+        !request.nextUrl.pathname.startsWith('/privacy-policy') &&
+        !request.nextUrl.pathname.startsWith('/terms-of-service') &&
+        !request.nextUrl.pathname.startsWith('/data-deletion')
+    ) {
         return NextResponse.redirect(new URL('/login', request.url))
     }
 
