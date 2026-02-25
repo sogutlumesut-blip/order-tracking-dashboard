@@ -258,7 +258,7 @@ export async function updateOrderStatusV2(rawOrderId: any, status: string) {
         })
         const user = session?.user?.name || "Sistem"
 
-        console.log(`[ACTION_START] #${orderId} -> ${status} by ${user} (v3.6.6.11)`);
+        console.log(`[ACTION_START] #${orderId} -> ${status} by ${user} (v3.6.6.12)`);
 
         // DB-BASED DEBUG LOG
         await db.orderActivity.create({
@@ -294,7 +294,7 @@ export async function updateOrderStatusV2(rawOrderId: any, status: string) {
         }
 
         console.log(`[DB_UPDATE] Success for #${orderId} (v3.6.6.8)`);
-        await logActivity(orderId, user, "STATUS_CHANGE", `Durum '${status}' olarak değiştirildi. (v3.6.6.11)`)
+        await logActivity(orderId, user, "STATUS_CHANGE", `Durum '${status}' olarak değiştirildi. (v3.6.6.12)`)
 
         // ETSY PUSH: If shipped, try to push tracking information back to Etsy
         if (status === 'shipped') {
@@ -328,7 +328,7 @@ export async function updateOrderStatusV2(rawOrderId: any, status: string) {
                 orderId,
                 author: user,
                 action: "DEBUG_END",
-                details: `updateOrderStatusV2 finished successfully v3.6.6.11. Status: ${status}`
+                details: `updateOrderStatusV2 finished successfully v3.6.6.12. Status: ${status}`
             }
         }).catch(e => console.error("DEBUG_END FAIL:", e))
 
@@ -340,7 +340,7 @@ export async function updateOrderStatusV2(rawOrderId: any, status: string) {
     } catch (e: any) {
         console.error("updateOrderStatus CRITICAL ERROR:", e)
         serverLog(`[UPDATE_STATUS] Error: ${e.message}`);
-        return { error: e.message || "Bilinmeyen bir hata oluştu (v3.6.6.11)" }
+        return { error: e.message || "Bilinmeyen bir hata oluştu (v3.6.6.12)" }
     }
 }
 
@@ -1281,7 +1281,7 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                     const cargoBarcodeMeta = wcOrder.meta_data?.find((m: any) => m.key === '_gcargo_barcode_exposed')
                     const cargoTrackingMeta = wcOrder.meta_data?.find((m: any) => m.key === '_gcargo_tracking_exposed')
 
-                    // SMARTER STATUS SYNC (v3.6.6.11)
+                    // SMARTER STATUS SYNC (v3.6.6.12)
                     let finalStatus = status;
                     // If the order already exists in our system, we should almost NEVER let WooCommerce 
                     // revert its status backwards (e.g. from "In Print" back to "Incoming").
@@ -1292,11 +1292,21 @@ export async function syncWooCommerceOrders(force: boolean = false) {
 
                     // If local status is already set and not the default "Incoming" status, 
                     // and WC is still in a non-terminal state, we ALWAYS PRESERVE LOCAL STATUS.
-                    const normLocalStatus = existingOrder.status.trim();
-                    const normDefaultStatus = defaultStatus.trim();
+                    const normLocalStatus = (existingOrder.status || "").trim();
+                    const normDefaultStatus = (defaultStatus || "").trim();
 
                     const isLocalModified = normLocalStatus !== normDefaultStatus;
                     const keepLocalStatus = isLocalModified && !isTerminalWC;
+
+                    // VERBOSE SYNC LOGGING
+                    if (isLocalModified) {
+                        const syncLogMsg = `[SYNC_DEBUG] Order #${existingOrder.id} (WC-${wcOrder.id}) modified locally: '${normLocalStatus}' vs Default: '${normDefaultStatus}'. isTerminalWC: ${isTerminalWC}, keepLocalStatus: ${keepLocalStatus}`;
+                        console.log(syncLogMsg);
+                        // Add activity only if keepLocalStatus is false (reversion about to happen)
+                        if (!keepLocalStatus && normLocalStatus !== "completed") {
+                            await logActivity(existingOrder.id, "Sistem", "SYNC_WARNING", `Sipariş durumu WC nedeniyle sıfırlanıyor: '${normLocalStatus}' -> '${finalStatus}'`);
+                        }
+                    }
 
                     if (keepLocalStatus) {
                         finalStatus = existingOrder.status;
@@ -1421,7 +1431,7 @@ export async function syncWooCommerceOrders(force: boolean = false) {
         }
 
         // revalidatePath("/")
-        return { success: true, message: `${newCount} sipariş işlendi. (Sistem v4.0 - Temiz Kurulum)`, logs: logs }
+        return { success: true, message: `${newCount} sipariş işlendi. (Sistem v3.6.6.12)`, logs: logs }
 
     } catch (e: any) {
         console.error(e)

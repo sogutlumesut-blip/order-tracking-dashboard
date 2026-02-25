@@ -6,7 +6,7 @@ import { getSession } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
 
 export async function updateOrderStatusV3(rawOrderId: any, status: string) {
-    const v = "v3.6.6.10"
+    const v = "v3.6.6.12"
     console.log(`[V3_START] #${rawOrderId} -> ${status} (${v})`);
 
     try {
@@ -38,7 +38,7 @@ export async function updateOrderStatusV3(rawOrderId: any, status: string) {
         }
 
         // PRISMA UPDATE (Standard)
-        await db.order.update({
+        const updateResult = await db.order.update({
             where: { id: orderId },
             data: {
                 status,
@@ -46,6 +46,8 @@ export async function updateOrderStatusV3(rawOrderId: any, status: string) {
                 updatedAt: new Date()
             }
         });
+
+        console.log(`[V3_PRISMA_DONE] Order #${orderId} moved to ${updateResult.status}`);
 
         await db.orderActivity.create({
             data: {
@@ -57,10 +59,10 @@ export async function updateOrderStatusV3(rawOrderId: any, status: string) {
         }).catch(() => { });
 
         revalidatePath("/")
-        return { success: true, version: v }
+        return { success: true, version: v, newStatus: updateResult.status }
 
     } catch (e: any) {
         console.error("V3 CRITICAL ERROR:", e);
-        return { error: e.message || "Bilinmeyen hata (v3.6.6.10)" }
+        return { error: e.message || "Bilinmeyen hata (v3.6.6.12)" }
     }
 }
