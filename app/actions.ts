@@ -1281,35 +1281,40 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                     const cargoBarcodeMeta = wcOrder.meta_data?.find((m: any) => m.key === '_gcargo_barcode_exposed')
                     const cargoTrackingMeta = wcOrder.meta_data?.find((m: any) => m.key === '_gcargo_tracking_exposed')
 
-                    // SMARTER STATUS SYNC (v3.6.6.12)
+                    // SMARTER STATUS SYNC (v3.6.6.13 - ULTIMATE PROTECTION)
                     let finalStatus = status;
-                    // If the order already exists in our system, we should almost NEVER let WooCommerce 
-                    // revert its status backwards (e.g. from "In Print" back to "Incoming").
-                    // We only allow override if WC status is TERMINAL (completed, cancelled).
-
                     const terminalStatuses = ['completed', 'cancelled', 'refunded', 'failed'];
                     const isTerminalWC = terminalStatuses.includes(wcOrder.status);
 
-                    // If local status is already set and not the default "Incoming" status, 
-                    // and WC is still in a non-terminal state, we ALWAYS PRESERVE LOCAL STATUS.
-                    const normLocalStatus = (existingOrder.status || "").trim();
-                    const normDefaultStatus = (defaultStatus || "").trim();
+                    const dbStatus = (existingOrder.status || "").trim();
+                    const incomingStatus = (defaultStatus || "").trim();
 
-                    const isLocalModified = normLocalStatus !== normDefaultStatus;
-                    const keepLocalStatus = isLocalModified && !isTerminalWC;
+                    // If DB status is already a terminal status, NEVER let WC move it back 
+                    // unless it's a very specific case (but here we just block it)
+                    const isLocalTerminal = terminalStatuses.includes(dbStatus);
 
-                    // VERBOSE SYNC LOGGING
-                    if (isLocalModified) {
-                        const syncLogMsg = `[SYNC_DEBUG] Order #${existingOrder.id} (WC-${wcOrder.id}) modified locally: '${normLocalStatus}' vs Default: '${normDefaultStatus}'. isTerminalWC: ${isTerminalWC}, keepLocalStatus: ${keepLocalStatus}`;
-                        console.log(syncLogMsg);
-                        // Add activity only if keepLocalStatus is false (reversion about to happen)
-                        if (!keepLocalStatus && normLocalStatus !== "completed") {
-                            await logActivity(existingOrder.id, "Sistem", "SYNC_WARNING", `Sipariş durumu WC nedeniyle sıfırlanıyor: '${normLocalStatus}' -> '${finalStatus}'`);
-                        }
-                    }
+                    // LOCAL_MODIFIED: If it's not in the default first column
+                    const isLocalModified = dbStatus !== incomingStatus;
+
+                    // KEEP_LOCAL if it's modified and WC is not terminal
+                    // OR if local is already terminal (never go back from completed)
+                    const keepLocalStatus = (isLocalModified && !isTerminalWC) || isLocalTerminal;
+
+                    // ULTIMATE DIAGNOSTIC LOG
+                    const logPrefix = `[SYNC_V13] #${existingOrder.id} (WC-${wcOrder.id})`;
+                    console.log(`${logPrefix} DB:'${dbStatus}' | WC:'${wcOrder.status}' (mapped:'${finalStatus}') | Default:'${incomingStatus}' | isMod:${isLocalModified} | isTermWC:${isTerminalWC} | KEEP:${keepLocalStatus}`);
 
                     if (keepLocalStatus) {
                         finalStatus = existingOrder.status;
+                        // Log specifically why we kept it if it's different from what WC wanted
+                        if (finalStatus !== status) {
+                            console.log(`${logPrefix} >>> PROTECTED: Keeping local status '${finalStatus}' over WC mapped status '${status}'`);
+                        }
+                    } else {
+                        if (dbStatus !== finalStatus) {
+                            console.log(`${logPrefix} >>> UPDATING: Moving from '${dbStatus}' to '${finalStatus}'`);
+                            await logActivity(existingOrder.id, "Sistem", "STATUS_CHANGE", `Durum WooCommerce tarafından '${finalStatus}' olarak güncellendi. (v13)`);
+                        }
                     }
 
                     // LOG STATUS CHANGE BY SYNC:
@@ -1431,7 +1436,7 @@ export async function syncWooCommerceOrders(force: boolean = false) {
         }
 
         // revalidatePath("/")
-        return { success: true, message: `${newCount} sipariş işlendi. (Sistem v3.6.6.12)`, logs: logs }
+        return { success: true, message: `${newCount} sipariş işlendi. (Sistem v3.6.6.13)`, logs: logs }
 
     } catch (e: any) {
         console.error(e)
