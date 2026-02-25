@@ -244,10 +244,10 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                 <div className="space-y-3">
                                     <div className="grid grid-cols-2 gap-2">
                                         <div className="space-y-1">
-                                            <label className="text-[10px] uppercase font-bold text-slate-500">TCKN / VKN</label>
+                                            <label className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">TCKN / VKN</label>
                                             <input
                                                 type="text"
-                                                className="w-full p-2 text-xs border dark:border-slate-700 rounded bg-white dark:bg-slate-900 font-bold"
+                                                className="w-full p-2 text-xs border dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold"
                                                 placeholder="11111111111"
                                                 value={formData.taxNumber || ""}
                                                 onChange={(e) => {
@@ -257,10 +257,10 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                             />
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-[10px] uppercase font-bold text-slate-500">Vergi Dairesi</label>
+                                            <label className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Vergi Dairesi</label>
                                             <input
                                                 type="text"
-                                                className="w-full p-2 text-xs border dark:border-slate-700 rounded bg-white dark:bg-slate-900 font-bold"
+                                                className="w-full p-2 text-xs border dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold"
                                                 placeholder="Kartal"
                                                 value={formData.taxOffice || ""}
                                                 onChange={(e) => {
