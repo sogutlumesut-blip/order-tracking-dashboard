@@ -935,7 +935,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shrink-0">
                             OMS
                         </div>
-                        <h1 className="font-bold text-sm md:text-lg text-slate-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-slate-400 font-normal">v3.6.6.17 - BILLING_ENABLED (Sütunlar: {orderedCols.length})</span></h1>
+                        <h1 className="font-bold text-sm md:text-lg text-slate-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-slate-400 font-normal">v3.6.6.17.3 - ACTION_DIAGNOSTIC (Sütunlar: {orderedCols.length})</span></h1>
                         {/* Status Check Indicator */}
                         <div className="flex items-center gap-2">
                             {isValidating ? (

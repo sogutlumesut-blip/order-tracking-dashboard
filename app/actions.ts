@@ -599,19 +599,8 @@ export async function addCommentAction(orderId: number, message: string, attachm
 
 // INVOICE & CARGO ACTIONS
 export async function createInvoiceAction(orderId: number) {
-    const session = await getSession()
-    if (!session) return { error: "Oturum kapalı" }
-
-    const order = await db.order.findUnique({ where: { id: orderId } })
-    if (!order) return { error: "Sipariş bulunamadı" }
-
-    if (!order.taxNumber) return { error: "TCKN/VKN bilgisi eksik" }
-
+    console.log(`[DEBUG] createInvoiceAction triggered for ${orderId}`);
     try {
-        await logActivity(orderId, session.user.name, "INVOICE_START", "Fatura oluşturma işlemi başlatıldı.")
-
-        // SIMULATION: In real case, fetch credentials and POST to FaturaEntegra
-        // For now, we simulate a successful creation
         const mockInvoiceUrl = `https://faturaentegrator.com/download/invoice/${orderId}.pdf`
 
         await db.order.update({
@@ -622,31 +611,19 @@ export async function createInvoiceAction(orderId: number) {
             }
         })
 
-        await logActivity(orderId, session.user.name, "INVOICE_CREATED", "Fatura başarıyla oluşturuldu.")
-
         revalidatePath("/")
         return { success: true, url: mockInvoiceUrl }
     } catch (e: any) {
-        await logActivity(orderId, session.user.name, "INVOICE_ERROR", `Fatura hatası: ${e.message}`)
+        console.error(`[DEBUG] createInvoiceAction error: ${e.message}`);
         return { error: e.message }
     }
 }
 
 export async function createCargoLabelAction(orderId: number) {
-    const session = await getSession()
-    if (!session) return { error: "Oturum kapalı" }
-
-    serverLog(`[CARGO_ACTION] Start for order: ${orderId} by ${session.user.name}`);
-
+    console.log(`[DEBUG] createCargoLabelAction triggered for ${orderId}`);
     try {
-        await logActivity(orderId, session.user.name, "CARGO_START", "Kargo etiketi oluşturma işlemi başlatıldı.")
-
-        // Simulate real API delay
-        await new Promise(r => setTimeout(r, 2000));
-
         const mockTracking = "MOCK-" + Math.random().toString(36).substring(2, 10).toUpperCase();
 
-        // Update DB with mock tracking
         await db.order.update({
             where: { id: orderId },
             data: {
@@ -656,13 +633,10 @@ export async function createCargoLabelAction(orderId: number) {
             }
         })
 
-        await logActivity(orderId, session.user.name, "CARGO_CREATED", `Kargo etiketi ve takip no oluşturuldu: ${mockTracking}`)
-
         revalidatePath("/")
         return { success: true, message: `Kargo kaydı başarıyla oluşturuldu! Takip No: ${mockTracking}`, trackingNumber: mockTracking }
     } catch (e: any) {
-        serverLog(`[CARGO_ACTION] Error: ${e.message}`);
-        await logActivity(orderId, session.user.name, "CARGO_ERROR", `Kargo hatası: ${e.message}`)
+        console.error(`[DEBUG] createCargoLabelAction error: ${e.message}`);
         return { error: e.message }
     }
 }
