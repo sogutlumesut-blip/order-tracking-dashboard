@@ -39,6 +39,10 @@ model Order {
   cargoBarcode        String?
   cargoTrackingNumber String?
   cargoLabelPdf       String?
+  taxNumber           String?
+  taxOffice           String?
+  invoiceStatus       String?         @default("draft")
+  invoiceUrl          String?
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
   hasNotification     Boolean         @default(false)

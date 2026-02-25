@@ -544,7 +544,11 @@ export async function updateOrderDetails(rawOrder: any) {
                         productNote: item.productNote,
                         sampleData: item.sampleData
                     }))
-                } : undefined
+                } : undefined,
+                taxNumber: order.taxNumber,
+                taxOffice: order.taxOffice,
+                invoiceStatus: order.invoiceStatus,
+                invoiceUrl: order.invoiceUrl
             }
         })
 
@@ -591,6 +595,49 @@ export async function addCommentAction(orderId: number, message: string, attachm
     await logActivity(orderId, session.user.name, "COMMENT_ADDED", "Yeni mesaj yazdı.")
 
     revalidatePath("/")
+}
+
+// INVOICE & CARGO ACTIONS
+export async function createInvoiceAction(orderId: number) {
+    const session = await getSession()
+    if (!session) return { error: "Oturum kapalı" }
+
+    const order = await db.order.findUnique({ where: { id: orderId } })
+    if (!order) return { error: "Sipariş bulunamadı" }
+
+    if (!order.taxNumber) return { error: "TCKN/VKN bilgisi eksik" }
+
+    try {
+        await logActivity(orderId, session.user.name, "INVOICE_START", "Fatura oluşturma işlemi başlatıldı.")
+
+        // SIMULATION: In real case, fetch credentials and POST to FaturaEntegra
+        // For now, we simulate a successful creation
+        const mockInvoiceUrl = `https://faturaentegrator.com/download/invoice/${orderId}.pdf`
+
+        await db.order.update({
+            where: { id: orderId },
+            data: {
+                invoiceStatus: "created",
+                invoiceUrl: mockInvoiceUrl
+            }
+        })
+
+        await logActivity(orderId, session.user.name, "INVOICE_CREATED", "Fatura başarıyla oluşturuldu.")
+
+        revalidatePath("/")
+        return { success: true, url: mockInvoiceUrl }
+    } catch (e: any) {
+        await logActivity(orderId, session.user.name, "INVOICE_ERROR", `Fatura hatası: ${e.message}`)
+        return { error: e.message }
+    }
+}
+
+export async function createCargoLabelAction(orderId: number) {
+    const session = await getSession()
+    if (!session) return { error: "Oturum kapalı" }
+
+    // Simulate cargo label generation
+    return { success: true, message: "Kargo etiketi talebi kargo entegratörüne iletildi." }
 }
 
 // SIMULATION ACTION

@@ -2,13 +2,13 @@
 
 import { Order, OrderStatus, Comment } from "../data/mock-orders"
 import { APP_CONFIG } from "../data/settings"
-import { X, Save, Truck, User, Tag, FileText, Upload, Printer, FileDown, History, ChevronDown, ChevronRight, ExternalLink } from "lucide-react"
+import { X, Save, Truck, User, Tag, FileText, Upload, Printer, FileDown, History, ChevronDown, ChevronRight, ExternalLink, Receipt, ShieldCheck } from "lucide-react"
 import { useState, useEffect } from "react"
 import { NoteLog } from "./note-log"
 import { ChatSection } from "./chat-section"
 import { ActivityLog } from "./activity-log"
 import { getColorClasses } from "@/lib/colors"
-import { logManualActivity, uploadCargoLabel, deleteCargoLabel, getOrderDetails } from "../app/actions"
+import { logManualActivity, uploadCargoLabel, deleteCargoLabel, getOrderDetails, createInvoiceAction, createCargoLabelAction } from "../app/actions"
 import { LocalBarcodeModal } from "./local-barcode-modal"
 import { toast } from "sonner"
 
@@ -236,6 +236,56 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                 </div>
                             </div>
 
+                            {/* Fatura Bilgileri Card (NEW) */}
+                            <div className="bg-blue-50/50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-900/30">
+                                <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-3 flex items-center gap-2">
+                                    <Receipt className="w-4 h-4" /> Fatura Bilgileri
+                                </h3>
+                                <div className="space-y-3">
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] uppercase font-bold text-slate-500">TCKN / VKN</label>
+                                            <input
+                                                type="text"
+                                                className="w-full p-2 text-xs border dark:border-slate-700 rounded bg-white dark:bg-slate-900 font-bold"
+                                                placeholder="11111111111"
+                                                value={formData.taxNumber || ""}
+                                                onChange={(e) => {
+                                                    setFormData({ ...formData, taxNumber: e.target.value })
+                                                    setIsModified(true)
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] uppercase font-bold text-slate-500">Vergi Dairesi</label>
+                                            <input
+                                                type="text"
+                                                className="w-full p-2 text-xs border dark:border-slate-700 rounded bg-white dark:bg-slate-900 font-bold"
+                                                placeholder="Kartal"
+                                                value={formData.taxOffice || ""}
+                                                onChange={(e) => {
+                                                    setFormData({ ...formData, taxOffice: e.target.value })
+                                                    setIsModified(true)
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                    {formData.invoiceUrl && (
+                                        <div className="pt-2 border-t border-blue-100 dark:border-blue-900/30">
+                                            <a
+                                                href={formData.invoiceUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center justify-center gap-2 py-2 bg-emerald-600 text-white rounded-md text-xs font-bold hover:bg-emerald-700 transition-all"
+                                            >
+                                                <FileDown className="w-4 h-4" />
+                                                Kesilmiş Faturayı İndir
+                                            </a>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
                             {/* Product Details (Enhanced) */}
                             <div>
                                 <h3 className="font-semibold text-slate-700 mb-3">Ürünler</h3>
@@ -325,6 +375,47 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     <Printer className="w-5 h-5" />
                                     Barkod / Etiket Oluştur (Manuel)
                                 </button>
+
+                                {/* DIRECT ACTIONS: Fatura & Kargo (NEW) */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        onClick={async () => {
+                                            if (!formData.taxNumber) {
+                                                toast.error("Lütfen önce TCKN/VKN alanını doldurun.");
+                                                return;
+                                            }
+                                            toast.promise(createInvoiceAction(formData.id), {
+                                                loading: "Fatura oluşturuluyor...",
+                                                success: (res: any) => {
+                                                    if (res.error) throw new Error(res.error);
+                                                    setFormData({ ...formData, invoiceStatus: 'created', invoiceUrl: res.url });
+                                                    return "Fatura başarıyla oluşturuldu!";
+                                                },
+                                                error: (err) => err.message || "Hata oluştu"
+                                            });
+                                        }}
+                                        className="py-3 bg-indigo-600 text-white rounded-xl flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all font-bold shadow-lg shadow-indigo-200 dark:shadow-none"
+                                    >
+                                        <Receipt className="w-5 h-5" />
+                                        Fatura Kes
+                                    </button>
+                                    <button
+                                        onClick={async () => {
+                                            toast.promise(createCargoLabelAction(formData.id), {
+                                                loading: "Kargo kaydı oluşturuluyor...",
+                                                success: (res: any) => {
+                                                    if (res.error) throw new Error(res.error);
+                                                    return res.message || "Kargo talebi iletildi!";
+                                                },
+                                                error: (err) => err.message || "Hata oluştu"
+                                            });
+                                        }}
+                                        className="py-3 bg-emerald-600 text-white rounded-xl flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all font-bold shadow-lg shadow-emerald-200 dark:shadow-none"
+                                    >
+                                        <Truck className="w-5 h-5" />
+                                        Kargo Çıkar
+                                    </button>
+                                </div>
 
                                 {formData.cargoBarcode && !formData.cargoLabelPdf && (
                                     <div className="mb-4">
