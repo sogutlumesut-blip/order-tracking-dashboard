@@ -3,7 +3,7 @@
 import { Order, OrderStatus, Comment } from "../data/mock-orders"
 import { OrderCard } from "./order-card"
 import { useState, useEffect, useRef, useMemo } from "react"
-import { ChevronDown, ChevronUp, ChevronRight, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck, ScanBarcode, Clock, CheckCircle } from "lucide-react"
+import { ChevronDown, ChevronUp, ChevronRight, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck, ScanBarcode, Clock, CheckCircle, Lock, Unlock } from "lucide-react"
 import { Html5QrcodeScanner } from "html5-qrcode"
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDraggable, useDroppable, closestCorners, defaultDropAnimationSideEffects } from "@dnd-kit/core"
 import { arrayMove, SortableContext, horizontalListSortingStrategy, useSortable } from "@dnd-kit/sortable"
@@ -65,10 +65,26 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     const [selectedOrders, setSelectedOrders] = useState<number[]>([])
     const [isBulkProcessing, setIsBulkProcessing] = useState(false)
     const isBulkProcessingRef = useRef(false)
+    const [isDragLocked, setIsDragLocked] = useState(true) // Locked by default for safety
 
     useEffect(() => {
         isBulkProcessingRef.current = isBulkProcessing
     }, [isBulkProcessing])
+
+    // Load/Save Drag Lock State
+    useEffect(() => {
+        const saved = localStorage.getItem("isDragLocked")
+        if (saved !== null) {
+            setIsDragLocked(saved === "true")
+        }
+    }, [])
+
+    const toggleDragLock = () => {
+        const newState = !isDragLocked
+        setIsDragLocked(newState)
+        localStorage.setItem("isDragLocked", newState.toString())
+        toast.info(newState ? "Sürükleme Kilidi Aktif 🔒" : "Sürükleme Kilidi Açıldı 🔓")
+    }
 
     const toggleOrderSelection = (orderId: number) => {
         setSelectedOrders(prev =>
@@ -329,7 +345,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         return () => clearInterval(interval)
     }, [activeId])
 
-    const isDragDisabled = isMobile
+    const isDragDisabled = isMobile || isDragLocked
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -919,7 +935,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shrink-0">
                             OMS
                         </div>
-                        <h1 className="font-bold text-sm md:text-lg text-slate-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-slate-400 font-normal">v3.6.6.15 - UNIFIED_API (Sütunlar: {orderedCols.length})</span></h1>
+                        <h1 className="font-bold text-sm md:text-lg text-slate-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-slate-400 font-normal">v3.6.6.16 - DRAG_LOCK_READY (Sütunlar: {orderedCols.length})</span></h1>
                         {/* Status Check Indicator */}
                         <div className="flex items-center gap-2">
                             {isValidating ? (
@@ -928,7 +944,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 </span>
                             ) : (
                                 <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">
-                                    <CheckCircle className="w-3 h-3" /> v3.6.6.15 - UNIFIED_API
+                                    <CheckCircle className="w-3 h-3" /> v3.6.6.16 - DRAG_LOCK_V2
                                 </span>
                             )}
                         </div>
@@ -937,10 +953,21 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     {/* Desktop Menu */}
                     <div className="hidden md:flex items-center gap-4">
                         <ThemeToggle />
+
+                        {/* Drag Lock Toggle */}
+                        <button
+                            onClick={toggleDragLock}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${isDragLocked ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                            title={isDragLocked ? "Sürüklemeyi Aç" : "Sürüklemeyi Kilitle"}
+                        >
+                            {isDragLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+                            <span className="text-[10px] font-bold uppercase tracking-wider">{isDragLocked ? "Kilitli" : "Açık"}</span>
+                        </button>
+
                         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-100 dark:border-slate-700">
                             <Clock className="w-3 h-3" />
                             <span>Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}</span>
-                            <span className="ml-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">v3.6.6.15 - TOTAL_RELIABILITY</span>
+                            <span className="ml-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">v3.6.6.16 - MOBILE_READY</span>
                         </div>
 
                         {/* Sound Toggle */}
@@ -1347,7 +1374,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                     Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}
                                 </span>
                                 <span className="text-[10px] text-slate-400">...</span>
-                                <span className="text-[10px] text-emerald-600 font-bold">v3.6.6.15 - UNIFIED_API</span>
+                                <span className="text-[10px] text-emerald-600 font-bold">v3.6.6.16 - DRAG_LOCK_V2</span>
                             </div>
 
                             <div className="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm p-1">
