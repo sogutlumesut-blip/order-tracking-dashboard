@@ -405,6 +405,9 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                 loading: "Kargo kaydı oluşturuluyor...",
                                                 success: (res: any) => {
                                                     if (res.error) throw new Error(res.error);
+                                                    if (res.trackingNumber) {
+                                                        setFormData({ ...formData, status: 'shipped', trackingNumber: res.trackingNumber });
+                                                    }
                                                     return res.message || "Kargo talebi iletildi!";
                                                 },
                                                 error: (err) => err.message || "Hata oluştu"
