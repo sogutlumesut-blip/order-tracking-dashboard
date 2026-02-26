@@ -12,6 +12,7 @@ import { StatusList } from "@/components/settings/status-list"
 
 import { WooSettingsForm } from "@/components/settings/woo-settings-form"
 import { EtsyMultiStoreSettings } from "@/components/settings/etsy-multi-store-settings"
+import { FaturaEntegraSettingsForm } from "@/components/settings/fatura-entegra-settings-form"
 import { CronTrigger } from "@/components/settings/cron-trigger"
 
 export const dynamic = 'force-dynamic'
@@ -58,6 +59,23 @@ export default async function SettingsPage() {
                         wc_url: systemSettings.wc_url,
                         wc_key: systemSettings.wc_key,
                         wc_secret: systemSettings.wc_secret
+                    }} />
+                </div>
+
+                {/* FATURA ENTEGRA INTEGRATION */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-indigo-100">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-900">
+                        <span className="bg-indigo-600 text-white p-1 px-2 rounded text-sm">FE</span>
+                        FaturaEntegra Entegrasyonu
+                    </h2>
+                    <p className="text-sm text-slate-600 mb-6">
+                        Faturaları otomatik kesmek ve kargo barkodu oluşturmak için API bilgilerinizi giriniz.
+                    </p>
+
+                    <FaturaEntegraSettingsForm initialSettings={{
+                        fe_user: systemSettings.fe_user,
+                        fe_pass: systemSettings.fe_pass,
+                        fe_app_key: systemSettings.fe_app_key
                     }} />
                 </div>
 

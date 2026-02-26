@@ -941,6 +941,26 @@ export async function saveEtsySettings(formData: FormData) {
     }
 }
 
+export async function saveFaturaEntegraSettings(formData: FormData) {
+    const username = formData.get("fe_user") as string
+    const password = formData.get("fe_pass") as string
+    const appKey = formData.get("fe_app_key") as string
+
+    if (!username || !password) return { error: "Lütfen kullanıcı adı ve şifre giriniz." }
+
+    try {
+        await db.systemSetting.upsert({ where: { key: 'fe_user' }, update: { value: username }, create: { key: 'fe_user', value: username } })
+        await db.systemSetting.upsert({ where: { key: 'fe_pass' }, update: { value: password }, create: { key: 'fe_pass', value: password } })
+        await db.systemSetting.upsert({ where: { key: 'fe_app_key' }, update: { value: appKey || "" }, create: { key: 'fe_app_key', value: appKey || "" } })
+
+        revalidatePath("/admin/settings")
+        return { success: true, message: "FaturaEntegra ayarları başarıyla kaydedildi!" }
+    } catch (e: any) {
+        console.error("FaturaEntegra settings save error:", e)
+        return { error: "Ayarlar kaydedilirken bir hata oluştu: " + e.message }
+    }
+}
+
 // ETSY SYNC ACTION
 export async function syncEtsyOrders() {
     try {
