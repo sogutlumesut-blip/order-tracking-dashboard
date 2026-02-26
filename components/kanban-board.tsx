@@ -1028,6 +1028,25 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                     </button>
                                 </form>
 
+                                <form action={async () => {
+                                    toast.info("PrintMarkt senkronizasyonu...")
+                                    const res = await syncPrintMarktOrders(true)
+                                    if (res.success) {
+                                        toast.success(res.message)
+                                    } else {
+                                        toast.error(res.error)
+                                    }
+                                }}>
+                                    <button
+                                        type="submit"
+                                        className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
+                                        title="PrintMarkt.co'dan siparişleri manuel çek"
+                                    >
+                                        <RefreshCw className="w-3.5 h-3.5" />
+                                        PM Çek
+                                    </button>
+                                </form>
+
                                 {currentUser.role === 'admin' && (
                                     <form action={async () => {
                                         toast.info("Etsy senkronizasyonu...")

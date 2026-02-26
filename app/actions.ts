@@ -961,6 +961,22 @@ export async function saveWooCommerceSettings(formData: FormData) {
     }
 }
 
+export async function savePrintMarktSettings(formData: FormData) {
+    const url = formData.get("pm_url") as string
+    const key = formData.get("pm_key") as string
+
+    if (!url || !key) return { error: "Lütfen URL ve API anahtarını doldurunuz." }
+
+    try {
+        await db.systemSetting.upsert({ where: { key: 'pm_url' }, update: { value: url }, create: { key: 'pm_url', value: url } })
+        await db.systemSetting.upsert({ where: { key: 'pm_key' }, update: { value: key }, create: { key: 'pm_key', value: key } })
+        revalidatePath("/admin/settings")
+        return { success: true, message: "PrintMarkt ayarları kaydedildi." }
+    } catch (e: any) {
+        return { error: e.message }
+    }
+}
+
 export async function saveEtsySettings(formData: FormData) {
     const storesJson = formData.get("etsy_stores_json") as string
 
@@ -1784,5 +1800,35 @@ export async function syncCargoKargoEntegrator() {
     } catch (error: any) {
         console.error("Kargo Sync Error:", error);
         return { error: "Kargo Entegrasyonu Hatası: " + error.message };
+    }
+}
+
+// PRINTMARKT SYNC ACTION
+export async function syncPrintMarktOrders(force: boolean = false) {
+    const settings = (await getSystemSettings()) as Record<string, string>
+
+    if (!settings['pm_url'] || !settings['pm_key']) {
+        return { error: "PrintMarkt ayarları eksik. Lütfen Ayarlar sayfasından tamamlayınız." }
+    }
+
+    try {
+        const response = await fetch(`${settings['pm_url']}/api/orders?key=${settings['pm_key']}`, {
+            cache: 'no-store'
+        })
+
+        if (!response.ok) {
+            return { error: "PrintMarkt sitesine bağlanılamadı. URL veya Key hatalı olabilir." }
+        }
+
+        const pmOrders = await response.json()
+        console.log("[DEBUG] PrintMarkt Sync Response:", JSON.stringify(pmOrders, null, 2))
+
+        // TODO: Map PM Orders to our internal schema once format is confirmed
+        // For now, we return the counts found to verify connection
+        return { success: true, message: `Bağlantı başarılı! ${pmOrders.length || 0} sipariş bulundu. Format eşleme yapılacaktır.`, count: pmOrders.length || 0 }
+
+    } catch (e: any) {
+        console.error("PrintMarkt Sync Error:", e)
+        return { error: "Senkronizasyon hatası: " + e.message }
     }
 }

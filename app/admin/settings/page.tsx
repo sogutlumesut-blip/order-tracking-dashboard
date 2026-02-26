@@ -13,6 +13,7 @@ import { StatusList } from "@/components/settings/status-list"
 import { WooSettingsForm } from "@/components/settings/woo-settings-form"
 import { EtsyMultiStoreSettings } from "@/components/settings/etsy-multi-store-settings"
 import { FaturaEntegraSettingsForm } from "@/components/settings/fatura-entegra-settings-form"
+import { PrintMarktSettingsForm } from "@/components/settings/printmarkt-settings-form"
 import { CronTrigger } from "@/components/settings/cron-trigger"
 
 export const dynamic = 'force-dynamic'
@@ -59,6 +60,22 @@ export default async function SettingsPage() {
                         wc_url: systemSettings.wc_url,
                         wc_key: systemSettings.wc_key,
                         wc_secret: systemSettings.wc_secret
+                    }} />
+                </div>
+
+                {/* PRINTMARKT INTEGRATION (Custom API) */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-orange-100">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-900">
+                        <span className="bg-orange-600 text-white p-1 px-2 rounded text-sm">PM</span>
+                        PrintMarkt (Özel API) Entegrasyonu
+                    </h2>
+                    <p className="text-sm text-slate-600 mb-6">
+                        WooCommerce dışındaki (Özel Yazılım / Namecheap) sitenizden sipariş çekmek için API ayarlarınızı yapın.
+                    </p>
+
+                    <PrintMarktSettingsForm initialSettings={{
+                        pm_url: systemSettings.pm_url,
+                        pm_key: systemSettings.pm_key
                     }} />
                 </div>
 
