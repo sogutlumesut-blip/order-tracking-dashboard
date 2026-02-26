@@ -954,10 +954,9 @@ export async function saveWooCommerceSettings(formData: FormData) {
         await db.systemSetting.upsert({ where: { key: 'wc_url' }, update: { value: url }, create: { key: 'wc_url', value: url } })
         await db.systemSetting.upsert({ where: { key: 'wc_key' }, update: { value: key }, create: { key: 'wc_key', value: key } })
         await db.systemSetting.upsert({ where: { key: 'wc_secret' }, update: { value: secret }, create: { key: 'wc_secret', value: secret } })
-        revalidatePath("/admin/settings")
-        // return { success: "Ayarlar başarıyla kaydedildi." }
+        return { success: true }
     } catch (e) {
-        // return { error: "Ayarlar kaydedilirken bir hata oluştu." }
+        return { error: "Ayarlar kaydedilirken bir hata oluştu." }
     }
 }
 
@@ -970,7 +969,6 @@ export async function savePrintMarktSettings(formData: FormData) {
     try {
         await db.systemSetting.upsert({ where: { key: 'pm_url' }, update: { value: url }, create: { key: 'pm_url', value: url } })
         await db.systemSetting.upsert({ where: { key: 'pm_key' }, update: { value: key }, create: { key: 'pm_key', value: key } })
-        revalidatePath("/admin/settings")
         return { success: true, message: "PrintMarkt ayarları kaydedildi." }
     } catch (e: any) {
         return { error: e.message }
@@ -1026,7 +1024,6 @@ export async function saveFaturaEntegraSettings(formData: FormData) {
         await db.systemSetting.upsert({ where: { key: 'fe_pass' }, update: { value: password }, create: { key: 'fe_pass', value: password } })
         await db.systemSetting.upsert({ where: { key: 'fe_app_key' }, update: { value: appKey || "" }, create: { key: 'fe_app_key', value: appKey || "" } })
 
-        revalidatePath("/admin/settings")
         return { success: true, message: "FaturaEntegra ayarları başarıyla kaydedildi!" }
     } catch (e: any) {
         console.error("FaturaEntegra settings save error:", e)
