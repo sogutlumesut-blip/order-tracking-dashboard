@@ -14,22 +14,23 @@ interface DHLSettingsFormProps {
 }
 
 export function DHLSettingsForm({ initialSettings }: DHLSettingsFormProps) {
-    const [isPending, startTransition] = useTransition()
+    const [loading, setLoading] = useState(false)
 
     const handleSubmit = async (formData: FormData) => {
-        startTransition(async () => {
-            try {
-                const res = await saveDHLSettings(formData)
-                if (res?.success) {
-                    toast.success(res.message)
-                } else if (res?.error) {
-                    toast.error(res.error)
-                }
-            } catch (error) {
-                console.error(error)
-                toast.error("Ayarlar kaydedilirken bir hata oluştu.")
+        setLoading(true)
+        try {
+            const res = await saveDHLSettings(formData)
+            if (res?.success) {
+                toast.success(res.message)
+            } else if (res?.error) {
+                toast.error(res.error)
             }
-        })
+        } catch (error) {
+            console.error(error)
+            toast.error("Ayarlar kaydedilirken bir hata oluştu.")
+        } finally {
+            setLoading(false)
+        }
     }
 
     return (
@@ -78,12 +79,12 @@ export function DHLSettingsForm({ initialSettings }: DHLSettingsFormProps) {
 
             <div className="md:col-span-3 flex justify-end">
                 <button
-                    disabled={isPending}
+                    disabled={loading}
                     type="submit"
                     className="bg-red-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-red-700 transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    {isPending ? "Kaydediliyor..." : "DHL Ayarlarını Kaydet"}
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    {loading ? "Kaydediliyor..." : "DHL Ayarlarını Kaydet"}
                 </button>
             </div>
         </form>
