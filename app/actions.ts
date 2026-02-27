@@ -166,7 +166,7 @@ export async function getOrders(timestamp?: number) {
 }
 
 export async function getOrderDetails(orderId: number) {
-    // Removed noStore() to allow standard Next.js data caching
+    noStore(); // Restore noStore to ensure fresh data and fix visibility issues
     const session = await getSession()
     if (!session) return null
 

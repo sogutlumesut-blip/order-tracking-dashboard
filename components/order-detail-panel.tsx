@@ -47,7 +47,13 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
             // Always sync comments and activities as they are usually non-conflicting
             const formattedComments = (order.comments || []).map(c => ({
                 ...c,
-                timestamp: new Date(c.timestamp).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+                timestamp: new Date(c.timestamp).toLocaleString('tr-TR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                })
             }))
 
             setLazyComments(formattedComments)
@@ -68,7 +74,13 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
             id: Date.now(),
             author: currentUser.name,
             message: msg,
-            timestamp: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+            timestamp: new Date().toLocaleString('tr-TR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            }),
             attachments: att
         }
 
