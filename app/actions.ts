@@ -577,28 +577,34 @@ export async function updateOrderDetails(rawOrder: any) {
 }
 
 export async function addCommentAction(orderId: number, message: string, attachments: any[], type: string = "message") {
-    const session = await getSession()
-    if (!session) return
+    try {
+        const session = await getSession()
+        if (!session) return { error: "Oturum kapalı" }
 
-    await db.comment.create({
-        data: {
-            message,
-            orderId,
-            authorId: session.user.id,
-            type,
-            attachments: JSON.stringify(attachments)
-        }
-    })
+        await db.comment.create({
+            data: {
+                message,
+                orderId,
+                authorId: session.user.id,
+                type,
+                attachments: JSON.stringify(attachments)
+            }
+        })
 
-    // Trigger Notification for new comment
-    await db.order.update({
-        where: { id: orderId },
-        data: { hasNotification: true }
-    })
+        // Trigger Notification for new comment
+        await db.order.update({
+            where: { id: orderId },
+            data: { hasNotification: true }
+        })
 
-    await logActivity(orderId, session.user.name, "COMMENT_ADDED", "Yeni mesaj yazdı.")
+        await logActivity(orderId, session.user.name, "COMMENT_ADDED", "Yeni mesaj yazdı.")
 
-    // revalidatePath("/")
+        revalidatePath("/")
+        return { success: true }
+    } catch (e: any) {
+        console.error("ADD_COMMENT ERROR:", e)
+        return { error: e.message || "Mesaj kaydedilemedi. Veritabanı kotası dolmuş olabilir." }
+    }
 }
 
 // INVOICE & CARGO ACTIONS
