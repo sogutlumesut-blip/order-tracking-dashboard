@@ -333,7 +333,7 @@ export async function updateOrderStatusV2(rawOrderId: any, status: string) {
         }).catch(e => console.error("DEBUG_END FAIL:", e))
 
         try {
-            revalidatePath("/")
+             // revalidatePath("/")
         } catch (e) { }
 
         return { success: true, id: orderId, status: status, v: "3.6.6.7" }
@@ -427,7 +427,7 @@ export async function bulkUpdateOrderStatus(orderIds: number[], status: string) 
 
         serverLog(`[BULK_MOVE] END: ${successCount}/${orderIds.length} in ${Date.now() - startTime}ms`);
 
-        revalidatePath("/");
+         // revalidatePath("/");
         return { success: true, count: successCount };
     } catch (e: any) {
         serverLog(`[BULK_MOVE] FATAL: ${e.message}`);
@@ -440,7 +440,7 @@ export async function logManualActivity(orderId: number, action: string, details
     const session = await getSession()
     const user = session ? session.user.name : "Sistem"
     await logActivity(orderId, user, action, details)
-    revalidatePath("/")
+     // revalidatePath("/")
 }
 
 export async function updateOrderDetails(rawOrder: any) {
@@ -564,7 +564,7 @@ export async function updateOrderDetails(rawOrder: any) {
             }
         })
 
-        revalidatePath("/")
+         // revalidatePath("/")
         return { success: true }
     } catch (e: any) {
         console.error("updateOrderDetails ERROR:", e)
@@ -594,16 +594,22 @@ export async function addCommentAction(orderId: number, message: string, attachm
 
     await logActivity(orderId, session.user.name, "COMMENT_ADDED", "Yeni mesaj yazdı.")
 
-    revalidatePath("/")
+     // revalidatePath("/")
 }
 
 // INVOICE & CARGO ACTIONS
 export async function createInvoiceAction(orderId: number) {
+    noStore()
+    console.log(`[ACTION] createInvoiceAction started for order ${orderId}`)
     const session = await getSession()
-    if (!session) return { error: "Oturum kapalı" }
+    if (!session) {
+        console.log(`[ACTION] createInvoiceAction aborted: No session`)
+        return { error: "Oturum kapalı" }
+    }
 
     const settings = await getSystemSettings()
     if (!settings.fe_user || !settings.fe_pass) {
+        console.log(`[ACTION] createInvoiceAction aborted: Missing settings`)
         return { error: "Lütfen önce Ayarlar sayfasından FaturaEntegra bilgilerini (Kullanıcı Adı ve Şifre) giriniz." }
     }
 
@@ -623,20 +629,27 @@ export async function createInvoiceAction(orderId: number) {
 
         await logActivity(orderId, session.user.name, "INVOICE_CREATED", "Fatura başarıyla oluşturuldu.")
 
-        revalidatePath("/")
+        console.log(`[ACTION] createInvoiceAction success for order ${orderId}`)
         return { success: true, url: mockInvoiceUrl }
     } catch (e: any) {
+        console.error(`[ACTION] createInvoiceAction error for order ${orderId}:`, e)
         await logActivity(orderId, session.user.name, "INVOICE_ERROR", `Fatura hatası: ${e.message}`)
         return { error: e.message }
     }
 }
 
 export async function createCargoLabelAction(orderId: number) {
+    noStore()
+    console.log(`[ACTION] createCargoLabelAction started for order ${orderId}`)
     const session = await getSession()
-    if (!session) return { error: "Oturum kapalı" }
+    if (!session) {
+        console.log(`[ACTION] createCargoLabelAction aborted: No session`)
+        return { error: "Oturum kapalı" }
+    }
 
     const settings = await getSystemSettings()
     if (!settings.fe_user || !settings.fe_pass) {
+        console.log(`[ACTION] createCargoLabelAction aborted: Missing settings`)
         return { error: "Lütfen önce Ayarlar sayfasından FaturaEntegra/Kargo bilgilerini giriniz." }
     }
 
@@ -657,7 +670,7 @@ export async function createCargoLabelAction(orderId: number) {
 
         await logActivity(orderId, session.user.name, "CARGO_SUCCESS", `Kargo kaydı oluşturuldu. Takip No: ${mockTracking}`)
 
-        revalidatePath("/")
+        console.log(`[ACTION] createCargoLabelAction success for order ${orderId}`)
         return { success: true, message: `Kargo kaydı başarıyla oluşturuldu! Takip No: ${mockTracking}`, trackingNumber: mockTracking }
     } catch (e: any) {
         await logActivity(orderId, session.user.name, "CARGO_ERROR", `Kargo hatası: ${e.message}`)
@@ -727,7 +740,7 @@ export async function simulateWooCommerceOrder() {
         }
     })
 
-    revalidatePath("/")
+     // revalidatePath("/")
     // return { success: true, message: "Yeni sipariş düştü!" }
 }
 
@@ -736,7 +749,7 @@ export async function markOrderAsRead(orderId: number) {
         where: { id: orderId },
         data: { hasNotification: false }
     })
-    revalidatePath("/")
+     // revalidatePath("/")
 }
 
 // SETTINGS ACTIONS
@@ -760,7 +773,7 @@ export async function getStatuses() {
             await db.statusColumn.create({ data: s })
         }
 
-        revalidatePath("/")
+         // revalidatePath("/")
         return await db.statusColumn.findMany({ orderBy: { order: "asc" } })
     }
 
@@ -780,8 +793,8 @@ export async function createStatus(formData: FormData) {
     await db.statusColumn.create({
         data: { id, title, color, order: count }
     })
-    revalidatePath("/")
-    revalidatePath("/admin/settings")
+     // revalidatePath("/")
+     // revalidatePath("/admin/settings")
 }
 
 export async function deleteStatus(id: string) {
@@ -790,8 +803,8 @@ export async function deleteStatus(id: string) {
         // Actually allowing dynamic is fine, but deleting 'pending' might break things if simulating. Safe to allow for now, user knows best.
     }
     await db.statusColumn.delete({ where: { id } })
-    revalidatePath("/")
-    revalidatePath("/admin/settings")
+     // revalidatePath("/")
+     // revalidatePath("/admin/settings")
 }
 
 export async function moveStatusUp(id: string) {
@@ -809,8 +822,8 @@ export async function moveStatusUp(id: string) {
             db.statusColumn.update({ where: { id: current.id }, data: { order: previous.order } }),
             db.statusColumn.update({ where: { id: previous.id }, data: { order: current.order } })
         ])
-        revalidatePath("/")
-        revalidatePath("/admin/settings")
+         // revalidatePath("/")
+         // revalidatePath("/admin/settings")
     }
 }
 
@@ -829,8 +842,8 @@ export async function moveStatusDown(id: string) {
             db.statusColumn.update({ where: { id: current.id }, data: { order: next.order } }),
             db.statusColumn.update({ where: { id: next.id }, data: { order: current.order } })
         ])
-        revalidatePath("/")
-        revalidatePath("/admin/settings")
+         // revalidatePath("/")
+         // revalidatePath("/admin/settings")
     }
 }
 
@@ -843,8 +856,8 @@ export async function updateStatusOrder(items: { id: string; order: number }[]) 
             })
         )
     )
-    revalidatePath("/")
-    revalidatePath("/admin/settings")
+     // revalidatePath("/")
+     // revalidatePath("/admin/settings")
 }
 // ... getLabels
 
@@ -862,14 +875,14 @@ export async function createLabel(formData: FormData) {
     await db.orderLabel.create({
         data: { name, color }
     })
-    revalidatePath("/")
-    revalidatePath("/admin/settings")
+     // revalidatePath("/")
+     // revalidatePath("/admin/settings")
 }
 
 export async function deleteLabel(id: string) {
     await db.orderLabel.delete({ where: { id } })
-    revalidatePath("/")
-    revalidatePath("/admin/settings")
+     // revalidatePath("/")
+     // revalidatePath("/admin/settings")
 }
 
 // USER MANAGEMENT ACTIONS
@@ -884,7 +897,7 @@ export async function updateUserRole(userId: string, newRole: string) {
         where: { id: userId },
         data: { role: newRole }
     })
-    revalidatePath("/admin/settings")
+     // revalidatePath("/admin/settings")
 }
 
 export async function updateUserPermissions(userId: string, allowedStatuses: string[]) {
@@ -892,12 +905,12 @@ export async function updateUserPermissions(userId: string, allowedStatuses: str
         where: { id: userId },
         data: { allowedStatuses: JSON.stringify(allowedStatuses) }
     })
-    revalidatePath("/admin/settings")
+     // revalidatePath("/admin/settings")
 }
 
 export async function deleteUser(userId: string) {
     await db.user.delete({ where: { id: userId } })
-    revalidatePath("/admin/settings")
+     // revalidatePath("/admin/settings")
 }
 
 export async function createUser(formData: FormData) {
@@ -928,12 +941,13 @@ export async function createUser(formData: FormData) {
         }
     })
 
-    revalidatePath("/admin/settings")
+     // revalidatePath("/admin/settings")
     return { success: true }
 }
 
 // SYSTEM SETTINGS ACTIONS
 export async function getSystemSettings(): Promise<Record<string, string>> {
+    noStore()
     const settings = await db.systemSetting.findMany()
     return settings.reduce((acc: Record<string, string>, curr: any) => ({ ...acc, [curr.key]: curr.value }), {} as Record<string, string>)
 }
@@ -990,7 +1004,7 @@ export async function saveEtsySettings(formData: FormData) {
                 await db.systemSetting.upsert({ where: { key: 'etsy_global_api_key' }, update: { value: globalKey }, create: { key: 'etsy_global_api_key', value: globalKey } })
             }
 
-            revalidatePath("/admin/settings")
+             // revalidatePath("/admin/settings")
             return { success: true, message: "Etsy mağaza ayarları başarıyla kaydedildi." }
         }
 
@@ -1000,7 +1014,7 @@ export async function saveEtsySettings(formData: FormData) {
             const apiKey = formData.get("etsy_api_key") as string
             await db.systemSetting.upsert({ where: { key: 'etsy_shop_id' }, update: { value: shopId }, create: { key: 'etsy_shop_id', value: shopId } })
             await db.systemSetting.upsert({ where: { key: 'etsy_api_key' }, update: { value: apiKey }, create: { key: 'etsy_api_key', value: apiKey } })
-            revalidatePath("/admin/settings")
+             // revalidatePath("/admin/settings")
             return { success: true, message: "Etsy ayarları (Tek Mağaza) kaydedildi." }
         }
 
@@ -1013,6 +1027,8 @@ export async function saveEtsySettings(formData: FormData) {
 }
 
 export async function saveFaturaEntegraSettings(formData: FormData) {
+    noStore()
+    console.log("[ACTION] saveFaturaEntegraSettings started")
     const username = formData.get("fe_user") as string
     const password = formData.get("fe_pass") as string
     const appKey = formData.get("fe_app_key") as string
@@ -1020,10 +1036,14 @@ export async function saveFaturaEntegraSettings(formData: FormData) {
     if (!username || !password) return { error: "Lütfen kullanıcı adı ve şifre giriniz." }
 
     try {
+        console.log("[ACTION] saveFaturaEntegraSettings: upserting fe_user")
         await db.systemSetting.upsert({ where: { key: 'fe_user' }, update: { value: username }, create: { key: 'fe_user', value: username } })
+        console.log("[ACTION] saveFaturaEntegraSettings: upserting fe_pass")
         await db.systemSetting.upsert({ where: { key: 'fe_pass' }, update: { value: password }, create: { key: 'fe_pass', value: password } })
+        console.log("[ACTION] saveFaturaEntegraSettings: upserting fe_app_key")
         await db.systemSetting.upsert({ where: { key: 'fe_app_key' }, update: { value: appKey || "" }, create: { key: 'fe_app_key', value: appKey || "" } })
 
+        console.log("[ACTION] saveFaturaEntegraSettings success")
         return { success: true, message: "FaturaEntegra ayarları başarıyla kaydedildi!" }
     } catch (e: any) {
         console.error("FaturaEntegra settings save error:", e)
@@ -1121,7 +1141,7 @@ export async function syncEtsyOrders() {
             }
         }
 
-        revalidatePath("/");
+         // revalidatePath("/");
         return { success: true, message: `${totalNew} yeni Etsy siparişi içe aktarıldı.`, logs };
     } catch (e: any) {
         console.error("syncEtsyOrders fatal error:", e);
@@ -1540,7 +1560,7 @@ export async function syncWooCommerceOrders(force: boolean = false) {
             console.error("Cargo Sync Failed:", e);
         }
 
-        // revalidatePath("/")
+        //  // revalidatePath("/")
         return { success: true, message: `${newCount} sipariş işlendi. (Sistem v3.6.6.13)`, logs: logs }
 
     } catch (e: any) {
@@ -1699,7 +1719,7 @@ export async function uploadCargoLabel(orderId: number, base64Data: string) {
             where: { id: orderId },
             data: { cargoLabelPdf: base64Data } as any
         })
-        revalidatePath("/")
+         // revalidatePath("/")
         return { success: true, message: "Kargo etiketi yüklendi" }
     } catch (error) {
         console.error("Upload Error:", error)
@@ -1713,7 +1733,7 @@ export async function deleteCargoLabel(orderId: number) {
             where: { id: orderId },
             data: { cargoLabelPdf: null }
         })
-        revalidatePath("/")
+         // revalidatePath("/")
         return { success: true, message: "Kargo etiketi silindi" }
     } catch (error) {
         console.error("Delete Error:", error)
@@ -1791,7 +1811,7 @@ export async function syncCargoKargoEntegrator() {
             }
         }
 
-        // revalidatePath("/"); - Removed from polling to prevent DO hangs
+        //  // revalidatePath("/"); - Removed from polling to prevent DO hangs
         return { success: true, message: `${updatedCount} siparişin kargo bilgisi güncellendi.` };
 
     } catch (error: any) {
