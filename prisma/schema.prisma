@@ -86,6 +86,7 @@ model OrderItem {
 model Comment {
   id          String   @id @default(uuid())
   message     String
+  type        String   @default("message") // "note" or "message"
   timestamp   DateTime @default(now())
   authorId    String
   orderId     Int

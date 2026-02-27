@@ -136,6 +136,7 @@ export async function getOrders(timestamp?: number) {
         comments: order.comments.map(c => ({
             id: c.id,
             message: c.message,
+            type: (c as any).type || "message",
             timestamp: c.timestamp.toISOString(),
             author: c.author?.name || "Unknown",
             attachments: (() => {
@@ -195,6 +196,7 @@ export async function getOrderDetails(orderId: number) {
             comments: order.comments.map(c => ({
                 id: c.id,
                 message: c.message,
+                type: (c as any).type || "message",
                 timestamp: c.timestamp.toISOString(), // Use ISO for reliable serialization
                 author: c.author?.name || "Unknown",
                 attachments: (() => {
@@ -573,7 +575,7 @@ export async function updateOrderDetails(rawOrder: any) {
     }
 }
 
-export async function addCommentAction(orderId: number, message: string, attachments: any[]) {
+export async function addCommentAction(orderId: number, message: string, attachments: any[], type: string = "message") {
     const session = await getSession()
     if (!session) return
 
@@ -582,6 +584,7 @@ export async function addCommentAction(orderId: number, message: string, attachm
             message,
             orderId,
             authorId: session.user.id,
+            type,
             attachments: JSON.stringify(attachments)
         }
     })

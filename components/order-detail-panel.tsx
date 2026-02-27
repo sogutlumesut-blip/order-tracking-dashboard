@@ -17,7 +17,7 @@ interface OrderDetailPanelProps {
     isOpen: boolean
     onClose: () => void
     onUpdate: (updatedOrder: Order) => void
-    onAddComment: (orderId: number, message: string, attachments: any[]) => void
+    onAddComment: (orderId: number, message: string, attachments: any[], type: string) => void
     currentUser: { id: string; name: string; role: string }
     statuses: { id: string; title: string; color: string }[]
     tags: { id: string; name: string; color: string | null }[]
@@ -69,7 +69,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
     if (!isOpen || !formData) return null
 
-    const handleInternalAddComment = async (msg: string, att: any[]) => {
+    const handleInternalAddComment = async (msg: string, att: any[], type: string = "message") => {
         const newComment: any = {
             id: Date.now(),
             author: currentUser.name,
@@ -81,14 +81,15 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                 hour: '2-digit',
                 minute: '2-digit'
             }),
-            attachments: att
+            attachments: att,
+            type: type
         }
 
         // Update local lazy state for immediate feedback
         setLazyComments(prev => prev ? [...prev, newComment] : [newComment])
 
         // Call parent
-        onAddComment(formData.id, msg, att)
+        onAddComment(formData.id, msg, att, type)
     }
 
     const handleSave = () => {
@@ -671,8 +672,8 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     <FileText className="w-4 h-4" /> İşlem Notları
                                 </label>
                                 <NoteLog
-                                    comments={lazyComments || []}
-                                    onAddNote={(msg) => handleInternalAddComment(msg, [])}
+                                    comments={(lazyComments || []).filter(c => c.type === 'note')}
+                                    onAddNote={(msg) => handleInternalAddComment(msg, [], 'note')}
                                     currentUser={currentUser}
                                     className="h-[300px]"
                                 />
@@ -683,8 +684,8 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     <Upload className="w-4 h-4" /> Yazışma & Dosyalar
                                 </label>
                                 <ChatSection
-                                    comments={lazyComments || []}
-                                    onAddComment={(msg, att) => handleInternalAddComment(msg, att)}
+                                    comments={(lazyComments || []).filter(c => c.type === 'message' || !c.type)}
+                                    onAddComment={(msg, att) => handleInternalAddComment(msg, att, 'message')}
                                     currentUser={currentUser}
                                 />
                             </div>
