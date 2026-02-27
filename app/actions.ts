@@ -335,7 +335,7 @@ export async function updateOrderStatusV2(rawOrderId: any, status: string) {
         }).catch(e => console.error("DEBUG_END FAIL:", e))
 
         try {
-            // revalidatePath("/")
+            revalidatePath("/")
         } catch (e) { }
 
         return { success: true, id: orderId, status: status, v: "3.6.6.7" }
@@ -567,6 +567,7 @@ export async function updateOrderDetails(rawOrder: any) {
         })
 
         // revalidatePath("/")
+        revalidatePath("/")
         return { success: true }
     } catch (e: any) {
         console.error("updateOrderDetails ERROR:", e)
