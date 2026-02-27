@@ -45,16 +45,28 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
             }
 
             // Always sync comments and activities as they are usually non-conflicting
-            const formattedComments = (order.comments || []).map(c => ({
-                ...c,
-                timestamp: new Date(c.timestamp).toLocaleString('tr-TR', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                })
-            }))
+            const formattedComments = (order.comments || []).map(c => {
+                let displayTime = c.timestamp;
+                try {
+                    const d = new Date(c.timestamp);
+                    if (!isNaN(d.getTime())) {
+                        displayTime = d.toLocaleString('tr-TR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                    }
+                } catch (e) {
+                    console.error("Date parse error:", e);
+                }
+
+                return {
+                    ...c,
+                    timestamp: displayTime
+                };
+            })
 
             setLazyComments(formattedComments)
             setLazyActivities(order.activities || [])

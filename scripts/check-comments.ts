@@ -3,6 +3,14 @@ import { PrismaClient } from '@prisma/client'
 const prisma = new PrismaClient()
 
 async function main() {
+    console.log("Checking database connection...")
+    try {
+        const commentCount = await prisma.comment.count()
+        console.log(`Connection successful. Total comments: ${commentCount}`)
+    } catch (e: any) {
+        console.error("Connection failed:", e.message)
+    }
+
     console.log("Checking recent comments...")
     const comments = await prisma.comment.findMany({
         take: 10,
