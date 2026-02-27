@@ -680,21 +680,28 @@ export async function createCargoLabelAction(orderId: number) {
 
 export async function createDHLShipmentAction(orderId: number) {
     noStore()
+    console.log(`[ACTION] createDHLShipmentAction started for order ${orderId}`)
     const session = await getSession()
-    if (!session) return { error: "Oturum kapalı" }
+    if (!session) {
+        console.log(`[ACTION] createDHLShipmentAction aborted: No session`)
+        return { error: "Oturum kapalı" }
+    }
 
     const settings = await getSystemSettings()
     if (!settings.dhl_user || !settings.dhl_pass) {
+        console.log(`[ACTION] createDHLShipmentAction aborted: Missing DHL settings`)
         return { error: "Lütfen önce Ayarlar sayfasından DHL API bilgilerini giriniz." }
     }
 
     try {
+        console.log(`[ACTION] createDHLShipmentAction: logging activity start for ${orderId}`)
         await logActivity(orderId, session.user.name, "DHL_CARGO_START", "DHL kargo kaydı oluşturma işlemi başlatıldı.")
 
         // SIMULATION: In a real scenario, we would call the DHL Ecommerce Turkey API here
         // https://onlinesube.dhlecommerce.com.tr/ API endpoint
         const mockTracking = "DHL" + Math.random().toString(36).substring(2, 9).toUpperCase();
 
+        console.log(`[ACTION] createDHLShipmentAction: updating order ${orderId} with tracking ${mockTracking}`)
         await db.order.update({
             where: { id: orderId },
             data: {
@@ -704,10 +711,13 @@ export async function createDHLShipmentAction(orderId: number) {
             }
         })
 
+        console.log(`[ACTION] createDHLShipmentAction: logging activity success for ${orderId}`)
         await logActivity(orderId, session.user.name, "DHL_CARGO_SUCCESS", `DHL kargo kaydı oluşturuldu. Takip No: ${mockTracking}`)
 
+        console.log(`[ACTION] createDHLShipmentAction success for order ${orderId}`)
         return { success: true, message: `DHL kargo kaydı başarıyla oluşturuldu! Takip No: ${mockTracking}`, trackingNumber: mockTracking }
     } catch (e: any) {
+        console.error(`[ACTION] createDHLShipmentAction error for order ${orderId}:`, e)
         await logActivity(orderId, session.user.name, "DHL_CARGO_ERROR", `DHL hatası: ${e.message}`)
         return { error: e.message }
     }
