@@ -8,7 +8,7 @@ import { NoteLog } from "./note-log"
 import { ChatSection } from "./chat-section"
 import { ActivityLog } from "./activity-log"
 import { getColorClasses } from "@/lib/colors"
-import { logManualActivity, uploadCargoLabel, deleteCargoLabel, getOrderDetails, createInvoiceAction, createCargoLabelAction } from "../app/actions"
+import { logManualActivity, uploadCargoLabel, deleteCargoLabel, getOrderDetails, createInvoiceAction, createCargoLabelAction, createDHLShipmentAction } from "../app/actions"
 import { LocalBarcodeModal } from "./local-barcode-modal"
 import { toast } from "sonner"
 
@@ -377,7 +377,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                 </button>
 
                                 {/* DIRECT ACTIONS: Fatura & Kargo (NEW) */}
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                     <button
                                         onClick={async () => {
                                             if (!formData.taxNumber) {
@@ -394,7 +394,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                 error: (err) => err.message || "Hata oluştu"
                                             });
                                         }}
-                                        className="py-3 bg-indigo-600 text-white rounded-xl flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all font-bold shadow-lg shadow-indigo-200 dark:shadow-none"
+                                        className="py-3 bg-indigo-600 text-white rounded-xl flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all font-bold shadow-lg shadow-indigo-200 dark:shadow-none text-xs"
                                     >
                                         <Receipt className="w-5 h-5" />
                                         Fatura Kes
@@ -413,10 +413,29 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                 error: (err) => err.message || "Hata oluştu"
                                             });
                                         }}
-                                        className="py-3 bg-emerald-600 text-white rounded-xl flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all font-bold shadow-lg shadow-emerald-200 dark:shadow-none"
+                                        className="py-3 bg-emerald-600 text-white rounded-xl flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all font-bold shadow-lg shadow-emerald-200 dark:shadow-none text-xs"
                                     >
                                         <Truck className="w-5 h-5" />
                                         Kargo Çıkar
+                                    </button>
+                                    <button
+                                        onClick={async () => {
+                                            toast.promise(createDHLShipmentAction(formData.id), {
+                                                loading: "DHL Kargo kaydı oluşturuluyor...",
+                                                success: (res: any) => {
+                                                    if (res.error) throw new Error(res.error);
+                                                    if (res.trackingNumber) {
+                                                        setFormData({ ...formData, status: 'shipped', trackingNumber: res.trackingNumber });
+                                                    }
+                                                    return "DHL Kargo talebi iletildi!";
+                                                },
+                                                error: (err) => err.message || "Hata oluştu"
+                                            });
+                                        }}
+                                        className="py-3 bg-red-600 text-white rounded-xl flex items-center justify-center gap-2 hover:bg-red-700 transition-all font-bold shadow-lg shadow-red-200 dark:shadow-none text-xs"
+                                    >
+                                        <Truck className="w-5 h-5" />
+                                        DHL Çıkar
                                     </button>
                                 </div>
 

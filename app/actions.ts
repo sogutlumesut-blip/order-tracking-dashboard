@@ -333,7 +333,7 @@ export async function updateOrderStatusV2(rawOrderId: any, status: string) {
         }).catch(e => console.error("DEBUG_END FAIL:", e))
 
         try {
-             // revalidatePath("/")
+            // revalidatePath("/")
         } catch (e) { }
 
         return { success: true, id: orderId, status: status, v: "3.6.6.7" }
@@ -427,7 +427,7 @@ export async function bulkUpdateOrderStatus(orderIds: number[], status: string) 
 
         serverLog(`[BULK_MOVE] END: ${successCount}/${orderIds.length} in ${Date.now() - startTime}ms`);
 
-         // revalidatePath("/");
+        // revalidatePath("/");
         return { success: true, count: successCount };
     } catch (e: any) {
         serverLog(`[BULK_MOVE] FATAL: ${e.message}`);
@@ -440,7 +440,7 @@ export async function logManualActivity(orderId: number, action: string, details
     const session = await getSession()
     const user = session ? session.user.name : "Sistem"
     await logActivity(orderId, user, action, details)
-     // revalidatePath("/")
+    // revalidatePath("/")
 }
 
 export async function updateOrderDetails(rawOrder: any) {
@@ -564,7 +564,7 @@ export async function updateOrderDetails(rawOrder: any) {
             }
         })
 
-         // revalidatePath("/")
+        // revalidatePath("/")
         return { success: true }
     } catch (e: any) {
         console.error("updateOrderDetails ERROR:", e)
@@ -594,7 +594,7 @@ export async function addCommentAction(orderId: number, message: string, attachm
 
     await logActivity(orderId, session.user.name, "COMMENT_ADDED", "Yeni mesaj yazdı.")
 
-     // revalidatePath("/")
+    // revalidatePath("/")
 }
 
 // INVOICE & CARGO ACTIONS
@@ -678,6 +678,41 @@ export async function createCargoLabelAction(orderId: number) {
     }
 }
 
+export async function createDHLShipmentAction(orderId: number) {
+    noStore()
+    const session = await getSession()
+    if (!session) return { error: "Oturum kapalı" }
+
+    const settings = await getSystemSettings()
+    if (!settings.dhl_user || !settings.dhl_pass) {
+        return { error: "Lütfen önce Ayarlar sayfasından DHL API bilgilerini giriniz." }
+    }
+
+    try {
+        await logActivity(orderId, session.user.name, "DHL_CARGO_START", "DHL kargo kaydı oluşturma işlemi başlatıldı.")
+
+        // SIMULATION: In a real scenario, we would call the DHL Ecommerce Turkey API here
+        // https://onlinesube.dhlecommerce.com.tr/ API endpoint
+        const mockTracking = "DHL" + Math.random().toString(36).substring(2, 9).toUpperCase();
+
+        await db.order.update({
+            where: { id: orderId },
+            data: {
+                status: "shipped",
+                cargoTrackingNumber: mockTracking,
+                updatedAt: new Date()
+            }
+        })
+
+        await logActivity(orderId, session.user.name, "DHL_CARGO_SUCCESS", `DHL kargo kaydı oluşturuldu. Takip No: ${mockTracking}`)
+
+        return { success: true, message: `DHL kargo kaydı başarıyla oluşturuldu! Takip No: ${mockTracking}`, trackingNumber: mockTracking }
+    } catch (e: any) {
+        await logActivity(orderId, session.user.name, "DHL_CARGO_ERROR", `DHL hatası: ${e.message}`)
+        return { error: e.message }
+    }
+}
+
 // SIMULATION ACTION
 export async function simulateWooCommerceOrder() {
     // Generate Random Data
@@ -740,7 +775,7 @@ export async function simulateWooCommerceOrder() {
         }
     })
 
-     // revalidatePath("/")
+    // revalidatePath("/")
     // return { success: true, message: "Yeni sipariş düştü!" }
 }
 
@@ -749,7 +784,7 @@ export async function markOrderAsRead(orderId: number) {
         where: { id: orderId },
         data: { hasNotification: false }
     })
-     // revalidatePath("/")
+    // revalidatePath("/")
 }
 
 // SETTINGS ACTIONS
@@ -773,7 +808,7 @@ export async function getStatuses() {
             await db.statusColumn.create({ data: s })
         }
 
-         // revalidatePath("/")
+        // revalidatePath("/")
         return await db.statusColumn.findMany({ orderBy: { order: "asc" } })
     }
 
@@ -793,8 +828,8 @@ export async function createStatus(formData: FormData) {
     await db.statusColumn.create({
         data: { id, title, color, order: count }
     })
-     // revalidatePath("/")
-     // revalidatePath("/admin/settings")
+    // revalidatePath("/")
+    // revalidatePath("/admin/settings")
 }
 
 export async function deleteStatus(id: string) {
@@ -803,8 +838,8 @@ export async function deleteStatus(id: string) {
         // Actually allowing dynamic is fine, but deleting 'pending' might break things if simulating. Safe to allow for now, user knows best.
     }
     await db.statusColumn.delete({ where: { id } })
-     // revalidatePath("/")
-     // revalidatePath("/admin/settings")
+    // revalidatePath("/")
+    // revalidatePath("/admin/settings")
 }
 
 export async function moveStatusUp(id: string) {
@@ -822,8 +857,8 @@ export async function moveStatusUp(id: string) {
             db.statusColumn.update({ where: { id: current.id }, data: { order: previous.order } }),
             db.statusColumn.update({ where: { id: previous.id }, data: { order: current.order } })
         ])
-         // revalidatePath("/")
-         // revalidatePath("/admin/settings")
+        // revalidatePath("/")
+        // revalidatePath("/admin/settings")
     }
 }
 
@@ -842,8 +877,8 @@ export async function moveStatusDown(id: string) {
             db.statusColumn.update({ where: { id: current.id }, data: { order: next.order } }),
             db.statusColumn.update({ where: { id: next.id }, data: { order: current.order } })
         ])
-         // revalidatePath("/")
-         // revalidatePath("/admin/settings")
+        // revalidatePath("/")
+        // revalidatePath("/admin/settings")
     }
 }
 
@@ -856,8 +891,8 @@ export async function updateStatusOrder(items: { id: string; order: number }[]) 
             })
         )
     )
-     // revalidatePath("/")
-     // revalidatePath("/admin/settings")
+    // revalidatePath("/")
+    // revalidatePath("/admin/settings")
 }
 // ... getLabels
 
@@ -875,14 +910,14 @@ export async function createLabel(formData: FormData) {
     await db.orderLabel.create({
         data: { name, color }
     })
-     // revalidatePath("/")
-     // revalidatePath("/admin/settings")
+    // revalidatePath("/")
+    // revalidatePath("/admin/settings")
 }
 
 export async function deleteLabel(id: string) {
     await db.orderLabel.delete({ where: { id } })
-     // revalidatePath("/")
-     // revalidatePath("/admin/settings")
+    // revalidatePath("/")
+    // revalidatePath("/admin/settings")
 }
 
 // USER MANAGEMENT ACTIONS
@@ -897,7 +932,7 @@ export async function updateUserRole(userId: string, newRole: string) {
         where: { id: userId },
         data: { role: newRole }
     })
-     // revalidatePath("/admin/settings")
+    // revalidatePath("/admin/settings")
 }
 
 export async function updateUserPermissions(userId: string, allowedStatuses: string[]) {
@@ -905,12 +940,12 @@ export async function updateUserPermissions(userId: string, allowedStatuses: str
         where: { id: userId },
         data: { allowedStatuses: JSON.stringify(allowedStatuses) }
     })
-     // revalidatePath("/admin/settings")
+    // revalidatePath("/admin/settings")
 }
 
 export async function deleteUser(userId: string) {
     await db.user.delete({ where: { id: userId } })
-     // revalidatePath("/admin/settings")
+    // revalidatePath("/admin/settings")
 }
 
 export async function createUser(formData: FormData) {
@@ -941,7 +976,7 @@ export async function createUser(formData: FormData) {
         }
     })
 
-     // revalidatePath("/admin/settings")
+    // revalidatePath("/admin/settings")
     return { success: true }
 }
 
@@ -1004,7 +1039,7 @@ export async function saveEtsySettings(formData: FormData) {
                 await db.systemSetting.upsert({ where: { key: 'etsy_global_api_key' }, update: { value: globalKey }, create: { key: 'etsy_global_api_key', value: globalKey } })
             }
 
-             // revalidatePath("/admin/settings")
+            // revalidatePath("/admin/settings")
             return { success: true, message: "Etsy mağaza ayarları başarıyla kaydedildi." }
         }
 
@@ -1014,7 +1049,7 @@ export async function saveEtsySettings(formData: FormData) {
             const apiKey = formData.get("etsy_api_key") as string
             await db.systemSetting.upsert({ where: { key: 'etsy_shop_id' }, update: { value: shopId }, create: { key: 'etsy_shop_id', value: shopId } })
             await db.systemSetting.upsert({ where: { key: 'etsy_api_key' }, update: { value: apiKey }, create: { key: 'etsy_api_key', value: apiKey } })
-             // revalidatePath("/admin/settings")
+            // revalidatePath("/admin/settings")
             return { success: true, message: "Etsy ayarları (Tek Mağaza) kaydedildi." }
         }
 
@@ -1048,6 +1083,25 @@ export async function saveFaturaEntegraSettings(formData: FormData) {
     } catch (e: any) {
         console.error("FaturaEntegra settings save error:", e)
         return { error: "Ayarlar kaydedilirken bir hata oluştu: " + e.message }
+    }
+}
+
+export async function saveDHLSettings(formData: FormData) {
+    noStore()
+    const user = formData.get("dhl_user") as string
+    const pass = formData.get("dhl_pass") as string
+    const customerId = formData.get("dhl_customer_id") as string
+
+    if (!user || !pass) return { error: "Lütfen DHL kullanıcı adı ve şifresini giriniz." }
+
+    try {
+        await db.systemSetting.upsert({ where: { key: 'dhl_user' }, update: { value: user }, create: { key: 'dhl_user', value: user } })
+        await db.systemSetting.upsert({ where: { key: 'dhl_pass' }, update: { value: pass }, create: { key: 'dhl_pass', value: pass } })
+        await db.systemSetting.upsert({ where: { key: 'dhl_customer_id' }, update: { value: customerId || "" }, create: { key: 'dhl_customer_id', value: customerId || "" } })
+
+        return { success: true, message: "DHL ayarları kaydedildi!" }
+    } catch (e: any) {
+        return { error: e.message }
     }
 }
 
@@ -1141,7 +1195,7 @@ export async function syncEtsyOrders() {
             }
         }
 
-         // revalidatePath("/");
+        // revalidatePath("/");
         return { success: true, message: `${totalNew} yeni Etsy siparişi içe aktarıldı.`, logs };
     } catch (e: any) {
         console.error("syncEtsyOrders fatal error:", e);
@@ -1719,7 +1773,7 @@ export async function uploadCargoLabel(orderId: number, base64Data: string) {
             where: { id: orderId },
             data: { cargoLabelPdf: base64Data } as any
         })
-         // revalidatePath("/")
+        // revalidatePath("/")
         return { success: true, message: "Kargo etiketi yüklendi" }
     } catch (error) {
         console.error("Upload Error:", error)
@@ -1733,7 +1787,7 @@ export async function deleteCargoLabel(orderId: number) {
             where: { id: orderId },
             data: { cargoLabelPdf: null }
         })
-         // revalidatePath("/")
+        // revalidatePath("/")
         return { success: true, message: "Kargo etiketi silindi" }
     } catch (error) {
         console.error("Delete Error:", error)

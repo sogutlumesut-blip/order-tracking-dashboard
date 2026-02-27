@@ -15,6 +15,7 @@ import { EtsyMultiStoreSettings } from "@/components/settings/etsy-multi-store-s
 import { FaturaEntegraSettingsForm } from "@/components/settings/fatura-entegra-settings-form"
 import { PrintMarktSettingsForm } from "@/components/settings/printmarkt-settings-form"
 import { CronTrigger } from "@/components/settings/cron-trigger"
+import { DHLSettingsForm } from "@/components/settings/dhl-settings-form"
 
 export const dynamic = 'force-dynamic'
 
@@ -93,6 +94,23 @@ export default async function SettingsPage() {
                         fe_user: systemSettings.fe_user,
                         fe_pass: systemSettings.fe_pass,
                         fe_app_key: systemSettings.fe_app_key
+                    }} />
+                </div>
+
+                {/* DHL INTEGRATION */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-red-100">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-900">
+                        <span className="bg-red-600 text-white p-1 px-2 rounded text-sm">DHL</span>
+                        DHL Ecommerce Entegrasyonu
+                    </h2>
+                    <p className="text-sm text-slate-600 mb-6">
+                        DHL Ecommerce Turkey üzerinden kargo barkodu oluşturmak için API bilgilerinizi giriniz.
+                    </p>
+
+                    <DHLSettingsForm initialSettings={{
+                        dhl_user: systemSettings.dhl_user,
+                        dhl_pass: systemSettings.dhl_pass,
+                        dhl_customer_id: systemSettings.dhl_customer_id
                     }} />
                 </div>
 
