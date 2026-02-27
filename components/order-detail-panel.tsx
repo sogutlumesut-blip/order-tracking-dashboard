@@ -48,18 +48,17 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
             const formattedComments = (order.comments || []).map(c => {
                 let displayTime = c.timestamp;
                 try {
-                    // Only try to parse if it's not already a short time string like "HH:mm"
-                    if (c.timestamp && c.timestamp.includes('-') || c.timestamp.includes('T')) {
-                        const d = new Date(c.timestamp);
-                        if (!isNaN(d.getTime())) {
-                            displayTime = d.toLocaleString('tr-TR', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                            });
-                        }
+                    const d = new Date(c.timestamp);
+                    if (d instanceof Date && !isNaN(d.getTime())) {
+                        displayTime = d.toLocaleString('tr-TR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                    } else if (typeof c.timestamp === 'string' && c.timestamp.length > 0) {
+                        displayTime = c.timestamp;
                     }
                 } catch (e) {
                     console.error("Date parse error:", e);

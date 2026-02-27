@@ -9,21 +9,22 @@ async function main() {
         console.log(`Connection successful. Total comments: ${commentCount}`)
     } catch (e: any) {
         console.error("Connection failed:", e.message)
+        return
     }
 
-    console.log("Checking recent comments...")
+    const orderId = 290
+    console.log(`Checking comments for Order #${orderId}...`)
     const comments = await prisma.comment.findMany({
-        take: 10,
-        orderBy: { timestamp: 'desc' },
+        where: { orderId: orderId },
+        orderBy: { timestamp: 'asc' },
         include: {
-            author: { select: { name: true } },
-            order: { select: { id: true, customer: true } }
+            author: { select: { name: true } }
         }
     })
 
-    console.log(`Found ${comments.length} recent comments:`)
+    console.log(`Found ${comments.length} comments for Order #${orderId}:`)
     comments.forEach(c => {
-        console.log(`- [${c.timestamp.toISOString()}] Order #${c.orderId} (${c.order.customer}): "${c.message}" by ${c.author.name} (Type: ${c.type})`)
+        console.log(`- [${c.timestamp.toISOString()}] by ${c.author.name} (Type: ${c.type}): "${c.message}" | Attachments: ${c.attachments ? 'Yes' : 'No'}`)
     })
 }
 
