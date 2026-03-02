@@ -124,7 +124,9 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                 <div className="flex justify-between items-start">
                     <div>
                         <div className="flex items-center gap-2">
-                            <h3 className="font-bold text-slate-900 dark:text-slate-100">#{order.id}</h3>
+                            <h3 className="font-bold text-slate-900 dark:text-slate-100">
+                                {order.source === 'woo' && order.externalId ? `#${order.externalId}` : `#${order.id}`}
+                            </h3>
                             {order.source === 'etsy' && (
                                 <span className="bg-[#F1641E] text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm">
                                     <span className="font-serif italic lowercase font-extrabold translate-y-[1px]">E</span>
@@ -132,9 +134,14 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                 </span>
                             )}
                             {(order.source === 'woo' || (!order.source && order.barcode?.startsWith('WC-'))) && (
-                                <span className="bg-[#96588A] text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm">
-                                    WOO
-                                </span>
+                                <div className="flex items-center gap-1">
+                                    <span className="bg-[#96588A] text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm">
+                                        WOO
+                                    </span>
+                                    {order.source === 'woo' && order.externalId && (
+                                        <span className="text-[10px] text-slate-400 font-mono">({order.id})</span>
+                                    )}
+                                </div>
                             )}
                         </div>
                         <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">{order.customer}</p>

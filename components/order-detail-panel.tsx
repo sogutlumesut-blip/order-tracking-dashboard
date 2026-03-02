@@ -167,9 +167,16 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                 {/* Header */}
                 <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950 print:hidden">
                     <div>
-                        <h2 className="text-lg font-bold dark:text-slate-100">Sipariş #{formData.id}</h2>
+                        <h2 className="text-lg font-bold dark:text-slate-100">
+                            Sipariş {formData.source === 'woo' && formData.externalId ? `#${formData.externalId}` : `#${formData.id}`}
+                        </h2>
                         {/* Compact user info for header */}
-                        <p className="font-medium text-slate-900 dark:text-slate-300">{formData.customer}</p>
+                        <p className="font-medium text-slate-900 dark:text-slate-300">
+                            {formData.customer}
+                            {formData.source === 'woo' && formData.externalId && (
+                                <span className="ml-2 text-xs text-slate-400 font-mono">(Sistem ID: #{formData.id})</span>
+                            )}
+                        </p>
                     </div>
                     <div className="flex gap-2">
                         <button onClick={handlePrint} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full text-slate-600 dark:text-slate-400" title="Yazdır">
@@ -206,7 +213,9 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                         </div>
                     </div>
 
-                    <h1 className="text-2xl font-bold mb-2">Sipariş Detayı #{formData.id}</h1>
+                    <h1 className="text-2xl font-bold mb-2">
+                        Sipariş {formData.source === 'woo' && formData.externalId ? `#${formData.externalId}` : `#${formData.id}`}
+                    </h1>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <p className="font-bold">Müşteri:</p>
@@ -354,6 +363,9 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                             📏 {item.dimensions}
                                                         </span>
                                                     )}
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                                        ADET: {item.quantity}
+                                                    </span>
                                                 </div>
 
                                                 {/* Special URL Link */}

@@ -781,6 +781,8 @@ export async function simulateWooCommerceOrder() {
             barcode: `WOO-${randomId}`,
             note: "Müşteri Notu: Lütfen hediye paketi yapınız.",
             hasNotification: true, // Ensure it pops up
+            source: 'woo',
+            externalId: String(randomId),
             items: {
                 create: [
                     {
@@ -1565,6 +1567,8 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                             cargoTrackingNumber: cargoTrackingMeta ? cargoTrackingMeta.value : (existingOrder.cargoTrackingNumber || null),
                             paymentMethod: paymentMethod,
                             labels: JSON.stringify(finalLabels),
+                            source: 'woo',
+                            externalId: String(wcOrder.id),
                             items: {
                                 deleteMany: {}, // Items are still source-of-truth from WC
                                 create: items
@@ -1595,6 +1599,8 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                             cargoBarcode: cargoBarcodeMeta ? cargoBarcodeMeta.value : null,
                             cargoTrackingNumber: cargoTrackingMeta ? cargoTrackingMeta.value : null,
                             paymentMethod: paymentMethod,
+                            source: 'woo',
+                            externalId: String(wcOrder.id),
                             items: {
                                 create: items
                             }
