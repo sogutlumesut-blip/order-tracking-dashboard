@@ -581,15 +581,21 @@ export async function addCommentAction(orderId: number, message: string, attachm
         const session = await getSession()
         if (!session) return { error: "Oturum kapalı" }
 
-        await db.comment.create({
-            data: {
-                message,
-                orderId,
-                authorId: session.user.id,
-                type,
-                attachments: JSON.stringify(attachments)
-            }
+        console.log(`[ACTION] addCommentAction: Order=${orderId}, Type=${type}, MsgLength=${message.length}, Attachments=${attachments.length}`)
+
+        const commentData = {
+            message,
+            orderId,
+            authorId: session.user.id,
+            type,
+            attachments: JSON.stringify(attachments)
+        }
+
+        const created = await db.comment.create({
+            data: commentData
         })
+
+        console.log(`[ACTION] Comment saved successfully: ID=${created.id}`)
 
         // Trigger Notification for new comment
         await db.order.update({
@@ -597,7 +603,7 @@ export async function addCommentAction(orderId: number, message: string, attachm
             data: { hasNotification: true }
         })
 
-        await logActivity(orderId, session.user.name, "COMMENT_ADDED", "Yeni mesaj yazdı.")
+        await logActivity(orderId, session.user.name, "COMMENT_ADDED", `Yeni ${type === 'note' ? 'not' : 'mesaj'} yazdı.`)
 
         revalidatePath("/")
         return { success: true }

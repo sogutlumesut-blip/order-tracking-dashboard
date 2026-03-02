@@ -375,13 +375,13 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                             href={item.url}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                                                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-500 hover:text-blue-400 hover:underline transition-colors"
                                                         >
                                                             🔗 Özel Dosya Linki
                                                         </a>
                                                         <input
                                                             type="text"
-                                                            className="flex-1 text-[10px] p-1 border dark:border-slate-700 rounded bg-slate-50 dark:bg-slate-900 font-medium focus:ring-1 focus:ring-blue-500 outline-none"
+                                                            className="flex-1 text-[10px] p-1 border dark:border-slate-700 rounded bg-slate-50 dark:bg-slate-900 font-medium focus:ring-1 focus:ring-blue-500 outline-none text-slate-900 dark:text-slate-100"
                                                             value={item.url || ""}
                                                             onChange={(e) => {
                                                                 const newItems = formData.items.map(i => i.id === item.id ? { ...i, url: e.target.value } : i)
@@ -713,6 +713,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     comments={(lazyComments || []).filter(c => c.type === 'message' || !c.type)}
                                     onAddComment={(msg, att) => handleInternalAddComment(msg, att, 'message')}
                                     currentUser={currentUser}
+                                    onImageClick={setPreviewImage}
                                 />
                             </div>
 

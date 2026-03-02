@@ -8,9 +8,10 @@ interface ChatSectionProps {
     comments?: Comment[]
     onAddComment: (message: string, attachments: any[]) => void
     currentUser: { id: string; name: string; role: string }
+    onImageClick?: (url: string) => void
 }
 
-export function ChatSection({ comments = [], onAddComment, currentUser }: ChatSectionProps) {
+export function ChatSection({ comments = [], onAddComment, currentUser, onImageClick }: ChatSectionProps) {
     const [message, setMessage] = useState("")
     const [attachment, setAttachment] = useState<{ name: string, type: 'image' | 'file', url: string } | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
@@ -135,7 +136,12 @@ export function ChatSection({ comments = [], onAddComment, currentUser }: ChatSe
                                     <div key={i} className="mt-2 p-2 bg-black/10 rounded-lg flex items-center gap-2 overflow-hidden">
                                         {att.type === 'image' ? (
                                             // eslint-disable-next-line @next/next/no-img-element
-                                            <img src={att.url} alt="attachment" className="w-full h-auto rounded-md max-w-[200px]" />
+                                            <img
+                                                src={att.url}
+                                                alt="attachment"
+                                                className="w-full h-auto rounded-md max-w-[200px] cursor-zoom-in hover:opacity-90 transition-opacity"
+                                                onClick={() => onImageClick?.(att.url)}
+                                            />
                                         ) : (
                                             <a href={att.url} download={att.name} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs underline hover:text-blue-600 transition-colors">
                                                 <FileIcon className="w-4 h-4" />
