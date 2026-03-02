@@ -78,12 +78,32 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                         </div>
 
                         {/* Middle: Receiver Info */}
-                        <div className="w-full text-left mb-6 space-y-1 flex-1">
-                            <p className="text-xs text-slate-500 uppercase font-bold">ALICI:</p>
-                            <p className="font-bold text-lg leading-tight">{order.customer}</p>
-                            <p className="text-sm">{order.address}</p>
-                            <p className="text-sm font-bold">{order.city}</p>
-                            <p className="text-sm mt-1">{order.phone}</p>
+                        <div className="w-full text-left mb-4 space-y-1">
+                            <p className="text-[10px] text-slate-500 uppercase font-bold">ALICI:</p>
+                            <p className="font-bold text-base leading-tight">{order.customer}</p>
+                            <p className="text-[11px] leading-tight">{order.address}</p>
+                            <p className="text-[11px] font-bold">{order.city}</p>
+                            <p className="text-[11px] mt-1">{order.phone}</p>
+                        </div>
+
+                        {/* Middle: Order Content (NEW) */}
+                        <div className="w-full text-left mb-4 flex-1 overflow-hidden border-t border-slate-200 pt-2">
+                            <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">SİPARİŞ İÇERİĞİ:</p>
+                            <div className="space-y-2">
+                                {order.items?.map((item: any, idx: number) => (
+                                    <div key={idx} className="border-b border-slate-100 last:border-0 pb-1">
+                                        <div className="flex justify-between items-start gap-2">
+                                            <p className="text-[11px] font-bold leading-tight flex-1 uppercase">{item.name}</p>
+                                            <p className="text-[12px] font-black bg-slate-100 px-1 rounded whitespace-nowrap">x{item.quantity}</p>
+                                        </div>
+                                        <div className="flex flex-wrap gap-x-2 mt-0.5 text-[9px] text-slate-600 font-medium">
+                                            {item.sku && <span className="bg-slate-50 border px-1 rounded">KOD: {item.sku}</span>}
+                                            {item.material && <span>{item.material}</span>}
+                                            {item.dimensions && <span className="text-emerald-700">📏 {item.dimensions}</span>}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
 
                         {/* Bottom: Barcode & QR Code */}
