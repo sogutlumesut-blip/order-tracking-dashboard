@@ -85,7 +85,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
     const handleInternalAddComment = async (msg: string, att: any[], type: string = "message") => {
         const newComment: any = {
-            id: Date.now(),
+            id: Date.now().toString(),
             author: currentUser.name,
             message: msg,
             timestamp: new Date().toLocaleString('tr-TR', {
@@ -102,8 +102,14 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
         // Update local lazy state for immediate feedback
         setLazyComments(prev => prev ? [...prev, newComment] : [newComment])
 
-        // Call parent
-        onAddComment(formData.id, msg, att, type)
+        try {
+            // Call parent
+            await onAddComment(formData.id, msg, att, type)
+        } catch (e: any) {
+            toast.error(`Mesaj kaydedilemedi: ${e.message}`)
+            // Rollback local state
+            setLazyComments(prev => prev ? prev.filter(c => c.id !== newComment.id) : null)
+        }
     }
 
     const handleSave = () => {
