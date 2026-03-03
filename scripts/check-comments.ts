@@ -3,29 +3,27 @@ import { PrismaClient } from '@prisma/client'
 const prisma = new PrismaClient()
 
 async function main() {
-    console.log("Checking database connection...")
-    try {
-        const commentCount = await prisma.comment.count()
-        console.log(`Connection successful. Total comments: ${commentCount}`)
-    } catch (e: any) {
-        console.error("Connection failed:", e.message)
-        return
-    }
-
-    const orderId = 290
-    console.log(`Checking comments for Order #${orderId}...`)
     const comments = await prisma.comment.findMany({
-        where: { orderId: orderId },
-        orderBy: { timestamp: 'asc' },
+        orderBy: { timestamp: 'desc' },
+        take: 10,
         include: {
-            author: { select: { name: true } }
+            order: {
+                select: { id: true, customer: true }
+            }
         }
     })
 
-    console.log(`Found ${comments.length} comments for Order #${orderId}:`)
+    console.log('Last 10 comments:')
     comments.forEach(c => {
-        console.log(`- [${c.timestamp.toISOString()}] by ${c.author.name} (Type: ${c.type}): "${c.message}" | Attachments: ${c.attachments ? 'Yes' : 'No'}`)
+        console.log(`ID: ${c.id}, Order: #${c.orderId} (${c.order?.customer}), Type: ${c.type}, Msg: ${c.message}, Time: ${c.timestamp.toISOString()}`)
     })
 }
 
-main().catch(console.error).finally(() => prisma.$disconnect())
+main()
+    .catch(e => {
+        console.error(e)
+        process.exit(1)
+    })
+    .finally(async () => {
+        await prisma.$disconnect()
+    })

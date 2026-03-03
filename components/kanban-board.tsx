@@ -895,9 +895,18 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             return o
         }))
 
-        const result = await addCommentAction(orderId, message, attachments, type) as any
-        if (result && result.error) {
-            toast.error(`Mesaj gönderilemedi: ${result.error}`)
+        try {
+            const result = await addCommentAction(orderId, message, attachments, type) as any
+            if (result && result.error) {
+                toast.error(`Mesaj gönderilemedi: ${result.error}`)
+                setOrders(previousOrders)
+            } else {
+                // Successful save - trigger refresh to sync all components and other users
+                router.refresh()
+            }
+        } catch (e: any) {
+            console.error("[KANBAN] handleAddComment Error:", e)
+            toast.error("İşlem sırasında bir hata oluştu.")
             setOrders(previousOrders)
         }
     }
@@ -1416,7 +1425,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                     Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}
                                 </span>
                                 <span className="text-[10px] text-slate-400">...</span>
-                                <span className="text-[10px] text-emerald-600 font-bold">v3.6.6.29 - INVOICE_V1</span>
+                                <span className="text-[10px] text-emerald-600 font-bold">v3.6.6.30 - CHAT_FIX_V1</span>
                             </div>
 
                             <div className="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm p-1">

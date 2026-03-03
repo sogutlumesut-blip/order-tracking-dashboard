@@ -579,13 +579,16 @@ export async function updateOrderDetails(rawOrder: any) {
 export async function addCommentAction(orderId: number, message: string, attachments: any[], type: string = "message") {
     try {
         const session = await getSession()
-        if (!session) return { error: "Oturum kapalı" }
+        if (!session) {
+            console.error(`[ADD_COMMENT] FAILED: No session for order #${orderId}`)
+            return { error: "Oturum kapalı" }
+        }
 
-        console.log(`[ACTION] addCommentAction: Order=${orderId}, Type=${type}, MsgLength=${message.length}, Attachments=${attachments.length}`)
+        console.log(`[ADD_COMMENT] START: Order=${orderId}, User=${session.user.name}, Type=${type}, MsgLength=${message.trim().length}, Attachments=${attachments.length}`)
 
         const commentData = {
-            message,
-            orderId,
+            message: message.trim(),
+            orderId: Number(orderId),
             authorId: session.user.id,
             type,
             attachments: JSON.stringify(attachments)
@@ -595,21 +598,24 @@ export async function addCommentAction(orderId: number, message: string, attachm
             data: commentData
         })
 
-        console.log(`[ACTION] Comment saved successfully: ID=${created.id}`)
+        console.log(`[ADD_COMMENT] SUCCESS: Comment ID=${created.id} saved for order #${orderId}`)
 
-        // Trigger Notification for new comment
+        // Trigger Notification and update timestamp for new comment
         await db.order.update({
-            where: { id: orderId },
-            data: { hasNotification: true }
+            where: { id: Number(orderId) },
+            data: {
+                hasNotification: true,
+                updatedAt: new Date()
+            }
         })
 
-        await logActivity(orderId, session.user.name, "COMMENT_ADDED", `Yeni ${type === 'note' ? 'not' : 'mesaj'} yazdı.`)
+        await logActivity(Number(orderId), session.user.name, "COMMENT_ADDED", `Yeni ${type === 'note' ? 'not' : 'mesaj'} yazdı.`)
 
         revalidatePath("/")
         return { success: true }
     } catch (e: any) {
-        console.error("ADD_COMMENT ERROR:", e)
-        return { error: e.message || "Mesaj kaydedilemedi. Veritabanı kotası dolmuş olabilir." }
+        console.error(`[ADD_COMMENT] CRITICAL ERROR for order #${orderId}:`, e)
+        return { error: e.message || "Mesaj kaydedilemedi. Veritabanı hatası oluştu." }
     }
 }
 

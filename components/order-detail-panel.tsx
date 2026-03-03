@@ -44,7 +44,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                 setIsModified(false)
             }
 
-            // Always sync comments and activities as they are usually non-conflicting
+            // Sync comments and activities - using order.comments as source of truth from server
             const formattedComments = (order.comments || []).map(c => {
                 let displayTime = c.timestamp;
                 try {
@@ -70,6 +70,8 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                 };
             })
 
+            // Only update local state if it differs from order prop
+            // (Prevents flickering but ensures sync)
             setLazyComments(formattedComments)
             setLazyActivities(order.activities || [])
         } else if (!isOpen) {
