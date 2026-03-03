@@ -900,14 +900,18 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             if (result && result.error) {
                 toast.error(`Mesaj gönderilemedi: ${result.error}`)
                 setOrders(previousOrders)
+                throw new Error(result.error) // Re-throw for child components
             } else {
                 // Successful save - trigger refresh to sync all components and other users
                 router.refresh()
             }
         } catch (e: any) {
             console.error("[KANBAN] handleAddComment Error:", e)
-            toast.error("İşlem sırasında bir hata oluştu.")
+            if (!e.message?.includes("Mesaj gönderilemedi")) {
+                toast.error("İşlem sırasında bir hata oluştu.")
+            }
             setOrders(previousOrders)
+            throw e // Re-throw to trigger rollback in OrderDetailPanel
         }
     }
 
@@ -1425,7 +1429,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                     Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}
                                 </span>
                                 <span className="text-[10px] text-slate-400">...</span>
-                                <span className="text-[10px] text-emerald-600 font-bold">v3.6.6.30 - CHAT_FIX_V1</span>
+                                <span className="text-[10px] text-emerald-600 font-bold">v3.6.6.31 - DEBUG_V2</span>
                             </div>
 
                             <div className="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm p-1">

@@ -577,21 +577,29 @@ export async function updateOrderDetails(rawOrder: any) {
 }
 
 export async function addCommentAction(orderId: number, message: string, attachments: any[], type: string = "message") {
+    let success = false;
     try {
         const session = await getSession()
         if (!session) {
             console.error(`[ADD_COMMENT] FAILED: No session for order #${orderId}`)
-            return { error: "Oturum kapalı" }
+            return { error: "Oturum kapalı. Lütfen tekrar giriş yapın." }
         }
 
-        console.log(`[ADD_COMMENT] START: Order=${orderId}, User=${session.user.name}, Type=${type}, MsgLength=${message.trim().length}, Attachments=${attachments.length}`)
+        // Defensive: Check if author exists in DB
+        const user = await db.user.findUnique({ where: { id: session.user.id } });
+        if (!user) {
+            console.error(`[ADD_COMMENT] FAILED: User ${session.user.id} not found in DB`);
+            return { error: "Kullanıcı hesabınız bulunamadı." };
+        }
+
+        console.log(`[ADD_COMMENT] START: Order=${orderId}, User=${session.user.name}, Type=${type}, MsgLength=${(message || "").trim().length}, Attachments=${attachments?.length || 0}`)
 
         const commentData = {
-            message: message.trim(),
+            message: (message || "").trim(),
             orderId: Number(orderId),
             authorId: session.user.id,
-            type,
-            attachments: JSON.stringify(attachments)
+            type: type || "message",
+            attachments: JSON.stringify(attachments || [])
         }
 
         const created = await db.comment.create({
@@ -610,12 +618,23 @@ export async function addCommentAction(orderId: number, message: string, attachm
         })
 
         await logActivity(Number(orderId), session.user.name, "COMMENT_ADDED", `Yeni ${type === 'note' ? 'not' : 'mesaj'} yazdı.`)
-
-        revalidatePath("/")
-        return { success: true }
+        success = true;
     } catch (e: any) {
         console.error(`[ADD_COMMENT] CRITICAL ERROR for order #${orderId}:`, e)
-        return { error: e.message || "Mesaj kaydedilemedi. Veritabanı hatası oluştu." }
+        // If it's a Prisma error, we can be more specific
+        if (e.code === 'P2003') return { error: "Veritabanı bağlantı hatası (Yabancı anahtar kısıtlaması)." };
+        if (e.code === 'P2002') return { error: "Bu mesaj zaten kaydedilmiş olabilir." };
+
+        return { error: `Hata: ${e.message || "Mesaj kaydedilemedi."}` }
+    }
+
+    if (success) {
+        try {
+            revalidatePath("/")
+        } catch (e) {
+            console.error("[ADD_COMMENT] Revalidate error (ignoring):", e)
+        }
+        return { success: true }
     }
 }
 
