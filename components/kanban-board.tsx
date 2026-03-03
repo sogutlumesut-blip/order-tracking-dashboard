@@ -95,9 +95,11 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     // Refs to track modal state allows accessing current state inside setInterval closure
     const isPanelOpenRef = useRef(isPanelOpen)
     const isManualOrderOpenRef = useRef(isManualOrderOpen)
+    const selectedOrderRef = useRef(selectedOrder)
 
     useEffect(() => { isPanelOpenRef.current = isPanelOpen }, [isPanelOpen])
     useEffect(() => { isManualOrderOpenRef.current = isManualOrderOpen }, [isManualOrderOpen])
+    useEffect(() => { selectedOrderRef.current = selectedOrder }, [selectedOrder])
 
     useEffect(() => {
         setOrders(initialOrders)
@@ -325,26 +327,43 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         const serverTime = new Date(serverOrder.updatedAt).getTime()
                         const localTime = localOrder ? new Date(localOrder.updatedAt).getTime() : 0
 
-                        // CRITICAL: Increased buffer to 6 hours (21600000ms) to handle severe UTC/local/Skews.
-                        // Without this, optimistic updates are clobbered by mismatched timestamps.
-                        if (localOrder && (localTime > serverTime - 21600000)) {
+                        // 2. Acceptance Logic
+                        // If server is strictly newer, always accept server data
+                        if (localOrder && (serverTime > localTime)) {
+                            hasChanges = true
+                            return serverOrder
+                        }
+
+                        // Protect local changes only if they are truly newer (e.g. optimistic updates awaiting revalidation)
+                        if (localOrder && (localTime > serverTime)) {
                             return localOrder
                         }
 
-                        // Check if this specific order changed from what we have
+                        // Check if this specific order changed (especially comments count)
                         if (!localOrder ||
                             localOrder.status !== serverOrder.status ||
                             localOrder.updatedAt !== serverOrder.updatedAt ||
-                            JSON.stringify(localOrder.labels) !== JSON.stringify(serverOrder.labels) ||
-                            localOrder.cargoLabelPdf !== serverOrder.cargoLabelPdf ||
-                            localOrder.trackingNumber !== serverOrder.trackingNumber) {
+                            (localOrder.comments?.length !== serverOrder.comments?.length)) {
                             hasChanges = true
                         }
 
                         return serverOrder as Order
                     })
 
-                    // Also check if any orders were deleted (existed in current but not in latest)
+                    if (hasChanges) {
+                        // Background sync found new data
+                        setTimeout(() => {
+                            if (isPanelOpenRef.current && selectedOrderRef.current) {
+                                const currentId = (selectedOrderRef.current as any).id
+                                const refreshed = latestOrders.find((o: any) => o.id === currentId)
+                                if (refreshed) {
+                                    setSelectedOrder(refreshed)
+                                }
+                            }
+                        }, 100)
+                    }
+
+                    // Also check if any orders were deleted
                     if (currentOrders.length !== latestOrders.length) {
                         hasChanges = true
                     }
@@ -354,7 +373,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             } catch (error) {
                 console.error("Polling Error:", error)
             }
-        }, 4000)
+        }, 6000)
         return () => clearInterval(interval)
     }, [activeId])
 
@@ -883,17 +902,23 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         }
 
         // Optimistic UI update
-        setOrders(prev => prev.map(o => {
+        const updatedOrders = orders.map(o => {
             if (o.id === orderId) {
-                return {
+                const refreshedOrder = {
                     ...o,
                     hasNotification: true,
                     updatedAt: new Date().toISOString(),
                     comments: o.comments ? [...o.comments, newComment] : [newComment]
                 }
+                // Update selected order IF it is this order
+                if (selectedOrder && selectedOrder.id === orderId) {
+                    setSelectedOrder(refreshedOrder)
+                }
+                return refreshedOrder
             }
             return o
-        }))
+        })
+        setOrders(updatedOrders)
 
         try {
             const result = await addCommentAction(orderId, message, attachments, type) as any
@@ -1429,7 +1454,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                     Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}
                                 </span>
                                 <span className="text-[10px] text-slate-400">...</span>
-                                <span className="text-[10px] text-emerald-600 font-bold">v3.6.6.31 - DEBUG_V2</span>
+                                <span className="text-[10px] text-emerald-600 font-bold">v3.6.6.32 - CHAT_SYNC_PRO</span>
                             </div>
 
                             <div className="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm p-1">
