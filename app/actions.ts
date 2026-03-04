@@ -837,7 +837,7 @@ export async function markOrderAsRead(orderId: number) {
         where: { id: orderId },
         data: { hasNotification: false }
     })
-    // revalidatePath("/")
+    revalidatePath("/")
 }
 
 // SETTINGS ACTIONS

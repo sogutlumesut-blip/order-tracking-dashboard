@@ -1370,6 +1370,12 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 key={column.id}
                                 column={column}
                                 columnOrders={getOrdersByStatus(column.id, column.title)}
+                                isDragDisabled={isDragDisabled}
+                                orders={orders}
+                                setOrders={setOrders}
+                                tags={tags}
+                                selectedOrders={selectedOrders}
+                                toggleOrderSelection={toggleOrderSelection}
                                 isCollapsed={collapsedIds.includes(column.id)}
                                 toggleCollapse={() => {
                                     setCollapsedIds(prev => {
@@ -1383,15 +1389,10 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 columnFilters={columnFilters}
                                 openFilterId={openFilterId}
                                 toggleFilter={toggleFilter}
-                                setColumnFilters={setColumnFilters}
-                                setOpenFilterId={setOpenFilterId}
                                 uniqueTextures={uniqueTextures}
                                 searchTerm={searchTerm}
-                                isDragDisabled={isDragDisabled}
-                                orders={orders}
-                                tags={tags}
-                                selectedOrders={selectedOrders}
-                                toggleOrderSelection={toggleOrderSelection}
+                                setColumnFilters={setColumnFilters}
+                                setOpenFilterId={setOpenFilterId}
                                 setSelectedOrder={setSelectedOrder}
                                 setIsPanelOpen={setIsPanelOpen}
                             />
@@ -1454,7 +1455,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                     Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}
                                 </span>
                                 <span className="text-[10px] text-slate-400">...</span>
-                                <span className="text-[10px] text-emerald-600 font-bold">v3.6.6.32 - CHAT_SYNC_PRO</span>
+                                <span className="text-[10px] text-emerald-600 font-bold">v3.6.6.37 - SYNC_FINAL</span>
                             </div>
 
                             <div className="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm p-1">
@@ -1519,7 +1520,8 @@ function SortableColumn({
     selectedOrders,
     toggleOrderSelection,
     setSelectedOrder,
-    setIsPanelOpen
+    setIsPanelOpen,
+    setOrders
 }: any) {
     const {
         attributes,
@@ -1673,8 +1675,9 @@ function SortableColumn({
                                     setSelectedOrder(order);
                                     setIsPanelOpen(true);
                                     if (order.hasNotification) {
+                                        // Optimistic clear
+                                        setOrders((prev: Order[]) => prev.map((o: Order) => o.id === order.id ? { ...o, hasNotification: false } : o))
                                         markOrderAsRead(order.id)
-                                        // Update state locally removed as it causes complex sync issues, router.refresh handles it
                                     }
                                 }}
                                 tags={tags}
