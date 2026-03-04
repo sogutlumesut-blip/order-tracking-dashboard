@@ -921,13 +921,32 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         setOrders(updatedOrders)
 
         try {
-            const result = await addCommentAction(orderId, message, attachments, type) as any
+            console.log(`[CLIENT_DEBUG] Calling Add Comment API for #${orderId}`);
+            const response = await fetch('/api/add-comment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    orderId,
+                    message,
+                    attachments,
+                    type
+                })
+            });
+
+            const result = await response.json();
+
             if (result && result.error) {
                 toast.error(`Mesaj gönderilemedi: ${result.error}`)
                 setOrders(previousOrders)
+                // Update selected order IF it is this order
+                if (selectedOrder && selectedOrder.id === orderId) {
+                    const prevOrder = previousOrders.find(po => po.id === orderId)
+                    if (prevOrder) setSelectedOrder(prevOrder)
+                }
                 throw new Error(result.error) // Re-throw for child components
             } else {
-                // Successful save - trigger refresh to sync all components and other users
+                // Successful save
+                toast.success(type === 'note' ? "Not kaydedildi" : "Mesaj gönderildi")
                 router.refresh()
             }
         } catch (e: any) {
@@ -936,6 +955,12 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 toast.error("İşlem sırasında bir hata oluştu.")
             }
             setOrders(previousOrders)
+            // Update selected order IF it is this order
+            if (selectedOrder && selectedOrder.id === orderId) {
+                // Find previous state for selectedOrder
+                const prevOrder = previousOrders.find(po => po.id === orderId)
+                if (prevOrder) setSelectedOrder(prevOrder)
+            }
             throw e // Re-throw to trigger rollback in OrderDetailPanel
         }
     }
@@ -1455,7 +1480,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                     Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}
                                 </span>
                                 <span className="text-[10px] text-slate-400">...</span>
-                                <span className="text-[10px] text-emerald-600 font-bold">v3.6.6.41 - LOG_TRACE_V1</span>
+                                <span className="text-[10px] text-emerald-600 font-bold">v3.6.6.42 - API_STABLE_V1</span>
                             </div>
 
                             <div className="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm p-1">
