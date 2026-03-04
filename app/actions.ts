@@ -772,7 +772,8 @@ export async function createDHLShipmentAction(orderId: number) {
             if (pieces < 1) pieces = 1;
         }
 
-        const kargoParcaList = `1:1:${pieces}:${contents}`;
+        // pKargoParcaList Format: Kg:Desi:Adet:Icerik:EvrakNo:;
+        const kargoParcaList = `1:1:${pieces}:${contents}:1:;`;
 
         const soapRequest = `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
@@ -812,8 +813,8 @@ export async function createDHLShipmentAction(orderId: number) {
       <pMalBedeliOdemeSekli></pMalBedeliOdemeSekli>
       <pPlatformKisaAdi></pPlatformKisaAdi>
       <pPlatformSatisKodu></pPlatformSatisKodu>
-      <pKullaniciAdi>${settings.dhl_user}</pKullaniciAdi>
-      <pSifre>${settings.dhl_pass}</pSifre>
+      <pKullaniciAdi><![CDATA[${settings.dhl_user}]]></pKullaniciAdi>
+      <pSifre><![CDATA[${settings.dhl_pass}]]></pSifre>
     </SiparisGirisiDetayliV3>
   </soap:Body>
 </soap:Envelope>`;
@@ -1550,12 +1551,23 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                         });
 
                         if (metaImgRaw && metaImgRaw.value) {
-                            const val = metaImgRaw.value;
-                            const match = val.match(/src=["'](.*?)["']/) || val.match(/href=["'](.*?)["']/);
-                            if (match && match[1]) {
-                                imageSrc = match[1];
+                            const val = String(metaImgRaw.value);
+                            const srcs = Array.from(val.matchAll(/src=["'](.*?)["']/gi)).map(m => m[1]);
+                            const hrefs = Array.from(val.matchAll(/href=["'](.*?)["']/gi)).map(m => m[1]);
+
+                            // Combine and get unique valid urls
+                            const allUrls = Array.from(new Set([...srcs, ...hrefs])).filter(u => u && u.startsWith('http'));
+
+                            if (allUrls.length > 0) {
+                                imageSrc = allUrls.join('|');
                             } else if (val.trim().startsWith('http')) {
-                                imageSrc = val.trim();
+                                // Check if comma-separated raw links
+                                const textUrls = val.split(',').map(u => u.trim()).filter(u => u.startsWith('http'));
+                                if (textUrls.length > 0) {
+                                    imageSrc = textUrls.join('|');
+                                } else {
+                                    imageSrc = val.trim();
+                                }
                             }
                         }
                     }

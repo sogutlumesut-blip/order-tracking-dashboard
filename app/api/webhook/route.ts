@@ -164,12 +164,23 @@ export async function POST(req: Request) {
                 });
 
                 if (metaImgRaw && metaImgRaw.value) {
-                    const val = metaImgRaw.value;
-                    const match = val.match(/src=["'](.*?)["']/) || val.match(/href=["'](.*?)["']/);
-                    if (match && match[1]) {
-                        imageSrc = match[1];
+                    const val = String(metaImgRaw.value);
+                    const srcs = Array.from(val.matchAll(/src=["'](.*?)["']/gi)).map(m => m[1]);
+                    const hrefs = Array.from(val.matchAll(/href=["'](.*?)["']/gi)).map(m => m[1]);
+
+                    // Combine and get unique valid urls
+                    const allUrls = Array.from(new Set([...srcs, ...hrefs])).filter(u => u && u.startsWith('http'));
+
+                    if (allUrls.length > 0) {
+                        imageSrc = allUrls.join('|');
                     } else if (val.trim().startsWith('http')) {
-                        imageSrc = val.trim();
+                        // Check if comma-separated raw links
+                        const textUrls = val.split(',').map(u => u.trim()).filter(u => u.startsWith('http'));
+                        if (textUrls.length > 0) {
+                            imageSrc = textUrls.join('|');
+                        } else {
+                            imageSrc = val.trim();
+                        }
                     }
                 }
             }

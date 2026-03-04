@@ -40,8 +40,10 @@ export async function POST(req: Request) {
                         total: `${receipt.total_price.amount / receipt.total_price.divisor} ${receipt.total_price.currency_code}`,
                         status: 'pending',
                         source: 'etsy',
-                        externalId: receiptId.toString(),
+                        externalId: receiptId,
                         date: new Date(receipt.created_timestamp * 1000),
+                        labels: '["Etsy", "Yeni"]',
+                        hasNotification: true,
                         items: {
                             create: transactions.results.map((t: any) => ({
                                 name: t.title,

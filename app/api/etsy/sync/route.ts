@@ -45,6 +45,8 @@ export async function GET(req: Request) {
                             source: 'etsy',
                             externalId: receiptId,
                             date: new Date(receipt.created_timestamp * 1000),
+                            labels: '["Etsy", "Yeni"]',
+                            hasNotification: true,
                             items: {
                                 create: transactions.results.map((t: any) => ({
                                     name: t.title,

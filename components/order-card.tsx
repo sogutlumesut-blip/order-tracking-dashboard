@@ -18,7 +18,7 @@ interface OrderCardProps {
 
 export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, onSelect, selectionMode = false }: OrderCardProps) {
     // We use the first item's image as the main visual
-    const mainImage = order.items[0]?.image_src
+    const mainImage = order.items[0]?.image_src?.split('|')[0]
 
     // Check for "Stale" printing orders (User Request: 2 days in "BASKI")
     // Use state to avoid hydration mismatch (server time vs client time)

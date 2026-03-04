@@ -338,14 +338,18 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                 <div className="space-y-4">
                                     {formData.items.map(item => (
                                         <div key={item.id} className="flex gap-4 border dark:border-slate-700 p-3 rounded-lg bg-white dark:bg-slate-800 shadow-sm">
-                                            <div className="w-24 h-24 shrink-0 bg-slate-100 dark:bg-slate-700 rounded-md overflow-hidden border dark:border-slate-600">
-                                                {/* Use real img tag for printing support */}
-                                                <img
-                                                    src={item.image_src}
-                                                    alt={item.name}
-                                                    className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                                                    onClick={() => setPreviewImage(item.image_src)}
-                                                />
+                                            <div className="flex gap-2 shrink-0 max-w-[50%] flex-wrap">
+                                                {(item.image_src || "").split('|').filter(Boolean).map((imgSrc: string, idx: number) => (
+                                                    <div key={idx} className="w-24 h-24 shrink-0 bg-slate-100 dark:bg-slate-700 rounded-md overflow-hidden border dark:border-slate-600">
+                                                        {/* Use real img tag for printing support */}
+                                                        <img
+                                                            src={imgSrc}
+                                                            alt={`${item.name} ${idx + 1}`}
+                                                            className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                                            onClick={() => setPreviewImage(imgSrc)}
+                                                        />
+                                                    </div>
+                                                ))}
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-start justify-between flex-wrap gap-y-2 mb-2">

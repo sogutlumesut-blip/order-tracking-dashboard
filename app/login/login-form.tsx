@@ -25,7 +25,7 @@ export function LoginForm({ debugInfo }: { debugInfo: any }) {
 
     async function clientAction(formData: FormData) {
         try {
-            const res = await loginAction(formData)
+            const res = await loginAction(formData) as any
             if (res?.error) {
                 setError(res.error)
             } else if (res?.success) {

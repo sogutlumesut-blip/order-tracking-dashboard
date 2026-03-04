@@ -1,0 +1,1 @@
+Waiting for client ID and Client Secret. We'll use the Token URL: https://api.mngkargo.com.tr/mngapi/api/token

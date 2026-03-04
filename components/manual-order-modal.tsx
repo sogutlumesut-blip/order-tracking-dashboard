@@ -98,8 +98,9 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                 }
             }
 
-            // Find image src (first image)
-            const mainImage = files.find(f => f.type === 'image')?.content || "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=300"
+            // Find image src (all images joined by |)
+            const imageFiles = files.filter(f => f.type === 'image').map(f => f.content)
+            const mainImage = imageFiles.length > 0 ? imageFiles.join('|') : "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=300"
             // Find special url (first pdf or file)
             // Find special url (first pdf or file)
             const specialUrl = files.find(f => f.type === 'pdf')?.content || null // In real app, upload to storage and get URL
