@@ -567,7 +567,7 @@ export async function updateOrderDetails(rawOrder: any) {
         })
 
         // revalidatePath("/")
-        revalidatePath("/")
+        // revalidatePath("/") Removed to prevent timeouts on DigitalOcean
         return { success: true }
     } catch (e: any) {
         console.error("updateOrderDetails ERROR:", e)
@@ -629,11 +629,7 @@ export async function addCommentAction(orderId: number, message: string, attachm
     }
 
     if (success) {
-        try {
-            revalidatePath("/")
-        } catch (e) {
-            console.error("[ADD_COMMENT] Revalidate error (ignoring):", e)
-        }
+        // revalidatePath("/") Removed to prevent timeouts. Client uses router.refresh() and polling.
         return { success: true }
     }
 }
@@ -837,7 +833,7 @@ export async function markOrderAsRead(orderId: number) {
         where: { id: orderId },
         data: { hasNotification: false }
     })
-    revalidatePath("/")
+    // revalidatePath("/") Removed for performance consistency
 }
 
 // SETTINGS ACTIONS
