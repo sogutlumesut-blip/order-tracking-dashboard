@@ -854,29 +854,28 @@ export async function createDHLShipmentAction(orderId: number) {
         if (resultMatch && resultMatch[1]) resultStr = resultMatch[1].trim();
         else if (altMatch && altMatch[1]) resultStr = altMatch[1].trim();
         else {
-            const faultMatch = xmlResponse.match(/<faultstring[^>]*>(.*?)<\/faultstring>/i);
+            const faultMatch = xmlResponse.match(/<faultstring[^>]*>([\s\S]*?)<\/faultstring>/i);
             if (faultMatch) {
                 isError = true;
                 errorMessage = faultMatch[1].trim();
             } else {
-                const startIdx = xmlResponse.indexOf("<SiparisGirisiDetayliV3Result>");
-                const endIdx = xmlResponse.indexOf("</SiparisGirisiDetayliV3Result>");
-                if (startIdx !== -1 && endIdx !== -1) {
-                    resultStr = xmlResponse.substring(startIdx + 30, endIdx).trim();
-                } else {
-                    isError = true;
-                    errorMessage = "MNG Kargo servisinde takip numarası bulunamadı. Lütfen bilgilerinizi kontrol edin (Hatalı Giriş).";
-                }
+                isError = true;
+                errorMessage = "MNG Kargo servisinden anlaşılamayan bir yanıt alındı. Veri: " + xmlResponse.substring(0, 50) + "...";
             }
         }
 
         if (resultStr) {
-            if (resultStr === "1" || resultStr.startsWith("1|")) {
+            // MNG Error formats: "1|Error Message", "1", "E123: Error message", "Kullanıcı Adı..."
+            if (resultStr.startsWith("1|") || resultStr === "1" || resultStr.startsWith("E") || resultStr.includes("hatalı") || resultStr.includes("Hatalı") || resultStr.includes("Kullanıcı") || resultStr.includes("bulunamadı")) {
                 isError = true;
-                errorMessage = resultStr.substring(2) || "Eksik parametre veya hatalı giriş";
-            } else if (resultStr === "0" || resultStr.startsWith("0|")) {
-                trackingNum = resultStr.split("|")[0];
-            } else {
+                errorMessage = resultStr.startsWith("1|") ? resultStr.substring(2) : resultStr;
+            } else if (resultStr === "0" || resultStr.startsWith("0|")) { // success
+                if (resultStr.startsWith("0|")) {
+                    trackingNum = resultStr.split("|")[1] || resultStr.split("|")[0];
+                } else {
+                    trackingNum = resultStr; // fallback
+                }
+            } else { // Direct tracking numeric or alphanumeric output (Assuming success if it didn't match error strings)
                 trackingNum = resultStr;
             }
         }
