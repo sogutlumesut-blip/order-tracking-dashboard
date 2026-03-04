@@ -726,203 +726,81 @@ export async function createCargoLabelAction(orderId: number) {
 
 export async function createDHLShipmentAction(orderId: number) {
     noStore()
-    const startTime = Date.now();
-    serverLog(`[DHL] START: Order #${orderId}`);
+    serverLog(`[DHL_PLUGIN] START: Triggering Kargo Entegratör via WooCommerce for Order #${orderId}`);
 
     const session = await getSession();
     if (!session) {
-        serverLog(`[DHL] ERR: No session for #${orderId}`);
+        serverLog(`[DHL_PLUGIN] ERR: No session for #${orderId}`);
         return { error: "Oturum kapalı" }
     }
 
     const settings = await getSystemSettings()
-    if (!settings.dhl_user || !settings.dhl_pass) {
-        serverLog(`[DHL] ERR: Missing credentials for #${orderId}`);
-        return { error: "Lütfen önce Ayarlar sayfasından DHL API bilgilerini giriniz." }
+    const wcUrl = settings['wc_url'];
+    const wcKey = settings['wc_key'];
+    const wcSecret = settings['wc_secret'];
+
+    if (!wcUrl || !wcKey || !wcSecret) {
+        serverLog(`[DHL_PLUGIN] ERR: Missing WooCommerce API credentials for #${orderId}`);
+        return { error: "Lütfen Ayarlar sayfasından WooCommerce (API) bilgilerinizi eksiksiz girin." }
     }
 
     try {
         const order = await db.order.findUnique({
-            where: { id: orderId },
-            include: { items: true }
+            where: { id: orderId }
         })
+
         if (!order) {
-            serverLog(`[DHL] ERR: Order not found #${orderId}`);
+            serverLog(`[DHL_PLUGIN] ERR: Order not found #${orderId}`);
             return { error: "Sipariş bulunamadı" }
         }
 
-        await logActivity(orderId, session.user.name, "DHL_CARGO_START", "DHL kargo kaydı oluşturma işlemi başlatıldı.")
-
-        serverLog(`[DHL] CREATE_STEP: Preparing SOAP request for #${orderId} (MNG Kargo)...`);
-
-        // Prepare order details for SOAP
-        const customerName = order.customer || "Müşteri";
-        const email = order.email || "musteri@example.com";
-        const phone = order.phone || "5555555555";
-        const address = order.address || "Belirtilmemiş";
-        const city = order.city || "Lütfen İl Giriniz";
-        const orderRef = order.barcode || order.externalId || String(order.id);
-
-        let pieces = 1;
-        let contents = "Tablo / Dekorasyon";
-        if (order.items && order.items.length > 0) {
-            contents = order.items.map(i => `${i.quantity}x ${i.name}`).join(", ");
-            if (contents.length > 45) contents = contents.substring(0, 45) + "...";
-            pieces = order.items.reduce((acc, curr) => acc + (curr.quantity || 1), 0);
-            if (pieces < 1) pieces = 1;
+        if (order.source !== 'woo' || !order.externalId) {
+            serverLog(`[DHL_PLUGIN] ERR: Order is not from WooCommerce or missing external ID.`);
+            return { error: "Yalnızca WooCommerce formundan gelen siparişler için otomatik barkod alınabilir." }
         }
 
-        // pKargoParcaList Format: Kg:Desi:Adet:Icerik:EvrakNo:;
-        const kargoParcaList = `1:1:${pieces}:${contents}:1:;`;
+        await logActivity(orderId, session.user.name, "CARGO_START", "Kargo Entegratör'ü tetiklemek üzere WooCommerce sipariş durumu güncelleniyor.")
 
-        const soapRequest = `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-  <soap:Body>
-    <SiparisGirisiDetayliV3 xmlns="http://tempuri.org/">
-      <pChIrsaliyeNo>${orderRef}</pChIrsaliyeNo>
-      <pPrKiymet>0</pPrKiymet>
-      <pChBarkod>${orderRef}</pChBarkod>
-      <pChIcerik><![CDATA[${contents}]]></pChIcerik>
-      <pGonderiHizmetSekli>NORMAL</pGonderiHizmetSekli>
-      <pTeslimSekli>1</pTeslimSekli>
-      <pFlAlSms>1</pFlAlSms>
-      <pFlGnSms>0</pFlGnSms>
-      <pKargoParcaList><![CDATA[${kargoParcaList}]]></pKargoParcaList>
-      <pAliciMusteriMngNo></pAliciMusteriMngNo>
-      <pAliciMusteriBayiNo></pAliciMusteriBayiNo>
-      <pAliciMusteriAdi><![CDATA[${customerName}]]></pAliciMusteriAdi>
-      <pChSiparisNo><![CDATA[${orderRef}]]></pChSiparisNo>
-      <pLuOdemeSekli>P</pLuOdemeSekli>
-      <pFlAdresFarkli>0</pFlAdresFarkli>
-      <pChIl><![CDATA[${city}]]></pChIl>
-      <pChIlce></pChIlce>
-      <pChAdres><![CDATA[${address}]]></pChAdres>
-      <pChSemt></pChSemt>
-      <pChMahalle></pChMahalle>
-      <pChMeydanBulvar></pChMeydanBulvar>
-      <pChCadde></pChCadde>
-      <pChSokak></pChSokak>
-      <pChTelEv></pChTelEv>
-      <pChTelCep>${phone}</pChTelCep>
-      <pChTelIs></pChTelIs>
-      <pChFax></pChFax>
-      <pChEmail><![CDATA[${email}]]></pChEmail>
-      <pChVergiDairesi></pChVergiDairesi>
-      <pChVergiNumarasi></pChVergiNumarasi>
-      <pFlKapidaOdeme>0</pFlKapidaOdeme>
-      <pMalBedeliOdemeSekli></pMalBedeliOdemeSekli>
-      <pPlatformKisaAdi></pPlatformKisaAdi>
-      <pPlatformSatisKodu></pPlatformSatisKodu>
-      <pKullaniciAdi><![CDATA[${settings.dhl_user}]]></pKullaniciAdi>
-      <pSifre><![CDATA[${settings.dhl_pass}]]></pSifre>
-    </SiparisGirisiDetayliV3>
-  </soap:Body>
-</soap:Envelope>`;
+        serverLog(`[DHL_PLUGIN] Calling WooCommerce API for external ID: ${order.externalId}...`);
 
-        const createController = new AbortController();
-        const createTimeout = setTimeout(() => createController.abort(), 30000); // 30s timeout
+        // We update the order status to "completed" to trigger the Kargo Entegratör plugin
+        const response = await fetch(`${wcUrl}/wp-json/wc/v3/orders/${order.externalId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Basic ' + Buffer.from(`${wcKey}:${wcSecret}`).toString('base64')
+            },
+            body: JSON.stringify({
+                status: 'completed'
+            })
+        });
 
-        let createRes;
-        try {
-            createRes = await fetch("https://service.mngkargo.com.tr/tservis/musterikargosiparis.asmx", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "text/xml; charset=utf-8",
-                    "SOAPAction": "http://tempuri.org/SiparisGirisiDetayliV3"
-                },
-                body: soapRequest,
-                signal: createController.signal,
-                cache: 'no-store'
-            }).finally(() => clearTimeout(createTimeout));
-
-            if (!createRes.ok && createRes.status !== 500) {
-                const errText = await createRes.text().catch(() => "Unknown error")
-                serverLog(`[DHL] CREATE_FAIL: ${createRes.status} - ${errText}`);
-                throw new Error(`DHL Gönderi Oluşturma Hatası (${createRes.status}): SOAP İsteği Başarısız`)
-            }
-        } catch (error: any) {
-            serverLog(`[DHL] FETCH_ERROR: ${error.message}`);
-            if (error.name === 'AbortError') {
-                throw new Error("MNG Kargo servisine bağlanılamadı (Zaman Aşımı). Lütfen daha sonra tekrar deneyin.");
-            }
-            throw new Error(`MNG Kargo bağlantı hatası: ${error.message || "Bilinmeyen ağ hatası"}`);
+        if (!response.ok) {
+            const errorText = await response.text();
+            serverLog(`[DHL_PLUGIN] FATAL_HTTP_ERR: ${response.status} - ${errorText}`);
+            return { error: `WooCommerce bağlantı hatası: ${response.status}` }
         }
 
-        const xmlResponse = await createRes.text()
+        serverLog(`[DHL_PLUGIN] SUCCESS: WooCommerce order status changed to completed.`);
 
-        serverLog(`[DHL] SOAP_RESPONSE: Received data length ${xmlResponse.length}`);
-
-        let trackingNum = "";
-        let isError = false;
-        let errorMessage = "Bilinmeyen Hata";
-
-        // MNG Kargo response logic (Removed /s flag for broader TS compatibility, using [\s\S]* instead)
-        const resultMatch = xmlResponse.match(/<SiparisGirisiDetayliV3Result[^>]*>([\s\S]*?)<\/SiparisGirisiDetayliV3Result>/);
-        const altMatch = xmlResponse.match(/<SiparisGirisiDetayliV3Result>([\s\S]*?)<\/SiparisGirisiDetayliV3Result>/i);
-
-        let resultStr = "";
-        if (resultMatch && resultMatch[1]) resultStr = resultMatch[1].trim();
-        else if (altMatch && altMatch[1]) resultStr = altMatch[1].trim();
-        else {
-            const faultMatch = xmlResponse.match(/<faultstring[^>]*>([\s\S]*?)<\/faultstring>/i);
-            if (faultMatch) {
-                isError = true;
-                errorMessage = faultMatch[1].trim();
-            } else {
-                isError = true;
-                errorMessage = "MNG Kargo servisinden anlaşılamayan bir yanıt alındı. Veri: " + xmlResponse.substring(0, 50) + "...";
-            }
-        }
-
-        if (resultStr) {
-            // MNG Error formats: "1|Error Message", "1", "E123: Error message", "Kullanıcı Adı..."
-            if (resultStr.startsWith("1|") || resultStr === "1" || resultStr.startsWith("E") || resultStr.includes("hatalı") || resultStr.includes("Hatalı") || resultStr.includes("Kullanıcı") || resultStr.includes("bulunamadı")) {
-                isError = true;
-                errorMessage = resultStr.startsWith("1|") ? resultStr.substring(2) : resultStr;
-            } else if (resultStr === "0" || resultStr.startsWith("0|")) { // success
-                if (resultStr.startsWith("0|")) {
-                    trackingNum = resultStr.split("|")[1] || resultStr.split("|")[0];
-                } else {
-                    trackingNum = resultStr; // fallback
-                }
-            } else { // Direct tracking numeric or alphanumeric output (Assuming success if it didn't match error strings)
-                trackingNum = resultStr;
-            }
-        }
-
-        if (isError || !trackingNum) {
-            serverLog(`[DHL] CREATE_FAIL: ${errorMessage}`);
-            throw new Error(`DHL (MNG Kargo) Hatası: ${errorMessage}`);
-        }
-
-        serverLog(`[DHL] DB_UPDATE: #${orderId} -> ${trackingNum}`);
+        // Update local DB to shipped status and DHL/MNG cargo
         await db.order.update({
             where: { id: orderId },
             data: {
                 status: "shipped",
-                cargoTrackingNumber: trackingNum,
                 updatedAt: new Date()
             }
         })
 
-        await logActivity(orderId, session.user.name, "DHL_CARGO_SUCCESS", `DHL kargo kaydı oluşturuldu. Takip No: ${trackingNum}`)
+        await logActivity(orderId, session.user.name, "CARGO_SUCCESS", `Mağazaya kargo talebi iletildi. Barkodun dönmesi bekleniyor...`)
+        return { success: true, message: "Kargo barkodu isteği mağazaya iletildi. Birkaç saniye içinde sayfayı yenilediğinizde barkodunuz görünecektir." }
 
-        serverLog(`[DHL] END: Success for #${orderId} in ${Date.now() - startTime}ms`);
-        return {
-            success: true,
-            message: `DHL kargo kaydı başarıyla oluşturuldu! Takip No: ${trackingNum}`,
-            trackingNumber: trackingNum,
-            labelPdf: false
-        }
     } catch (e: any) {
-        const errorMsg = e.name === 'AbortError' ? "DHL servisi zaman aşımına uğradı (Timeout)" : e.message;
-        serverLog(`[DHL] FATAL: #${orderId} - ${errorMsg}`);
-        await logActivity(orderId, (session as any)?.user?.name || "Sistem", "DHL_CARGO_ERROR", `DHL hatası: ${errorMsg}`)
-        return { error: errorMsg }
+        serverLog(`[DHL_PLUGIN] CRITICAL_ERROR: ${e.message}`);
+        return { error: e.message }
     }
 }
 
-// SIMULATION ACTION
 export async function simulateWooCommerceOrder() {
     // Generate Random Data
     const randomId = Math.floor(Math.random() * 9000) + 1000
