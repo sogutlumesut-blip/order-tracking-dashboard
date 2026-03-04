@@ -819,23 +819,32 @@ export async function createDHLShipmentAction(orderId: number) {
 </soap:Envelope>`;
 
         const createController = new AbortController();
-        const createTimeout = setTimeout(() => createController.abort(), 15000); // 15s timeout
+        const createTimeout = setTimeout(() => createController.abort(), 30000); // 30s timeout
 
-        const createRes = await fetch("http://service.mngkargo.com.tr/tservis/musterikargosiparis.asmx", {
-            method: "POST",
-            headers: {
-                "Content-Type": "text/xml; charset=utf-8",
-                "SOAPAction": "http://tempuri.org/SiparisGirisiDetayliV3"
-            },
-            body: soapRequest,
-            signal: createController.signal,
-            cache: 'no-store'
-        }).finally(() => clearTimeout(createTimeout));
+        let createRes;
+        try {
+            createRes = await fetch("https://service.mngkargo.com.tr/tservis/musterikargosiparis.asmx", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "text/xml; charset=utf-8",
+                    "SOAPAction": "http://tempuri.org/SiparisGirisiDetayliV3"
+                },
+                body: soapRequest,
+                signal: createController.signal,
+                cache: 'no-store'
+            }).finally(() => clearTimeout(createTimeout));
 
-        if (!createRes.ok && createRes.status !== 500) {
-            const errText = await createRes.text().catch(() => "Unknown error")
-            serverLog(`[DHL] CREATE_FAIL: ${createRes.status} - ${errText}`);
-            throw new Error(`DHL Gönderi Oluşturma Hatası (${createRes.status}): SOAP İsteği Başarısız`)
+            if (!createRes.ok && createRes.status !== 500) {
+                const errText = await createRes.text().catch(() => "Unknown error")
+                serverLog(`[DHL] CREATE_FAIL: ${createRes.status} - ${errText}`);
+                throw new Error(`DHL Gönderi Oluşturma Hatası (${createRes.status}): SOAP İsteği Başarısız`)
+            }
+        } catch (error: any) {
+            serverLog(`[DHL] FETCH_ERROR: ${error.message}`);
+            if (error.name === 'AbortError') {
+                throw new Error("MNG Kargo servisine bağlanılamadı (Zaman Aşımı). Lütfen daha sonra tekrar deneyin.");
+            }
+            throw new Error(`MNG Kargo bağlantı hatası: ${error.message || "Bilinmeyen ağ hatası"}`);
         }
 
         const xmlResponse = await createRes.text()
