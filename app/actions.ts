@@ -753,69 +753,70 @@ export async function createDHLShipmentAction(orderId: number) {
 
         await logActivity(orderId, session.user.name, "DHL_CARGO_START", "DHL kargo kaydı oluşturma işlemi başlatıldı.")
 
-        // 1. DHL API AUTH
-        serverLog(`[DHL] AUTH_STEP: Logging in as ${settings.dhl_user}...`);
+        serverLog(`[DHL] CREATE_STEP: Preparing SOAP request for #${orderId} (MNG Kargo)...`);
 
-        const loginController = new AbortController();
-        const loginTimeout = setTimeout(() => loginController.abort(), 10000); // 10s timeout
+        // Prepare order details for SOAP
+        const customerName = order.customer || "Müşteri";
+        const email = order.email || "musteri@example.com";
+        const phone = order.phone || "5555555555";
+        const address = order.address || "Belirtilmemiş";
+        const city = order.city || "Lütfen İl Giriniz";
+        const orderRef = order.barcode || order.externalId || String(order.id);
 
-        const loginRes = await fetch("https://onlinesube.dhlecommerce.com.tr/api/v1/auth/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                username: settings.dhl_user,
-                password: settings.dhl_pass
-            }),
-            signal: loginController.signal,
-            cache: 'no-store'
-        }).finally(() => clearTimeout(loginTimeout));
-
-        if (!loginRes.ok) {
-            const errText = await loginRes.text().catch(() => "Unknown error")
-            serverLog(`[DHL] AUTH_FAIL: ${loginRes.status} - ${errText}`);
-            throw new Error(`DHL Giriş Hatası (${loginRes.status}): ${errText}`)
+        let pieces = 1;
+        let contents = "Tablo / Dekorasyon";
+        if (order.items && order.items.length > 0) {
+            contents = order.items.map(i => `${i.quantity}x ${i.name}`).join(", ");
+            if (contents.length > 45) contents = contents.substring(0, 45) + "...";
+            pieces = order.items.reduce((acc, curr) => acc + (curr.quantity || 1), 0);
+            if (pieces < 1) pieces = 1;
         }
 
-        const loginData = await loginRes.json()
-        const token = loginData.token || loginData.access_token
-
-        if (!token) {
-            serverLog(`[DHL] AUTH_FAIL: Token not found in response`);
-            throw new Error("DHL API Token alınamadı. Lütfen bilgilerinizi kontrol edin.")
-        }
-
-        serverLog(`[DHL] AUTH_OK: Token received for #${orderId}`);
-
-        // 2. CREATE SHIPMENT
-        const shipmentPayload = {
-            customer_id: settings.dhl_customer_id || "",
-            order_number: order.barcode || order.externalId || String(order.id),
-            receiver_name: order.customer,
-            receiver_address: order.address || "",
-            receiver_city: order.city || "",
-            receiver_phone: order.phone || "",
-            receiver_email: order.email || "",
-            service_type: "standard",
-            content_description: "Wallpaper Design",
-            items: order.items.map(i => ({
-                name: i.name,
-                quantity: i.quantity,
-                sku: i.sku || ""
-            }))
-        }
-
-        serverLog(`[DHL] CREATE_STEP: Sending payload for #${orderId}...`);
+        const soapRequest = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <SiparisGirisiDetayliV3 xmlns="http://tempuri.org/">
+      <pChIrsaliyeNo>${orderRef}</pChIrsaliyeNo>
+      <pPrKiymet>0</pPrKiymet>
+      <pChBarkod>${orderRef}</pChBarkod>
+      <pChIcerik><![CDATA[${contents}]]></pChIcerik>
+      <pGonderiHizmetSekli>NORMAL</pGonderiHizmetSekli>
+      <pTeslimSekli>1</pTeslimSekli>
+      <pFlAlSms>1</pFlAlSms>
+      <pFlGnSms>0</pFlGnSms>
+      <pKargoParcaList>
+        <KargoParca>
+          <Kg>1</Kg>
+          <Desi>1</Desi>
+          <Adet>${pieces}</Adet>
+          <Icerik><![CDATA[${contents}]]></Icerik>
+        </KargoParca>
+      </pKargoParcaList>
+      <pLuOdemeSekli>P</pLuOdemeSekli>
+      <pFlAdresFarkli>0</pFlAdresFarkli>
+      <pChIl>${city}</pChIl>
+      <pChIlce></pChIlce>
+      <pChAdres><![CDATA[${address}]]></pChAdres>
+      <pChTelCep>${phone}</pChTelCep>
+      <pChEmail>${email}</pChEmail>
+      <pFlKapidaOdeme>0</pFlKapidaOdeme>
+      <pKullaniciAdi>${settings.dhl_user}</pKullaniciAdi>
+      <pSifre>${settings.dhl_pass}</pSifre>
+      <pMusteriNo>${settings.dhl_customer_id || settings.dhl_user}</pMusteriNo>
+    </SiparisGirisiDetayliV3>
+  </soap:Body>
+</soap:Envelope>`;
 
         const createController = new AbortController();
         const createTimeout = setTimeout(() => createController.abort(), 15000); // 15s timeout
 
-        const createRes = await fetch("https://onlinesube.dhlecommerce.com.tr/api/v1/shipments/create", {
+        const createRes = await fetch("http://service.mngkargo.com.tr/tservis/musterikargosiparis.asmx", {
             method: "POST",
             headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
+                "Content-Type": "text/xml; charset=utf-8",
+                "SOAPAction": "http://tempuri.org/SiparisGirisiDetayliV3"
             },
-            body: JSON.stringify(shipmentPayload),
+            body: soapRequest,
             signal: createController.signal,
             cache: 'no-store'
         }).finally(() => clearTimeout(createTimeout));
@@ -823,16 +824,55 @@ export async function createDHLShipmentAction(orderId: number) {
         if (!createRes.ok) {
             const errText = await createRes.text().catch(() => "Unknown error")
             serverLog(`[DHL] CREATE_FAIL: ${createRes.status} - ${errText}`);
-            throw new Error(`DHL Gönderi Oluşturma Hatası (${createRes.status}): ${errText}`)
+            throw new Error(`DHL Gönderi Oluşturma Hatası (${createRes.status}): SOAP İsteği Başarısız`)
         }
 
-        const resData = await createRes.json()
-        const trackingNum = resData.tracking_number || resData.barcode_number || resData.id
-        const pdfBase64 = resData.label_pdf_base64 || resData.label
+        const xmlResponse = await createRes.text()
 
-        if (!trackingNum) {
-            serverLog(`[DHL] CREATE_FAIL: No tracking number in response`);
-            throw new Error("DHL Takip numarası alınamadı. Lütfen DHL panelini kontrol edin.")
+        serverLog(`[DHL] SOAP_RESPONSE: Received data length ${xmlResponse.length}`);
+
+        let trackingNum = "";
+        let isError = false;
+        let errorMessage = "Bilinmeyen Hata";
+
+        // MNG Kargo response logic
+        const resultMatch = xmlResponse.match(/<SiparisGirisiDetayliV3Result[^>]*>(.*?)<\/SiparisGirisiDetayliV3Result>/s);
+        const altMatch = xmlResponse.match(/<SiparisGirisiDetayliV3Result>(.*?)<\/SiparisGirisiDetayliV3Result>/i);
+
+        let resultStr = "";
+        if (resultMatch && resultMatch[1]) resultStr = resultMatch[1].trim();
+        else if (altMatch && altMatch[1]) resultStr = altMatch[1].trim();
+        else {
+            const faultMatch = xmlResponse.match(/<faultstring[^>]*>(.*?)<\/faultstring>/i);
+            if (faultMatch) {
+                isError = true;
+                errorMessage = faultMatch[1].trim();
+            } else {
+                const startIdx = xmlResponse.indexOf("<SiparisGirisiDetayliV3Result>");
+                const endIdx = xmlResponse.indexOf("</SiparisGirisiDetayliV3Result>");
+                if (startIdx !== -1 && endIdx !== -1) {
+                    resultStr = xmlResponse.substring(startIdx + 30, endIdx).trim();
+                } else {
+                    isError = true;
+                    errorMessage = "MNG Kargo servisinde takip numarası bulunamadı. Lütfen bilgilerinizi kontrol edin (Hatalı Giriş).";
+                }
+            }
+        }
+
+        if (resultStr) {
+            if (resultStr === "1" || resultStr.startsWith("1|")) {
+                isError = true;
+                errorMessage = resultStr.substring(2) || "Eksik parametre veya hatalı giriş";
+            } else if (resultStr === "0" || resultStr.startsWith("0|")) {
+                trackingNum = resultStr.split("|")[0];
+            } else {
+                trackingNum = resultStr;
+            }
+        }
+
+        if (isError || !trackingNum) {
+            serverLog(`[DHL] CREATE_FAIL: ${errorMessage}`);
+            throw new Error(`DHL (MNG Kargo) Hatası: ${errorMessage}`);
         }
 
         serverLog(`[DHL] DB_UPDATE: #${orderId} -> ${trackingNum}`);
@@ -841,7 +881,6 @@ export async function createDHLShipmentAction(orderId: number) {
             data: {
                 status: "shipped",
                 cargoTrackingNumber: trackingNum,
-                cargoLabelPdf: pdfBase64 || null,
                 updatedAt: new Date()
             }
         })
@@ -853,7 +892,7 @@ export async function createDHLShipmentAction(orderId: number) {
             success: true,
             message: `DHL kargo kaydı başarıyla oluşturuldu! Takip No: ${trackingNum}`,
             trackingNumber: trackingNum,
-            labelPdf: pdfBase64 ? true : false
+            labelPdf: false
         }
     } catch (e: any) {
         const errorMsg = e.name === 'AbortError' ? "DHL servisi zaman aşımına uğradı (Timeout)" : e.message;
