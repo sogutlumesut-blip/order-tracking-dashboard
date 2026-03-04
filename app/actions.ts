@@ -577,20 +577,25 @@ export async function updateOrderDetails(rawOrder: any) {
 }
 
 export async function addCommentAction(orderId: number, message: string, attachments: any[], type: string = "message") {
+    serverLog(`[ADD_COMMENT] Called for #${orderId}, type=${type}`);
     let success = false;
     try {
         const session = await getSession()
         if (!session) {
+            serverLog(`[ADD_COMMENT] FAILED: No session for #${orderId}`);
             console.error(`[ADD_COMMENT] FAILED: No session for order #${orderId}`)
             return { error: "Oturum kapalı. Lütfen tekrar giriş yapın." }
         }
+        serverLog(`[ADD_COMMENT] Session found: user=${session.user.name}`);
 
         // Defensive: Check if author exists in DB
         const user = await db.user.findUnique({ where: { id: session.user.id } });
         if (!user) {
+            serverLog(`[ADD_COMMENT] FAILED: User ${session.user.id} not in DB`);
             console.error(`[ADD_COMMENT] FAILED: User ${session.user.id} not found in DB`);
             return { error: "Kullanıcı hesabınız bulunamadı." };
         }
+        serverLog(`[ADD_COMMENT] User verified. Creating comment...`);
 
         console.log(`[ADD_COMMENT] START: Order=${orderId}, User=${session.user.name}, Type=${type}, MsgLength=${(message || "").trim().length}, Attachments=${attachments?.length || 0}`)
 
@@ -605,6 +610,7 @@ export async function addCommentAction(orderId: number, message: string, attachm
         const created = await db.comment.create({
             data: commentData
         })
+        serverLog(`[ADD_COMMENT] Comment created: ID=${created.id}. Updating order...`);
 
         console.log(`[ADD_COMMENT] SUCCESS: Comment ID=${created.id} saved for order #${orderId}`)
 
@@ -616,10 +622,13 @@ export async function addCommentAction(orderId: number, message: string, attachm
                 updatedAt: new Date()
             }
         })
+        serverLog(`[ADD_COMMENT] Order updated. Logging activity...`);
 
         await logActivity(Number(orderId), session.user.name, "COMMENT_ADDED", `Yeni ${type === 'note' ? 'not' : 'mesaj'} yazdı.`)
+        serverLog(`[ADD_COMMENT] Activity logged. SUCCESS.`);
         success = true;
     } catch (e: any) {
+        serverLog(`[ADD_COMMENT] ERROR: ${e.message}`);
         console.error(`[ADD_COMMENT] CRITICAL ERROR for order #${orderId}:`, e)
         // If it's a Prisma error, we can be more specific
         if (e.code === 'P2003') return { error: "Veritabanı bağlantı hatası (Yabancı anahtar kısıtlaması)." };
