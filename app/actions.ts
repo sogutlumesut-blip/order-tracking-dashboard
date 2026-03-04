@@ -726,16 +726,18 @@ export async function createCargoLabelAction(orderId: number) {
 
 export async function createDHLShipmentAction(orderId: number) {
     noStore()
-    console.log(`[ACTION] createDHLShipmentAction started for order ${orderId}`)
-    const session = await getSession()
+    const startTime = Date.now();
+    serverLog(`[DHL] START: Order #${orderId}`);
+
+    const session = await getSession();
     if (!session) {
-        console.log(`[ACTION] createDHLShipmentAction aborted: No session`)
+        serverLog(`[DHL] ERR: No session for #${orderId}`);
         return { error: "Oturum kapalı" }
     }
 
     const settings = await getSystemSettings()
     if (!settings.dhl_user || !settings.dhl_pass) {
-        console.log(`[ACTION] createDHLShipmentAction aborted: Missing DHL settings`)
+        serverLog(`[DHL] ERR: Missing credentials for #${orderId}`);
         return { error: "Lütfen önce Ayarlar sayfasından DHL API bilgilerini giriniz." }
     }
 
@@ -744,13 +746,19 @@ export async function createDHLShipmentAction(orderId: number) {
             where: { id: orderId },
             include: { items: true }
         })
-        if (!order) return { error: "Sipariş bulunamadı" }
+        if (!order) {
+            serverLog(`[DHL] ERR: Order not found #${orderId}`);
+            return { error: "Sipariş bulunamadı" }
+        }
 
-        console.log(`[ACTION] DHL: Logging activity start for ${orderId}`)
         await logActivity(orderId, session.user.name, "DHL_CARGO_START", "DHL kargo kaydı oluşturma işlemi başlatıldı.")
 
         // 1. DHL API AUTH
-        console.log(`[ACTION] DHL: Authenticating for ${orderId}...`)
+        serverLog(`[DHL] AUTH_STEP: Logging in as ${settings.dhl_user}...`);
+
+        const loginController = new AbortController();
+        const loginTimeout = setTimeout(() => loginController.abort(), 10000); // 10s timeout
+
         const loginRes = await fetch("https://onlinesube.dhlecommerce.com.tr/api/v1/auth/login", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -758,12 +766,13 @@ export async function createDHLShipmentAction(orderId: number) {
                 username: settings.dhl_user,
                 password: settings.dhl_pass
             }),
+            signal: loginController.signal,
             cache: 'no-store'
-        })
+        }).finally(() => clearTimeout(loginTimeout));
 
         if (!loginRes.ok) {
             const errText = await loginRes.text().catch(() => "Unknown error")
-            console.error(`[ACTION] DHL Auth Failed: ${loginRes.status}`, errText)
+            serverLog(`[DHL] AUTH_FAIL: ${loginRes.status} - ${errText}`);
             throw new Error(`DHL Giriş Hatası (${loginRes.status}): ${errText}`)
         }
 
@@ -771,11 +780,13 @@ export async function createDHLShipmentAction(orderId: number) {
         const token = loginData.token || loginData.access_token
 
         if (!token) {
+            serverLog(`[DHL] AUTH_FAIL: Token not found in response`);
             throw new Error("DHL API Token alınamadı. Lütfen bilgilerinizi kontrol edin.")
         }
 
+        serverLog(`[DHL] AUTH_OK: Token received for #${orderId}`);
+
         // 2. CREATE SHIPMENT
-        console.log(`[ACTION] DHL: Creating shipment for order ${orderId}...`)
         const shipmentPayload = {
             customer_id: settings.dhl_customer_id || "",
             order_number: order.barcode || order.externalId || String(order.id),
@@ -793,6 +804,11 @@ export async function createDHLShipmentAction(orderId: number) {
             }))
         }
 
+        serverLog(`[DHL] CREATE_STEP: Sending payload for #${orderId}...`);
+
+        const createController = new AbortController();
+        const createTimeout = setTimeout(() => createController.abort(), 15000); // 15s timeout
+
         const createRes = await fetch("https://onlinesube.dhlecommerce.com.tr/api/v1/shipments/create", {
             method: "POST",
             headers: {
@@ -800,12 +816,13 @@ export async function createDHLShipmentAction(orderId: number) {
                 "Authorization": `Bearer ${token}`
             },
             body: JSON.stringify(shipmentPayload),
+            signal: createController.signal,
             cache: 'no-store'
-        })
+        }).finally(() => clearTimeout(createTimeout));
 
         if (!createRes.ok) {
             const errText = await createRes.text().catch(() => "Unknown error")
-            console.error(`[ACTION] DHL Shipment Creation Failed: ${createRes.status}`, errText)
+            serverLog(`[DHL] CREATE_FAIL: ${createRes.status} - ${errText}`);
             throw new Error(`DHL Gönderi Oluşturma Hatası (${createRes.status}): ${errText}`)
         }
 
@@ -814,10 +831,11 @@ export async function createDHLShipmentAction(orderId: number) {
         const pdfBase64 = resData.label_pdf_base64 || resData.label
 
         if (!trackingNum) {
+            serverLog(`[DHL] CREATE_FAIL: No tracking number in response`);
             throw new Error("DHL Takip numarası alınamadı. Lütfen DHL panelini kontrol edin.")
         }
 
-        console.log(`[ACTION] DHL: updating order ${orderId} with tracking ${trackingNum}`)
+        serverLog(`[DHL] DB_UPDATE: #${orderId} -> ${trackingNum}`);
         await db.order.update({
             where: { id: orderId },
             data: {
@@ -828,10 +846,9 @@ export async function createDHLShipmentAction(orderId: number) {
             }
         })
 
-        console.log(`[ACTION] DHL: logging activity success for ${orderId}`)
         await logActivity(orderId, session.user.name, "DHL_CARGO_SUCCESS", `DHL kargo kaydı oluşturuldu. Takip No: ${trackingNum}`)
 
-        console.log(`[ACTION] DHL success for order ${orderId}`)
+        serverLog(`[DHL] END: Success for #${orderId} in ${Date.now() - startTime}ms`);
         return {
             success: true,
             message: `DHL kargo kaydı başarıyla oluşturuldu! Takip No: ${trackingNum}`,
@@ -839,9 +856,10 @@ export async function createDHLShipmentAction(orderId: number) {
             labelPdf: pdfBase64 ? true : false
         }
     } catch (e: any) {
-        console.error(`[ACTION] createDHLShipmentAction error for order ${orderId}:`, e)
-        await logActivity(orderId, session.user.name, "DHL_CARGO_ERROR", `DHL hatası: ${e.message}`)
-        return { error: e.message }
+        const errorMsg = e.name === 'AbortError' ? "DHL servisi zaman aşımına uğradı (Timeout)" : e.message;
+        serverLog(`[DHL] FATAL: #${orderId} - ${errorMsg}`);
+        await logActivity(orderId, (session as any)?.user?.name || "Sistem", "DHL_CARGO_ERROR", `DHL hatası: ${errorMsg}`)
+        return { error: errorMsg }
     }
 }
 
