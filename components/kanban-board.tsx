@@ -234,44 +234,13 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         return () => clearInterval(timer)
     }, [])
 
-    // Unified Polling & Sync Logic is handled in the next useEffect
-    // Removed naive checkSync useEffect to prevent state clobbering
-
+    // Unified Polling & Sync Logic (v43 REALTIME_SYNC)
     useEffect(() => {
-        // Initial Sync on Mount
-        const initialSync = async () => {
-            toast.info("Siparişler kontrol ediliyor...", { duration: 2000, id: "init-sync" })
-            await syncWooCommerceOrders(true) // Force sync on load
-            router.refresh()
-        }
-        initialSync()
-
-        const interval = setInterval(async () => {
-            // Don't poll while dragging.
-            // We REMOVED isPanelOpenRef check to allow background updates even if user is viewing a detail.
-            if (activeId) return;
-
-            // 1. AUTO-SYNC & REFRESH: Trigger server-side sync check
-            // We poll every 15 seconds. Server handles rate limiting (15s).
-            if (isBulkProcessingRef.current) return; // SKIP while processing
+        // 1. Cargo Sync (30s)
+        const cargoInterval = setInterval(async () => {
             try {
-                // ALWAYS trigger a router.refresh() to catch local DB changes (e.g. scans on other devices)
-                router.refresh()
-
-                const syncRes = await syncWooCommerceOrders(false)
-                if (syncRes && !syncRes.error && !(syncRes as any).skipped) {
-                    console.log("Auto-Sync Success: New data pulled from WC")
-                }
-            } catch (e) { console.error("Auto Force Sync Error", e) }
-
-            // 1.5 AUTO KARGO SYNC (Every ~30 seconds)
-            // Use date mod check or ref timestamp. 
-            // Simple check: if current seconds is between 0-5 or 30-35 (since interval is 5s, this hits roughly twice a minute)
-            // Or better: Use a ref
-            const now = Date.now();
-            if (now - lastKargoSyncRef.current > 30000) {
-                try {
-                    // Fire and forget - don't await blocking
+                const now = Date.now();
+                if (now - lastKargoSyncRef.current > 30000) {
                     syncCargoKargoEntegrator().then(res => {
                         if (res?.success && (res.message.includes("güncellendi") && !res.message.startsWith("0"))) {
                             toast.success("Kargo bilgileri güncellendi", { id: "kargo-auto-sync" })
@@ -279,103 +248,91 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         }
                     })
                     lastKargoSyncRef.current = now;
-                } catch (e) { console.error("Auto Kargo Sync Error", e) }
-            }
+                }
+            } catch (e) { console.error("Cargo Sync Err", e) }
+        }, 30000);
 
+        // 2. High-frequency Polling for DB changes (Chat/Status/Internal)
+        const pollInterval = setInterval(async () => {
+            if (activeId || isBulkProcessingRef.current) return;
 
             try {
-                const latestOrders = await getOrders(Date.now()) // Cache Busting with Timestamp
-                setLastSynced(new Date()) // Update time immediately on success
-                const currentOrders = ordersRef.current
+                const latestOrders = await getOrders(Date.now());
+                setLastSynced(new Date());
 
-                // ... rest of polling logic ...
-                // Sound Logic: Check for NEW IDs
-                const latestIds = new Set<number>(latestOrders.map((o: Order) => o.id))
-                const prevIds = previousOrderIds.current
-
-                // Find IDs that are in latest but NOT in previous (New arrivals)
-                const newArrivals = latestOrders.filter((o: Order) => !prevIds.has(o.id))
-
-                if (newArrivals.length > 0) {
-                    console.log("New Orders Detected:", newArrivals.map((o: Order) => o.id))
-
-                    if (audioRef.current) {
-                        audioRef.current.play()
-                            .then(() => toast.success(`${newArrivals.length} yeni sipariş geldi! 🔔`))
-                            .catch((e) => {
-                                console.log("Audio play failed (Autoplay detection):", e)
-                                toast.info("Yeni sipariş var! (Sesi açmak için sayfaya tıklayın)")
-                            })
-                    }
-                }
-
-                // Update previous IDs for next poll
-                previousOrderIds.current = latestIds
-
-                // Sync Logic
                 setOrders(currentOrders => {
-                    let hasChanges = false
-
-                    // setLastSynced removed from here
-
+                    let hasChanges = false;
                     const mergedOrders = latestOrders.map((serverOrder: any) => {
-                        const localOrder = currentOrders.find(o => o.id === serverOrder.id)
+                        const localOrder = currentOrders.find(o => o.id === serverOrder.id);
 
-                        // 1. Timestamp Check (Crucial for stability)
-                        // If local is newer (with a 2s safety buffer), keep local. 
-                        // This protects optimistic local updates from being overwritten by stale background polls.
-                        const serverTime = new Date(serverOrder.updatedAt).getTime()
-                        const localTime = localOrder ? new Date(localOrder.updatedAt).getTime() : 0
+                        // Safety check for newer local data vs server
+                        const serverTime = new Date(serverOrder.updatedAt).getTime();
+                        const localTime = localOrder ? new Date(localOrder.updatedAt).getTime() : 0;
 
-                        // 2. Acceptance Logic
-                        // If server is strictly newer, always accept server data
-                        if (localOrder && (serverTime > localTime)) {
-                            hasChanges = true
-                            return serverOrder
+                        if (localOrder && serverTime > localTime) {
+                            hasChanges = true;
+                            return serverOrder;
                         }
 
-                        // Protect local changes only if they are truly newer (e.g. optimistic updates awaiting revalidation)
-                        if (localOrder && (localTime > serverTime)) {
-                            return localOrder
-                        }
-
-                        // Check if this specific order changed (especially comments count)
                         if (!localOrder ||
                             localOrder.status !== serverOrder.status ||
-                            localOrder.updatedAt !== serverOrder.updatedAt ||
-                            (localOrder.comments?.length !== serverOrder.comments?.length)) {
-                            hasChanges = true
+                            localOrder.comments?.length !== serverOrder.comments?.length ||
+                            localOrder.hasNotification !== serverOrder.hasNotification) {
+                            hasChanges = true;
+                            return serverOrder;
                         }
 
-                        return serverOrder as Order
-                    })
+                        return localOrder || serverOrder;
+                    });
 
                     if (hasChanges) {
-                        // Background sync found new data
-                        setTimeout(() => {
-                            if (isPanelOpenRef.current && selectedOrderRef.current) {
-                                const currentId = (selectedOrderRef.current as any).id
-                                const refreshed = latestOrders.find((o: any) => o.id === currentId)
-                                if (refreshed) {
-                                    setSelectedOrder(refreshed)
-                                }
-                            }
-                        }, 100)
+                        // Notify Panel if open
+                        if (isPanelOpenRef.current && selectedOrderRef.current) {
+                            const currentId = (selectedOrderRef.current as any).id;
+                            const refreshed = latestOrders.find((o: any) => o.id === currentId);
+                            if (refreshed) setSelectedOrder(refreshed);
+                        }
                     }
 
-                    // Also check if any orders were deleted
-                    if (currentOrders.length !== latestOrders.length) {
-                        hasChanges = true
-                    }
+                    return hasChanges ? mergedOrders : currentOrders;
+                });
 
-                    return hasChanges ? mergedOrders : currentOrders
-                })
+                // Sound Logic
+                const latestIds = new Set<number>(latestOrders.map((o: Order) => o.id));
+                const prevIds = previousOrderIds.current;
+                const newArrivals = latestOrders.filter((o: Order) => !prevIds.has(o.id));
+                if (newArrivals.length > 0) {
+                    if (audioRef.current) {
+                        audioRef.current.play()
+                            .then(() => toast.success(`${newArrivals.length} yeni sipariş! 🔔`))
+                            .catch(e => console.log("Audio failed", e));
+                    }
+                }
+                previousOrderIds.current = latestIds;
+
             } catch (error) {
-                console.error("Polling Error:", error)
+                console.error("Polling Error:", error);
             }
-        }, 6000)
-        return () => clearInterval(interval)
-    }, [activeId])
+        }, 3000); // FIXED 3S POLLING
+
+        // Slower External Sync (WooCommerce)
+        const syncInterval = setInterval(async () => {
+            if (isBulkProcessingRef.current) return;
+            try {
+                const syncRes = await syncWooCommerceOrders(false);
+                if (syncRes && !syncRes.error && !(syncRes as any).skipped) {
+                    console.log("External Sync: WC data updated");
+                    router.refresh();
+                }
+            } catch (e) { console.error("External Sync Error", e) }
+        }, 60000); // 60S External Sync
+
+        return () => {
+            clearInterval(cargoInterval);
+            clearInterval(pollInterval);
+            clearInterval(syncInterval);
+        };
+    }, [activeId]);
 
     const isDragDisabled = isMobile || isDragLocked
 
@@ -1021,7 +978,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shrink-0">
                             OMS
                         </div>
-                        <h1 className="font-bold text-sm md:text-lg text-slate-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-slate-400 font-normal">v3.6.6.42 - API_STABLE_V1</span></h1>
+                        <h1 className="font-bold text-sm md:text-lg text-slate-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-slate-400 font-normal">v3.6.6.43 - REALTIME_SYNC</span></h1>
                         {/* Status Check Indicator */}
                         <div className="flex items-center gap-2">
                             {isValidating ? (
@@ -1030,7 +987,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 </span>
                             ) : (
                                 <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">
-                                    <CheckCircle className="w-3 h-3" /> v3.6.6.42 - STABLE
+                                    <CheckCircle className="w-3 h-3" /> v3.6.6.43 - STABLE
                                 </span>
                             )}
                         </div>
@@ -1480,7 +1437,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                     Son: {lastSynced ? lastSynced.toLocaleTimeString('tr-TR') : '...'}
                                 </span>
                                 <span className="text-[10px] text-slate-400">...</span>
-                                <span className="text-[10px] text-emerald-600 font-bold">v3.6.6.42 - API_STABLE_V1</span>
+                                <span className="text-[10px] text-emerald-600 font-bold">v3.6.6.43 - REALTIME_SYNC</span>
                             </div>
 
                             <div className="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm p-1">
