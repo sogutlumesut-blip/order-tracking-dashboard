@@ -11,6 +11,7 @@ import { getColorClasses } from "@/lib/colors"
 import { logManualActivity, uploadCargoLabel, deleteCargoLabel, getOrderDetails, createInvoiceAction, createCargoLabelAction, createDHLShipmentAction } from "../app/actions"
 import { LocalBarcodeModal } from "./local-barcode-modal"
 import { toast } from "sonner"
+import { useRouter } from "next/navigation"
 
 interface OrderDetailPanelProps {
     order: Order | null
@@ -24,6 +25,7 @@ interface OrderDetailPanelProps {
 }
 
 export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddComment, currentUser, statuses, tags }: OrderDetailPanelProps) {
+    const router = useRouter()
     const [formData, setFormData] = useState<Order | null>(null)
     const [isModified, setIsModified] = useState(false)
     const [isActivityLogOpen, setIsActivityLogOpen] = useState(false)
@@ -472,9 +474,19 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                 success: (res: any) => {
                                                     if (res.error) throw new Error(res.error);
                                                     if (res.trackingNumber) {
-                                                        setFormData({ ...formData, status: 'shipped', trackingNumber: res.trackingNumber });
+                                                        // Update both tracking fields to be safe and trigger UI refresh
+                                                        const updated = {
+                                                            ...formData,
+                                                            status: 'shipped',
+                                                            cargoTrackingNumber: res.trackingNumber,
+                                                            trackingNumber: res.trackingNumber
+                                                        };
+                                                        setFormData(updated);
+                                                        if (onUpdate) onUpdate(updated);
                                                     }
-                                                    return "DHL Kargo talebi iletildi!";
+                                                    // Router.refresh is crucial to pick up the new cargoLabelPdf from the DB
+                                                    router.refresh();
+                                                    return "DHL Kargo kaydı başarıyla oluşturuldu!";
                                                 },
                                                 error: (err) => err.message || "Hata oluştu"
                                             });

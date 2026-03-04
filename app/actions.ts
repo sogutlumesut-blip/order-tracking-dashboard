@@ -740,28 +740,104 @@ export async function createDHLShipmentAction(orderId: number) {
     }
 
     try {
-        console.log(`[ACTION] createDHLShipmentAction: logging activity start for ${orderId}`)
+        const order = await db.order.findUnique({
+            where: { id: orderId },
+            include: { items: true }
+        })
+        if (!order) return { error: "Sipariş bulunamadı" }
+
+        console.log(`[ACTION] DHL: Logging activity start for ${orderId}`)
         await logActivity(orderId, session.user.name, "DHL_CARGO_START", "DHL kargo kaydı oluşturma işlemi başlatıldı.")
 
-        // SIMULATION: In a real scenario, we would call the DHL Ecommerce Turkey API here
-        // https://onlinesube.dhlecommerce.com.tr/ API endpoint
-        const mockTracking = "DHL" + Math.random().toString(36).substring(2, 9).toUpperCase();
+        // 1. DHL API AUTH
+        console.log(`[ACTION] DHL: Authenticating for ${orderId}...`)
+        const loginRes = await fetch("https://onlinesube.dhlecommerce.com.tr/api/v1/auth/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                username: settings.dhl_user,
+                password: settings.dhl_pass
+            }),
+            cache: 'no-store'
+        })
 
-        console.log(`[ACTION] createDHLShipmentAction: updating order ${orderId} with tracking ${mockTracking}`)
+        if (!loginRes.ok) {
+            const errText = await loginRes.text().catch(() => "Unknown error")
+            console.error(`[ACTION] DHL Auth Failed: ${loginRes.status}`, errText)
+            throw new Error(`DHL Giriş Hatası (${loginRes.status}): ${errText}`)
+        }
+
+        const loginData = await loginRes.json()
+        const token = loginData.token || loginData.access_token
+
+        if (!token) {
+            throw new Error("DHL API Token alınamadı. Lütfen bilgilerinizi kontrol edin.")
+        }
+
+        // 2. CREATE SHIPMENT
+        console.log(`[ACTION] DHL: Creating shipment for order ${orderId}...`)
+        const shipmentPayload = {
+            customer_id: settings.dhl_customer_id || "",
+            order_number: order.barcode || order.externalId || String(order.id),
+            receiver_name: order.customer,
+            receiver_address: order.address || "",
+            receiver_city: order.city || "",
+            receiver_phone: order.phone || "",
+            receiver_email: order.email || "",
+            service_type: "standard",
+            content_description: "Wallpaper Design",
+            items: order.items.map(i => ({
+                name: i.name,
+                quantity: i.quantity,
+                sku: i.sku || ""
+            }))
+        }
+
+        const createRes = await fetch("https://onlinesube.dhlecommerce.com.tr/api/v1/shipments/create", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify(shipmentPayload),
+            cache: 'no-store'
+        })
+
+        if (!createRes.ok) {
+            const errText = await createRes.text().catch(() => "Unknown error")
+            console.error(`[ACTION] DHL Shipment Creation Failed: ${createRes.status}`, errText)
+            throw new Error(`DHL Gönderi Oluşturma Hatası (${createRes.status}): ${errText}`)
+        }
+
+        const resData = await createRes.json()
+        const trackingNum = resData.tracking_number || resData.barcode_number || resData.id
+        const pdfBase64 = resData.label_pdf_base64 || resData.label
+
+        if (!trackingNum) {
+            throw new Error("DHL Takip numarası alınamadı. Lütfen DHL panelini kontrol edin.")
+        }
+
+        console.log(`[ACTION] DHL: updating order ${orderId} with tracking ${trackingNum}`)
         await db.order.update({
             where: { id: orderId },
             data: {
                 status: "shipped",
-                cargoTrackingNumber: mockTracking,
+                cargoTrackingNumber: trackingNum,
+                cargoLabelPdf: pdfBase64 || null,
                 updatedAt: new Date()
             }
         })
 
-        console.log(`[ACTION] createDHLShipmentAction: logging activity success for ${orderId}`)
-        await logActivity(orderId, session.user.name, "DHL_CARGO_SUCCESS", `DHL kargo kaydı oluşturuldu. Takip No: ${mockTracking}`)
+        console.log(`[ACTION] DHL: logging activity success for ${orderId}`)
+        await logActivity(orderId, session.user.name, "DHL_CARGO_SUCCESS", `DHL kargo kaydı oluşturuldu. Takip No: ${trackingNum}`)
 
-        console.log(`[ACTION] createDHLShipmentAction success for order ${orderId}`)
-        return { success: true, message: `DHL kargo kaydı başarıyla oluşturuldu! Takip No: ${mockTracking}`, trackingNumber: mockTracking }
+        console.log(`[ACTION] DHL success for order ${orderId}`)
+        return {
+            success: true,
+            message: `DHL kargo kaydı başarıyla oluşturuldu! Takip No: ${trackingNum}`,
+            trackingNumber: trackingNum,
+            labelPdf: pdfBase64 ? true : false
+        }
     } catch (e: any) {
         console.error(`[ACTION] createDHLShipmentAction error for order ${orderId}:`, e)
         await logActivity(orderId, session.user.name, "DHL_CARGO_ERROR", `DHL hatası: ${e.message}`)
