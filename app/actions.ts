@@ -772,6 +772,8 @@ export async function createDHLShipmentAction(orderId: number) {
             if (pieces < 1) pieces = 1;
         }
 
+        const kargoParcaList = `1:1:${pieces}:${contents}`;
+
         const soapRequest = `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
@@ -784,25 +786,34 @@ export async function createDHLShipmentAction(orderId: number) {
       <pTeslimSekli>1</pTeslimSekli>
       <pFlAlSms>1</pFlAlSms>
       <pFlGnSms>0</pFlGnSms>
-      <pKargoParcaList>
-        <KargoParca>
-          <Kg>1</Kg>
-          <Desi>1</Desi>
-          <Adet>${pieces}</Adet>
-          <Icerik><![CDATA[${contents}]]></Icerik>
-        </KargoParca>
-      </pKargoParcaList>
+      <pKargoParcaList><![CDATA[${kargoParcaList}]]></pKargoParcaList>
+      <pAliciMusteriMngNo></pAliciMusteriMngNo>
+      <pAliciMusteriBayiNo></pAliciMusteriBayiNo>
+      <pAliciMusteriAdi><![CDATA[${customerName}]]></pAliciMusteriAdi>
+      <pChSiparisNo><![CDATA[${orderRef}]]></pChSiparisNo>
       <pLuOdemeSekli>P</pLuOdemeSekli>
       <pFlAdresFarkli>0</pFlAdresFarkli>
-      <pChIl>${city}</pChIl>
+      <pChIl><![CDATA[${city}]]></pChIl>
       <pChIlce></pChIlce>
       <pChAdres><![CDATA[${address}]]></pChAdres>
+      <pChSemt></pChSemt>
+      <pChMahalle></pChMahalle>
+      <pChMeydanBulvar></pChMeydanBulvar>
+      <pChCadde></pChCadde>
+      <pChSokak></pChSokak>
+      <pChTelEv></pChTelEv>
       <pChTelCep>${phone}</pChTelCep>
-      <pChEmail>${email}</pChEmail>
+      <pChTelIs></pChTelIs>
+      <pChFax></pChFax>
+      <pChEmail><![CDATA[${email}]]></pChEmail>
+      <pChVergiDairesi></pChVergiDairesi>
+      <pChVergiNumarasi></pChVergiNumarasi>
       <pFlKapidaOdeme>0</pFlKapidaOdeme>
+      <pMalBedeliOdemeSekli></pMalBedeliOdemeSekli>
+      <pPlatformKisaAdi></pPlatformKisaAdi>
+      <pPlatformSatisKodu></pPlatformSatisKodu>
       <pKullaniciAdi>${settings.dhl_user}</pKullaniciAdi>
       <pSifre>${settings.dhl_pass}</pSifre>
-      <pMusteriNo>${settings.dhl_customer_id || settings.dhl_user}</pMusteriNo>
     </SiparisGirisiDetayliV3>
   </soap:Body>
 </soap:Envelope>`;
@@ -821,7 +832,7 @@ export async function createDHLShipmentAction(orderId: number) {
             cache: 'no-store'
         }).finally(() => clearTimeout(createTimeout));
 
-        if (!createRes.ok) {
+        if (!createRes.ok && createRes.status !== 500) {
             const errText = await createRes.text().catch(() => "Unknown error")
             serverLog(`[DHL] CREATE_FAIL: ${createRes.status} - ${errText}`);
             throw new Error(`DHL Gönderi Oluşturma Hatası (${createRes.status}): SOAP İsteği Başarısız`)
@@ -835,9 +846,9 @@ export async function createDHLShipmentAction(orderId: number) {
         let isError = false;
         let errorMessage = "Bilinmeyen Hata";
 
-        // MNG Kargo response logic
-        const resultMatch = xmlResponse.match(/<SiparisGirisiDetayliV3Result[^>]*>(.*?)<\/SiparisGirisiDetayliV3Result>/s);
-        const altMatch = xmlResponse.match(/<SiparisGirisiDetayliV3Result>(.*?)<\/SiparisGirisiDetayliV3Result>/i);
+        // MNG Kargo response logic (Removed /s flag for broader TS compatibility, using [\s\S]* instead)
+        const resultMatch = xmlResponse.match(/<SiparisGirisiDetayliV3Result[^>]*>([\s\S]*?)<\/SiparisGirisiDetayliV3Result>/);
+        const altMatch = xmlResponse.match(/<SiparisGirisiDetayliV3Result>([\s\S]*?)<\/SiparisGirisiDetayliV3Result>/i);
 
         let resultStr = "";
         if (resultMatch && resultMatch[1]) resultStr = resultMatch[1].trim();
