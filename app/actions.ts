@@ -787,9 +787,9 @@ export async function createDHLShipmentAction(orderId: number) {
 <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
     <SiparisGirisiDetayliV3 xmlns="http://tempuri.org/">
-      <pChIrsaliyeNo></pChIrsaliyeNo>
+      <pChIrsaliyeNo>${order.id}</pChIrsaliyeNo>
       <pPrKiymet></pPrKiymet>
-      <pChBarkod></pChBarkod>
+      <pChBarkod>${order.id}</pChBarkod>
       <pChIcerik>Duvarkagidi</pChIcerik>
       <pGonderiHizmetSekli>NORMAL</pGonderiHizmetSekli>
       <pTeslimSekli>1</pTeslimSekli>
