@@ -88,26 +88,28 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                     </div>
                 )}
 
+                {/* Badges Container */}
+                <div className="absolute top-2 left-2 flex flex-col gap-1 z-20 items-start">
+                    {/* Notification Badge */}
+                    {order.hasNotification && !isPaymentFailed && (
+                        <div className="bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-lg animate-bounce">
+                            🔔 YENİ GÜNCELLEME
+                        </div>
+                    )}
 
-                {/* Notification Badge */}
-                {order.hasNotification && !isPaymentFailed && (
-                    <div className="absolute top-2 left-2 bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-lg z-20 animate-bounce">
-                        🔔 YENİ GÜNCELLEME
-                    </div>
-                )}
+                    {/* Stale Warning Badge */}
+                    {isStuck && !isPaymentFailed && (
+                        <div className="bg-amber-500 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-lg flex items-center gap-1 animate-pulse">
+                            <Clock className="w-3 h-3" />
+                            <span>{Math.floor(daysSinceUpdate)} GÜNDÜR BEKLİYOR</span>
+                        </div>
+                    )}
+                </div>
 
                 {/* Visual Status Indicator for Shipped Orders using Tracking Number */}
                 {order.status === 'shipped' && (
                     <div className="absolute top-2 right-2 bg-green-500 text-white p-1 rounded-full shadow-lg z-10">
                         <Truck className="w-4 h-4" />
-                    </div>
-                )}
-
-                {/* Stale Warning Badge */}
-                {isStuck && !isPaymentFailed && (
-                    <div className="absolute top-2 left-2 bg-amber-500 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-lg z-20 flex items-center gap-1 animate-pulse">
-                        <Clock className="w-3 h-3" />
-                        <span>2 GÜNDÜR BEKLİYOR</span>
                     </div>
                 )}
 
