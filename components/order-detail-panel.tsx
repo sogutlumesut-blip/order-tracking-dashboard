@@ -505,31 +505,19 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                         const res = await createDHLShipmentAction(formData.id);
                                                         if (res.error) throw new Error(res.error);
 
-                                                        // Poll the database for the barcode
-                                                        let foundBarcode = null;
-                                                        let finalTrackingNumber = null;
-                                                        for (let i = 0; i < 15; i++) {
-                                                            await new Promise(r => setTimeout(r, 2000)); // wait 2s
-                                                            const updatedOrder = await fetchOrderForCargo(formData.id);
-                                                            if (updatedOrder && updatedOrder.cargoBarcode) {
-                                                                if (!formData.cargoBarcode || updatedOrder.cargoBarcode !== formData.cargoBarcode) {
-                                                                    foundBarcode = updatedOrder.cargoBarcode;
-                                                                    finalTrackingNumber = updatedOrder.cargoTrackingNumber;
-                                                                    break;
-                                                                }
-                                                            }
-                                                        }
+                                                        // Fetch the updated order directly, polling is no longer required with MNG!
+                                                        const updatedOrder = await fetchOrderForCargo(formData.id);
 
-                                                        if (foundBarcode) {
-                                                            const pdfUrl = `https://duvarkagidimarketi.com/wp-content/plugins/kargo-entegrator/assets/print.php?barcode=${foundBarcode}`;
+                                                        if (updatedOrder && updatedOrder.cargoBarcode) {
+                                                            const pdfUrl = `/api/cargo-label/${formData.id}`;
                                                             window.open(pdfUrl, '_blank');
 
                                                             // Reload to show the new data in the panel
                                                             const updatedState = {
                                                                 ...formData,
-                                                                cargoBarcode: foundBarcode,
-                                                                cargoTrackingNumber: finalTrackingNumber || formData.cargoTrackingNumber,
-                                                                trackingNumber: finalTrackingNumber || formData.trackingNumber
+                                                                cargoBarcode: updatedOrder.cargoBarcode,
+                                                                cargoTrackingNumber: updatedOrder.cargoTrackingNumber || formData.cargoTrackingNumber,
+                                                                trackingNumber: updatedOrder.cargoTrackingNumber || formData.trackingNumber
                                                             };
                                                             setFormData(updatedState as Order);
                                                             if (onUpdate) onUpdate(updatedState as Order);
@@ -537,7 +525,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                             resolve("DHL Etiketi başarıyla oluşturuldu ve yazdırılıyor!");
                                                         } else {
                                                             router.refresh();
-                                                            resolve("Kargo talebi iletildi ancak etiket gecikiyor. Lütfen sayfayı az sonra yenileyin.");
+                                                            resolve("Kargo barkodu alındı ancak PDF gösterilemedi.");
                                                         }
                                                     } catch (err: any) {
                                                         reject(err);

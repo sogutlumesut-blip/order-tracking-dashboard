@@ -14,33 +14,49 @@ async function testSoap() {
     }
 
     const urls = [
-        "https://onlinesube.dhlecommerce.com.tr/musterihizmetleri.asmx",
-        "https://onlinesube.dhlecommerce.com.tr/SiparisGirisi.asmx",
-        "https://service.mngkargo.com.tr/ts/MusteriKargoSiparis.asmx"
+        "https://service.mngkargo.com.tr/musterikargosiparis/musterikargosiparis.asmx"
     ];
 
     const soapBody = `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
     <SiparisGirisiDetayliV3 xmlns="http://tempuri.org/">
+      <pChIrsaliyeNo></pChIrsaliyeNo>
+      <pPrKiymet></pPrKiymet>
+      <pChBarkod>TEST123BAR</pChBarkod>
+      <pChIcerik>Duvarkagidi</pChIcerik>
+      <pGonderiHizmetSekli>NORMAL</pGonderiHizmetSekli>
+      <pTeslimSekli>1</pTeslimSekli>
+      <pFlAlSms>0</pFlAlSms>
+      <pFlGnSms>0</pFlGnSms>
+      <pKargoParcaList>1:1:1:1:1:;</pKargoParcaList>
+      <pAliciMusteriMngNo></pAliciMusteriMngNo>
+      <pAliciMusteriBayiNo></pAliciMusteriBayiNo>
+      <pAliciMusteriAdi>Test User</pAliciMusteriAdi>
+      <pChSiparisNo>TEST_123</pChSiparisNo>
+      <pLuOdemeSekli>P</pLuOdemeSekli>
+      <pFlAdresFarkli>0</pFlAdresFarkli>
+      <pChIl>ISTANBUL</pChIl>
+      <pChIlce>SISLI</pChIlce>
+      <pChAdres>Test Adres</pChAdres>
+      <pChSemt></pChSemt>
+      <pChMahalle></pChMahalle>
+      <pChMeydanBulvar></pChMeydanBulvar>
+      <pChCadde></pChCadde>
+      <pChSokak></pChSokak>
+      <pChTelEv></pChTelEv>
+      <pChTelCep>05551112233</pChTelCep>
+      <pChTelIs></pChTelIs>
+      <pChFax></pChFax>
+      <pChEmail></pChEmail>
+      <pChVergiDairesi></pChVergiDairesi>
+      <pChVergiNumarasi></pChVergiNumarasi>
+      <pFlKapidaOdeme>0</pFlKapidaOdeme>
+      <pMalBedeliOdemeSekli></pMalBedeliOdemeSekli>
+      <pPlatformKisaAdi></pPlatformKisaAdi>
+      <pPlatformSatisKodu></pPlatformSatisKodu>
       <pKullaniciAdi>${dhlUser}</pKullaniciAdi>
       <pSifre>${dhlPass}</pSifre>
-      <pKargoBilgiArray>
-        <pMusteriSiparisNo>TEST_123</pMusteriSiparisNo>
-        <pAliciMusteriAdi>Test User</pAliciMusteriAdi>
-        <pAliciAdres>Test Adresi Istanbul</pAliciAdres>
-        <pAliciTel1>05551112233</pAliciTel1>
-        <pSehirAdi>ISTANBUL</pSehirAdi>
-        <pIlceAdi>SISLI</pIlceAdi>
-        <pBarcod>TEST123BAR</pBarcod>
-        <pIcerik>Duvarkagidi</pIcerik>
-        <pGonderiHizmetSekli>NORMAL</pGonderiHizmetSekli>
-        <pTeslimSekli>ADRESE_TESLIM</pTeslimSekli>
-        <pFlAlSms>0</pFlAlSms>
-        <pFlGnSms>0</pFlGnSms>
-        <pLuOdemeSekli>GONDERICI_ODER</pLuOdemeSekli>
-        <pFlAdresFarkli>0</pFlAdresFarkli>
-      </pKargoBilgiArray>
     </SiparisGirisiDetayliV3>
   </soap:Body>
 </soap:Envelope>`;
@@ -59,7 +75,7 @@ async function testSoap() {
 
             console.log("Status:", response.status);
             const text = await response.text();
-            console.log("Response (first 200 chars):", text.substring(0, 200));
+            console.log("Response:", text);
             if (text.includes("SiparisGirisiDetayliV3Result")) {
                 console.log("SUCCESS! Found result tag.");
             }

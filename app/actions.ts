@@ -738,107 +738,169 @@ export async function fetchOrderForCargo(orderId: number) {
 }
 
 export async function createDHLShipmentAction(orderId: number) {
-    noStore()
-    serverLog(`[DHL_PLUGIN] START: Triggering Kargo Entegratör via WooCommerce for Order #${orderId}`);
+    noStore();
+    serverLog(`[MNG_SOAP] START: Connecting directly to MNG Kargo for Order #${orderId}`);
 
     const session = await getSession();
     if (!session) {
-        serverLog(`[DHL_PLUGIN] ERR: No session for #${orderId}`);
-        return { error: "Oturum kapalı" }
+        serverLog(`[MNG_SOAP] ERR: No session for #${orderId}`);
+        return { error: "Oturum kapalı" };
     }
 
-    const settings = await getSystemSettings()
-    const wcUrl = settings['wc_url'];
-    const wcKey = settings['wc_key'];
-    const wcSecret = settings['wc_secret'];
+    const settings = await getSystemSettings();
+    const dhlUser = settings['dhl_user'];
+    const dhlPass = settings['dhl_pass'];
 
-    if (!wcUrl || !wcKey || !wcSecret) {
-        serverLog(`[DHL_PLUGIN] ERR: Missing WooCommerce API credentials for #${orderId}`);
-        return { error: "Lütfen Ayarlar sayfasından WooCommerce (API) bilgilerinizi eksiksiz girin." }
+    if (!dhlUser || !dhlPass) {
+        serverLog(`[MNG_SOAP] ERR: Missing MNG/DHL credentials for #${orderId}`);
+        return { error: "Lütfen Ayarlar sayfasından MNG Kargo (DHL) Kullanıcı Adı ve Şifrenizi eksiksiz girin." };
     }
 
     try {
-        const order = await db.order.findUnique({
-            where: { id: orderId }
-        })
+        const order = await db.order.findUnique({ where: { id: orderId } });
 
         if (!order) {
-            serverLog(`[DHL_PLUGIN] ERR: Order not found #${orderId}`);
-            return { error: "Sipariş bulunamadı" }
+            serverLog(`[MNG_SOAP] ERR: Order not found #${orderId}`);
+            return { error: "Sipariş bulunamadı" };
         }
 
-        if (order.source !== 'woo' || !order.externalId) {
-            serverLog(`[DHL_PLUGIN] ERR: Order is not from WooCommerce or missing external ID.`);
-            return { error: "Yalnızca WooCommerce formundan gelen siparişler için otomatik barkod alınabilir." }
+        await logActivity(orderId, session.user.name, "CARGO_START", "Doğrudan MNG Kargo API'sine barkod oluşturma kaydı iletiliyor...");
+
+        // Parse address to City / District
+        let il = "ISTANBUL";
+        let ilce = "SISLI";
+        const addressMatch = (order.address || "").match(/\b([A-ZŞİĞÜÇÖa-zşıiğüçö]+)\s*\/\s*([A-ZŞİĞÜÇÖa-zşıiğüçö]+)\b/);
+        if (addressMatch) {
+            ilce = addressMatch[1].trim().toUpperCase();
+            il = addressMatch[2].trim().toUpperCase();
+        } else if (order.city) {
+            il = order.city.trim().toUpperCase();
+            ilce = order.city.trim().toUpperCase();
         }
 
-        await logActivity(orderId, session.user.name, "CARGO_START", "Kargo Entegratör'ü tetiklemek üzere WooCommerce sipariş durumu güncelleniyor.")
+        let phone = (order.phone || "05551112233").replace(/[^0-9]/g, "");
 
-        serverLog(`[DHL_PLUGIN] Calling WooCommerce API for external ID: ${order.externalId}...`);
+        const soapUrl = "https://service.mngkargo.com.tr/musterikargosiparis/musterikargosiparis.asmx";
 
-        // We update the order status to "completed" to trigger the Kargo Entegratör plugin
-        const wcApiUrl = `${wcUrl}/wp-json/wc/v3/orders/${order.externalId}?consumer_key=${wcKey}&consumer_secret=${wcSecret}`;
-        const response = await fetch(wcApiUrl, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                status: 'completed'
-            })
+        // 1. CREATE SHIPMENT
+        const siparisGirisiXml = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <SiparisGirisiDetayliV3 xmlns="http://tempuri.org/">
+      <pChIrsaliyeNo></pChIrsaliyeNo>
+      <pPrKiymet></pPrKiymet>
+      <pChBarkod></pChBarkod>
+      <pChIcerik>Duvarkagidi</pChIcerik>
+      <pGonderiHizmetSekli>NORMAL</pGonderiHizmetSekli>
+      <pTeslimSekli>1</pTeslimSekli>
+      <pFlAlSms>0</pFlAlSms>
+      <pFlGnSms>0</pFlGnSms>
+      <pKargoParcaList>1:1:1:1:1:;</pKargoParcaList>
+      <pAliciMusteriMngNo></pAliciMusteriMngNo>
+      <pAliciMusteriBayiNo></pAliciMusteriBayiNo>
+      <pAliciMusteriAdi><![CDATA[${(order.customer || "Musteri").substring(0, 50)}]]></pAliciMusteriAdi>
+      <pChSiparisNo>${order.id}</pChSiparisNo>
+      <pLuOdemeSekli>P</pLuOdemeSekli>
+      <pFlAdresFarkli>0</pFlAdresFarkli>
+      <pChIl>${il}</pChIl>
+      <pChIlce>${ilce}</pChIlce>
+      <pChAdres><![CDATA[${(order.address || "Adres Belirtilmemis").substring(0, 200)}]]></pChAdres>
+      <pChSemt></pChSemt>
+      <pChMahalle></pChMahalle>
+      <pChMeydanBulvar></pChMeydanBulvar>
+      <pChCadde></pChCadde>
+      <pChSokak></pChSokak>
+      <pChTelEv></pChTelEv>
+      <pChTelCep>${phone}</pChTelCep>
+      <pChTelIs></pChTelIs>
+      <pChFax></pChFax>
+      <pChEmail></pChEmail>
+      <pChVergiDairesi></pChVergiDairesi>
+      <pChVergiNumarasi></pChVergiNumarasi>
+      <pFlKapidaOdeme>0</pFlKapidaOdeme>
+      <pMalBedeliOdemeSekli></pMalBedeliOdemeSekli>
+      <pPlatformKisaAdi></pPlatformKisaAdi>
+      <pPlatformSatisKodu></pPlatformSatisKodu>
+      <pKullaniciAdi>${dhlUser}</pKullaniciAdi>
+      <pSifre>${dhlPass}</pSifre>
+    </SiparisGirisiDetayliV3>
+  </soap:Body>
+</soap:Envelope>`;
+
+        serverLog(`[MNG_SOAP] Sending SiparisGirisiDetayliV3 for Order ${order.id}...`);
+        const siparisRes = await fetch(soapUrl, {
+            method: "POST",
+            headers: { "Content-Type": "text/xml; charset=utf-8", "SOAPAction": "http://tempuri.org/SiparisGirisiDetayliV3" },
+            body: siparisGirisiXml
         });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            serverLog(`[DHL_PLUGIN] FATAL_HTTP_ERR: ${response.status} - ${errorText}`);
-            return { error: `WooCommerce bağlantı hatası: ${response.status}. Detay: ${errorText}` }
+        const siparisText = await siparisRes.text();
+        const siparisMatch = siparisText.match(/<SiparisGirisiDetayliV3Result>(.*?)<\/SiparisGirisiDetayliV3Result>/);
+        const siparisResult = siparisMatch ? siparisMatch[1] : "";
+
+        if (siparisResult !== "1" && !siparisResult.includes("KAYIT ZATEN VAR")) {
+            serverLog(`[MNG_SOAP] SiparisGirisiDetayliV3 Error: ${siparisResult}`);
+            return { error: `MNG Kargo Hatası: ${siparisResult || 'Bilinmeyen hata'}` };
         }
 
-        serverLog(`[DHL_PLUGIN] SUCCESS: WooCommerce order status changed to completed.`);
+        // 2. FETCH BARCODE
+        const barkodXml = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <MNGGonderiBarkod xmlns="http://tempuri.org/">
+      <req>
+        <WsUserName>${dhlUser}</WsUserName>
+        <WsPassword>${dhlPass}</WsPassword>
+        <ReferansNo>${order.id}</ReferansNo>
+        <OutBarkodType>PDF</OutBarkodType>
+        <HatadaReferansBarkoduBas>1</HatadaReferansBarkoduBas>
+      </req>
+    </MNGGonderiBarkod>
+  </soap:Body>
+</soap:Envelope>`;
 
-        // --- BYPASS WP-CRON WEBHOOK DELAYS ---
-        // Wait 2.5 seconds to let the Kargo Entegrator PHP hooks finish their SOAP calls to DHL
-        serverLog(`[DHL_PLUGIN] Waiting to fetch generated barcode directly...`);
-        await new Promise(r => setTimeout(r, 2500));
+        serverLog(`[MNG_SOAP] Sending MNGGonderiBarkod for Order ${order.id}...`);
+        const barkodRes = await fetch(soapUrl, {
+            method: "POST",
+            headers: { "Content-Type": "text/xml; charset=utf-8", "SOAPAction": "http://tempuri.org/MNGGonderiBarkod" },
+            body: barkodXml
+        });
 
-        const getWcApiUrl = `${wcUrl}/wp-json/wc/v3/orders/${order.externalId}?consumer_key=${wcKey}&consumer_secret=${wcSecret}`;
-        const getResponse = await fetch(getWcApiUrl);
+        const barkodText = await barkodRes.text();
+        const zplMatch = barkodText.match(/<BarkodText>(.*?)<\/BarkodText>/);
+        let zplContent = zplMatch ? Buffer.from(zplMatch[1].replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')).toString('utf-8') : null;
 
-        let fetchedBarcode = null;
-        let fetchedTracking = null;
+        let trackingNoMatch = barkodText.match(/<MngKargoGonderiNo>(.*?)<\/MngKargoGonderiNo>/);
+        let trackingNo = trackingNoMatch ? trackingNoMatch[1] : null;
 
-        if (getResponse.ok) {
-            const wcOrderData = await getResponse.json();
-            if (Array.isArray(wcOrderData.meta_data)) {
-                const cargoBarcodeMeta = wcOrderData.meta_data.find((m: any) => m.key === '_gcargo_barcode_exposed');
-                const cargoTrackingMeta = wcOrderData.meta_data.find((m: any) => m.key === '_gcargo_tracking_exposed');
-
-                if (cargoBarcodeMeta && cargoBarcodeMeta.value) fetchedBarcode = cargoBarcodeMeta.value;
-                if (cargoTrackingMeta && cargoTrackingMeta.value) fetchedTracking = cargoTrackingMeta.value;
+        if (!zplContent || zplContent.length < 10) {
+            const fallbackZplMatch = barkodText.match(/<BarkodValue>(.*?)<\/BarkodValue>/);
+            if (fallbackZplMatch) {
+                // Fallback: If no ZPL was returned but BarkodValue exists, the label wasn't generated properly.
+                serverLog(`[MNG_SOAP] No ZPL returned. Result:\n${barkodText.substring(0, 300)}`);
+                return { error: "Barkod üretilemedi, sadece barkod değeri döndü." };
             }
+            return { error: "MNG Kargo'dan barkod alınamadı." };
         }
 
-        // Record the fact that we triggered it, save barcode if found, but DO NOT move status locally
+        // 3. UPDATE DB
+        serverLog(`[MNG_SOAP] Success! Updating Order ${order.id}. Tracking No: ${trackingNo}`);
         await db.order.update({
             where: { id: orderId },
             data: {
                 updatedAt: new Date(),
-                ...(fetchedBarcode ? { cargoBarcode: fetchedBarcode } : {}),
-                ...(fetchedTracking ? { cargoTrackingNumber: fetchedTracking } : {})
+                cargoBarcode: zplContent, // We store the raw ZPL string
+                cargoTrackingNumber: trackingNo || order.id.toString(),
+                status: "shipped" // We update the status cleanly
             }
-        })
+        });
 
-        if (fetchedBarcode) {
-            await logActivity(orderId, session.user.name, "CARGO_SUCCESS", `Barkod başarıyla MNG/DHL'den çekildi: ${fetchedBarcode}`);
-            return { success: true, message: "Kargo barkodu başarıyla alındı. Yazdırılıyor..." }
-        } else {
-            await logActivity(orderId, session.user.name, "CARGO_SUCCESS", `Mağazaya kargo talebi iletildi. Sipariş kargolandı olarak İŞARETLENMEDİ, barkod bekleniyor.`)
-            return { success: true, message: "Kargo barkodu isteği mağazaya iletildi. Birkaç saniye içinde sayfayı yenilediğinizde barkodunuz görünecektir." }
-        }
+        await logActivity(orderId, session.user.name, "CARGO_SUCCESS", `Barkod başarıyla MNG'den çekildi. PDF yazdırmaya hazır.`);
+        return { success: true, message: "Kargo barkodu başarıyla anında üretildi!" };
 
     } catch (e: any) {
-        serverLog(`[DHL_PLUGIN] CRITICAL_ERROR: ${e.message}`);
-        return { error: e.message }
+        serverLog(`[MNG_SOAP] CRITICAL_ERROR: ${e.message}`);
+        return { error: e.message };
     }
 }
 
