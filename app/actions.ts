@@ -835,6 +835,7 @@ export async function createDHLShipmentAction(orderId: number) {
         });
 
         const siparisText = await siparisRes.text();
+        console.error(`[MNG_DEBUG_SIPARIS_107707] Response:`, siparisText); // ADDED
         const siparisMatch = siparisText.match(/<SiparisGirisiDetayliV3Result>(.*?)<\/SiparisGirisiDetayliV3Result>/);
         const siparisResult = siparisMatch ? siparisMatch[1] : "";
 
@@ -867,6 +868,7 @@ export async function createDHLShipmentAction(orderId: number) {
         });
 
         const barkodText = await barkodRes.text();
+        console.error(`[MNG_DEBUG_BARKOD_107707] Response:`, barkodText); // ADDED
         const zplMatch = barkodText.match(/<BarkodText>(.*?)<\/BarkodText>/);
         let zplContent = zplMatch ? Buffer.from(zplMatch[1].replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')).toString('utf-8') : null;
 
