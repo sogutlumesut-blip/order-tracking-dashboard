@@ -783,16 +783,15 @@ export async function createDHLShipmentAction(orderId: number) {
 
         serverLog(`[DHL_PLUGIN] SUCCESS: WooCommerce order status changed to completed.`);
 
-        // Update local DB to shipped status and DHL/MNG cargo
+        // Record the fact that we triggered it, but DO NOT move it to 'shipped' locally
         await db.order.update({
             where: { id: orderId },
             data: {
-                status: "shipped",
                 updatedAt: new Date()
             }
         })
 
-        await logActivity(orderId, session.user.name, "CARGO_SUCCESS", `Mağazaya kargo talebi iletildi. Barkodun dönmesi bekleniyor...`)
+        await logActivity(orderId, session.user.name, "CARGO_SUCCESS", `Mağazaya kargo talebi iletildi. Sipariş kargolandı olarak İŞARETLENMEDİ, sadece barkod oluşturuluyor.`)
         return { success: true, message: "Kargo barkodu isteği mağazaya iletildi. Birkaç saniye içinde sayfayı yenilediğinizde barkodunuz görünecektir." }
 
     } catch (e: any) {
@@ -1577,7 +1576,12 @@ export async function syncWooCommerceOrders(force: boolean = false) {
 
                     // KEEP_LOCAL if it's modified and WC is not terminal
                     // OR if local is already terminal (never go back from completed)
-                    const keepLocalStatus = (isLocalModified && !isTerminalWC) || isLocalTerminal;
+                    // OR if WC is completed but local is modified (since we use 'completed' in WC to trigger plugins without wanting to move it in OMS)
+                    let keepLocalStatus = (isLocalModified && !isTerminalWC) || isLocalTerminal;
+
+                    if (wcOrder.status === 'completed' && isLocalModified) {
+                        keepLocalStatus = true;
+                    }
 
                     // ULTIMATE DIAGNOSTIC LOG
                     const logPrefix = `[SYNC_V13] #${existingOrder.id} (WC-${wcOrder.id})`;
