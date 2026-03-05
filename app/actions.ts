@@ -778,7 +778,7 @@ export async function createDHLShipmentAction(orderId: number) {
         if (!response.ok) {
             const errorText = await response.text();
             serverLog(`[DHL_PLUGIN] FATAL_HTTP_ERR: ${response.status} - ${errorText}`);
-            return { error: `WooCommerce bağlantı hatası: ${response.status}` }
+            return { error: `WooCommerce bağlantı hatası: ${response.status}. Detay: ${errorText}` }
         }
 
         serverLog(`[DHL_PLUGIN] SUCCESS: WooCommerce order status changed to completed.`);
