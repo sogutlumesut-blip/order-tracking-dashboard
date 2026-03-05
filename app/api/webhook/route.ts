@@ -116,7 +116,28 @@ export async function POST(req: Request) {
         })
 
         if (existingOrder) {
-            // Optional: Update status if exists? 
+            // Update cargo data if Kargo Entegrator generated it later
+            if (Array.isArray(body.meta_data)) {
+                const cargoBarcodeMeta = body.meta_data.find((m: any) => m.key === '_gcargo_barcode_exposed')
+                const cargoTrackingMeta = body.meta_data.find((m: any) => m.key === '_gcargo_tracking_exposed')
+
+                let updateData: any = {};
+                if (cargoBarcodeMeta && cargoBarcodeMeta.value && cargoBarcodeMeta.value !== existingOrder.cargoBarcode) {
+                    updateData.cargoBarcode = cargoBarcodeMeta.value;
+                }
+                if (cargoTrackingMeta && cargoTrackingMeta.value && cargoTrackingMeta.value !== existingOrder.cargoTrackingNumber) {
+                    updateData.cargoTrackingNumber = cargoTrackingMeta.value;
+                }
+
+                if (Object.keys(updateData).length > 0) {
+                    await db.order.update({
+                        where: { id: existingOrder.id },
+                        data: updateData
+                    });
+                    return NextResponse.json({ message: "Order updated with cargo data" }, { status: 200 })
+                }
+            }
+
             // For now, adhere to idempotency and just return success to stop retries
             return NextResponse.json({ message: "Order already exists" }, { status: 200 })
         }
