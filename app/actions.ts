@@ -764,11 +764,11 @@ export async function createDHLShipmentAction(orderId: number) {
         serverLog(`[DHL_PLUGIN] Calling WooCommerce API for external ID: ${order.externalId}...`);
 
         // We update the order status to "completed" to trigger the Kargo Entegratör plugin
-        const response = await fetch(`${wcUrl}/wp-json/wc/v3/orders/${order.externalId}`, {
+        const wcApiUrl = `${wcUrl}/wp-json/wc/v3/orders/${order.externalId}?consumer_key=${wcKey}&consumer_secret=${wcSecret}`;
+        const response = await fetch(wcApiUrl, {
             method: 'PUT',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Basic ' + Buffer.from(`${wcKey}:${wcSecret}`).toString('base64')
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 status: 'completed'
