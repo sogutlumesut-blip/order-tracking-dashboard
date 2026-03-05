@@ -724,6 +724,19 @@ export async function createCargoLabelAction(orderId: number) {
     }
 }
 
+export async function fetchOrderForCargo(orderId: number) {
+    noStore();
+    try {
+        const order = await db.order.findUnique({
+            where: { id: orderId },
+            select: { cargoBarcode: true, cargoTrackingNumber: true, status: true }
+        });
+        return order;
+    } catch {
+        return null;
+    }
+}
+
 export async function createDHLShipmentAction(orderId: number) {
     noStore()
     serverLog(`[DHL_PLUGIN] START: Triggering Kargo Entegratör via WooCommerce for Order #${orderId}`);

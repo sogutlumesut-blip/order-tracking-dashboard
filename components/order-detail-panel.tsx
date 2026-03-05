@@ -8,7 +8,7 @@ import { NoteLog } from "./note-log"
 import { ChatSection } from "./chat-section"
 import { ActivityLog } from "./activity-log"
 import { getColorClasses } from "@/lib/colors"
-import { logManualActivity, uploadCargoLabel, deleteCargoLabel, getOrderDetails, createInvoiceAction, createCargoLabelAction, createDHLShipmentAction } from "../app/actions"
+import { logManualActivity, uploadCargoLabel, deleteCargoLabel, getOrderDetails, fetchOrderForCargo, createInvoiceAction, createCargoLabelAction, createDHLShipmentAction } from "../app/actions"
 import { LocalBarcodeModal } from "./local-barcode-modal"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
@@ -473,27 +473,56 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     </button>
                                     <button
                                         onClick={async () => {
-                                            toast.promise(createDHLShipmentAction(formData.id), {
-                                                loading: "DHL Kargo kaydı oluşturuluyor...",
-                                                success: (res: any) => {
-                                                    if (res.error) throw new Error(res.error);
-                                                    if (res.trackingNumber) {
-                                                        // Update both tracking fields to be safe and trigger UI refresh
-                                                        const updated = {
-                                                            ...formData,
-                                                            status: 'shipped',
-                                                            cargoTrackingNumber: res.trackingNumber,
-                                                            trackingNumber: res.trackingNumber
-                                                        };
-                                                        setFormData(updated);
-                                                        if (onUpdate) onUpdate(updated);
+                                            toast.promise(
+                                                new Promise(async (resolve, reject) => {
+                                                    try {
+                                                        const res = await createDHLShipmentAction(formData.id);
+                                                        if (res.error) throw new Error(res.error);
+
+                                                        // Poll the database for the barcode
+                                                        let foundBarcode = null;
+                                                        let finalTrackingNumber = null;
+                                                        for (let i = 0; i < 15; i++) {
+                                                            await new Promise(r => setTimeout(r, 2000)); // wait 2s
+                                                            const updatedOrder = await fetchOrderForCargo(formData.id);
+                                                            if (updatedOrder && updatedOrder.cargoBarcode) {
+                                                                if (!formData.cargoBarcode || updatedOrder.cargoBarcode !== formData.cargoBarcode) {
+                                                                    foundBarcode = updatedOrder.cargoBarcode;
+                                                                    finalTrackingNumber = updatedOrder.cargoTrackingNumber;
+                                                                    break;
+                                                                }
+                                                            }
+                                                        }
+
+                                                        if (foundBarcode) {
+                                                            const pdfUrl = `https://duvarkagidimarketi.com/wp-content/plugins/kargo-entegrator/assets/print.php?barcode=${foundBarcode}`;
+                                                            window.open(pdfUrl, '_blank');
+
+                                                            // Reload to show the new data in the panel
+                                                            const updatedState = {
+                                                                ...formData,
+                                                                cargoBarcode: foundBarcode,
+                                                                cargoTrackingNumber: finalTrackingNumber || formData.cargoTrackingNumber,
+                                                                trackingNumber: finalTrackingNumber || formData.trackingNumber
+                                                            };
+                                                            setFormData(updatedState as Order);
+                                                            if (onUpdate) onUpdate(updatedState as Order);
+                                                            router.refresh();
+                                                            resolve("DHL Etiketi başarıyla oluşturuldu ve yazdırılıyor!");
+                                                        } else {
+                                                            router.refresh();
+                                                            resolve("Kargo talebi iletildi ancak etiket gecikiyor. Lütfen sayfayı az sonra yenileyin.");
+                                                        }
+                                                    } catch (err: any) {
+                                                        reject(err);
                                                     }
-                                                    // Router.refresh is crucial to pick up the new cargoLabelPdf from the DB
-                                                    router.refresh();
-                                                    return "DHL Kargo kaydı başarıyla oluşturuldu!";
-                                                },
-                                                error: (err) => err.message || "Hata oluştu"
-                                            });
+                                                }),
+                                                {
+                                                    loading: "DHL oluşturuluyor ve etiket bekleniyor...",
+                                                    success: (msg: any) => msg,
+                                                    error: (err: any) => err.message || "Hata oluştu"
+                                                }
+                                            );
                                         }}
                                         className="py-3 bg-red-600 text-white rounded-xl flex items-center justify-center gap-2 hover:bg-red-700 transition-all font-bold shadow-lg shadow-red-200 dark:shadow-none text-xs"
                                     >
