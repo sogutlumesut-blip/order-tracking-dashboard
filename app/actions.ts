@@ -842,6 +842,45 @@ export async function createDHLShipmentAction(orderId: number) {
     }
 }
 
+export async function markOrderAsPaidAction(orderId: number) {
+    noStore();
+    const session = await getSession();
+    if (!session) return { error: "Oturum kapalı" };
+
+    try {
+        const order = await db.order.findUnique({
+            where: { id: orderId }
+        });
+
+        if (!order) return { error: "Sipariş bulunamadı" };
+
+        let currentLabels = [];
+        try {
+            const parsed = typeof order.labels === 'string' ? JSON.parse(order.labels) : order.labels;
+            currentLabels = Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            currentLabels = [];
+        }
+
+        // Remove "Ödeme Başarısız"
+        const updatedLabels = currentLabels.filter((l: string) => l !== 'Ödeme Başarısız');
+
+        await db.order.update({
+            where: { id: orderId },
+            data: {
+                labels: JSON.stringify(updatedLabels),
+                updatedAt: new Date()
+            }
+        });
+
+        await logActivity(orderId, session.user.name, "MANUAL_PAYMENT", "Ödeme Başarısız etiketi kaldırılarak sipariş manuel ödendi olarak işaretlendi.");
+        return { success: true, message: "Sipariş 'Ödendi' olarak işaretlendi." };
+
+    } catch (e: any) {
+        return { error: "Hata oluştu: " + e.message };
+    }
+}
+
 export async function simulateWooCommerceOrder() {
     // Generate Random Data
     const randomId = Math.floor(Math.random() * 9000) + 1000

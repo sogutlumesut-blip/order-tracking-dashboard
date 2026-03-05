@@ -8,7 +8,7 @@ import { NoteLog } from "./note-log"
 import { ChatSection } from "./chat-section"
 import { ActivityLog } from "./activity-log"
 import { getColorClasses } from "@/lib/colors"
-import { logManualActivity, uploadCargoLabel, deleteCargoLabel, getOrderDetails, fetchOrderForCargo, createInvoiceAction, createCargoLabelAction, createDHLShipmentAction } from "../app/actions"
+import { logManualActivity, uploadCargoLabel, deleteCargoLabel, getOrderDetails, fetchOrderForCargo, createInvoiceAction, createCargoLabelAction, createDHLShipmentAction, markOrderAsPaidAction } from "../app/actions"
 import { LocalBarcodeModal } from "./local-barcode-modal"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
@@ -428,6 +428,32 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     <Printer className="w-5 h-5" />
                                     Barkod / Etiket Oluştur (Manuel)
                                 </button>
+
+                                {/* FIX PAYMENT FAILED: Mark as Paid Button */}
+                                {formData.labels.includes('Ödeme Başarısız') && (
+                                    <button
+                                        onClick={async () => {
+                                            if (confirm("Gelen ödemeyi onaylıyor musunuz? (Bu işlem 'Ödeme Başarısız' etiketini kardıracaktır.)")) {
+                                                toast.promise(markOrderAsPaidAction(formData.id), {
+                                                    loading: "Ödeme durumu güncelleniyor...",
+                                                    success: (res: any) => {
+                                                        if (res.error) throw new Error(res.error);
+                                                        setFormData({
+                                                            ...formData,
+                                                            labels: formData.labels.filter(label => label !== 'Ödeme Başarısız')
+                                                        });
+                                                        return res.message;
+                                                    },
+                                                    error: (err) => err.message || "Hata oluştu"
+                                                });
+                                            }
+                                        }}
+                                        className="w-full py-3 bg-green-600 text-white rounded-xl flex items-center justify-center gap-2 hover:bg-green-700 transition-all font-bold shadow-lg animate-pulse"
+                                    >
+                                        <ShieldCheck className="w-5 h-5" />
+                                        Manuel Ödendi İşaretle
+                                    </button>
+                                )}
 
                                 {/* DIRECT ACTIONS: Fatura & Kargo (NEW) */}
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
