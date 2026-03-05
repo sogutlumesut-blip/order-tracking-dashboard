@@ -796,16 +796,45 @@ export async function createDHLShipmentAction(orderId: number) {
 
         serverLog(`[DHL_PLUGIN] SUCCESS: WooCommerce order status changed to completed.`);
 
-        // Record the fact that we triggered it, but DO NOT move it to 'shipped' locally
+        // --- BYPASS WP-CRON WEBHOOK DELAYS ---
+        // Wait 2.5 seconds to let the Kargo Entegrator PHP hooks finish their SOAP calls to DHL
+        serverLog(`[DHL_PLUGIN] Waiting to fetch generated barcode directly...`);
+        await new Promise(r => setTimeout(r, 2500));
+
+        const getWcApiUrl = `${wcUrl}/wp-json/wc/v3/orders/${order.externalId}?consumer_key=${wcKey}&consumer_secret=${wcSecret}`;
+        const getResponse = await fetch(getWcApiUrl);
+
+        let fetchedBarcode = null;
+        let fetchedTracking = null;
+
+        if (getResponse.ok) {
+            const wcOrderData = await getResponse.json();
+            if (Array.isArray(wcOrderData.meta_data)) {
+                const cargoBarcodeMeta = wcOrderData.meta_data.find((m: any) => m.key === '_gcargo_barcode_exposed');
+                const cargoTrackingMeta = wcOrderData.meta_data.find((m: any) => m.key === '_gcargo_tracking_exposed');
+
+                if (cargoBarcodeMeta && cargoBarcodeMeta.value) fetchedBarcode = cargoBarcodeMeta.value;
+                if (cargoTrackingMeta && cargoTrackingMeta.value) fetchedTracking = cargoTrackingMeta.value;
+            }
+        }
+
+        // Record the fact that we triggered it, save barcode if found, but DO NOT move status locally
         await db.order.update({
             where: { id: orderId },
             data: {
-                updatedAt: new Date()
+                updatedAt: new Date(),
+                ...(fetchedBarcode ? { cargoBarcode: fetchedBarcode } : {}),
+                ...(fetchedTracking ? { cargoTrackingNumber: fetchedTracking } : {})
             }
         })
 
-        await logActivity(orderId, session.user.name, "CARGO_SUCCESS", `Mağazaya kargo talebi iletildi. Sipariş kargolandı olarak İŞARETLENMEDİ, sadece barkod oluşturuluyor.`)
-        return { success: true, message: "Kargo barkodu isteği mağazaya iletildi. Birkaç saniye içinde sayfayı yenilediğinizde barkodunuz görünecektir." }
+        if (fetchedBarcode) {
+            await logActivity(orderId, session.user.name, "CARGO_SUCCESS", `Barkod başarıyla MNG/DHL'den çekildi: ${fetchedBarcode}`);
+            return { success: true, message: "Kargo barkodu başarıyla alındı. Yazdırılıyor..." }
+        } else {
+            await logActivity(orderId, session.user.name, "CARGO_SUCCESS", `Mağazaya kargo talebi iletildi. Sipariş kargolandı olarak İŞARETLENMEDİ, barkod bekleniyor.`)
+            return { success: true, message: "Kargo barkodu isteği mağazaya iletildi. Birkaç saniye içinde sayfayı yenilediğinizde barkodunuz görünecektir." }
+        }
 
     } catch (e: any) {
         serverLog(`[DHL_PLUGIN] CRITICAL_ERROR: ${e.message}`);
