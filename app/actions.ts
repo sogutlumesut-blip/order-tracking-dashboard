@@ -871,7 +871,7 @@ export async function createDHLShipmentAction(orderId: number) {
         const barkodText = await barkodRes.text();
         console.error(`[MNG_DEBUG_BARKOD_107707] Response:`, barkodText); // ADDED
         await logActivity(orderId, session.user.name, "MNG_BARKOD_RES", barkodText.substring(0, 400));
-        const zplMatch = barkodText.match(/<BarkodText>(.*?)<\/BarkodText>/);
+        const zplMatch = barkodText.match(/<BarkodText>([\s\S]*?)<\/BarkodText>/);
         let zplContent = zplMatch ? Buffer.from(zplMatch[1].replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')).toString('utf-8') : null;
 
         let trackingNoMatch = barkodText.match(/<MngKargoGonderiNo>(.*?)<\/MngKargoGonderiNo>/);
