@@ -5,6 +5,7 @@ import { useState, useTransition } from "react"
 import { Globe, Key, Save, Loader2, Info } from "lucide-react"
 import { toast } from "sonner"
 import { savePrintMarktSettings } from "@/app/actions"
+import { useRouter } from "next/navigation"
 
 interface PrintMarktSettingsFormProps {
     initialSettings: {
@@ -15,13 +16,21 @@ interface PrintMarktSettingsFormProps {
 
 export function PrintMarktSettingsForm({ initialSettings }: PrintMarktSettingsFormProps) {
     const [isPending, startTransition] = useTransition()
+    const router = useRouter()
 
     const handleSubmit = async (formData: FormData) => {
+        let url = formData.get("pm_url") as string
+        if (url && !url.startsWith("http")) {
+            url = "https://" + url;
+            formData.set("pm_url", url);
+        }
+
         startTransition(async () => {
             try {
                 const res = await savePrintMarktSettings(formData)
                 if (res?.success) {
                     toast.success(res.message)
+                    router.refresh()
                 } else if (res?.error) {
                     toast.error(res.error)
                 }
