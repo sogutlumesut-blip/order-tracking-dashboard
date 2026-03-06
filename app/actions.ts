@@ -786,9 +786,9 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
 
         let phone = (order.phone || "05551112233").replace(/[^0-9]/g, "");
 
-        // Since the server IP is now whitelisted directly by MNG, we can bypass the local relay
-        // and connect directly to their SOAP service.
-        const soapUrl = "https://service.mngkargo.com.tr/musterikargosiparis/musterikargosiparis.asmx";
+        // Connect through our static IP proxy because Vercel IPs change frequently
+        // and MNG Kargo requires a strictly whitelisted IP.
+        const soapUrl = "http://46.101.229.219:3005/relay";
         const actor = bypassAuth ? "TEST_SYSTEM" : session.user.name;
 
         // Calculate Desi/Weight realistically based on the items
