@@ -2173,9 +2173,116 @@ export async function syncPrintMarktOrders(force: boolean = false) {
             return { success: true, message: `Bağlantı BAŞARILI! Ancak PrintMarkt üzerinde çekilecek yeni sipariş bulunamadı.`, count: 0 }
         }
 
-        // TODO: Map PM Orders to our internal schema once format is confirmed
-        // For now, we return the counts found to verify connection
-        return { success: true, message: `Bağlantı başarılı! ${pmOrders.length} sipariş bulundu. JSON formatı eşleşmesi yapılmalıdır.`, count: pmOrders.length }
+        let importedCount = 0;
+
+        for (const pmOrder of pmOrders) {
+            try {
+                // Determine order number
+                const externalId = pmOrder.id?.toString() || pmOrder.order_number?.toString() || pmOrder.number?.toString() || pmOrder.id;
+                if (!externalId) continue; // Skip if no ID
+
+                const orderNumber = pmOrder.order_number || pmOrder.number || externalId;
+
+                // Check if already exists
+                const existingOrder = await db.order.findFirst({
+                    where: { externalId: `pm_${externalId}` }
+                });
+
+                if (existingOrder) continue; // Skip duplicates
+
+                // Map Address
+                let shippingName = "Bilinmiyor";
+                let shippingAddress = "Adres bulunamadı";
+                let shippingPhone = "";
+                let shippingEmail = pmOrder.email || pmOrder.account_email || "";
+
+                if (pmOrder.shipping_address) {
+                    shippingName = pmOrder.shipping_address.name || pmOrder.shipping_address.first_name + " " + pmOrder.shipping_address.last_name || shippingName;
+                    shippingAddress = `${pmOrder.shipping_address.address1 || ''} ${pmOrder.shipping_address.address2 || ''} ${pmOrder.shipping_address.city || ''} ${pmOrder.shipping_address.province || ''} ${pmOrder.shipping_address.zip || ''} ${pmOrder.shipping_address.country || ''}`.trim();
+                    shippingPhone = pmOrder.shipping_address.phone || "";
+                } else if (pmOrder.customer) {
+                    shippingName = pmOrder.customer.name || pmOrder.customer.first_name + " " + pmOrder.customer.last_name || pmOrder.account_name || shippingName;
+                    shippingEmail = pmOrder.customer.email || shippingEmail;
+                    shippingPhone = pmOrder.customer.phone || "";
+                }
+
+                // Fallback for name from top-level
+                if (shippingName === "Bilinmiyor" && pmOrder.account_name) {
+                    shippingName = pmOrder.account_name;
+                }
+
+                // Map Items
+                const items = [];
+                let totalAmount = 0;
+
+                const lineItems = pmOrder.line_items || pmOrder.items || [];
+                for (const item of lineItems) {
+                    const price = parseFloat(item.price || item.total || 0);
+                    const qty = parseInt(item.quantity || 1);
+                    totalAmount += price * qty;
+
+                    let properties: { name: string; value: string }[] = [];
+                    if (item.properties || item.meta_data) {
+                        const props = item.properties || item.meta_data;
+                        if (Array.isArray(props)) {
+                            properties = props.map((p: any) => ({ name: p.name || p.key || "Property", value: p.value || "" }));
+                        } else if (typeof props === 'object') {
+                            properties = Object.entries(props).map(([k, v]) => ({ name: k, value: String(v) }));
+                        }
+                    }
+
+                    // Extract material & dimension from direct item fields if present (based on screenshot)
+                    if (item.material) properties.push({ name: "Material", value: String(item.material) });
+                    if (item.dimensions || item.size) properties.push({ name: "Dimensions", value: String(item.dimensions || item.size) });
+
+                    items.push({
+                        name: item.name || item.title || "Custom Print Order",
+                        quantity: qty,
+                        price: price,
+                        sku: item.sku || "",
+                        image_src: item.image_url || item.image || item.thumbnail || "", // Required field
+                        properties: properties
+                    });
+                }
+
+                // Fallback total validation
+                if (totalAmount === 0 && pmOrder.total_price) {
+                    totalAmount = parseFloat(pmOrder.total_price);
+                }
+
+                // Map general fields
+                const status = (pmOrder.status || pmOrder.order_status || "pending").toLowerCase();
+                const mappedStatus = status.includes("ship") ? "shipped" : "pending";
+
+                const paymentMethod = pmOrder.payment_method || pmOrder.gateway || "Unknown";
+                const customerNote = pmOrder.note || pmOrder.customer_note || pmOrder.order_note || "";
+
+                await db.order.create({
+                    data: {
+                        externalId: `pm_${externalId}`,
+                        source: "PrintMarkt",
+                        customer: shippingName, // Mapped from shippingName
+                        email: shippingEmail, // Mapped from shippingEmail
+                        phone: shippingPhone,
+                        address: shippingAddress,
+                        total: totalAmount.toFixed(2), // Schema expects a String for some reason
+                        paymentMethod: paymentMethod,
+                        status: mappedStatus,
+                        note: customerNote, // Mapped from customerNote
+                        labels: "", // Required by schema
+                        items: {
+                            create: items
+                        }
+                    }
+                });
+
+                importedCount++;
+            } catch (err) {
+                console.error(`Error mapping PrintMarkt order:`, err);
+            }
+        }
+
+        return { success: true, message: `Bağlantı BAŞARILI! ${importedCount} yeni sipariş sisteme eklendi. (Toplam kuyruk: ${pmOrders.length})`, count: importedCount }
 
     } catch (e: any) {
         console.error("PrintMarkt Sync Error:", e)
