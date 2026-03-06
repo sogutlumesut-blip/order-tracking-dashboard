@@ -6,17 +6,35 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
     const url = new URL(req.url);
-    const shopId = url.searchParams.get("shopId"); // Use shopId if connecting an existing one
+    const shopId = url.searchParams.get("shopId");
+    const storeIndexStr = url.searchParams.get("storeIndex");
 
-    // Get API Key from SystemSetting or Env
-    const globalSettings = await db.systemSetting.findUnique({ where: { key: 'etsy_global_api_key' } });
-    const apiKey = globalSettings?.value || process.env.ETSY_API_KEY || "";
+    let apiKey = process.env.ETSY_API_KEY || "";
 
-    if (!apiKey) {
-        return NextResponse.json({ error: "Etsy API Key is missing. Please enter it in Settings." }, { status: 400 });
+    // Fetch specific API key from stores JSON array
+    if (storeIndexStr) {
+        const storeIndex = parseInt(storeIndexStr);
+        const settingsJson = await db.systemSetting.findUnique({ where: { key: 'etsy_stores_json' } });
+        if (settingsJson?.value) {
+            try {
+                const stores = JSON.parse(settingsJson.value);
+                if (stores[storeIndex] && stores[storeIndex].apiKey) {
+                    apiKey = stores[storeIndex].apiKey;
+                }
+            } catch (e) {
+                console.error("Failed parsing stores JSON", e);
+            }
+        }
     }
 
-    const { verifier, challenge, state } = generatePKCE();
+    if (!apiKey) {
+        return NextResponse.json({ error: "Etsy API Key is missing for this store. Please enter it in Settings first." }, { status: 400 });
+    }
+
+    // Append store index to state to pass context through OAuth
+    const baseState = generatePKCE().state;
+    const state = `${baseState}:${storeIndexStr || 'legacy'}`;
+    const { verifier, challenge } = generatePKCE();
 
     // Redirect URI as specified by user
     const redirectUri = process.env.ETSY_REDIRECT_URI || "https://clownfish-app-nr5vm.ondigitalocean.app/auth/etsy/callback";

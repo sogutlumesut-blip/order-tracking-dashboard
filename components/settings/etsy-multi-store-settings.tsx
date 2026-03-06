@@ -95,21 +95,13 @@ export function EtsyMultiStoreSettings({ initialStores, initialGlobalKey }: Etsy
         <div className="bg-white p-6 rounded-xl shadow-sm border border-orange-100">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-900">
                 <span className="bg-orange-600 text-white p-1 px-2 rounded text-sm">ETSY</span>
-                Etsy Entegrasyonu <span className="text-xs font-normal text-slate-400">v2.0 (Auto-Connect)</span>
+                Etsy Entegrasyonu <span className="text-xs font-normal text-slate-400">v2.1 (Multi-App Mode)</span>
             </h2>
 
-            <div className="bg-blue-50 p-4 rounded-lg mb-6 border border-blue-100">
-                <label className="block text-sm font-bold text-blue-900 mb-2">Etsy App Keystring (Global API Key)</label>
-                <div className="flex gap-2">
-                    <input
-                        value={globalApiKey}
-                        onChange={(e) => setGlobalApiKey(e.target.value)}
-                        placeholder="Örn: 1aa2bb3cc4dd..."
-                        className="flex-1 p-2 text-sm border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono"
-                    />
-                    <div className="text-xs text-blue-600 self-center">
-                        Tüm mağazalar bu anahtarı kullanarak bağlanacaktır.
-                    </div>
+            <div className="bg-yellow-50 p-4 rounded-lg mb-6 border border-yellow-200">
+                <div className="text-sm text-yellow-800">
+                    <strong>Bilgi:</strong> Etsy API onayınız gelene kadar (geçici modda), <strong>her mağazanız için kendi hesabından ayrı bir uygulama (App) oluşturmanız</strong> gerekmektedir. Callback URL olarak şunu kullanın: <br />
+                    <code className="bg-white p-1 rounded font-bold border border-yellow-300 select-all">https://clownfish-app-nr5vm.ondigitalocean.app/api/etsy/callback</code>
                 </div>
             </div>
 
@@ -129,12 +121,12 @@ export function EtsyMultiStoreSettings({ initialStores, initialGlobalKey }: Etsy
                             <Trash2 className="w-4 h-4" />
                         </button>
 
-                        <div className="flex items-center gap-4">
-                            <div className={`p-3 rounded-full ${store.connected ? 'bg-green-100 text-green-600' : 'bg-slate-200 text-slate-500'}`}>
+                        <div className="flex items-start gap-4 flex-col md:flex-row md:items-center">
+                            <div className={`p-3 rounded-full hidden md:block ${store.connected ? 'bg-green-100 text-green-600' : 'bg-slate-200 text-slate-500'}`}>
                                 <Globe className="w-6 h-6" />
                             </div>
 
-                            <div className="flex-1">
+                            <div className="flex-1 w-full space-y-3">
                                 {store.connected ? (
                                     <>
                                         <h3 className="text-lg font-bold text-slate-900">{store.name}</h3>
@@ -142,8 +134,23 @@ export function EtsyMultiStoreSettings({ initialStores, initialGlobalKey }: Etsy
                                     </>
                                 ) : (
                                     <>
-                                        <h3 className="text-md font-bold text-slate-500">Bağlantı Bekleniyor...</h3>
-                                        <p className="text-xs text-slate-400">"Bağla" butonuna basınca mağaza bilgileri otomatik çekilecektir.</p>
+                                        <div className="flex flex-col gap-1">
+                                            <label className="text-xs font-bold text-slate-500">Mağaza / App Adı</label>
+                                            <input
+                                                value={store.name}
+                                                onChange={(e) => updateStore(index, "name", e.target.value)}
+                                                className="p-2 border border-slate-300 rounded outline-none focus:border-orange-500"
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                            <label className="text-xs font-bold text-slate-500">Bu Mağazanın Keystring'i (API Key)</label>
+                                            <input
+                                                value={store.apiKey}
+                                                onChange={(e) => updateStore(index, "apiKey", e.target.value)}
+                                                placeholder="Örn: 1aa2bb3cc4dd..."
+                                                className="p-2 border border-slate-300 rounded font-mono outline-none focus:border-orange-500"
+                                            />
+                                        </div>
                                     </>
                                 )}
                             </div>
@@ -159,14 +166,14 @@ export function EtsyMultiStoreSettings({ initialStores, initialGlobalKey }: Etsy
                                 ) : (
                                     <Link
                                         href={`/api/etsy/auth?storeIndex=${index}`}
-                                        className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-sm font-bold transition-colors ${globalApiKey || store.apiKey
+                                        className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-sm font-bold transition-colors ${store.apiKey
                                             ? "bg-orange-600 text-white hover:bg-orange-700 shadow-sm"
-                                            : "bg-slate-300 text-slate-500 cursor-not-allowed" // Encourage entering Global Key first
+                                            : "bg-slate-300 text-slate-500 cursor-not-allowed"
                                             }`}
                                         onClick={(e) => {
-                                            if (!globalApiKey && !store.apiKey) {
+                                            if (!store.apiKey) {
                                                 e.preventDefault();
-                                                toast.error("Önce yukarıya Global API Key giriniz ve kaydediniz.")
+                                                toast.error("Önce bu mağazaya ait API Keystring'ini kutuya yapıştırıp KAYDET butonuna basınız.")
                                             }
                                         }}
                                     >
