@@ -1,20 +1,20 @@
 import { db } from "../lib/prisma";
 
 async function run() {
-    const settings = await db.systemSetting.findMany();
-    const dhlUser = settings.find(s => s.key === 'dhl_user')?.value;
-    const dhlPass = settings.find(s => s.key === 'dhl_pass')?.value;
+  const settings = await db.systemSetting.findMany();
+  const dhlUser = settings.find(s => s.key === 'dhl_user')?.value;
+  const dhlPass = settings.find(s => s.key === 'dhl_pass')?.value;
 
-    if (!dhlUser || !dhlPass) return console.error("Missing credentials");
+  if (!dhlUser || !dhlPass) return console.error("Missing credentials");
 
-    const order = await db.order.findUnique({ where: { id: 107706 } });
-    const soapUrl = "https://service.mngkargo.com.tr/musterikargosiparis/musterikargosiparis.asmx";
+  const order = await db.order.findUnique({ where: { id: 374 } });
+  const soapUrl = "https://service.mngkargo.com.tr/musterikargosiparis/musterikargosiparis.asmx";
 
-    let il = "ISTANBUL";
-    let ilce = "SISLI";
-    let phone = (order?.phone || "05551112233").replace(/[^0-9]/g, "");
+  let il = "ISTANBUL";
+  let ilce = "SISLI";
+  let phone = (order?.phone || "05551112233").replace(/[^0-9]/g, "");
 
-    const siparisGirisiXml = `<?xml version="1.0" encoding="utf-8"?>
+  const siparisGirisiXml = `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
     <SiparisGirisiDetayliV3 xmlns="http://tempuri.org/">
@@ -58,15 +58,15 @@ async function run() {
   </soap:Body>
 </soap:Envelope>`;
 
-    const siparisRes = await fetch(soapUrl, {
-        method: "POST",
-        headers: { "Content-Type": "text/xml; charset=utf-8", "SOAPAction": "http://tempuri.org/SiparisGirisiDetayliV3" },
-        body: siparisGirisiXml
-    });
-    console.log("Siparis Res:", await siparisRes.text());
+  const siparisRes = await fetch(soapUrl, {
+    method: "POST",
+    headers: { "Content-Type": "text/xml; charset=utf-8", "SOAPAction": "http://tempuri.org/SiparisGirisiDetayliV3" },
+    body: siparisGirisiXml
+  });
+  console.log("Siparis Res:", await siparisRes.text());
 
-    // NOW TEST BARCODE FETCH
-    const barkodXml = `<?xml version="1.0" encoding="utf-8"?>
+  // NOW TEST BARCODE FETCH
+  const barkodXml = `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
     <MNGGonderiBarkod xmlns="http://tempuri.org/">
@@ -81,12 +81,12 @@ async function run() {
   </soap:Body>
 </soap:Envelope>`;
 
-    const barkodRes = await fetch(soapUrl, {
-        method: "POST",
-        headers: { "Content-Type": "text/xml; charset=utf-8", "SOAPAction": "http://tempuri.org/MNGGonderiBarkod" },
-        body: barkodXml
-    });
-    console.log("Barkod Res:", await barkodRes.text());
+  const barkodRes = await fetch(soapUrl, {
+    method: "POST",
+    headers: { "Content-Type": "text/xml; charset=utf-8", "SOAPAction": "http://tempuri.org/MNGGonderiBarkod" },
+    body: barkodXml
+  });
+  console.log("Barkod Res:", await barkodRes.text());
 }
 
 run().catch(console.error);

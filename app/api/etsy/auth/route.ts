@@ -36,10 +36,18 @@ export async function GET(req: Request) {
     const state = `${baseState}:${storeIndexStr || 'legacy'}`;
     const { verifier, challenge } = generatePKCE();
 
-    // Construct dynamic redirect URI
-    const origin = url.origin.includes('localhost')
-        ? 'http://localhost:3000'
-        : url.origin;
+    // Construct dynamic redirect URI from Headers to survive DigitalOcean proxy
+    const forwardedHost = req.headers.get("x-forwarded-host");
+    const forwardedProto = req.headers.get("x-forwarded-proto") || "https";
+    const host = forwardedHost || req.headers.get("host") || url.host;
+
+    // Fallback logic for local development vs production proxy
+    let origin = `${forwardedProto}://${host}`;
+    if (origin.includes("localhost:8080")) {
+        // Digital Ocean sometimes passes local binding if headers are missing
+        origin = "https://clownfish-app-nr5vm.ondigitalocean.app";
+    }
+
     const redirectUri = `${origin}/api/etsy/callback`;
     const scopes = "shops_r transactions_r receipts_r";
 
