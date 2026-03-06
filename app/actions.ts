@@ -737,14 +737,17 @@ export async function fetchOrderForCargo(orderId: number) {
     }
 }
 
-export async function createDHLShipmentAction(orderId: number) {
+export async function createDHLShipmentAction(orderId: number, bypassAuth: boolean = false) {
     noStore();
     serverLog(`[MNG_SOAP] START: Connecting directly to MNG Kargo for Order #${orderId}`);
 
-    const session = await getSession();
-    if (!session) {
-        serverLog(`[MNG_SOAP] ERR: No session for #${orderId}`);
-        return { error: "Oturum kapalı" };
+    let session = null;
+    if (!bypassAuth) {
+        session = await getSession();
+        if (!session) {
+            serverLog(`[MNG_SOAP] ERR: No session for #${orderId}`);
+            return { error: "Oturum kapalı" };
+        }
     }
 
     const settings = await getSystemSettings();
@@ -764,7 +767,8 @@ export async function createDHLShipmentAction(orderId: number) {
             return { error: "Sipariş bulunamadı" };
         }
 
-        await logActivity(orderId, session.user.name, "CARGO_START", "Doğrudan MNG Kargo API'sine barkod oluşturma kaydı iletiliyor...");
+        const actorName = bypassAuth || !session ? "TEST_SYSTEM" : session.user.name;
+        await logActivity(orderId, actorName, "CARGO_START", "Doğrudan MNG Kargo API'sine barkod oluşturma kaydı iletiliyor...");
 
         // Parse address to City / District
         let il = "ISTANBUL";
@@ -781,6 +785,7 @@ export async function createDHLShipmentAction(orderId: number) {
         let phone = (order.phone || "05551112233").replace(/[^0-9]/g, "");
 
         const soapUrl = "https://service.mngkargo.com.tr/musterikargosiparis/musterikargosiparis.asmx";
+        const actor = bypassAuth ? "TEST_SYSTEM" : session.user.name;
 
         // 1. CREATE SHIPMENT
         const siparisGirisiXml = `<?xml version="1.0" encoding="utf-8"?>
@@ -835,7 +840,6 @@ export async function createDHLShipmentAction(orderId: number) {
         });
 
         const siparisText = await siparisRes.text();
-        console.error(`[MNG_DEBUG_SIPARIS_107707] Response:`, siparisText); // ADDED
         await logActivity(orderId, actor, "MNG_API_RES", siparisText.substring(0, 200));
         const siparisMatch = siparisText.match(/<SiparisGirisiDetayliV3Result>(.*?)<\/SiparisGirisiDetayliV3Result>/);
         const siparisResult = siparisMatch ? siparisMatch[1] : "";
@@ -855,13 +859,14 @@ export async function createDHLShipmentAction(orderId: number) {
         <WsPassword>${dhlPass}</WsPassword>
         <ReferansNo>${order.id}</ReferansNo>
         <OutBarkodType>PDF</OutBarkodType>
+        <FlKapidaTahsilat>0</FlKapidaTahsilat>
         <HatadaReferansBarkoduBas>1</HatadaReferansBarkoduBas>
       </req>
     </MNGGonderiBarkod>
   </soap:Body>
 </soap:Envelope>`;
 
-        serverLog(`[MNG_SOAP] Sending MNGGonderiBarkod for Order ${order.id}...`);
+        serverLog(`[MNG_SOAP] Fetching PDF Barcode for ${order.id}...`);
         const barkodRes = await fetch(soapUrl, {
             method: "POST",
             headers: { "Content-Type": "text/xml; charset=utf-8", "SOAPAction": "http://tempuri.org/MNGGonderiBarkod" },
