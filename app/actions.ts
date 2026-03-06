@@ -825,8 +825,12 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
         if (order.customDesi && order.customDesi > 0) totalDesi = order.customDesi;
         if (order.customWeight && order.customWeight > 0) totalWeight = order.customWeight;
 
-        // MNG Format: Weight:Desi:Width:Length:Height:; (we use generic dims based on desi)
-        const pKargoParcaList = `${totalWeight}:${totalDesi}:15:15:100:;`;
+        // Ensure safe float representation for XML (Some SOAP services prefer comma, but MNG standard is dot or integer)
+        // MNG Format: Weight:Desi:Width:Length:Height:; 
+        const weightStr = totalWeight.toString().replace(',', '.');
+        const desiStr = totalDesi.toString().replace(',', '.');
+        const pKargoParcaList = `${weightStr}:${desiStr}:15:15:100:;`;
+
 
         // 1. CREATE SHIPMENT
         const siparisGirisiXml = `<?xml version="1.0" encoding="utf-8"?>

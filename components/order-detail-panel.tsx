@@ -642,14 +642,13 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                         <div className="flex-1">
                                             <label className="text-[10px] uppercase font-bold text-orange-800 dark:text-orange-400">Özel KG (Ağırlık)</label>
                                             <input
-                                                type="number"
-                                                min="1"
-                                                step="0.1"
-                                                placeholder="Örn: 3.5"
+                                                type="text"
+                                                placeholder="Örn: 3.5 veya 3,5"
                                                 className="w-full mt-1 p-2 text-xs border border-orange-300 dark:border-orange-700/50 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold"
                                                 value={formData.customWeight || ""}
                                                 onChange={(e) => {
-                                                    setFormData({ ...formData, customWeight: e.target.value === "" ? null : parseFloat(e.target.value) })
+                                                    const valStr = e.target.value.replace(',', '.');
+                                                    setFormData({ ...formData, customWeight: valStr === "" ? null : parseFloat(valStr) || null })
                                                     setIsModified(true)
                                                 }}
                                             />
@@ -657,14 +656,13 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                         <div className="flex-1">
                                             <label className="text-[10px] uppercase font-bold text-orange-800 dark:text-orange-400">Özel Desi (Hacim)</label>
                                             <input
-                                                type="number"
-                                                min="1"
-                                                step="0.1"
-                                                placeholder="Örn: 5"
+                                                type="text"
+                                                placeholder="Örn: 5 veya 5,5"
                                                 className="w-full mt-1 p-2 text-xs border border-orange-300 dark:border-orange-700/50 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold"
                                                 value={formData.customDesi || ""}
                                                 onChange={(e) => {
-                                                    setFormData({ ...formData, customDesi: e.target.value === "" ? null : parseFloat(e.target.value) })
+                                                    const valStr = e.target.value.replace(',', '.');
+                                                    setFormData({ ...formData, customDesi: valStr === "" ? null : parseFloat(valStr) || null })
                                                     setIsModified(true)
                                                 }}
                                             />
