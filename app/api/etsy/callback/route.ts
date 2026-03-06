@@ -5,13 +5,23 @@ import { revalidatePath } from "next/cache";
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
-    const { searchParams } = new URL(req.url);
+    const url = new URL(req.url);
+    const forwardedHost = req.headers.get("x-forwarded-host");
+    const forwardedProto = req.headers.get("x-forwarded-proto") || "https";
+    const host = forwardedHost || req.headers.get("host") || url.host;
+
+    let appUrl = `${forwardedProto}://${host}`;
+    if (appUrl.includes("localhost:8080")) {
+        appUrl = "https://clownfish-app-nr5vm.ondigitalocean.app";
+    }
+
+    const { searchParams } = url;
     const code = searchParams.get("code");
     const state = searchParams.get("state");
     const error = searchParams.get("error");
 
     if (error) {
-        return NextResponse.redirect(new URL(`/admin/settings?error=${error}`, req.url));
+        return NextResponse.redirect(new URL(`/admin/settings?error=${error}`, appUrl));
     }
 
     // 1. Get Cookies
@@ -24,11 +34,11 @@ export async function GET(req: Request) {
     const storedState = cookieStore.get("etsy_oauth_state")?.value;
 
     if (!code || !verifier || !storedState) {
-        return NextResponse.redirect(new URL('/admin/settings?error=missing_params', req.url));
+        return NextResponse.redirect(new URL('/admin/settings?error=missing_params', appUrl));
     }
 
     if (state !== storedState) {
-        return NextResponse.redirect(new URL('/admin/settings?error=invalid_state', req.url));
+        return NextResponse.redirect(new URL('/admin/settings?error=invalid_state', appUrl));
     }
 
     // 3. Resolve Client ID & Store Context
@@ -59,14 +69,12 @@ export async function GET(req: Request) {
     }
 
     if (!clientId) {
-        return NextResponse.redirect(new URL('/admin/settings?error=missing_api_key', req.url));
+        return NextResponse.redirect(new URL('/admin/settings?error=missing_api_key', appUrl));
     }
 
     // 4. Exchange Code for Token
     const tokenUrl = "https://api.etsy.com/v3/public/oauth/token";
-    const url = new URL(req.url);
-    const origin = url.origin;
-    const redirectUri = `${origin}/api/etsy/callback`;
+    const redirectUri = `${appUrl}/api/etsy/callback`;
 
     try {
         const response = await fetch(tokenUrl, {
@@ -87,7 +95,7 @@ export async function GET(req: Request) {
 
         if (!response.ok) {
             console.error("Token Exchange Error:", data);
-            return NextResponse.redirect(new URL(`/admin/settings?error=token_exchange_failed&details=${data.error}`, req.url));
+            return NextResponse.redirect(new URL(`/admin/settings?error=token_exchange_failed&details=${data.error}`, appUrl));
         }
 
         const accessToken = data.access_token;
@@ -149,10 +157,10 @@ export async function GET(req: Request) {
 
         revalidatePath("/admin/settings");
 
-        return NextResponse.redirect(new URL('/admin/settings?success=etsy_connected', req.url));
+        return NextResponse.redirect(new URL('/admin/settings?success=etsy_connected', appUrl));
 
     } catch (e) {
         console.error("Callback Error:", e);
-        return NextResponse.redirect(new URL('/admin/settings?error=server_error', req.url));
+        return NextResponse.redirect(new URL('/admin/settings?error=server_error', appUrl));
     }
 }
