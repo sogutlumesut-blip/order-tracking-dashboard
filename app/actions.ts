@@ -2221,27 +2221,19 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                     const qty = parseInt(item.quantity || 1);
                     totalAmount += price * qty;
 
-                    let properties: { name: string; value: string }[] = [];
-                    if (item.properties || item.meta_data) {
-                        const props = item.properties || item.meta_data;
-                        if (Array.isArray(props)) {
-                            properties = props.map((p: any) => ({ name: p.name || p.key || "Property", value: p.value || "" }));
-                        } else if (typeof props === 'object') {
-                            properties = Object.entries(props).map(([k, v]) => ({ name: k, value: String(v) }));
-                        }
-                    }
+                    // Properties extraction removed due to schema mismatch
 
                     // Extract material & dimension from direct item fields if present (based on screenshot)
-                    if (item.material) properties.push({ name: "Material", value: String(item.material) });
-                    if (item.dimensions || item.size) properties.push({ name: "Dimensions", value: String(item.dimensions || item.size) });
+                    const material = item.material ? String(item.material) : "";
+                    const dimensions = item.dimensions || item.size ? String(item.dimensions || item.size) : "";
 
                     items.push({
                         name: item.name || item.title || "Custom Print Order",
                         quantity: qty,
-                        price: price,
                         sku: item.sku || "",
                         image_src: item.image_url || item.image || item.thumbnail || "", // Required field
-                        properties: properties
+                        material: material,
+                        dimensions: dimensions
                     });
                 }
 
