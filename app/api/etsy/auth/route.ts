@@ -36,8 +36,11 @@ export async function GET(req: Request) {
     const state = `${baseState}:${storeIndexStr || 'legacy'}`;
     const { verifier, challenge } = generatePKCE();
 
-    // Redirect URI as specified by user
-    const redirectUri = process.env.ETSY_REDIRECT_URI || "https://clownfish-app-nr5vm.ondigitalocean.app/auth/etsy/callback";
+    // Construct dynamic redirect URI
+    const origin = url.origin.includes('localhost')
+        ? 'http://localhost:3000'
+        : url.origin;
+    const redirectUri = `${origin}/api/etsy/callback`;
     const scopes = "shops_r transactions_r receipts_r";
 
     const authUrl = `https://www.etsy.com/oauth/connect?response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&client_id=${apiKey}&state=${state}&code_challenge=${challenge}&code_challenge_method=S256`;
