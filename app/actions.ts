@@ -2144,20 +2144,38 @@ export async function syncPrintMarktOrders(force: boolean = false) {
     }
 
     try {
-        const response = await fetch(`${settings['pm_url']}/api/orders?key=${settings['pm_key']}`, {
+        let cleanUrl = settings['pm_url'].replace(/\/+$/, '');
+        let response = await fetch(`${cleanUrl}/api/orders`, {
+            headers: { "X-API-Key": settings['pm_key'] },
             cache: 'no-store'
         })
 
+        if (response.status === 401 || response.status === 403) {
+            response = await fetch(`${cleanUrl}/api/orders`, {
+                headers: { "Authorization": `Bearer ${settings['pm_key']}` },
+                cache: 'no-store'
+            })
+        }
+
         if (!response.ok) {
-            return { error: "PrintMarkt sitesine bağlanılamadı. URL veya Key hatalı olabilir." }
+            const errText = await response.text().catch(() => "");
+            return { error: `PrintMarkt sitesine bağlanılamadı (HTTP ${response.status}). Yanıt: ${errText.substring(0, 50)}` }
         }
 
         const pmOrders = await response.json()
         console.log("[DEBUG] PrintMarkt Sync Response:", JSON.stringify(pmOrders, null, 2))
 
+        if (!Array.isArray(pmOrders)) {
+            return { error: "PrintMarkt API'si beklenen listeyi (Array) döndürmedi." }
+        }
+
+        if (pmOrders.length === 0) {
+            return { success: true, message: `Bağlantı BAŞARILI! Ancak PrintMarkt üzerinde çekilecek yeni sipariş bulunamadı.`, count: 0 }
+        }
+
         // TODO: Map PM Orders to our internal schema once format is confirmed
         // For now, we return the counts found to verify connection
-        return { success: true, message: `Bağlantı başarılı! ${pmOrders.length || 0} sipariş bulundu. Format eşleme yapılacaktır.`, count: pmOrders.length || 0 }
+        return { success: true, message: `Bağlantı başarılı! ${pmOrders.length} sipariş bulundu. JSON formatı eşleşmesi yapılmalıdır.`, count: pmOrders.length }
 
     } catch (e: any) {
         console.error("PrintMarkt Sync Error:", e)
