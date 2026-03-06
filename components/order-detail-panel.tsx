@@ -478,25 +478,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                         <Receipt className="w-5 h-5" />
                                         Fatura Kes
                                     </button>
-                                    <button
-                                        onClick={async () => {
-                                            toast.promise(createCargoLabelAction(formData.id), {
-                                                loading: "Kargo kaydı oluşturuluyor...",
-                                                success: (res: any) => {
-                                                    if (res.error) throw new Error(res.error);
-                                                    if (res.trackingNumber) {
-                                                        setFormData({ ...formData, status: 'shipped', trackingNumber: res.trackingNumber });
-                                                    }
-                                                    return res.message || "Kargo talebi iletildi!";
-                                                },
-                                                error: (err) => err.message || "Hata oluştu"
-                                            });
-                                        }}
-                                        className="py-3 bg-emerald-600 text-white rounded-xl flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all font-bold shadow-lg shadow-emerald-200 dark:shadow-none text-xs"
-                                    >
-                                        <Truck className="w-5 h-5" />
-                                        Kargo Çıkar
-                                    </button>
+
                                     <button
                                         onClick={async () => {
                                             toast.promise(
@@ -643,6 +625,52 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                         </div>
                                     </div>
                                 )}
+
+                                <hr className="border-slate-200 dark:border-slate-700 my-4" />
+
+                                {/* DHL Manual Override Fields (Desi/KG) */}
+                                <div className="space-y-3 p-4 bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800/50 rounded-xl">
+                                    <div>
+                                        <label className="flex items-center gap-2 text-sm font-bold text-orange-900 dark:text-orange-300">
+                                            ⚖️ Kargo Ölçüleri (İsteğe Bağlı)
+                                        </label>
+                                        <p className="text-[10px] text-orange-800 dark:text-orange-400 font-medium mt-1">
+                                            Eğer bu alanları doldurursanız DHL barkodu çıkarılırken otomatik hesaplama yerine bu değerler kullanılır.
+                                        </p>
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <div className="flex-1">
+                                            <label className="text-[10px] uppercase font-bold text-orange-800 dark:text-orange-400">Özel KG (Ağırlık)</label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                step="0.1"
+                                                placeholder="Örn: 3.5"
+                                                className="w-full mt-1 p-2 text-xs border border-orange-300 dark:border-orange-700/50 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold"
+                                                value={formData.customWeight || ""}
+                                                onChange={(e) => {
+                                                    setFormData({ ...formData, customWeight: e.target.value === "" ? null : parseFloat(e.target.value) })
+                                                    setIsModified(true)
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="flex-1">
+                                            <label className="text-[10px] uppercase font-bold text-orange-800 dark:text-orange-400">Özel Desi (Hacim)</label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                step="0.1"
+                                                placeholder="Örn: 5"
+                                                className="w-full mt-1 p-2 text-xs border border-orange-300 dark:border-orange-700/50 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold"
+                                                value={formData.customDesi || ""}
+                                                onChange={(e) => {
+                                                    setFormData({ ...formData, customDesi: e.target.value === "" ? null : parseFloat(e.target.value) })
+                                                    setIsModified(true)
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             {/* Print Only: Process Notes History */}
@@ -748,55 +776,12 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                 setIsModified(true)
                                             }}
                                         />
+
+
+                                        {/* Process Notes (Log UI) - MOVED TO RIGHT */}
+                                        {/* Removed from here */}
                                     </div>
                                 )}
-
-                                {/* DHL Manual Override Fields (Desi/KG) */}
-                                <div className="space-y-3 p-4 bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800/50 rounded-xl">
-                                    <div>
-                                        <label className="flex items-center gap-2 text-sm font-bold text-orange-900 dark:text-orange-300">
-                                            ⚖️ Kargo Ölçüleri (İsteğe Bağlı)
-                                        </label>
-                                        <p className="text-[10px] text-orange-800 dark:text-orange-400 font-medium mt-1">
-                                            Eğer bu alanları doldurursanız DHL barkodu çıkarılırken otomatik hesaplama yerine bu değerler kullanılır.
-                                        </p>
-                                    </div>
-                                    <div className="flex gap-3">
-                                        <div className="flex-1">
-                                            <label className="text-[10px] uppercase font-bold text-orange-800 dark:text-orange-400">Özel KG (Ağırlık)</label>
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                step="0.1"
-                                                placeholder="Örn: 3.5"
-                                                className="w-full mt-1 p-2 text-xs border border-orange-300 dark:border-orange-700/50 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold"
-                                                value={formData.customWeight || ""}
-                                                onChange={(e) => {
-                                                    setFormData({ ...formData, customWeight: e.target.value === "" ? null : parseFloat(e.target.value) })
-                                                    setIsModified(true)
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="flex-1">
-                                            <label className="text-[10px] uppercase font-bold text-orange-800 dark:text-orange-400">Özel Desi (Hacim)</label>
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                step="0.1"
-                                                placeholder="Örn: 5"
-                                                className="w-full mt-1 p-2 text-xs border border-orange-300 dark:border-orange-700/50 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold"
-                                                value={formData.customDesi || ""}
-                                                onChange={(e) => {
-                                                    setFormData({ ...formData, customDesi: e.target.value === "" ? null : parseFloat(e.target.value) })
-                                                    setIsModified(true)
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Process Notes (Log UI) - MOVED TO RIGHT */}
-                                {/* Removed from here */}
                             </div>
                         </div>
 
@@ -846,22 +831,21 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                 )}
                             </div>
                         </div>
+                    </div>
 
+                    {/* Footer */}
+                    <div className="p-4 border-t dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 flex justify-between print:hidden">
+                        <span className="text-xs text-slate-400 font-mono self-center">Barkod: {formData.barcode}</span>
+                        <button
+                            onClick={handleSave}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium flex items-center gap-2"
+                        >
+                            <Save className="w-4 h-4" />
+                            Kaydet
+                        </button>
                     </div>
                 </div>
-
-                {/* Footer */}
-                <div className="p-4 border-t dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 flex justify-between print:hidden">
-                    <span className="text-xs text-slate-400 font-mono self-center">Barkod: {formData.barcode}</span>
-                    <button
-                        onClick={handleSave}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium flex items-center gap-2"
-                    >
-                        <Save className="w-4 h-4" />
-                        Kaydet
-                    </button>
-                </div>
             </div>
-        </div >
+        </div>
     )
 }
