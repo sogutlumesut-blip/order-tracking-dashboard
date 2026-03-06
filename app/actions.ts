@@ -877,12 +877,18 @@ export async function createDHLShipmentAction(orderId: number) {
         let trackingNoMatch = barkodText.match(/<MngKargoGonderiNo>(.*?)<\/MngKargoGonderiNo>/);
         let trackingNo = trackingNoMatch ? trackingNoMatch[1] : null;
 
+        let hataMatch = barkodText.match(/<IstekHata>([\s\S]*?)<\/IstekHata>/);
+        let hataMesaji = hataMatch ? hataMatch[1].trim() : null;
+
         if (!zplContent || zplContent.length < 10) {
             const fallbackZplMatch = barkodText.match(/<BarkodValue>(.*?)<\/BarkodValue>/);
             if (fallbackZplMatch) {
                 // Fallback: If no ZPL was returned but BarkodValue exists, the label wasn't generated properly.
                 serverLog(`[MNG_SOAP] No ZPL returned. Result:\n${barkodText.substring(0, 300)}`);
                 return { error: "Barkod üretilemedi, sadece barkod değeri döndü." };
+            }
+            if (hataMesaji && hataMesaji.length > 0) {
+                return { error: `MNG: ${hataMesaji}` };
             }
             return { error: "MNG Kargo'dan barkod alınamadı." };
         }
