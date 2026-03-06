@@ -789,6 +789,39 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
         const soapUrl = "https://service.mngkargo.com.tr/musterikargosiparis/musterikargosiparis.asmx";
         const actor = bypassAuth ? "TEST_SYSTEM" : session.user.name;
 
+        // Calculate Desi/Weight realistically based on the items
+        let totalDesi = 1;
+        let totalWeight = 1;
+
+        const orderItems = await db.orderItem.findMany({ where: { orderId } });
+        if (orderItems && orderItems.length > 0) {
+            totalDesi = 0;
+            totalWeight = 0;
+            orderItems.forEach((item: any) => {
+                // Basic parse of dims like "300 x 200" or fallback
+                let desi = 1;
+                let weight = 1;
+                const volumeMatch = (item.dimensions || "").match(/(\d+)\s*[xX]\s*(\d+)/);
+                if (volumeMatch) {
+                    const w = parseInt(volumeMatch[1]);
+                    const h = parseInt(volumeMatch[2]);
+                    // Wallpaper tube approximation: 15cm x 15cm x Width
+                    const minD = Math.min(w, h);
+                    // Desi calculation: (Width * 15 * 15) / 3000
+                    desi = Math.max(1, Math.round((minD * 15 * 15) / 3000));
+                    weight = Math.max(1, Math.round(desi * 0.8)); // roughly 0.8kg per desi
+                }
+                totalDesi += (desi * (item.quantity || 1));
+                totalWeight += (weight * (item.quantity || 1));
+            });
+
+            if (totalDesi < 1) totalDesi = 1;
+            if (totalWeight < 1) totalWeight = 1;
+        }
+
+        // MNG Format: Weight:Desi:Width:Length:Height:; (we use generic dims based on desi)
+        const pKargoParcaList = `${totalWeight}:${totalDesi}:15:15:100:;`;
+
         // 1. CREATE SHIPMENT
         const siparisGirisiXml = `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
@@ -802,7 +835,7 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
       <pTeslimSekli>1</pTeslimSekli>
       <pFlAlSms>0</pFlAlSms>
       <pFlGnSms>0</pFlGnSms>
-      <pKargoParcaList>1:1:1:1:1:;</pKargoParcaList>
+      <pKargoParcaList>${pKargoParcaList}</pKargoParcaList>
       <pAliciMusteriMngNo></pAliciMusteriMngNo>
       <pAliciMusteriBayiNo></pAliciMusteriBayiNo>
       <pAliciMusteriAdi><![CDATA[${(order.customer || "Musteri").substring(0, 50)}]]></pAliciMusteriAdi>
