@@ -39,6 +39,8 @@ model Order {
   cargoBarcode        String?
   cargoTrackingNumber String?
   cargoLabelPdf       String?
+  customDesi          Float?
+  customWeight        Float?
   taxNumber           String?
   taxOffice           String?
   invoiceStatus       String?         @default("draft")

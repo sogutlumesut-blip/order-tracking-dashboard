@@ -751,6 +751,50 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     </div>
                                 )}
 
+                                {/* DHL Manual Override Fields (Desi/KG) */}
+                                <div className="space-y-3 p-4 bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800/50 rounded-xl">
+                                    <div>
+                                        <label className="flex items-center gap-2 text-sm font-bold text-orange-900 dark:text-orange-300">
+                                            ⚖️ Kargo Ölçüleri (İsteğe Bağlı)
+                                        </label>
+                                        <p className="text-[10px] text-orange-800 dark:text-orange-400 font-medium mt-1">
+                                            Eğer bu alanları doldurursanız DHL barkodu çıkarılırken otomatik hesaplama yerine bu değerler kullanılır.
+                                        </p>
+                                    </div>
+                                    <div className="flex gap-3">
+                                        <div className="flex-1">
+                                            <label className="text-[10px] uppercase font-bold text-orange-800 dark:text-orange-400">Özel KG (Ağırlık)</label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                step="0.1"
+                                                placeholder="Örn: 3.5"
+                                                className="w-full mt-1 p-2 text-xs border border-orange-300 dark:border-orange-700/50 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold"
+                                                value={formData.customWeight || ""}
+                                                onChange={(e) => {
+                                                    setFormData({ ...formData, customWeight: e.target.value === "" ? null : parseFloat(e.target.value) })
+                                                    setIsModified(true)
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="flex-1">
+                                            <label className="text-[10px] uppercase font-bold text-orange-800 dark:text-orange-400">Özel Desi (Hacim)</label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                step="0.1"
+                                                placeholder="Örn: 5"
+                                                className="w-full mt-1 p-2 text-xs border border-orange-300 dark:border-orange-700/50 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold"
+                                                value={formData.customDesi || ""}
+                                                onChange={(e) => {
+                                                    setFormData({ ...formData, customDesi: e.target.value === "" ? null : parseFloat(e.target.value) })
+                                                    setIsModified(true)
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
                                 {/* Process Notes (Log UI) - MOVED TO RIGHT */}
                                 {/* Removed from here */}
                             </div>

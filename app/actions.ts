@@ -550,7 +550,9 @@ export async function updateOrderDetails(rawOrder: any) {
                 taxNumber: order.taxNumber,
                 taxOffice: order.taxOffice,
                 invoiceStatus: order.invoiceStatus,
-                invoiceUrl: order.invoiceUrl
+                invoiceUrl: order.invoiceUrl,
+                customDesi: order.customDesi ? parseFloat(order.customDesi.toString()) : null,
+                customWeight: order.customWeight ? parseFloat(order.customWeight.toString()) : null
             }
         })
 
@@ -818,6 +820,10 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
             if (totalDesi < 1) totalDesi = 1;
             if (totalWeight < 1) totalWeight = 1;
         }
+
+        // Override with custom manual values if available
+        if (order.customDesi && order.customDesi > 0) totalDesi = order.customDesi;
+        if (order.customWeight && order.customWeight > 0) totalWeight = order.customWeight;
 
         // MNG Format: Weight:Desi:Width:Length:Height:; (we use generic dims based on desi)
         const pKargoParcaList = `${totalWeight}:${totalDesi}:15:15:100:;`;
