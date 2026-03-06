@@ -6,14 +6,17 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: { orderId: string } }
+    { params }: { params: Promise<{ orderId: string }> } // FIXED: App Router dynamic segments require Promise unwrapping in latest Next.js versions
 ) {
     const session = await getSession();
     if (!session) {
         return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const orderId = parseInt(params.orderId, 10);
+    // Await params per Next.js 15+ convention
+    const resolvedParams = await params;
+    const orderId = parseInt(resolvedParams.orderId, 10);
+
     if (isNaN(orderId)) {
         return new NextResponse("Invalid order ID", { status: 400 });
     }
