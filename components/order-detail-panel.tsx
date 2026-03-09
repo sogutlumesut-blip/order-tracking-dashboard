@@ -647,8 +647,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                 className="w-full mt-1 p-2 text-xs border border-orange-300 dark:border-orange-700/50 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold"
                                                 value={formData.customWeight || ""}
                                                 onChange={(e) => {
-                                                    const valStr = e.target.value.replace(',', '.');
-                                                    setFormData({ ...formData, customWeight: valStr === "" ? null : parseFloat(valStr) || null })
+                                                    setFormData({ ...formData, customWeight: e.target.value === "" ? null : e.target.value })
                                                     setIsModified(true)
                                                 }}
                                             />
@@ -661,8 +660,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                 className="w-full mt-1 p-2 text-xs border border-orange-300 dark:border-orange-700/50 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold"
                                                 value={formData.customDesi || ""}
                                                 onChange={(e) => {
-                                                    const valStr = e.target.value.replace(',', '.');
-                                                    setFormData({ ...formData, customDesi: valStr === "" ? null : parseFloat(valStr) || null })
+                                                    setFormData({ ...formData, customDesi: e.target.value === "" ? null : e.target.value })
                                                     setIsModified(true)
                                                 }}
                                             />

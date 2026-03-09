@@ -547,12 +547,11 @@ export async function updateOrderDetails(rawOrder: any) {
                         sampleData: item.sampleData
                     }))
                 } : undefined,
-                taxNumber: order.taxNumber,
                 taxOffice: order.taxOffice,
                 invoiceStatus: order.invoiceStatus,
                 invoiceUrl: order.invoiceUrl,
-                customDesi: order.customDesi ? parseFloat(order.customDesi.toString()) : null,
-                customWeight: order.customWeight ? parseFloat(order.customWeight.toString()) : null
+                customDesi: order.customDesi ? parseFloat(order.customDesi.toString().replace(',', '.')) : null,
+                customWeight: order.customWeight ? parseFloat(order.customWeight.toString().replace(',', '.')) : null
             }
         })
 
