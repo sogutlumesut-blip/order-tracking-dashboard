@@ -549,9 +549,7 @@ export async function updateOrderDetails(rawOrder: any) {
                 } : undefined,
                 taxOffice: order.taxOffice,
                 invoiceStatus: order.invoiceStatus,
-                invoiceUrl: order.invoiceUrl,
-                customDesi: order.customDesi ? parseFloat(order.customDesi.toString().replace(',', '.')) : null,
-                customWeight: order.customWeight ? parseFloat(order.customWeight.toString().replace(',', '.')) : null
+                invoiceUrl: order.invoiceUrl
             }
         })
 
@@ -820,10 +818,7 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
             if (totalWeight < 1) totalWeight = 1;
         }
 
-        // Override with custom manual values if available
-        if (order.customDesi && order.customDesi > 0) totalDesi = order.customDesi;
-        if (order.customWeight && order.customWeight > 0) totalWeight = order.customWeight;
-
+        // (No custom values used as the feature was unselected)
         // Ensure safe float representation for XML (Some SOAP services prefer comma, but MNG standard is dot or integer)
         // MNG Format: Weight:Desi:Width:Length:Height:; 
         const weightStr = totalWeight.toString().replace(',', '.');
@@ -2227,10 +2222,8 @@ export async function syncPrintMarktOrders(force: boolean = false) {
         for (const pmOrder of pmOrders) {
             try {
                 // Determine order number
-                const externalId = pmOrder.id?.toString() || pmOrder.order_number?.toString() || pmOrder.number?.toString() || pmOrder.id;
+                const externalId = pmOrder.id?.toString() || pmOrder.external_id || pmOrder.order_number?.toString() || pmOrder.number?.toString();
                 if (!externalId) continue; // Skip if no ID
-
-                const orderNumber = pmOrder.order_number || pmOrder.number || externalId;
 
                 // Check if already exists
                 const existingOrder = await db.order.findFirst({
@@ -2239,40 +2232,43 @@ export async function syncPrintMarktOrders(force: boolean = false) {
 
                 if (existingOrder) continue; // Skip duplicates
 
-                // Map Address
-                let shippingName = "Bilinmiyor";
-                let shippingAddress = "Adres bulunamadı";
-                let shippingPhone = "";
-                let shippingEmail = pmOrder.email || pmOrder.account_email || "";
+                // Map Address from flat JSON PrintMarkt Schema
+                let shippingName = pmOrder.recipient_name || "Bilinmiyor";
+                let shippingEmail = pmOrder.recipient_email || pmOrder.email || pmOrder.account_email || "";
+                let shippingPhone = pmOrder.recipient_phone || pmOrder.phone || "";
 
-                if (pmOrder.shipping_address) {
-                    shippingName = pmOrder.shipping_address.name || pmOrder.shipping_address.first_name + " " + pmOrder.shipping_address.last_name || shippingName;
-                    shippingAddress = `${pmOrder.shipping_address.address1 || ''} ${pmOrder.shipping_address.address2 || ''} ${pmOrder.shipping_address.city || ''} ${pmOrder.shipping_address.province || ''} ${pmOrder.shipping_address.zip || ''} ${pmOrder.shipping_address.country || ''}`.trim();
-                    shippingPhone = pmOrder.shipping_address.phone || "";
-                } else if (pmOrder.customer) {
-                    shippingName = pmOrder.customer.name || pmOrder.customer.first_name + " " + pmOrder.customer.last_name || pmOrder.account_name || shippingName;
-                    shippingEmail = pmOrder.customer.email || shippingEmail;
-                    shippingPhone = pmOrder.customer.phone || "";
-                }
+                let street = pmOrder.street || pmOrder.address1 || "";
+                let city = pmOrder.city || "";
+                let state = pmOrder.state || pmOrder.province || "";
+                let zip = pmOrder.zip_code || pmOrder.zip || "";
+                let country = pmOrder.country || "";
 
-                // Fallback for name from top-level
-                if (shippingName === "Bilinmiyor" && pmOrder.account_name) {
-                    shippingName = pmOrder.account_name;
-                }
+                let shippingAddress = `${street} ${city} ${state} ${zip} ${country}`.trim();
+                if (!shippingAddress) shippingAddress = "Adres bulunamadı";
 
                 // Map Items
                 const items = [];
-                let totalAmount = 0;
+                let totalAmount = pmOrder.amount ? parseFloat(pmOrder.amount) : 0;
 
-                const lineItems = pmOrder.line_items || pmOrder.items || [];
+                let lineItems: any[] = [];
+                if (pmOrder.line_items_json && typeof pmOrder.line_items_json === 'string') {
+                    try {
+                        lineItems = JSON.parse(pmOrder.line_items_json);
+                    } catch (e) {
+                        console.error("Failed to parse line_items_json for order", externalId);
+                    }
+                } else if (Array.isArray(pmOrder.line_items)) {
+                    lineItems = pmOrder.line_items;
+                } else if (Array.isArray(pmOrder.items)) {
+                    lineItems = pmOrder.items;
+                }
+
                 for (const item of lineItems) {
                     const price = parseFloat(item.price || item.total || 0);
                     const qty = parseInt(item.quantity || 1);
-                    totalAmount += price * qty;
 
-                    // Properties extraction removed due to schema mismatch
+                    if (totalAmount === 0) totalAmount += price * qty;
 
-                    // Extract material & dimension from direct item fields if present (based on screenshot)
                     const material = item.material ? String(item.material) : "";
                     const dimensions = item.dimensions || item.size ? String(item.dimensions || item.size) : "";
 
@@ -2280,7 +2276,7 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                         name: item.name || item.title || "Custom Print Order",
                         quantity: qty,
                         sku: item.sku || "",
-                        image_src: item.image_url || item.image || item.thumbnail || "", // Required field
+                        image_src: item.image_url || item.image || item.thumbnail || "",
                         material: material,
                         dimensions: dimensions
                     });
@@ -2293,24 +2289,24 @@ export async function syncPrintMarktOrders(force: boolean = false) {
 
                 // Map general fields
                 const status = (pmOrder.status || pmOrder.order_status || "pending").toLowerCase();
-                const mappedStatus = status.includes("ship") ? "shipped" : "pending";
+                const mappedStatus = (status.includes("ship") || status === "completed") ? "shipped" : "pending";
 
-                const paymentMethod = pmOrder.payment_method || pmOrder.gateway || "Unknown";
+                const paymentMethod = pmOrder.payment_method || pmOrder.gateway || "API";
                 const customerNote = pmOrder.note || pmOrder.customer_note || pmOrder.order_note || "";
 
                 await db.order.create({
                     data: {
                         externalId: `pm_${externalId}`,
                         source: "PrintMarkt",
-                        customer: shippingName, // Mapped from shippingName
-                        email: shippingEmail, // Mapped from shippingEmail
+                        customer: shippingName,
+                        email: shippingEmail,
                         phone: shippingPhone,
                         address: shippingAddress,
-                        total: totalAmount.toFixed(2), // Schema expects a String for some reason
+                        total: totalAmount.toFixed(2),
                         paymentMethod: paymentMethod,
                         status: mappedStatus,
-                        note: customerNote, // Mapped from customerNote
-                        labels: "", // Required by schema
+                        note: customerNote,
+                        labels: "",
                         items: {
                             create: items
                         }
