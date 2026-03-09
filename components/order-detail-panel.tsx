@@ -527,15 +527,13 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     </button>
                                 </div>
 
-                                {formData.cargoBarcode && !formData.cargoLabelPdf && (
+                                {/* NOTE: With MNG Kargo we no longer store raw PDF bytes in cargoLabelPdf, we use cargoBarcode instead to load dynamic PDF route */}
+                                {(!formData.cargoBarcode && !formData.cargoLabelPdf) && (
                                     <div className="mb-4">
-                                        <div className="text-center text-xs text-slate-400 mb-2">
-                                            Kargo etiketi otomatik çekilemedi.
-                                        </div>
                                         <div className="grid grid-cols-1 gap-2">
                                             <button
-                                                onClick={() => window.open(`https://duvarkagidimarketi.com/wp-admin/post.php?post=${formData.id}&action=edit`, '_blank')}
-                                                className="py-3 border-2 border-slate-300 bg-slate-50 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-slate-100 hover:border-slate-400 transition-all text-slate-600 font-bold text-xs"
+                                                onClick={() => window.open(`https://duvarkagidimarketi.com/wp-admin/post.php?post=${formData.externalId || formData.id}&action=edit`, '_blank')}
+                                                className="py-3 mt-2 border-2 border-slate-300 bg-slate-50 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-slate-100 hover:border-slate-400 transition-all text-slate-600 font-bold text-xs"
                                             >
                                                 <ExternalLink className="w-5 h-5" />
                                                 WooCommerce'da Aç
@@ -544,11 +542,18 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     </div>
                                 )}
 
-                                {formData.cargoLabelPdf ? (
+                                {(formData.cargoBarcode || formData.cargoLabelPdf) ? (
                                     <div className="space-y-2">
                                         <div className="flex gap-2">
                                             <button
                                                 onClick={() => {
+                                                    // For new MNG System (ZPL barcode payload)
+                                                    if (formData.cargoBarcode && !formData.cargoLabelPdf) {
+                                                        window.open(`/api/cargo-label/${formData.id}`, '_blank');
+                                                        return;
+                                                    }
+
+                                                    // For legacy ShipEntegra
                                                     const pdfData = formData.cargoLabelPdf as string;
                                                     if (pdfData.startsWith('http')) {
                                                         window.open(pdfData, '_blank');
@@ -575,14 +580,15 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                     const res = await deleteCargoLabel(formData.id);
                                                     if (res.success) {
                                                         toast.success(res.message);
-                                                        setFormData({ ...formData, cargoLabelPdf: null });
-                                                        onUpdate({ ...formData, cargoLabelPdf: null });
+                                                        setFormData({ ...formData, cargoLabelPdf: undefined, cargoBarcode: undefined });
+                                                        onUpdate({ ...formData, cargoLabelPdf: undefined, cargoBarcode: undefined });
                                                     } else {
                                                         toast.error(res.error);
                                                     }
                                                 }}
                                                 className="w-12 border-2 border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20 rounded-xl flex items-center justify-center hover:bg-red-100 dark:hover:bg-red-900/40 transition-all text-red-600 dark:text-red-400"
                                                 title="Etiketi Sil"
+
                                             >
                                                 <X className="w-5 h-5" />
                                             </button>
