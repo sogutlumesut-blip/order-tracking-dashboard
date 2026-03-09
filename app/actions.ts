@@ -826,6 +826,20 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
         const pKargoParcaList = `${weightStr}:${desiStr}:15:15:100:;`;
 
 
+        const cleanTurkish = (str: string) => {
+            return str.replace(/Ğ/g, 'G').replace(/ğ/g, 'g')
+                .replace(/Ü/g, 'U').replace(/ü/g, 'u')
+                .replace(/Ş/g, 'S').replace(/ş/g, 's')
+                .replace(/İ/g, 'I').replace(/ı/g, 'i')
+                .replace(/Ö/g, 'O').replace(/ö/g, 'o')
+                .replace(/Ç/g, 'C').replace(/ç/g, 'c')
+                .replace(/[^\x00-\x7F]/g, "") // Strip any remaining non-ascii chars
+                .trim();
+        };
+
+        const safeCustomerName = cleanTurkish((order.customer || "Musteri")).substring(0, 50);
+        const safeAddress = cleanTurkish((order.address || "Adres Belirtilmemis")).substring(0, 200);
+
         // 1. CREATE SHIPMENT
         const siparisGirisiXml = `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
@@ -842,13 +856,13 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
       <pKargoParcaList>${pKargoParcaList}</pKargoParcaList>
       <pAliciMusteriMngNo></pAliciMusteriMngNo>
       <pAliciMusteriBayiNo></pAliciMusteriBayiNo>
-      <pAliciMusteriAdi><![CDATA[${(order.customer || "Musteri").substring(0, 50)}]]></pAliciMusteriAdi>
+      <pAliciMusteriAdi><![CDATA[${safeCustomerName}]]></pAliciMusteriAdi>
       <pChSiparisNo>${order.id}</pChSiparisNo>
       <pLuOdemeSekli>P</pLuOdemeSekli>
       <pFlAdresFarkli>0</pFlAdresFarkli>
-      <pChIl>${il}</pChIl>
-      <pChIlce>${ilce}</pChIlce>
-      <pChAdres><![CDATA[${(order.address || "Adres Belirtilmemis").substring(0, 200)}]]></pChAdres>
+      <pChIl><![CDATA[${cleanTurkish(il)}]]></pChIl>
+      <pChIlce><![CDATA[${cleanTurkish(ilce)}]]></pChIlce>
+      <pChAdres><![CDATA[${safeAddress}]]></pChAdres>
       <pChSemt></pChSemt>
       <pChMahalle></pChMahalle>
       <pChMeydanBulvar></pChMeydanBulvar>
