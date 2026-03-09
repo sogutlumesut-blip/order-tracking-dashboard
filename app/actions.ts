@@ -785,9 +785,9 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
 
         let phone = (order.phone || "05551112233").replace(/[^0-9]/g, "");
 
-        // Since the server IP is dynamic on App Platform, we use a public CORS proxy 
-        // as a relay to bypass MNG's strict IP whitelist without DO Egress IP costs.
-        const soapUrl = "https://corsproxy.io/?" + encodeURIComponent("https://service.mngkargo.com.tr/musterikargosiparis/musterikargosiparis.asmx");
+        // Since the server IP is dynamic on App Platform, it requires a Dedicated Egress IP 
+        // to be enabled in DigitalOcean settings. Connect directly to their SOAP service.
+        const soapUrl = "https://service.mngkargo.com.tr/musterikargosiparis/musterikargosiparis.asmx";
         const actor = bypassAuth ? "TEST_SYSTEM" : session.user.name;
 
         // Calculate Desi/Weight realistically based on the items
