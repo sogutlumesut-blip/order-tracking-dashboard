@@ -911,7 +911,7 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
         <WsUserName>${dhlUser}</WsUserName>
         <WsPassword>${dhlPass}</WsPassword>
         <ReferansNo>${order.id}</ReferansNo>
-        <OutBarkodType>PDF</OutBarkodType>
+        <OutBarkodType>ZPL</OutBarkodType>
         <FlKapidaTahsilat>0</FlKapidaTahsilat>
         <HatadaReferansBarkoduBas>1</HatadaReferansBarkoduBas>
       </req>
@@ -958,8 +958,7 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
             data: {
                 updatedAt: new Date(),
                 cargoBarcode: zplContent, // We store the raw ZPL string
-                cargoTrackingNumber: trackingNo || order.id.toString(),
-                status: "shipped" // We update the status cleanly
+                cargoTrackingNumber: trackingNo || order.id.toString()
             }
         });
 
