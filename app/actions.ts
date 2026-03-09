@@ -888,7 +888,7 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
         serverLog(`[MNG_SOAP] Sending SiparisGirisiDetayliV3 for Order ${order.id}...`);
         const siparisRes = await fetch(soapUrl, {
             method: "POST",
-            headers: { "Content-Type": "text/xml; charset=utf-8", "SOAPAction": "http://tempuri.org/SiparisGirisiDetayliV3" },
+            headers: { "Content-Type": "text/xml; charset=utf-8", "SOAPAction": '"http://tempuri.org/SiparisGirisiDetayliV3"' },
             body: siparisGirisiXml
         });
 
@@ -922,7 +922,7 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
         serverLog(`[MNG_SOAP] Fetching PDF Barcode for ${order.id}...`);
         const barkodRes = await fetch(soapUrl, {
             method: "POST",
-            headers: { "Content-Type": "text/xml; charset=utf-8", "SOAPAction": "http://tempuri.org/MNGGonderiBarkod" },
+            headers: { "Content-Type": "text/xml; charset=utf-8", "SOAPAction": '"http://tempuri.org/MNGGonderiBarkod"' },
             body: barkodXml
         });
 
