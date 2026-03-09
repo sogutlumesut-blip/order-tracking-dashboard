@@ -787,7 +787,7 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
 
         // Connect through our static IP proxy because Vercel IPs change frequently
         // and MNG Kargo requires a strictly whitelisted IP.
-        const soapUrl = "http://46.101.229.219:8090/soap";
+        const soapUrl = "http://46.101.229.219:3005/relay";
         const actor = bypassAuth ? "TEST_SYSTEM" : session.user.name;
 
         // Calculate Desi/Weight realistically based on the items

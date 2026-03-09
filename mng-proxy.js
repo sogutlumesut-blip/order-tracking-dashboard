@@ -1,7 +1,7 @@
 const http = require('http');
 const https = require('https');
 
-const PORT = 8090;
+const PORT = 3005;
 
 const server = http.createServer((req, res) => {
     // CORS
@@ -15,7 +15,7 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    if (req.method === 'POST' && req.url === '/soap') {
+    if (req.method === 'POST' && req.url === '/relay') {
         let body = '';
         req.on('data', chunk => body += chunk.toString());
         req.on('end', () => {
