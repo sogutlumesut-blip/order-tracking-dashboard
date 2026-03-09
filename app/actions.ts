@@ -2269,11 +2269,20 @@ export async function syncPrintMarktOrders(force: boolean = false) {
 
                     if (totalAmount === 0) totalAmount += price * qty;
 
-                    const material = item.material ? String(item.material) : "";
-                    const dimensions = item.dimensions || item.size ? String(item.dimensions || item.size) : "";
+                    const decodeHtml = (str: string) => {
+                        if (!str) return str;
+                        return str.replace(/&amp;/g, '&')
+                            .replace(/&quot;/g, '"')
+                            .replace(/&#039;/g, "'")
+                            .replace(/&lt;/g, '<')
+                            .replace(/&gt;/g, '>');
+                    };
+
+                    const material = item.material ? decodeHtml(String(item.material)) : "";
+                    const dimensions = item.dimensions || item.size ? decodeHtml(String(item.dimensions || item.size)) : "";
 
                     items.push({
-                        name: item.name || item.title || "Custom Print Order",
+                        name: decodeHtml(item.name || item.title || "Custom Print Order"),
                         quantity: qty,
                         sku: item.sku || "",
                         image_src: item.image_url || item.image || item.thumbnail || "",
