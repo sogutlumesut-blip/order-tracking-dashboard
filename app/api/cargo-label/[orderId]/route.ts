@@ -63,7 +63,7 @@ export async function GET(
     };
 
     let itemsZpl = "";
-    let currentY = 750; // Start printing below the MNG Kargo section
+    let currentY = 870; // Start printing *safely* below the MNG Kargo section (MNG ends around Y=840)
 
     if (order.items && order.items.length > 0) {
         order.items.forEach((item: any, idx: number) => {
@@ -83,27 +83,27 @@ export async function GET(
 
             if (item.dimensions) {
                 itemsZpl += `^FO10,${currentY + 60}^A0N,20,20^FD${cleanTR(item.dimensions)}^FS\n`;
-                currentY += 100;
+                currentY += 95;
             } else {
-                currentY += 80;
+                currentY += 75;
             }
         });
     } else {
         itemsZpl = `^FO10,${currentY}^A0N,25,25^FDURUN BULUNAMADI^FS\n`;
-        currentY += 40;
+        currentY += 35;
     }
 
-    const dividerY = currentY + 10;
-    const qrY = dividerY + 20;
+    const dividerY = currentY + 5;
+    const qrY = dividerY + 15;
 
     const trackingNoSafe = order.cargoTrackingNumber || order.barcode || order.id.toString();
     const systemQrData = order.barcode || order.id.toString();
-    const noteSafe = cleanTR(order.note || "MUSTERI NOTU YOK").substring(0, 70);
+    const noteSafe = cleanTR(order.note || "NOT: YOK").substring(0, 70);
     const customerSafe = cleanTR(order.customer).substring(0, 30);
 
     const customReceiptZpl = `
-^FO10,700^A0N,30,30^FDSIPARIS ICERIGI: ${customerSafe}^FS
-^FO10,740^GB790,2,2^FS
+^FO10,830^GB790,2,2^FS
+^FO10,840^A0N,25,25^FDSIPARIS ICERIGI: ${customerSafe}^FS
 
 ${itemsZpl}
 
