@@ -63,75 +63,69 @@ export async function GET(
     };
 
     let itemsZpl = "";
-    let currentY = 110;
+    let currentY = 750; // Start printing below the MNG Kargo section
 
     if (order.items && order.items.length > 0) {
         order.items.forEach((item: any, idx: number) => {
             if (currentY > 800) return; // Prevent overflowing a 4x6 label (length ~1218 dots at 8dpmm, keep safe margin)
 
-            const nameSafe = cleanTR(item.name).substring(0, 35); // Truncate long names
-            itemsZpl += `^FO50,${currentY}^A0N,28,28^FD${nameSafe}^FS\n`;
+            const nameSafe = cleanTR(item.name).substring(0, 45); // Truncate long names
+            itemsZpl += `^FO10,${currentY}^A0N,25,25^FD${nameSafe}^FS\n`;
 
             const qtyStr = `x ${item.quantity}`;
-            itemsZpl += `^FO650,${currentY}^A0N,32,32^FD${qtyStr}^FS\n`;
+            itemsZpl += `^FO700,${currentY}^A0N,30,30^FD${qtyStr}^FS\n`;
 
             let details = "";
             if (item.sku) details += `KOD: ${item.sku} | `;
             if (item.material) details += `${item.material}`;
 
-            itemsZpl += `^FO50,${currentY + 40}^A0N,22,22^FD${cleanTR(details).substring(0, 50)}^FS\n`;
+            itemsZpl += `^FO10,${currentY + 30}^A0N,20,20^FD${cleanTR(details).substring(0, 65)}^FS\n`;
 
             if (item.dimensions) {
-                itemsZpl += `^FO50,${currentY + 70}^A0N,22,22^FD${cleanTR(item.dimensions)}^FS\n`;
-                currentY += 120;
+                itemsZpl += `^FO10,${currentY + 60}^A0N,20,20^FD${cleanTR(item.dimensions)}^FS\n`;
+                currentY += 100;
             } else {
-                currentY += 90;
+                currentY += 80;
             }
         });
     } else {
-        itemsZpl = `^FO50,${currentY}^A0N,30,30^FDURUN BULUNAMADI^FS\n`;
-        currentY += 60;
+        itemsZpl = `^FO10,${currentY}^A0N,25,25^FDURUN BULUNAMADI^FS\n`;
+        currentY += 40;
     }
 
-    const dividerY = currentY + 20;
-    const qrY = dividerY + 50;
-    const trackingY = qrY + 200;
-    const noteY = trackingY + 70;
+    const dividerY = currentY + 10;
+    const qrY = dividerY + 20;
 
     const trackingNoSafe = order.cargoTrackingNumber || order.barcode || order.id.toString();
     const systemQrData = order.barcode || order.id.toString();
-    const noteSafe = cleanTR(order.note || "MUSTERI NOTU YOK").substring(0, 60);
+    const noteSafe = cleanTR(order.note || "MUSTERI NOTU YOK").substring(0, 70);
     const customerSafe = cleanTR(order.customer).substring(0, 30);
 
     const customReceiptZpl = `
-^XA
-^PW812
-^LL1218
-^CI28
-
-^FO50,40^A0N,35,35^FDSIPARIS ICERIGI: ${customerSafe}^FS
-^FO50,85^GB712,2,2^FS
+^FO10,700^A0N,30,30^FDSIPARIS ICERIGI: ${customerSafe}^FS
+^FO10,740^GB790,2,2^FS
 
 ${itemsZpl}
 
-^FO50,${dividerY}^GB712,4,4^FS
+^FO10,${dividerY}^GB790,2,2^FS
 
-^FO50,${qrY}^A0N,25,25^FDSISTEM (QR)^FS
-^FO50,${qrY + 30}^BQN,2,5^FDQA,${systemQrData}^FS
-^FO50,${qrY + 160}^A0N,20,20^FD${systemQrData}^FS
+^FO10,${qrY}^A0N,20,20^FDSISTEM (QR)^FS
+^FO10,${qrY + 20}^BQN,2,4^FDQA,${systemQrData}^FS
+^FO10,${qrY + 110}^A0N,20,20^FD${systemQrData}^FS
 
-^FO400,${qrY}^A0N,25,25^FDKARGO (DHL/STANDART)^FS
-^FO400,${qrY + 40}^BY3,3,80^BCN,80,Y,N,N^FD${trackingNoSafe}^FS
-^FO400,${qrY + 140}^A0N,20,20^FDTakip: ${trackingNoSafe}^FS
+^FO400,${qrY}^A0N,20,20^FDKARGO (DHL/STANDART)^FS
+^FO400,${qrY + 20}^BY3,3,60^BCN,60,Y,N,N^FD${trackingNoSafe}^FS
+^FO400,${qrY + 100}^A0N,20,20^FDTakip: ${trackingNoSafe}^FS
 
-^FO50,${noteY}^A0N,25,25^FDMUSTERI NOTU:^FS
-^FO50,${noteY + 35}^A0N,22,22^FD${noteSafe}^FS
-
-^XZ
+^FO10,${qrY + 140}^A0N,20,20^FDMUSTERI NOTU: ${noteSafe}^FS
 `;
 
-    // Append our custom receipt label natively after the MNG label
-    zpl = zpl + "\n" + customReceiptZpl;
+    // Append our custom receipt natively inside the MNG label, before the closing ^XZ
+    if (zpl.includes('^XZ')) {
+        zpl = zpl.replace('^XZ', customReceiptZpl + '\n^XZ');
+    } else {
+        zpl = zpl + "\n" + customReceiptZpl;
+    }
 
 
     // MNG ZPL typically contains native headers, but let's ensure Labelary parses it.
