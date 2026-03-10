@@ -91,20 +91,30 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                 {/* Badges Container */}
                 <div className="absolute top-2 left-2 flex flex-col gap-1 z-20 items-start">
                     {/* Notification Badge */}
-                    {order.hasNotification && !isPaymentFailed && (
-                        <div className="bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-lg animate-bounce">
-                            🔔 {(() => {
-                                if (order.comments && order.comments.length > 0) {
-                                    // Get latest comment
-                                    const latest = [...order.comments].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-                                    const typeLabel = latest.type === 'note' ? 'NOT' : 'MESAJ';
-                                    const authorName = (latest.author || "Sistem").split(' ')[0].toLocaleUpperCase('tr-TR');
-                                    return `YENİ ${typeLabel}: ${authorName}`;
-                                }
-                                return order.status === 'pending' || order.status.toLowerCase().includes('yeni') ? 'YENİ SİPARİŞ' : 'YENİ GÜNCELLEME';
-                            })()}
-                        </div>
-                    )}
+                    {order.hasNotification && !isPaymentFailed && (() => {
+                        let badgeText = order.status === 'pending' || order.status.toLowerCase().includes('yeni') ? 'YENİ SİPARİŞ' : 'YENİ GÜNCELLEME';
+                        let bgColorClass = 'bg-blue-600'; // Default Blue
+
+                        if (order.comments && order.comments.length > 0) {
+                            const latest = [...order.comments].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+                            const typeLabel = latest.type === 'note' ? 'NOT' : 'MESAJ';
+                            const authorName = (latest.author || "Sistem").split(' ')[0].toLocaleUpperCase('tr-TR');
+                            badgeText = `YENİ ${typeLabel}: ${authorName}`;
+
+                            // Change color based on type
+                            if (latest.type === 'note') {
+                                bgColorClass = 'bg-orange-600'; // Notes
+                            } else {
+                                bgColorClass = 'bg-purple-600'; // Messages
+                            }
+                        }
+
+                        return (
+                            <div className={`${bgColorClass} text-white justify-self-start text-[10px] font-bold px-2 py-1 rounded-full shadow-lg animate-bounce`}>
+                                🔔 {badgeText}
+                            </div>
+                        );
+                    })()}
 
                     {/* Stale Warning Badge */}
                     {isStuck && !isPaymentFailed && (
