@@ -169,7 +169,7 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                     </div>
                     <div className="flex flex-col items-end gap-1">
                         <span className={`text-sm font-semibold px-2 py-1 rounded-md ${isPaymentFailed ? 'text-red-700 bg-red-100 line-through' : 'text-green-600 bg-green-50'}`}>
-                            {order.total.replace('$', '').replace('USD', '').trim()} TL
+                            {order.total.replace('$', '').replace('USD', '').trim()}
                         </span>
                         {/* Payment Method Badge */}
                         {order.paymentMethod && (
