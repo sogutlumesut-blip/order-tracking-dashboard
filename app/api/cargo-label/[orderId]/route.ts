@@ -171,7 +171,9 @@ ${itemsZpl}
             status: 200,
             headers: {
                 "Content-Type": "application/pdf",
-                "Content-Disposition": `inline; filename="kargo_fisi_${order.cargoTrackingNumber || orderId}.pdf"`
+                "Content-Disposition": `inline; filename="kargo_fisi_${order.cargoTrackingNumber || orderId}.pdf"`,
+                "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+                "Pragma": "no-cache"
             }
         });
 

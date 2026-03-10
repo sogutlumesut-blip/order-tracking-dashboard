@@ -549,7 +549,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                 onClick={() => {
                                                     // For new MNG System (ZPL barcode payload)
                                                     if (formData.cargoBarcode && !formData.cargoLabelPdf) {
-                                                        window.open(`/api/cargo-label/${formData.id}`, '_blank');
+                                                        window.open(`/api/cargo-label/${formData.id}?t=${Date.now()}`, '_blank');
                                                         return;
                                                     }
 
