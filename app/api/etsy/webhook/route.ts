@@ -13,7 +13,7 @@ export async function POST(req: Request) {
         // Format of payload might vary, but we expect shop_id and receipt_id
         const { event, data } = body;
 
-        if (event === 'receipt.paid' || event === 'receipt.created') {
+        if (event === 'receipt.paid') {
             const receiptId = data.receipt_id;
             const shopId = data.shop_id;
 

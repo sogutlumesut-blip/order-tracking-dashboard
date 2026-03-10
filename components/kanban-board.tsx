@@ -315,13 +315,20 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             }
         }, 3000); // FIXED 3S POLLING
 
-        // Slower External Sync (WooCommerce)
+        // Slower External Sync (WooCommerce & PrintMarkt)
         const syncInterval = setInterval(async () => {
             if (isBulkProcessingRef.current) return;
             try {
-                const syncRes = await syncWooCommerceOrders(false);
-                if (syncRes && !syncRes.error && !(syncRes as any).skipped) {
+                const wcRes = await syncWooCommerceOrders(false);
+                if (wcRes && !wcRes.error && !(wcRes as any).skipped) {
                     console.log("External Sync: WC data updated");
+                    router.refresh();
+                }
+
+                // Add PrintMarkt Auto-Sync
+                const pmRes = await syncPrintMarktOrders(false);
+                if (pmRes && !pmRes.error && (pmRes as any).success && (pmRes as any).count > 0) {
+                    console.log("External Sync: PrintMarkt data updated");
                     router.refresh();
                 }
             } catch (e) { console.error("External Sync Error", e) }
