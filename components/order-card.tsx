@@ -93,7 +93,16 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                     {/* Notification Badge */}
                     {order.hasNotification && !isPaymentFailed && (
                         <div className="bg-blue-600 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-lg animate-bounce">
-                            🔔 YENİ GÜNCELLEME
+                            🔔 {(() => {
+                                if (order.comments && order.comments.length > 0) {
+                                    // Get latest comment
+                                    const latest = [...order.comments].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+                                    const typeLabel = latest.type === 'note' ? 'NOT' : 'MESAJ';
+                                    const authorName = (latest.author || "Sistem").split(' ')[0].toLocaleUpperCase('tr-TR');
+                                    return `YENİ ${typeLabel}: ${authorName}`;
+                                }
+                                return order.status === 'pending' || order.status.toLowerCase().includes('yeni') ? 'YENİ SİPARİŞ' : 'YENİ GÜNCELLEME';
+                            })()}
                         </div>
                     )}
 
