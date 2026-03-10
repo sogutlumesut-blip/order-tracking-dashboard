@@ -63,34 +63,51 @@ export async function GET(
     };
 
     let itemsZpl = "";
-    let currentY = 870; // Start printing *safely* below the MNG Kargo section (MNG ends around Y=840)
+    let currentY = 860; // Start below the MNG Kargo section
 
     if (order.items && order.items.length > 0) {
-        order.items.forEach((item: any, idx: number) => {
-            if (currentY > 800) return; // Prevent overflowing a 4x6 label (length ~1218 dots at 8dpmm, keep safe margin)
+        order.items.forEach((item: any) => {
+            if (currentY > 1150) return; // Prevent overflowing a 4x6 label (length 1218 dots)
 
-            const nameSafe = cleanTR(item.name).substring(0, 45); // Truncate long names
-            itemsZpl += `^FO10,${currentY}^A0N,25,25^FD${nameSafe}^FS\n`;
+            const rawName = cleanTR(item.name);
+            const line1 = rawName.substring(0, 40);
+            const line2 = rawName.length > 40 ? rawName.substring(40, 80) : "";
 
-            const qtyStr = `x ${item.quantity}`;
-            itemsZpl += `^FO700,${currentY}^A0N,30,30^FD${qtyStr}^FS\n`;
-
-            let details = "";
-            if (item.sku) details += `KOD: ${item.sku} | `;
-            if (item.material) details += `${item.material}`;
-
-            itemsZpl += `^FO10,${currentY + 30}^A0N,20,20^FD${cleanTR(details).substring(0, 65)}^FS\n`;
-
-            if (item.dimensions) {
-                itemsZpl += `^FO10,${currentY + 60}^A0N,20,20^FD${cleanTR(item.dimensions)}^FS\n`;
-                currentY += 95;
-            } else {
-                currentY += 75;
+            // Product Name
+            itemsZpl += `^FO20,${currentY}^A0N,28,28^FD${line1}^FS\n`;
+            if (line2) {
+                currentY += 35;
+                itemsZpl += `^FO20,${currentY}^A0N,28,28^FD${line2}^FS\n`;
             }
+
+            // Quantity Box on right
+            const qtyBoxY = line2 ? currentY - 35 : currentY;
+            itemsZpl += `^FO690,${qtyBoxY}^A0N,32,32^FDx ${item.quantity}^FS\n`;
+
+            currentY += 45;
+
+            // Details Line: SKU | Material | Dimensions
+            let detailsZpl = "";
+            let detailX = 20;
+
+            if (item.sku) {
+                detailsZpl += `^FO${detailX},${currentY}^A0N,20,20^FDKOD: ${item.sku}^FS\n`;
+                detailX += 180;
+            }
+            if (item.material) {
+                detailsZpl += `^FO${detailX},${currentY}^A0N,20,20^FD${cleanTR(item.material).substring(0, 25)}^FS\n`;
+                detailX += 280;
+            }
+            if (item.dimensions) {
+                detailsZpl += `^FO${detailX},${currentY}^A0N,20,20^FD${cleanTR(item.dimensions)}^FS\n`;
+            }
+
+            itemsZpl += detailsZpl;
+            currentY += 45; // Space for next item
         });
     } else {
-        itemsZpl = `^FO10,${currentY}^A0N,25,25^FDURUN BULUNAMADI^FS\n`;
-        currentY += 35;
+        itemsZpl = `^FO20,${currentY}^A0N,28,28^FDURUN BULUNAMADI^FS\n`;
+        currentY += 40;
     }
 
     const dividerY = currentY + 5;
@@ -98,26 +115,25 @@ export async function GET(
 
     const trackingNoSafe = order.cargoTrackingNumber || order.barcode || order.id.toString();
     const systemQrData = order.barcode || order.id.toString();
-    const noteSafe = cleanTR(order.note || "NOT: YOK").substring(0, 70);
-    const customerSafe = cleanTR(order.customer).substring(0, 30);
+    const noteSafe = cleanTR(order.note || "NOT: YOK").substring(0, 90);
+    const customerSafe = cleanTR(order.customer).substring(0, 40);
 
     const customReceiptZpl = `
-^FO10,830^GB790,2,2^FS
-^FO10,840^A0N,25,25^FDSIPARIS ICERIGI: ${customerSafe}^FS
+^FO20,830^A0N,20,20^FDSIPARIS ICERIGI: ${customerSafe}^FS
 
 ${itemsZpl}
 
-^FO10,${dividerY}^GB790,2,2^FS
+^FO20,${dividerY}^GB760,2,2^FS
 
-^FO10,${qrY}^A0N,20,20^FDSISTEM (QR)^FS
-^FO10,${qrY + 20}^BQN,2,4^FDQA,${systemQrData}^FS
-^FO10,${qrY + 110}^A0N,20,20^FD${systemQrData}^FS
+^FO20,${qrY}^A0N,18,18^FDSISTEM (QR)^FS
+^FO20,${qrY + 20}^BQN,2,4^FDQA,${systemQrData}^FS
+^FO20,${qrY + 120}^A0N,18,18^FD${systemQrData}^FS
 
-^FO400,${qrY}^A0N,20,20^FDKARGO (DHL/STANDART)^FS
-^FO400,${qrY + 20}^BY3,3,60^BCN,60,Y,N,N^FD${trackingNoSafe}^FS
-^FO400,${qrY + 100}^A0N,20,20^FDTakip: ${trackingNoSafe}^FS
+^FO360,${qrY}^A0N,18,18^FDKARGO (DHL/STANDART)^FS
+^FO360,${qrY + 20}^BY2,2,60^BCN,60,Y,N,N^FD${trackingNoSafe}^FS
+^FO360,${qrY + 105}^A0N,18,18^FDTakip: ${trackingNoSafe}^FS
 
-^FO10,${qrY + 140}^A0N,20,20^FDMUSTERI NOTU: ${noteSafe}^FS
+^FO20,${qrY + 155}^A0N,18,18^FDMUSTERI NOTU: ${noteSafe}^FS
 `;
 
     // Append our custom receipt natively inside the MNG label, before the closing ^XZ
