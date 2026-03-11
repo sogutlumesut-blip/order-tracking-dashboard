@@ -2,9 +2,9 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { Globe, Key, Save, Loader2, Info } from "lucide-react"
+import { Globe, Key, Save, Loader2, Info, Trash2 } from "lucide-react"
 import { toast } from "sonner"
-import { savePrintMarktSettings } from "@/app/actions"
+import { savePrintMarktSettings, wipePrintMarktOrders } from "@/app/actions"
 import { useRouter } from "next/navigation"
 
 interface PrintMarktSettingsFormProps {
@@ -80,7 +80,33 @@ export function PrintMarktSettingsForm({ initialSettings }: PrintMarktSettingsFo
                 </div>
             </div>
 
-            <div className="col-span-2 flex justify-end">
+            <div className="col-span-2 flex justify-between items-center mt-4">
+                <button
+                    type="button"
+                    onClick={async () => {
+                        if (confirm("DİKKAT! Tüm PrintMarkt siparişleri silinecektir. Silinen siparişler panelden kaldırılacak ve tekrar API'dan çekilmesi için sayfayı yenilemeniz gerekecektir. Devam etmek istiyor musunuz?")) {
+                            startTransition(async () => {
+                                try {
+                                    const res = await wipePrintMarktOrders()
+                                    if (res?.success) {
+                                        toast.success(res.message)
+                                        router.refresh()
+                                    } else {
+                                        toast.error(res?.error || "Silme işlemi başarısız oldu.")
+                                    }
+                                } catch (e) {
+                                    toast.error("Silme işlemi sırasında hata!")
+                                }
+                            })
+                        }
+                    }}
+                    disabled={isPending}
+                    className="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-4 py-2 rounded-lg font-bold transition-colors shadow-sm disabled:opacity-50 text-sm flex items-center gap-2"
+                >
+                    <Trash2 className="w-4 h-4" />
+                    PrintMarkt Siparişlerini Temizle
+                </button>
+
                 <button
                     disabled={isPending}
                     type="submit"

@@ -2359,3 +2359,21 @@ export async function syncPrintMarktOrders(force: boolean = false) {
         return { error: "Senkronizasyon hatası: " + e.message }
     }
 }
+
+export async function wipePrintMarktOrders() {
+    try {
+        const session = await getSession();
+        if (!session || session.user.role !== "admin") {
+            return { error: "Yetkisiz işlem: Sadece yöneticiler silebilir." };
+        }
+
+        const result = await db.order.deleteMany({
+            where: { source: 'PrintMarkt' }
+        });
+
+        return { success: true, message: `${result.count} adet PrintMarkt siparişi başarıyla silindi. Yeni senkronizasyon için sayfayı yenileyiniz.` };
+    } catch (e: any) {
+        console.error("PrintMarkt Wipe Error:", e);
+        return { error: "Silme hatası: " + e.message };
+    }
+}
