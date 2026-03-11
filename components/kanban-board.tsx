@@ -389,8 +389,27 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             ordersInColumn = ordersInColumn.filter(o => o.items.some(i => i.material === filter))
         }
 
-        // Sort by ID (Descending) - Newest First
-        return ordersInColumn.sort((a, b) => b.id - a.id)
+        // Sort by Notification/Recent Comments -> ID (Descending)
+        return ordersInColumn.sort((a, b) => {
+            // 1. Orders with active notifications (new messages/updates) go first
+            if (a.hasNotification && !b.hasNotification) return -1;
+            if (!a.hasNotification && b.hasNotification) return 1;
+
+            // 2. Sort by the most recent comment/note timestamp (if any)
+            const aLatestCommentTime = a.comments && a.comments.length > 0
+                ? Math.max(...a.comments.map(c => new Date(c.timestamp).getTime()))
+                : 0;
+            const bLatestCommentTime = b.comments && b.comments.length > 0
+                ? Math.max(...b.comments.map(c => new Date(c.timestamp).getTime()))
+                : 0;
+
+            if (aLatestCommentTime !== bLatestCommentTime) {
+                return bLatestCommentTime - aLatestCommentTime;
+            }
+
+            // 3. Fallback to newest orders taking precedence
+            return b.id - a.id;
+        });
     }
 
     const handleDragStart = (event: DragStartEvent) => {
