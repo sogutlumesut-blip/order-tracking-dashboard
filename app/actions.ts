@@ -2245,6 +2245,11 @@ export async function syncPrintMarktOrders(force: boolean = false) {
 
                 if (existingOrder) continue; // Skip duplicates
 
+                // Skip Etsy orders coming from PrintMarkt (handled by native Etsy webhook)
+                if (pmOrder?.source?.toString().toLowerCase() === 'etsy') {
+                    continue;
+                }
+
                 // Map Address from flat JSON PrintMarkt Schema
                 let shippingName = pmOrder.recipient_name || "Bilinmiyor";
                 let shippingEmail = pmOrder.recipient_email || pmOrder.email || pmOrder.account_email || "";
@@ -2277,7 +2282,7 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                 }
 
                 for (const item of lineItems) {
-                    const price = parseFloat(item.price || item.total || 0);
+                    const price = parseFloat(item.price || item.total || item.totalPrice || 0);
                     const qty = parseInt(item.quantity || 1);
 
                     if (totalAmount === 0) totalAmount += price * qty;
@@ -2291,14 +2296,20 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                             .replace(/&gt;/g, '>');
                     };
 
-                    const material = item.material ? decodeHtml(String(item.material)) : "";
-                    const dimensions = item.dimensions || item.size ? decodeHtml(String(item.dimensions || item.size)) : "";
+                    let materialStr = item.material || item.selectedTexture || "";
+                    const material = materialStr ? decodeHtml(String(materialStr)) : "";
+
+                    let dimsStr = item.dimensions || item.size || "";
+                    if (!dimsStr && item.width && item.height) {
+                        dimsStr = `${item.width}x${item.height} ${item.unit || 'cm'}`;
+                    }
+                    const dimensions = dimsStr ? decodeHtml(String(dimsStr)) : "";
 
                     items.push({
-                        name: decodeHtml(item.name || item.title || "Custom Print Order"),
+                        name: decodeHtml(item.name || item.title || "Özel Sipariş Ürün (Manuel)"),
                         quantity: qty,
-                        sku: item.sku || "",
-                        image_src: item.image_url || item.image || item.thumbnail || "",
+                        sku: item.sku || item.stockCode || "",
+                        image_src: item.image_url || item.image || item.thumbnail || item.selectedImage || "",
                         material: material,
                         dimensions: dimensions
                     });
@@ -2328,7 +2339,7 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                         paymentMethod: paymentMethod,
                         status: mappedStatus,
                         note: customerNote,
-                        labels: "",
+                        labels: "[]",
                         items: {
                             create: items
                         }
