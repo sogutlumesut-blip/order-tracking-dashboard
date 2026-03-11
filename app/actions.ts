@@ -105,7 +105,7 @@ export async function getOrders(timestamp?: number) {
     const orders = await db.order.findMany({
         where,
         orderBy: { updatedAt: "desc" },
-        take: 100, // Limit to 100 to save quota
+        take: 500, // Limit increased to 500 to accommodate large syncs from multiple sources
         include: {
             items: true,
             comments: {
