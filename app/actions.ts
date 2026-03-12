@@ -2202,13 +2202,14 @@ export async function syncPrintMarktOrders(force: boolean = false) {
 
     try {
         let cleanUrl = settings['pm_url'].replace(/\/+$/, '');
-        let response = await fetch(`${cleanUrl}/api/orders`, {
+        let fetchUrl = `${cleanUrl}/api/orders?_t=${Date.now()}`;
+        let response = await fetch(fetchUrl, {
             headers: { "X-API-Key": settings['pm_key'] },
             cache: 'no-store'
         })
 
         if (response.status === 401 || response.status === 403) {
-            response = await fetch(`${cleanUrl}/api/orders`, {
+            response = await fetch(fetchUrl, {
                 headers: { "Authorization": `Bearer ${settings['pm_key']}` },
                 cache: 'no-store'
             })
