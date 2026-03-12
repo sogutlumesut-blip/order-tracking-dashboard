@@ -2303,7 +2303,12 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                     if (!dimsStr && item.width && item.height) {
                         dimsStr = `${item.width}x${item.height} ${item.unit || 'cm'}`;
                     }
+
                     const dimensions = dimsStr ? decodeHtml(String(dimsStr)) : "";
+
+                    console.log(`[PM_DEBUG_MAP] Raw Item: `, JSON.stringify(item));
+                    if (pmOrder.custom_shipping_label_url) console.log(`[PM_DEBUG_MAP] PDF URL: ${pmOrder.custom_shipping_label_url}`);
+                    else if (pmOrder.production_file_url) console.log(`[PM_DEBUG_MAP] PROD PDF URL: ${pmOrder.production_file_url}`);
 
                     items.push({
                         name: decodeHtml(item.name || item.title || "Özel Sipariş Ürün (Manuel)"),

@@ -32,7 +32,9 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
         note: "",
 
         // Extra
-        sku: "MANUAL-" + Math.floor(Math.random() * 10000)
+        sku: "PM-" + Math.floor(100000 + Math.random() * 900000),
+        imageLink: "",
+        pdfLink: ""
     })
 
     if (!isOpen) return null
@@ -100,10 +102,9 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
 
             // Find image src (all images joined by |)
             const imageFiles = files.filter(f => f.type === 'image').map(f => f.content)
-            const mainImage = imageFiles.length > 0 ? imageFiles.join('|') : "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=300"
+            const mainImage = formData.imageLink || (imageFiles.length > 0 ? imageFiles.join('|') : "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=300")
             // Find special url (first pdf or file)
-            // Find special url (first pdf or file)
-            const specialUrl = files.find(f => f.type === 'pdf')?.content || null // In real app, upload to storage and get URL
+            const specialUrl = formData.pdfLink || files.find(f => f.type === 'pdf')?.content || null
 
             // Prepare note with sample info
             let finalNote = formData.note
@@ -307,7 +308,32 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
 
                         {/* Section: Files */}
                         <div className="space-y-4">
-                            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200 border-b dark:border-slate-800 pb-1">📎 Dosyalar (Görsel & PDF)</h3>
+                            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200 border-b dark:border-slate-800 pb-1">📎 Dosyalar (Görsel & PDF Linki)</h3>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Ürün Görseli (Link)</label>
+                                    <input
+                                        name="imageLink"
+                                        value={formData.imageLink}
+                                        onChange={handleChange}
+                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
+                                        placeholder="https://..."
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Kargo Barkodu (PDF Linki)</label>
+                                    <input
+                                        name="pdfLink"
+                                        value={formData.pdfLink}
+                                        onChange={handleChange}
+                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
+                                        placeholder="https://...pdf"
+                                    />
+                                </div>
+                            </div>
+
+                            <p className="text-xs font-semibold text-slate-700 dark:text-slate-400 mt-2 mb-1">Veya Dosya Yükle:</p>
 
                             <div className="flex flex-wrap gap-3">
                                 {files.map((file, idx) => (
@@ -368,7 +394,9 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                             material: "Tekstil Duvar Kağıdı",
                             sample: "",
                             note: "Acele teslimat lütfen.",
-                            sku: formData.sku
+                            sku: formData.sku,
+                            imageLink: "",
+                            pdfLink: ""
                         })}
                         className="px-4 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors font-semibold border border-blue-200"
                     >
