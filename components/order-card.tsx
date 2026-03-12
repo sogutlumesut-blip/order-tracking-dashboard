@@ -169,7 +169,9 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                     </div>
                     <div className="flex flex-col items-end gap-1">
                         <span className={`text-sm font-semibold px-2 py-1 rounded-md ${isPaymentFailed ? 'text-red-700 bg-red-100 line-through' : 'text-green-600 bg-green-50'}`}>
-                            {order.total.replace('$', '').replace('USD', '').trim()}
+                            {order.source === 'PrintMarkt'
+                                ? `$${order.total.replace('$', '').replace('USD', '').trim()}`
+                                : `${order.total.replace('₺', '').replace('TL', '').replace('$', '').replace('USD', '').trim()} ₺`}
                         </span>
                         {/* Payment Method Badge */}
                         {order.paymentMethod && (
@@ -177,7 +179,7 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                 ? 'text-purple-700 bg-purple-100 border-purple-200'
                                 : 'text-slate-500 bg-slate-100 border-slate-200'
                                 }`}>
-                                {order.paymentMethod}
+                                {order.paymentMethod === 'ON_ACCOUNT' ? 'PRINTMARKT' : order.paymentMethod}
                             </span>
                         )}
                     </div>
@@ -245,18 +247,47 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                         </div>
                     </div>
 
-                    {/* Date & Assignee */}
+                    {/* Date & Assignee & PDF */}
                     <div className="flex items-center justify-between mt-1">
                         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                             <Calendar className="w-3 h-3" />
                             <span>{order.date}</span>
                         </div>
-                        {order.assignedTo && (
-                            <div className="flex items-center gap-1 text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-full">
-                                <User className="w-3 h-3" />
-                                <span>{order.assignedTo.split(' ')[0]}</span>
-                            </div>
-                        )}
+                        <div className="flex items-center gap-2">
+                            {order.cargoLabelPdf && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const pdfData = order.cargoLabelPdf as string;
+                                        if (pdfData.startsWith('http') || pdfData.startsWith('blob:')) {
+                                            window.open(pdfData, '_blank');
+                                        } else {
+                                            try {
+                                                const byteCharacters = atob(pdfData);
+                                                const byteNumbers = new Array(byteCharacters.length);
+                                                for (let i = 0; i < byteCharacters.length; i++) {
+                                                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                                                }
+                                                const byteArray = new Uint8Array(byteNumbers);
+                                                const blob = new Blob([byteArray], { type: 'application/pdf' });
+                                                window.open(URL.createObjectURL(blob), '_blank');
+                                            } catch (err) {
+                                                console.error('PDF view error', err);
+                                            }
+                                        }
+                                    }}
+                                    className="flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-1.5 py-0.5 rounded transition-colors"
+                                >
+                                    <span className="translate-y-[0.5px]">📄</span> PDF
+                                </button>
+                            )}
+                            {order.assignedTo && (
+                                <div className="flex items-center gap-1 text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-full">
+                                    <User className="w-3 h-3" />
+                                    <span>{order.assignedTo.split(' ')[0]}</span>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* Note Warning */}

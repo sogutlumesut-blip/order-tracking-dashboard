@@ -2325,8 +2325,11 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                 const status = (pmOrder.status || pmOrder.order_status || "pending").toLowerCase();
                 const mappedStatus = (status.includes("ship") || status === "completed") ? "shipped" : "pending";
 
-                const paymentMethod = pmOrder.payment_method || pmOrder.gateway || "API";
+                let paymentMethod = pmOrder.payment_method || pmOrder.gateway || "API";
+                if (paymentMethod.toUpperCase() === 'ON_ACCOUNT') paymentMethod = 'PrintMarkt';
+
                 const customerNote = pmOrder.note || pmOrder.customer_note || pmOrder.order_note || "";
+                const trackingPdf = pmOrder.custom_shipping_label_url || pmOrder.production_file_url || null;
 
                 await db.order.create({
                     data: {
@@ -2340,6 +2343,7 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                         paymentMethod: paymentMethod,
                         status: mappedStatus,
                         note: customerNote,
+                        cargoLabelPdf: trackingPdf,
                         labels: "[]",
                         items: {
                             create: items
