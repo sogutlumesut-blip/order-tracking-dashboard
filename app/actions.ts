@@ -2283,7 +2283,7 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                 }
 
                 // Map Address from flat JSON PrintMarkt Schema
-                let shippingName = pmOrder.recipient_name || "Bilinmiyor";
+                let shippingName = pmOrder.dealer_name || pmOrder.user_full_name || pmOrder.recipient_name || "Bilinmiyor";
                 let shippingEmail = pmOrder.recipient_email || pmOrder.email || pmOrder.account_email || "";
                 let shippingPhone = pmOrder.recipient_phone || pmOrder.phone || "";
 
