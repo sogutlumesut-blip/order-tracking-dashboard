@@ -384,18 +384,21 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                                                 {/* Special URL Link */}
                                                 {item.url && (
-                                                    <div className="flex items-center gap-2 mb-1">
+                                                    <div className="flex flex-col gap-2 mt-2 pt-2 border-t dark:border-slate-700">
                                                         <a
                                                             href={item.url}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-500 hover:text-blue-400 hover:underline transition-colors"
+                                                            className="flex items-center justify-center gap-2 w-full py-2 bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/40 rounded-md text-xs font-bold transition-all shadow-sm"
                                                         >
-                                                            🔗 Özel Dosya Linki
+                                                            <FileDown className="w-4 h-4" />
+                                                            Özel Tasarım (PDF / Resim) İndir
                                                         </a>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[10px] uppercase font-bold text-slate-500">Link:</span>
                                                         <input
                                                             type="text"
-                                                            className="flex-1 text-[10px] p-1 border dark:border-slate-700 rounded bg-slate-50 dark:bg-slate-900 font-medium focus:ring-1 focus:ring-blue-500 outline-none text-slate-900 dark:text-slate-100"
+                                                                className="flex-1 text-[10px] p-1.5 border dark:border-slate-700 rounded bg-slate-50 dark:bg-slate-900 font-medium focus:ring-1 focus:ring-blue-500 outline-none text-slate-900 dark:text-slate-100"
                                                             value={item.url || ""}
                                                             onChange={(e) => {
                                                                 const newItems = formData.items.map(i => i.id === item.id ? { ...i, url: e.target.value } : i)
@@ -404,6 +407,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                             }}
                                                             placeholder="Dosya Linki"
                                                         />
+                                                        </div>
                                                     </div>
                                                 )}
 

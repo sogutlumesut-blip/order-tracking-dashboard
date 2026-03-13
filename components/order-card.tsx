@@ -247,13 +247,26 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                         </div>
                     </div>
 
-                    {/* Date & Assignee & PDF */}
                     <div className="flex items-center justify-between mt-1">
                         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                             <Calendar className="w-3 h-3" />
                             <span>{order.date}</span>
                         </div>
                         <div className="flex items-center gap-2">
+                            {/* DESIGN PDF LINK (PrintMarkt / Custom URL) */}
+                            {order.items && order.items.length > 0 && order.items[0].url && (
+                                <a
+                                    href={order.items[0].url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 px-2 py-1 rounded transition-colors shadow-sm z-50 relative"
+                                    title="Tasarım Dosyasını İndir"
+                                >
+                                    <span className="translate-y-[0.5px]">📄</span> PDF İndir
+                                </a>
+                            )}
+                            {/* CARGO LABEL PDF LINK */}
                             {order.cargoLabelPdf && (
                                 <button
                                     onClick={(e) => {
@@ -276,9 +289,10 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                             }
                                         }
                                     }}
-                                    className="flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-1.5 py-0.5 rounded transition-colors"
+                                    className="flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-1.5 py-0.5 rounded transition-colors shadow-sm z-50 relative"
+                                    title="Kargo Etiketi"
                                 >
-                                    <span className="translate-y-[0.5px]">📄</span> PDF
+                                    <span className="translate-y-[0.5px]">🏷️</span> Etiket
                                 </button>
                             )}
                             {order.assignedTo && (

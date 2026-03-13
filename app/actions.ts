@@ -885,11 +885,27 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
 </soap:Envelope>`;
 
         serverLog(`[MNG_SOAP] Sending SiparisGirisiDetayliV3 for Order ${order.id}...`);
-        const siparisRes = await fetch(soapUrl, {
-            method: "POST",
-            headers: { "Content-Type": "text/xml; charset=utf-8", "SOAPAction": '"http://tempuri.org/SiparisGirisiDetayliV3"' },
-            body: siparisGirisiXml
-        });
+
+        const siparisController = new AbortController();
+        const siparisTimeoutId = setTimeout(() => siparisController.abort(), 15000);
+        let siparisRes;
+        try {
+            siparisRes = await fetch(soapUrl, {
+                method: "POST",
+                headers: { "Content-Type": "text/xml; charset=utf-8", "SOAPAction": '"http://tempuri.org/SiparisGirisiDetayliV3"' },
+                body: siparisGirisiXml,
+                signal: siparisController.signal,
+                cache: 'no-store'
+            });
+        } catch (err: any) {
+            clearTimeout(siparisTimeoutId);
+            if (err.name === 'AbortError' || err.message?.includes('timeout') || err.message?.includes('aborted')) {
+                serverLog(`[MNG_SOAP] Timeout on SiparisGirisiDetayliV3 (${order.id})`);
+                return { error: "MNG Kargo servisi yanıt vermedi (Sipariş Girişi Zaman Aşımı - 15s). Lütfen tekrar deneyin." };
+            }
+            throw err;
+        }
+        clearTimeout(siparisTimeoutId);
 
         const siparisText = await siparisRes.text();
         await logActivity(orderId, actor, "MNG_API_RES", siparisText.substring(0, 200));
@@ -919,11 +935,27 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
 </soap:Envelope>`;
 
         serverLog(`[MNG_SOAP] Fetching PDF Barcode for ${order.id}...`);
-        const barkodRes = await fetch(soapUrl, {
-            method: "POST",
-            headers: { "Content-Type": "text/xml; charset=utf-8", "SOAPAction": '"http://tempuri.org/MNGGonderiBarkod"' },
-            body: barkodXml
-        });
+
+        const barkodController = new AbortController();
+        const barkodTimeoutId = setTimeout(() => barkodController.abort(), 15000);
+        let barkodRes;
+        try {
+            barkodRes = await fetch(soapUrl, {
+                method: "POST",
+                headers: { "Content-Type": "text/xml; charset=utf-8", "SOAPAction": '"http://tempuri.org/MNGGonderiBarkod"' },
+                body: barkodXml,
+                signal: barkodController.signal,
+                cache: 'no-store'
+            });
+        } catch (err: any) {
+            clearTimeout(barkodTimeoutId);
+            if (err.name === 'AbortError' || err.message?.includes('timeout') || err.message?.includes('aborted')) {
+                serverLog(`[MNG_SOAP] Timeout on MNGGonderiBarkod (${order.id})`);
+                return { error: "MNG Kargo servisi yanıt vermedi (Barkod Üretimi Zaman Aşımı - 15s). Lütfen tekrar deneyin." };
+            }
+            throw err;
+        }
+        clearTimeout(barkodTimeoutId);
 
         const barkodText = await barkodRes.text();
         console.error(`[MNG_DEBUG_BARKOD_107707] Response:`, barkodText); // ADDED
@@ -2316,7 +2348,8 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                         sku: item.sku || item.stockCode || "",
                         image_src: item.image_url || item.image || item.thumbnail || item.selectedImage || "",
                         material: material,
-                        dimensions: dimensions
+                        dimensions: dimensions,
+                        url: item.external_url || item.product_link || item.url || pmOrder.external_product_link || ""
                     });
                 }
 
