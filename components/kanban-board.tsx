@@ -249,7 +249,12 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     })
                     lastKargoSyncRef.current = now;
                 }
-            } catch (e) { console.error("Cargo Sync Err", e) }
+            } catch (e: any) { 
+                console.error("Cargo Sync Err", e);
+                if (e?.message?.includes('Failed to find Server Action')) {
+                    window.location.reload();
+                }
+            }
         }, 30000);
 
         // 2. High-frequency Polling for DB changes (Chat/Status/Internal)
@@ -310,8 +315,11 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 }
                 previousOrderIds.current = latestIds;
 
-            } catch (error) {
+            } catch (error: any) {
                 console.error("Polling Error:", error);
+                if (error?.message?.includes('Failed to find Server Action')) {
+                    window.location.reload();
+                }
             }
         }, 3000); // FIXED 3S POLLING
 
@@ -331,7 +339,12 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     console.log("External Sync: PrintMarkt data updated");
                     router.refresh();
                 }
-            } catch (e) { console.error("External Sync Error", e) }
+            } catch (e: any) { 
+                console.error("External Sync Error", e);
+                if (e?.message?.includes('Failed to find Server Action')) {
+                    window.location.reload();
+                }
+            }
         }, 60000); // 60S External Sync
 
         return () => {
