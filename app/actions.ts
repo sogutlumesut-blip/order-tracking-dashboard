@@ -908,7 +908,7 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
         clearTimeout(siparisTimeoutId);
 
         const siparisText = await siparisRes.text();
-        await logActivity(orderId, actor, "MNG_API_RES", siparisText.substring(0, 200));
+        logActivity(orderId, actor, "MNG_API_RES", siparisText.substring(0, 200)); // Non-blocking
         const siparisMatch = siparisText.match(/<SiparisGirisiDetayliV3Result>(.*?)<\/SiparisGirisiDetayliV3Result>/);
         const siparisResult = siparisMatch ? siparisMatch[1] : "";
 
@@ -958,8 +958,8 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
         clearTimeout(barkodTimeoutId);
 
         const barkodText = await barkodRes.text();
-        console.error(`[MNG_DEBUG_BARKOD_107707] Response:`, barkodText); // ADDED
-        await logActivity(orderId, actor, "MNG_BARKOD_RES", barkodText.substring(0, 400));
+        // console.error(`[MNG_DEBUG_BARKOD] Response:`, barkodText); 
+        logActivity(orderId, actor, "MNG_BARKOD_RES", barkodText.substring(0, 400)); // Non-blocking
         const zplMatch = barkodText.match(/<BarkodText>([\s\S]*?)<\/BarkodText>/);
         let zplContent = zplMatch ? Buffer.from(zplMatch[1].replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')).toString('utf-8') : null;
 
@@ -993,7 +993,7 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
             }
         });
 
-        await logActivity(orderId, actor, "CARGO_SUCCESS", `Barkod başarıyla MNG'den çekildi. PDF yazdırmaya hazır.`);
+        logActivity(orderId, actor, "CARGO_SUCCESS", `Barkod başarıyla MNG'den çekildi. PDF yazdırmaya hazır.`); // Non-blocking
         return { success: true, message: "Kargo barkodu başarıyla anında üretildi!" };
 
     } catch (e: any) {
