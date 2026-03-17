@@ -3,6 +3,16 @@ import type { NextRequest } from 'next/server'
 import { updateSession } from './lib/auth'
 
 export async function middleware(request: NextRequest) {
+    // 0. Check Maintenance Mode
+    if (process.env.MAINTENANCE_MODE === 'true') {
+        if (!request.nextUrl.pathname.startsWith('/maintenance')) {
+            return NextResponse.redirect(new URL('/maintenance', request.url))
+        }
+        return NextResponse.next()
+    } else if (request.nextUrl.pathname.startsWith('/maintenance')) {
+        return NextResponse.redirect(new URL('/', request.url))
+    }
+
     // 1. Update session expiry
     const res = await updateSession(request) || NextResponse.next()
 
