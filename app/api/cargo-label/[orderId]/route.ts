@@ -63,46 +63,32 @@ export async function GET(
     };
 
     let itemsZpl = "";
-    let currentY = 820; // Start tighter below MNG
+    let currentY = 780; // Start tighter below MNG
 
     if (order.items && order.items.length > 0) {
         order.items.forEach((item: any) => {
             if (currentY > 1150) return; // Prevent overflowing
 
             const rawName = cleanTR(item.name);
-            const line1 = rawName.substring(0, 42);
-            const line2 = rawName.length > 42 ? rawName.substring(42, 84) : "";
+            const isMultiline = rawName.length > 40;
 
-            // Product Name
-            itemsZpl += `^FO20,${currentY}^A0N,24,24^FD${line1}^FS\n`;
-            if (line2) {
-                currentY += 25;
-                itemsZpl += `^FO20,${currentY}^A0N,24,24^FD${line2}^FS\n`;
-            }
+            // Product Name (Auto Word Wrap using ^FB)
+            itemsZpl += `^FO20,${currentY}^A0N,22,22^FB640,2,2,L,0^FD${rawName}^FS\n`;
 
             // Quantity Box on right
-            const qtyBoxY = line2 ? currentY - 25 : currentY;
-            itemsZpl += `^FO690,${qtyBoxY}^A0N,28,28^FDx ${item.quantity}^FS\n`;
-
-            currentY += 32;
+            itemsZpl += `^FO670,${currentY}^A0N,28,28^FB100,1,0,R,0^FDx ${item.quantity}^FS\n`;
+            
+            // Advance Y after product name
+            currentY += isMultiline ? 45 : 25;
 
             // Details Line: SKU | Material | Dimensions
-            let detailsZpl = "";
-            let detailX = 20;
+            let details = [];
+            if (item.sku) details.push(`KOD: ${item.sku}`);
+            if (item.material) details.push(cleanTR(item.material).substring(0, 30));
+            if (item.dimensions) details.push(cleanTR(item.dimensions));
+            
+            itemsZpl += `^FO20,${currentY}^A0N,18,18^FB760,1,0,L,0^FD${details.join('   -   ')}^FS\n`;
 
-            if (item.sku) {
-                detailsZpl += `^FO${detailX},${currentY}^A0N,18,18^FDKOD: ${item.sku}^FS\n`;
-                detailX += 160;
-            }
-            if (item.material) {
-                detailsZpl += `^FO${detailX},${currentY}^A0N,18,18^FD${cleanTR(item.material).substring(0, 30)}^FS\n`;
-                detailX += 300;
-            }
-            if (item.dimensions) {
-                detailsZpl += `^FO${detailX},${currentY}^A0N,18,18^FD${cleanTR(item.dimensions)}^FS\n`;
-            }
-
-            itemsZpl += detailsZpl;
             currentY += 35; // Space for next item
         });
     } else {
@@ -119,21 +105,20 @@ export async function GET(
     const customerSafe = cleanTR(order.customer).substring(0, 45);
 
     const customReceiptZpl = `
-^FO20,790^A0N,18,18^FDSIPARIS ICERIGI: ${customerSafe}^FS
+^FO20,750^A0N,18,18^FDSIPARIS ICERIGI: ${customerSafe}^FS
 
 ${itemsZpl}
 
 ^FO20,${dividerY}^GB760,2,2^FS
 
-^FO20,${qrY}^A0N,16,16^FDSISTEM (QR)^FS
-^FO20,${qrY + 20}^BQN,2,4^FDQA,${systemQrData}^FS
+^FO20,${qrY}^A0N,18,18^FDSISTEM (QR)^FS
+^FO20,${qrY + 25}^BQN,2,3^FDQA,${systemQrData}^FS
 ^FO20,${qrY + 115}^A0N,16,16^FD${systemQrData}^FS
 
-^FO360,${qrY}^A0N,16,16^FDKARGO (DHL/STANDART)^FS
-^FO360,${qrY + 20}^BY2,2,55^BCN,55,Y,N,N^FD${trackingNoSafe}^FS
-^FO360,${qrY + 95}^A0N,16,16^FDTakip: ${trackingNoSafe}^FS
+^FO360,${qrY}^A0N,18,18^FDKARGO (DHL/STANDART)^FS
+^FO360,${qrY + 25}^BY2,2,60^BCN,60,Y,N,N^FD${trackingNoSafe}^FS
 
-^FO20,${qrY + 140}^A0N,18,18^FDMUSTERI NOTU: ${noteSafe}^FS
+^FO20,${qrY + 145}^A0N,20,20^FB760,2,2,L,0^FDMUSTERI NOTU: ${noteSafe}^FS
 `;
 
     // Append our custom receipt natively inside the MNG label, before the closing ^XZ
