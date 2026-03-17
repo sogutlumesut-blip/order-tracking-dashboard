@@ -442,10 +442,14 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                     loading: "Ödeme durumu güncelleniyor...",
                                                     success: (res: any) => {
                                                         if (res.error) throw new Error(res.error);
-                                                        setFormData({
-                                                            ...formData,
-                                                            labels: formData.labels.filter(label => label !== 'Ödeme Başarısız')
-                                                        });
+                                                        
+                                                        const updatedLabels = formData.labels.filter(label => label !== 'Ödeme Başarısız');
+                                                        const updatedState = { ...formData, labels: updatedLabels };
+                                                        
+                                                        setFormData(updatedState);
+                                                        if (onUpdate) onUpdate(updatedState);
+                                                        router.refresh();
+                                                        
                                                         return res.message;
                                                     },
                                                     error: (err) => err.message || "Hata oluştu"
@@ -489,7 +493,9 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                 new Promise(async (resolve, reject) => {
                                                     try {
                                                         const res = await createDHLShipmentAction(formData.id);
-                                                        if (res.error) throw new Error(res.error);
+                                                        if (res && res.error) {
+                                                            return reject(new Error(res.error));
+                                                        }
 
                                                         // Fetch the updated order directly, polling is no longer required with MNG!
                                                         const updatedOrder = await fetchOrderForCargo(formData.id);
@@ -511,7 +517,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                             resolve("DHL Etiketi başarıyla oluşturuldu ve yazdırılıyor!");
                                                         } else {
                                                             router.refresh();
-                                                            resolve("Kargo barkodu alındı ancak PDF gösterilemedi.");
+                                                            reject(new Error("Kargo barkodu veritabanına kaydedilemedi veya boş döndü."));
                                                         }
                                                     } catch (err: any) {
                                                         reject(err);
