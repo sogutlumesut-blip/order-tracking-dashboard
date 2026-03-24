@@ -983,8 +983,8 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
         }
 
         // Check if ZPL contains an embedded MNG error message (MNG sometimes returns 200 OK but writes the error directly onto the label)
-        if (zplContent.includes("MESAJ :") || zplContent.includes("VARIŞ ŞUBESİ BULUNAMAD")) {
-            const embeddedErrorMatch = zplContent.match(/MESAJ\s*:\s*([^^\\]+)/);
+        if (/MESAJ\s*:/i.test(zplContent) || /VARI[SŞ]\s*[SŞ]UBES[Iİ]\s*BULUNAMAD/i.test(zplContent)) {
+            const embeddedErrorMatch = zplContent.match(/MESAJ\s*:\s*([^^\\]+)/i);
             const embeddedErrorMessage = embeddedErrorMatch ? embeddedErrorMatch[1].trim() : "Adresiniz için varış şubesi bulunamadı.";
             serverLog(`[MNG_SOAP] Embedded error in ZPL: ${embeddedErrorMessage}`);
             return { error: `MNG Hatası: ${embeddedErrorMessage}. Lütfen Müşteri adresini (İl/İlçe) kontrol edin.` };
