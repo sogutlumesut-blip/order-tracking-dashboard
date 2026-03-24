@@ -982,6 +982,14 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
             return { error: "MNG Kargo'dan barkod alınamadı." };
         }
 
+        // Check if ZPL contains an embedded MNG error message (MNG sometimes returns 200 OK but writes the error directly onto the label)
+        if (zplContent.includes("MESAJ :") || zplContent.includes("VARIŞ ŞUBESİ BULUNAMAD")) {
+            const embeddedErrorMatch = zplContent.match(/MESAJ\s*:\s*([^^\\]+)/);
+            const embeddedErrorMessage = embeddedErrorMatch ? embeddedErrorMatch[1].trim() : "Adresiniz için varış şubesi bulunamadı.";
+            serverLog(`[MNG_SOAP] Embedded error in ZPL: ${embeddedErrorMessage}`);
+            return { error: `MNG Hatası: ${embeddedErrorMessage}. Lütfen Müşteri adresini (İl/İlçe) kontrol edin.` };
+        }
+
         // 3. UPDATE DB
         serverLog(`[MNG_SOAP] Success! Updating Order ${order.id}. Tracking No: ${trackingNo}`);
         await db.order.update({
