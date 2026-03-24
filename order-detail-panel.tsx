@@ -489,46 +489,53 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                                     <button
                                         onClick={async () => {
-                                            toast.promise(
-                                                new Promise(async (resolve, reject) => {
-                                                    try {
-                                                        const res = await createDHLShipmentAction(formData.id);
-                                                        if (res && res.error) {
-                                                            return reject(new Error(res.error));
-                                                        }
-
-                                                        // Fetch the updated order directly, polling is no longer required with MNG!
-                                                        const updatedOrder = await fetchOrderForCargo(formData.id);
-
-                                                        if (updatedOrder && updatedOrder.cargoBarcode) {
-                                                            const pdfUrl = `/api/cargo-label/${formData.id}`;
-                                                            window.open(pdfUrl, '_blank');
-
-                                                            // Reload to show the new data in the panel
-                                                            const updatedState = {
-                                                                ...formData,
-                                                                cargoBarcode: updatedOrder.cargoBarcode,
-                                                                cargoTrackingNumber: updatedOrder.cargoTrackingNumber || formData.cargoTrackingNumber,
-                                                                trackingNumber: updatedOrder.cargoTrackingNumber || formData.trackingNumber
-                                                            };
-                                                            setFormData(updatedState as Order);
-                                                            if (onUpdate) onUpdate(updatedState as Order);
-                                                            router.refresh();
-                                                            resolve("DHL Etiketi başarıyla oluşturuldu ve yazdırılıyor!");
-                                                        } else {
-                                                            router.refresh();
-                                                            reject(new Error("Kargo barkodu veritabanına kaydedilemedi veya boş döndü."));
-                                                        }
-                                                    } catch (err: any) {
-                                                        reject(err);
-                                                    }
-                                                }),
-                                                {
-                                                    loading: "DHL oluşturuluyor ve etiket bekleniyor...",
-                                                    success: (msg: any) => msg,
-                                                    error: (err: any) => err.message || "Hata oluştu"
+                                            // Pop-up blocker bypass: Open empty window immediately during click event
+                                            const newWindow = window.open('about:blank', '_blank');
+                                            
+                                            const toastId = toast.loading("DHL oluşturuluyor...");
+                                            try {
+                                                const res = await createDHLShipmentAction(formData.id);
+                                                if (res && res.error) {
+                                                    if (newWindow) newWindow.close();
+                                                    toast.dismiss(toastId);
+                                                    toast.error(res.error);
+                                                    return;
                                                 }
-                                            );
+
+                                                // Fetch the updated order directly, polling is no longer required with MNG!
+                                                const updatedOrder = await fetchOrderForCargo(formData.id);
+
+                                                if (updatedOrder && updatedOrder.cargoBarcode) {
+                                                    const pdfUrl = `/api/cargo-label/${formData.id}`;
+                                                    if (newWindow) {
+                                                        newWindow.location.href = pdfUrl;
+                                                    } else {
+                                                        window.open(pdfUrl, '_blank');
+                                                    }
+
+                                                    // Reload to show the new data in the panel
+                                                    const updatedState = {
+                                                        ...formData,
+                                                        cargoBarcode: updatedOrder.cargoBarcode,
+                                                        cargoTrackingNumber: updatedOrder.cargoTrackingNumber || formData.cargoTrackingNumber,
+                                                        trackingNumber: updatedOrder.cargoTrackingNumber || formData.trackingNumber
+                                                    };
+                                                    setFormData(updatedState as Order);
+                                                    if (onUpdate) onUpdate(updatedState as Order);
+                                                    router.refresh();
+                                                    toast.dismiss(toastId);
+                                                    toast.success("DHL Etiketi başarıyla oluşturuldu ve yazdırılıyor!");
+                                                } else {
+                                                    if (newWindow) newWindow.close();
+                                                    router.refresh();
+                                                    toast.dismiss(toastId);
+                                                    toast.error("Kargo barkodu veritabanına kaydedilemedi veya boş döndü.");
+                                                }
+                                            } catch (err: any) {
+                                                if (newWindow) newWindow.close();
+                                                toast.dismiss(toastId);
+                                                toast.error(err.message || "Bilinmeyen bir hata oluştu");
+                                            }
                                         }}
                                         className="py-3 bg-red-600 text-white rounded-xl flex items-center justify-center gap-2 hover:bg-red-700 transition-all font-bold shadow-lg shadow-red-200 dark:shadow-none text-xs"
                                     >
