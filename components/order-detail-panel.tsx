@@ -489,14 +489,10 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                                     <button
                                         onClick={async () => {
-                                            // Pop-up blocker bypass: Open empty window immediately during click event
-                                            const newWindow = window.open('about:blank', '_blank');
-                                            
                                             const toastId = toast.loading("DHL oluşturuluyor...");
                                             try {
                                                 const res = await createDHLShipmentAction(formData.id);
                                                 if (res && res.error) {
-                                                    if (newWindow) newWindow.close();
                                                     toast.dismiss(toastId);
                                                     toast.error(res.error);
                                                     return;
@@ -507,11 +503,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                                                 if (updatedOrder && updatedOrder.cargoBarcode) {
                                                     const pdfUrl = `/api/cargo-label/${formData.id}`;
-                                                    if (newWindow) {
-                                                        newWindow.location.href = pdfUrl;
-                                                    } else {
-                                                        window.open(pdfUrl, '_blank');
-                                                    }
+                                                    window.open(pdfUrl, '_blank');
 
                                                     // Reload to show the new data in the panel
                                                     const updatedState = {
@@ -526,13 +518,11 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                     toast.dismiss(toastId);
                                                     toast.success("DHL Etiketi başarıyla oluşturuldu ve yazdırılıyor!");
                                                 } else {
-                                                    if (newWindow) newWindow.close();
                                                     router.refresh();
                                                     toast.dismiss(toastId);
                                                     toast.error("Kargo barkodu veritabanına kaydedilemedi veya boş döndü.");
                                                 }
                                             } catch (err: any) {
-                                                if (newWindow) newWindow.close();
                                                 toast.dismiss(toastId);
                                                 toast.error(err.message || "Bilinmeyen bir hata oluştu");
                                             }
