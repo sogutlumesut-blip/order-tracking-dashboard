@@ -905,9 +905,9 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
             }
             throw err;
         }
-        clearTimeout(siparisTimeoutId);
 
         const siparisText = await siparisRes.text();
+        clearTimeout(siparisTimeoutId);
         logActivity(orderId, actor, "MNG_API_RES", siparisText.substring(0, 200)); // Non-blocking
         const siparisMatch = siparisText.match(/<SiparisGirisiDetayliV3Result>(.*?)<\/SiparisGirisiDetayliV3Result>/);
         const siparisResult = siparisMatch ? siparisMatch[1] : "";
@@ -955,9 +955,9 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
             }
             throw err;
         }
-        clearTimeout(barkodTimeoutId);
 
         const barkodText = await barkodRes.text();
+        clearTimeout(barkodTimeoutId);
         // console.error(`[MNG_DEBUG_BARKOD] Response:`, barkodText); 
         logActivity(orderId, actor, "MNG_BARKOD_RES", barkodText.substring(0, 400)); // Non-blocking
         const zplMatch = barkodText.match(/<BarkodText>([\s\S]*?)<\/BarkodText>/);
