@@ -783,8 +783,8 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
 
         let phone = (order.phone || "05551112233").replace(/[^0-9]/g, "");
 
-        // Use direct MNG endpoint since the DigitalOcean Static IP has been whitelisted
-        const soapUrl = "https://service.mngkargo.com.tr/musterikargosiparis/musterikargosiparis.asmx";
+        // RESTORED: Route through the user's whitelisted eCommerce static IP instead of DigitalOcean
+        const soapUrl = "https://duvarkagidimarketi.com/mng-proxy.php";
         const actor = bypassAuth ? "TEST_SYSTEM" : session.user.name;
 
         // Calculate Desi/Weight realistically based on the items
