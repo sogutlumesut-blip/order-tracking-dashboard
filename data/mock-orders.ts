@@ -56,6 +56,7 @@ export interface Order {
     cargoBarcode?: string; // From kargo entegrator
     cargoTrackingNumber?: string;
     cargoLabelPdf?: string | null;
+    commentCount?: number;
     taxNumber?: string | null;
     taxOffice?: string | null;
     invoiceStatus?: string | null;
