@@ -46,36 +46,30 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                 setIsModified(false)
             }
 
-            // Sync comments and activities - using order.comments as source of truth from server
-            const formattedComments = (order.comments || []).map(c => {
-                let displayTime = c.timestamp;
-                try {
-                    const d = new Date(c.timestamp);
-                    if (d instanceof Date && !isNaN(d.getTime())) {
-                        displayTime = d.toLocaleString('tr-TR', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                        });
-                    } else if (typeof c.timestamp === 'string' && c.timestamp.length > 0) {
-                        displayTime = c.timestamp;
-                    }
-                } catch (e) {
-                    console.error("Date parse error:", e);
+            // Setup placeholder state until server fetch completes
+            setLazyComments([])
+            setLazyActivities([])
+
+            // Background fetch FULL details
+            getOrderDetails(order.id).then((details) => {
+                if (details) {
+                    const formattedComments = (details.comments || []).map((c: any) => {
+                        let displayTime = c.timestamp;
+                        try {
+                            const d = new Date(c.timestamp);
+                            if (d instanceof Date && !isNaN(d.getTime())) {
+                                displayTime = d.toLocaleString('tr-TR', {
+                                    day: '2-digit', month: '2-digit', year: 'numeric',
+                                    hour: '2-digit', minute: '2-digit'
+                                });
+                            }
+                        } catch (e) {}
+                        return { ...c, timestamp: displayTime };
+                    });
+                    setLazyComments(formattedComments)
+                    setLazyActivities(details.activities)
                 }
-
-                return {
-                    ...c,
-                    timestamp: displayTime
-                };
-            })
-
-            // Only update local state if it differs from order prop
-            // (Prevents flickering but ensures sync)
-            setLazyComments(formattedComments)
-            setLazyActivities(order.activities || [])
+            }).catch(e => console.error("Lazy fetch err:", e))
         } else if (!isOpen) {
             // Reset for next time
             setFormData(null)

@@ -108,8 +108,8 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             const updated = initialOrders.find(o => o.id === (selectedOrder as any).id)
             if (updated) {
                 // Check if comments changed to notify or log
-                const oldLen = selectedOrder.comments?.length || 0
-                const newLen = updated.comments?.length || 0
+                const oldLen = selectedOrder.commentCount || 0
+                const newLen = updated.commentCount || 0
                 if (newLen > oldLen && !activeId) {
                     console.log("New comments synced in background for order:", updated.id)
                 }
@@ -281,7 +281,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
                         if (!localOrder ||
                             localOrder.status !== serverOrder.status ||
-                            localOrder.comments?.length !== serverOrder.comments?.length ||
+                            localOrder.commentCount !== serverOrder.commentCount ||
                             localOrder.hasNotification !== serverOrder.hasNotification) {
                             hasChanges = true;
                             return serverOrder;
@@ -402,22 +402,18 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             ordersInColumn = ordersInColumn.filter(o => o.items.some(i => i.material === filter))
         }
 
-        // Sort by Notification/Recent Comments -> ID (Descending)
+        // Sort by Notification/Recent Updates -> ID (Descending)
         return ordersInColumn.sort((a, b) => {
             // 1. Orders with active notifications (new messages/updates) go first
             if (a.hasNotification && !b.hasNotification) return -1;
             if (!a.hasNotification && b.hasNotification) return 1;
 
-            // 2. Sort by the most recent comment/note timestamp (if any)
-            const aLatestCommentTime = a.comments && a.comments.length > 0
-                ? Math.max(...a.comments.map(c => new Date(c.timestamp).getTime()))
-                : 0;
-            const bLatestCommentTime = b.comments && b.comments.length > 0
-                ? Math.max(...b.comments.map(c => new Date(c.timestamp).getTime()))
-                : 0;
+            // 2. Sort by the most recent update timestamp (which changes on comments/activity)
+            const aLatestTime = new Date(a.updatedAt).getTime();
+            const bLatestTime = new Date(b.updatedAt).getTime();
 
-            if (aLatestCommentTime !== bLatestCommentTime) {
-                return bLatestCommentTime - aLatestCommentTime;
+            if (aLatestTime !== bLatestTime) {
+                return bLatestTime - aLatestTime;
             }
 
             // 3. Fallback to newest orders taking precedence
@@ -904,7 +900,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     ...o,
                     hasNotification: true,
                     updatedAt: new Date().toISOString(),
-                    comments: o.comments ? [...o.comments, newComment] : [newComment]
+                    commentCount: (o.commentCount || 0) + 1
                 }
                 // Update selected order IF it is this order
                 if (selectedOrder && selectedOrder.id === orderId) {
