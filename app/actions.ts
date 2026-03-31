@@ -108,13 +108,8 @@ export async function getOrders(timestamp?: number) {
         take: 500, // Limit increased to 500 to accommodate large syncs from multiple sources
         include: {
             items: true,
-            comments: {
-                include: { author: { select: { name: true } } },
-                orderBy: { timestamp: "asc" }
-            },
-            activities: {
-                orderBy: { timestamp: "desc" },
-                take: 10 // Last 10 is enough for initial view
+            _count: {
+                select: { comments: true }
             }
         }
     })
@@ -133,27 +128,7 @@ export async function getOrders(timestamp?: number) {
             material: item.material || null,
             dimensions: item.dimensions || null
         })),
-        comments: order.comments.map(c => ({
-            id: c.id,
-            message: c.message,
-            type: (c as any).type || "message",
-            timestamp: c.timestamp.toISOString(),
-            author: c.author?.name || "Unknown",
-            attachments: (() => {
-                if (!c.attachments) return undefined
-                try {
-                    const parsed = JSON.parse(c.attachments);
-                    return Array.isArray(parsed) ? parsed : undefined;
-                } catch { return undefined; }
-            })()
-        })),
-        activities: order.activities.map(a => ({
-            id: a.id,
-            author: a.author,
-            action: a.action,
-            details: a.details,
-            timestamp: a.timestamp.toISOString()
-        })),
+        commentCount: order._count?.comments || 0,
         labels: (() => {
             if (!order.labels) return []
             try {
