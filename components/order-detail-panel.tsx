@@ -487,8 +487,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                             try {
                                                 const res = await createDHLShipmentAction(formData.id);
                                                 if (res && res.error) {
-                                                    toast.dismiss(toastId);
-                                                    toast.error(res.error);
+                                                    toast.error(res.error, { id: toastId });
                                                     return;
                                                 }
 
@@ -517,8 +516,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                     toast.error("Kargo barkodu veritabanına kaydedilemedi veya boş döndü.");
                                                 }
                                             } catch (err: any) {
-                                                toast.dismiss(toastId);
-                                                toast.error(err.message || "Bilinmeyen bir hata oluştu");
+                                                toast.error(err.message || "Bilinmeyen bir hata oluştu", { id: toastId });
                                             }
                                         }}
                                         className="py-3 bg-red-600 text-white rounded-xl flex items-center justify-center gap-2 hover:bg-red-700 transition-all font-bold shadow-lg shadow-red-200 dark:shadow-none text-xs"

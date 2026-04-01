@@ -867,7 +867,11 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
         try {
             siparisRes = await fetch(soapUrl, {
                 method: "POST",
-                headers: { "Content-Type": "text/xml; charset=utf-8", "SOAPAction": '"http://tempuri.org/SiparisGirisiDetayliV3"' },
+                headers: { 
+                    "Content-Type": "text/xml; charset=utf-8", 
+                    "SOAPAction": '"http://tempuri.org/SiparisGirisiDetayliV3"',
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                },
                 body: siparisGirisiXml,
                 signal: siparisController.signal,
                 cache: 'no-store'
@@ -917,7 +921,11 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
         try {
             barkodRes = await fetch(soapUrl, {
                 method: "POST",
-                headers: { "Content-Type": "text/xml; charset=utf-8", "SOAPAction": '"http://tempuri.org/MNGGonderiBarkod"' },
+                headers: { 
+                    "Content-Type": "text/xml; charset=utf-8", 
+                    "SOAPAction": '"http://tempuri.org/MNGGonderiBarkod"',
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                },
                 body: barkodXml,
                 signal: barkodController.signal,
                 cache: 'no-store'
