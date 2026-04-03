@@ -747,13 +747,29 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
         // Parse address to City / District
         let il = "ISTANBUL";
         let ilce = "SISLI";
-        const addressMatch = (order.address || "").match(/\b([A-ZŞİĞÜÇÖa-zşıiğüçö]+)\s*\/\s*([A-ZŞİĞÜÇÖa-zşıiğüçö]+)\b/);
-        if (addressMatch) {
-            ilce = addressMatch[1].trim().toUpperCase();
-            il = addressMatch[2].trim().toUpperCase();
-        } else if (order.city) {
-            il = order.city.trim().toUpperCase();
-            ilce = order.city.trim().toUpperCase();
+        
+        const tryParseLoc = (str: string) => {
+            if (!str) return false;
+            // Desteklenen formatlar: "İLÇE / İL", "İLÇE/İL", "İlçe / İl" vb.
+            const match = str.match(/([^,\s/]+)\s*\/\s*([^,\s/]+)/);
+            if (match) {
+                ilce = match[1].trim().toUpperCase();
+                il = match[2].trim().toUpperCase();
+                return true;
+            }
+            return false;
+        };
+
+        // Öncelik: Müşteri doğrudan 'city' alanına "ÇEŞME / İZMİR" gibi yazdıysa
+        if (!tryParseLoc(order.city || "")) {
+            // Değilse adreste "ÇEŞME / İZMİR" kalıbı arayalım
+            if (!tryParseLoc(order.address || "")) {
+                // Hiçbirinde '/' yoksa, eski mantığı (tam il/ilçe) kullanalım
+                if (order.city) {
+                    il = order.city.trim().toUpperCase();
+                    ilce = order.city.trim().toUpperCase();
+                }
+            }
         }
 
         let phone = (order.phone || "05551112233").replace(/[^0-9]/g, "");

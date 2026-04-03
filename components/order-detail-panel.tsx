@@ -257,14 +257,25 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     {formData.address && (
                                         <div className="text-slate-800 dark:text-slate-300 text-sm border-t border-slate-200 dark:border-slate-700 pt-2 mt-2">
                                             <p className="font-semibold mb-1 flex items-center gap-1">📍 Teslimat Adresi:</p>
-                                            <p className="leading-relaxed">
-                                                {formData.address}
-                                                {formData.city && (
-                                                    <span className="font-bold block text-slate-900 mt-1">
-                                                        {formData.city.toLocaleUpperCase('tr-TR')}
-                                                    </span>
-                                                )}
-                                            </p>
+                                            <textarea
+                                                className="w-full text-sm p-2 border rounded-md bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 focus:ring-1 focus:ring-blue-500 outline-none leading-relaxed text-slate-700 dark:text-slate-300"
+                                                value={formData.address}
+                                                onChange={(e) => {
+                                                    setFormData({ ...formData, address: e.target.value })
+                                                    setIsModified(true)
+                                                }}
+                                                rows={2}
+                                            />
+                                            <input
+                                                type="text"
+                                                className="w-full mt-2 font-bold text-slate-900 dark:text-slate-100 p-2 border rounded-md bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 focus:ring-1 focus:ring-blue-500 outline-none"
+                                                value={formData.city || ""}
+                                                onChange={(e) => {
+                                                    setFormData({ ...formData, city: e.target.value })
+                                                    setIsModified(true)
+                                                }}
+                                                placeholder="İlçe / İl (Örn: ÇEŞME / İZMİR)"
+                                            />
                                         </div>
                                     )}
 
