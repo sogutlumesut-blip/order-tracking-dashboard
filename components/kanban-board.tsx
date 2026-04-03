@@ -1372,7 +1372,13 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
                     <OrderDetailPanel
                         isOpen={isPanelOpen}
-                        onClose={() => setIsPanelOpen(false)}
+                        onClose={() => {
+                            setIsPanelOpen(false);
+                            if (selectedOrder && selectedOrder.hasNotification) {
+                                setOrders((prev) => prev.map(o => o.id === selectedOrder.id ? { ...o, hasNotification: false } : o));
+                                markOrderAsRead(selectedOrder.id);
+                            }
+                        }}
                         order={selectedOrder ? orders.find(o => o.id === selectedOrder.id) || selectedOrder : null}
                         onUpdate={handleOrderUpdate}
                         onAddComment={handleAddComment}
@@ -1691,11 +1697,6 @@ function SortableColumn({
                                 onClick={() => {
                                     setSelectedOrder(order);
                                     setIsPanelOpen(true);
-                                    if (order.hasNotification) {
-                                        // Optimistic clear
-                                        setOrders((prev: Order[]) => prev.map((o: Order) => o.id === order.id ? { ...o, hasNotification: false } : o))
-                                        markOrderAsRead(order.id)
-                                    }
                                 }}
                                 tags={tags}
                                 selected={selectedOrders.includes(order.id)}
