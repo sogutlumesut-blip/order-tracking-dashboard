@@ -408,12 +408,12 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             if (a.hasNotification && !b.hasNotification) return -1;
             if (!a.hasNotification && b.hasNotification) return 1;
 
-            // 2. Sort by the most recent update timestamp (which changes on comments/activity)
-            const aLatestTime = new Date(a.updatedAt).getTime();
-            const bLatestTime = new Date(b.updatedAt).getTime();
+            // 2. Sort by the original order date (newest first)
+            const aDate = new Date(a.date).getTime();
+            const bDate = new Date(b.date).getTime();
 
-            if (aLatestTime !== bLatestTime) {
-                return bLatestTime - aLatestTime;
+            if (aDate !== bDate) {
+                return bDate - aDate;
             }
 
             // 3. Fallback to newest orders taking precedence
