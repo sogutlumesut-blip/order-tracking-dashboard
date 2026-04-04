@@ -847,7 +847,7 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
       <pAliciMusteriMngNo></pAliciMusteriMngNo>
       <pAliciMusteriBayiNo></pAliciMusteriBayiNo>
       <pAliciMusteriAdi><![CDATA[${safeCustomerName}]]></pAliciMusteriAdi>
-      <pChSiparisNo>${order.id}</pChSiparisNo>
+      <pChSiparisNo>${order.id}-${Date.now().toString().slice(-4)}</pChSiparisNo>
       <pLuOdemeSekli>P</pLuOdemeSekli>
       <pFlAdresFarkli>0</pFlAdresFarkli>
       <pChIl><![CDATA[${cleanTurkish(il)}]]></pChIl>
@@ -1937,6 +1937,11 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                         }
                     })
                     currentOrderId = newOrder.id;
+                    
+                    // AUTO DHL GENERATION REQUESTED BY USER
+                    createDHLShipmentAction(newOrder.id, true).catch(err => {
+                        console.error("[AUTO_DHL_ERR] Failed to auto-generate DHL for new order:", err);
+                    });
                 }
 
                 // ADD "COMPLETED" LOG if applicable
