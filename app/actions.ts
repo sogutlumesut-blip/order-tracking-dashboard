@@ -751,10 +751,10 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
         const tryParseLoc = (str: string) => {
             if (!str) return false;
             // Desteklenen formatlar: "İLÇE / İL", "İLÇE/İL", "İlçe / İl" vb.
-            const match = str.match(/([^,\s/]+)\s*\/\s*([^,\s/]+)/);
-            if (match) {
-                ilce = match[1].trim().toUpperCase();
-                il = match[2].trim().toUpperCase();
+            const parts = str.split('/').map(p => p.trim()).filter(Boolean);
+            if (parts.length >= 2) {
+                ilce = parts[parts.length - 2].toUpperCase();
+                il = parts[parts.length - 1].toUpperCase();
                 return true;
             }
             return false;

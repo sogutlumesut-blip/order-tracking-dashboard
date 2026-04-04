@@ -8,7 +8,7 @@ import { NoteLog } from "./note-log"
 import { ChatSection } from "./chat-section"
 import { ActivityLog } from "./activity-log"
 import { getColorClasses } from "@/lib/colors"
-import { logManualActivity, uploadCargoLabel, deleteCargoLabel, getOrderDetails, fetchOrderForCargo, createInvoiceAction, createCargoLabelAction, createDHLShipmentAction, markOrderAsPaidAction } from "../app/actions"
+import { logManualActivity, uploadCargoLabel, deleteCargoLabel, getOrderDetails, fetchOrderForCargo, createInvoiceAction, createCargoLabelAction, createDHLShipmentAction, markOrderAsPaidAction, updateOrderDetails } from "../app/actions"
 import { LocalBarcodeModal } from "./local-barcode-modal"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
@@ -496,6 +496,10 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                         onClick={async () => {
                                             const toastId = toast.loading("DHL oluşturuluyor...");
                                             try {
+                                                if (isModified) {
+                                                    await updateOrderDetails(formData);
+                                                    setIsModified(false);
+                                                }
                                                 const res = await createDHLShipmentAction(formData.id);
                                                 if (res && res.error) {
                                                     toast.error(res.error, { id: toastId });
