@@ -267,7 +267,7 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     onClick={(e) => e.stopPropagation()}
-                                    className="flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 px-2 py-1 rounded transition-colors shadow-sm z-50 relative"
+                                    className="flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 px-2 py-1 rounded transition-colors shadow-sm z-10 relative"
                                     title="Tasarım Dosyasını İndir"
                                 >
                                     <span className="translate-y-[0.5px]">📄</span> PDF İndir
@@ -296,7 +296,7 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                             }
                                         }
                                     }}
-                                    className="flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-1.5 py-0.5 rounded transition-colors shadow-sm z-50 relative"
+                                    className="flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-1.5 py-0.5 rounded transition-colors shadow-sm z-10 relative"
                                     title="Kargo Etiketi"
                                 >
                                     <span className="translate-y-[0.5px]">🏷️</span> Etiket
