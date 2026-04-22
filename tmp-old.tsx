@@ -8,7 +8,7 @@ import { NoteLog } from "./note-log"
 import { ChatSection } from "./chat-section"
 import { ActivityLog } from "./activity-log"
 import { getColorClasses } from "@/lib/colors"
-import { logManualActivity, uploadCargoLabel, deleteCargoLabel, getOrderDetails, fetchOrderForCargo, createInvoiceAction, createCargoLabelAction, createDHLShipmentAction, markOrderAsPaidAction, updateOrderDetails } from "../app/actions"
+import { logManualActivity, uploadCargoLabel, deleteCargoLabel, getOrderDetails, fetchOrderForCargo, createInvoiceAction, createCargoLabelAction, createDHLShipmentAction, markOrderAsPaidAction } from "../app/actions"
 import { LocalBarcodeModal } from "./local-barcode-modal"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
@@ -46,30 +46,36 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                 setIsModified(false)
             }
 
-            // Setup placeholder state until server fetch completes
-            setLazyComments([])
-            setLazyActivities([])
-
-            // Background fetch FULL details
-            getOrderDetails(order.id).then((details) => {
-                if (details) {
-                    const formattedComments = (details.comments || []).map((c: any) => {
-                        let displayTime = c.timestamp;
-                        try {
-                            const d = new Date(c.timestamp);
-                            if (d instanceof Date && !isNaN(d.getTime())) {
-                                displayTime = d.toLocaleString('tr-TR', {
-                                    day: '2-digit', month: '2-digit', year: 'numeric',
-                                    hour: '2-digit', minute: '2-digit'
-                                });
-                            }
-                        } catch (e) {}
-                        return { ...c, timestamp: displayTime };
-                    });
-                    setLazyComments(formattedComments)
-                    setLazyActivities(details.activities)
+            // Sync comments and activities - using order.comments as source of truth from server
+            const formattedComments = (order.comments || []).map(c => {
+                let displayTime = c.timestamp;
+                try {
+                    const d = new Date(c.timestamp);
+                    if (d instanceof Date && !isNaN(d.getTime())) {
+                        displayTime = d.toLocaleString('tr-TR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                    } else if (typeof c.timestamp === 'string' && c.timestamp.length > 0) {
+                        displayTime = c.timestamp;
+                    }
+                } catch (e) {
+                    console.error("Date parse error:", e);
                 }
-            }).catch(e => console.error("Lazy fetch err:", e))
+
+                return {
+                    ...c,
+                    timestamp: displayTime
+                };
+            })
+
+            // Only update local state if it differs from order prop
+            // (Prevents flickering but ensures sync)
+            setLazyComments(formattedComments)
+            setLazyActivities(order.activities || [])
         } else if (!isOpen) {
             // Reset for next time
             setFormData(null)
@@ -257,25 +263,14 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     {formData.address && (
                                         <div className="text-slate-800 dark:text-slate-300 text-sm border-t border-slate-200 dark:border-slate-700 pt-2 mt-2">
                                             <p className="font-semibold mb-1 flex items-center gap-1">📍 Teslimat Adresi:</p>
-                                            <textarea
-                                                className="w-full text-sm p-2 border rounded-md bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 focus:ring-1 focus:ring-blue-500 outline-none leading-relaxed text-slate-700 dark:text-slate-300"
-                                                value={formData.address}
-                                                onChange={(e) => {
-                                                    setFormData({ ...formData, address: e.target.value })
-                                                    setIsModified(true)
-                                                }}
-                                                rows={2}
-                                            />
-                                            <input
-                                                type="text"
-                                                className="w-full mt-2 font-bold text-slate-900 dark:text-slate-100 p-2 border rounded-md bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 focus:ring-1 focus:ring-blue-500 outline-none"
-                                                value={formData.city || ""}
-                                                onChange={(e) => {
-                                                    setFormData({ ...formData, city: e.target.value })
-                                                    setIsModified(true)
-                                                }}
-                                                placeholder="İlçe / İl (Örn: ÇEŞME / İZMİR)"
-                                            />
+                                            <p className="leading-relaxed">
+                                                {formData.address}
+                                                {formData.city && (
+                                                    <span className="font-bold block text-slate-900 mt-1">
+                                                        {formData.city.toLocaleUpperCase('tr-TR')}
+                                                    </span>
+                                                )}
+                                            </p>
                                         </div>
                                     )}
 
@@ -496,40 +491,23 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                         onClick={async () => {
                                             const toastId = toast.loading("DHL oluşturuluyor...");
                                             try {
-                                                if (isModified) {
-                                                    await updateOrderDetails(formData);
-                                                    setIsModified(false);
-                                                }
                                                 const res = await createDHLShipmentAction(formData.id);
                                                 if (res && res.error) {
-                                                    toast.error(res.error, { id: toastId });
+                                                    toast.dismiss(toastId);
+                                                    toast.error(res.error);
                                                     return;
                                                 }
 
-                                                // Fetch the updated order directly
+                                                // Fetch the updated order directly, polling is no longer required with MNG!
                                                 const updatedOrder = await fetchOrderForCargo(formData.id);
 
-                                                if (updatedOrder && (updatedOrder.cargoLabelPdf || updatedOrder.cargoBarcode)) {
-                                                    // For real DHL API, it uses cargoLabelPdf which is base64
-                                                    if (updatedOrder.cargoLabelPdf) {
-                                                        const byteCharacters = atob(updatedOrder.cargoLabelPdf);
-                                                        const byteNumbers = new Array(byteCharacters.length);
-                                                        for (let i = 0; i < byteCharacters.length; i++) {
-                                                            byteNumbers[i] = byteCharacters.charCodeAt(i);
-                                                        }
-                                                        const byteArray = new Uint8Array(byteNumbers);
-                                                        const blob = new Blob([byteArray], { type: 'application/pdf' });
-                                                        const url = URL.createObjectURL(blob);
-                                                        window.open(url, '_blank');
-                                                    } else {
-                                                        const pdfUrl = `/api/cargo-label/${formData.id}`;
-                                                        window.open(pdfUrl, '_blank');
-                                                    }
+                                                if (updatedOrder && updatedOrder.cargoBarcode) {
+                                                    const pdfUrl = `/api/cargo-label/${formData.id}`;
+                                                    window.open(pdfUrl, '_blank');
 
                                                     // Reload to show the new data in the panel
                                                     const updatedState = {
                                                         ...formData,
-                                                        cargoLabelPdf: updatedOrder.cargoLabelPdf || formData.cargoLabelPdf,
                                                         cargoBarcode: updatedOrder.cargoBarcode,
                                                         cargoTrackingNumber: updatedOrder.cargoTrackingNumber || formData.cargoTrackingNumber,
                                                         trackingNumber: updatedOrder.cargoTrackingNumber || formData.trackingNumber
@@ -545,7 +523,8 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                     toast.error("Kargo barkodu veritabanına kaydedilemedi veya boş döndü.");
                                                 }
                                             } catch (err: any) {
-                                                toast.error(err.message || "Bilinmeyen bir hata oluştu", { id: toastId });
+                                                toast.dismiss(toastId);
+                                                toast.error(err.message || "Bilinmeyen bir hata oluştu");
                                             }
                                         }}
                                         className="py-3 bg-red-600 text-white rounded-xl flex items-center justify-center gap-2 hover:bg-red-700 transition-all font-bold shadow-lg shadow-red-200 dark:shadow-none text-xs"

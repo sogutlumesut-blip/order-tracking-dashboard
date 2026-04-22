@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<body>
+<script>
+async function createDHLShipmentAction() {
+    // simulate server action returning 500 error after 1 second
+    return new Promise((r, reject) => setTimeout(() => reject(new Error("Failed to fetch")), 1000));
+}
+
+async function simulate() {
+    let toastId = "123";
+    console.log("Toast shown");
+    try {
+        const res = await createDHLShipmentAction();
+        if (res.error) {
+            console.log("Toast dismissed (res.error)");
+            return;
+        }
+    } catch (err) {
+        // Will it crash here?
+        console.log("Toast dismissed (catch)");
+    }
+}
+simulate();
+</script>
+</body>
+</html>
