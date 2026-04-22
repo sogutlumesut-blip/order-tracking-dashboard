@@ -36,13 +36,13 @@ export function DHLSettingsForm({ initialSettings }: DHLSettingsFormProps) {
     return (
         <form action={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-red-50/50 p-6 rounded-xl border border-red-100">
             <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">DHL API Key <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-bold text-slate-700 mb-2">DHL Kullanıcı Adı <span className="text-red-500">*</span></label>
                 <div className="relative">
                     <User className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
                     <input
                         name="dhl_user"
                         defaultValue={initialSettings.dhl_user || ''}
-                        placeholder="DHL API Key"
+                        placeholder="DHL Kullanıcı Adı"
                         required
                         className="w-full pl-10 p-2 text-sm border rounded-lg focus:ring-2 focus:ring-red-500 outline-none"
                     />
@@ -50,7 +50,7 @@ export function DHLSettingsForm({ initialSettings }: DHLSettingsFormProps) {
             </div>
 
             <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">DHL API Secret <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-bold text-slate-700 mb-2">DHL Şifre <span className="text-red-500">*</span></label>
                 <div className="relative">
                     <Lock className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
                     <input
@@ -65,14 +65,13 @@ export function DHLSettingsForm({ initialSettings }: DHLSettingsFormProps) {
             </div>
 
             <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">DHL Hesap No (Account Number) <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Müşteri No (Customer ID)</label>
                 <div className="relative">
                     <Globe className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
                     <input
                         name="dhl_customer_id"
                         defaultValue={initialSettings.dhl_customer_id || ''}
-                        placeholder="Örn: 123456789"
-                        required
+                        placeholder="DHL Müşteri Numarası"
                         className="w-full pl-10 p-2 text-sm border rounded-lg focus:ring-2 focus:ring-red-500 outline-none"
                     />
                 </div>

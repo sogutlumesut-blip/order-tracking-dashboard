@@ -506,30 +506,16 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                     return;
                                                 }
 
-                                                // Fetch the updated order directly
+                                                // Fetch the updated order directly, polling is no longer required with MNG!
                                                 const updatedOrder = await fetchOrderForCargo(formData.id);
 
-                                                if (updatedOrder && (updatedOrder.cargoLabelPdf || updatedOrder.cargoBarcode)) {
-                                                    // For real DHL API, it uses cargoLabelPdf which is base64
-                                                    if (updatedOrder.cargoLabelPdf) {
-                                                        const byteCharacters = atob(updatedOrder.cargoLabelPdf);
-                                                        const byteNumbers = new Array(byteCharacters.length);
-                                                        for (let i = 0; i < byteCharacters.length; i++) {
-                                                            byteNumbers[i] = byteCharacters.charCodeAt(i);
-                                                        }
-                                                        const byteArray = new Uint8Array(byteNumbers);
-                                                        const blob = new Blob([byteArray], { type: 'application/pdf' });
-                                                        const url = URL.createObjectURL(blob);
-                                                        window.open(url, '_blank');
-                                                    } else {
-                                                        const pdfUrl = `/api/cargo-label/${formData.id}`;
-                                                        window.open(pdfUrl, '_blank');
-                                                    }
+                                                if (updatedOrder && updatedOrder.cargoBarcode) {
+                                                    const pdfUrl = `/api/cargo-label/${formData.id}`;
+                                                    window.open(pdfUrl, '_blank');
 
                                                     // Reload to show the new data in the panel
                                                     const updatedState = {
                                                         ...formData,
-                                                        cargoLabelPdf: updatedOrder.cargoLabelPdf || formData.cargoLabelPdf,
                                                         cargoBarcode: updatedOrder.cargoBarcode,
                                                         cargoTrackingNumber: updatedOrder.cargoTrackingNumber || formData.cargoTrackingNumber,
                                                         trackingNumber: updatedOrder.cargoTrackingNumber || formData.trackingNumber
