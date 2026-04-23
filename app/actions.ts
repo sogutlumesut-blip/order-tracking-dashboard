@@ -713,299 +713,79 @@ export async function fetchOrderForCargo(orderId: number) {
 
 import { createDHLExpressShipment } from "@/lib/dhl-api";
 
+import { createKargoEntegratorShipment } from "@/lib/kargo-entegrator-api";
+
 export async function createDHLShipmentAction(orderId: number, bypassAuth: boolean = false) {
     noStore();
-    serverLog(`[MNG_SOAP] START: Connecting directly to MNG Kargo for Order #${orderId}`);
+    serverLog(`[KARGO_ENTEGRATOR] START: Generating cargo label for Order #${orderId}`);
 
     let session = null;
     if (!bypassAuth) {
         session = await getSession();
         if (!session) {
-            serverLog(`[MNG_SOAP] ERR: No session for #${orderId}`);
+            serverLog(`[KARGO_ENTEGRATOR] ERR: No session for #${orderId}`);
             return { error: "Oturum kapalı" };
         }
     }
 
-    const settings = await getSystemSettings();
-    const dhlUser = settings['dhl_user'];
-    const dhlPass = settings['dhl_pass'];
-
-    if (!dhlUser || !dhlPass) {
-        serverLog(`[MNG_SOAP] ERR: Missing MNG/DHL credentials for #${orderId}`);
-        return { error: "Lütfen Ayarlar sayfasından MNG Kargo (DHL) Kullanıcı Adı ve Şifrenizi eksiksiz girin." };
-    }
-
     try {
-        const order = await db.order.findUnique({ where: { id: orderId } });
+        const order = await db.order.findUnique({
+            where: { id: orderId },
+            include: { items: true }
+        });
 
         if (!order) {
-            serverLog(`[MNG_SOAP] ERR: Order not found #${orderId}`);
+            serverLog(`[KARGO_ENTEGRATOR] ERR: Order not found #${orderId}`);
             return { error: "Sipariş bulunamadı" };
         }
 
         const actorName = bypassAuth || !session ? "TEST_SYSTEM" : session.user.name;
-        await logActivity(orderId, actorName, "CARGO_START", "Doğrudan MNG Kargo API'sine barkod oluşturma kaydı iletiliyor...");
+        await logActivity(orderId, actorName, "CARGO_START", "Kargo Entegratör API'sine gönderi oluşturma kaydı iletiliyor...");
 
-        // Parse address to City / District
-        let il = "ISTANBUL";
-        let ilce = "SISLI";
+        // 1. Create Shipment via Kargo Entegrator API
+        const shipmentRes = await createKargoEntegratorShipment(order, order.items);
+
+        if (shipmentRes.error) {
+            serverLog(`[KARGO_ENTEGRATOR] Error: ${shipmentRes.error}`);
+            return { error: `Kargo Entegratör Hatası: ${shipmentRes.error}` };
+        }
+
+        if (!shipmentRes.success || !shipmentRes.shipmentId) {
+            return { error: "Gönderi oluşturuldu ancak ID alınamadı." };
+        }
+
+        const trackingNo = shipmentRes.barcode || String(shipmentRes.shipmentId);
         
-        const tryParseLoc = (str: string) => {
-            if (!str) return false;
-            // Support formats: "İLÇE / İL", "İLÇE/İL"
-            // Addresses might contain slashes like "b1/28", so we take the LAST two parts.
-            const parts = str.split('/').map(p => p.trim()).filter(Boolean);
-            if (parts.length >= 2) {
-                il = parts[parts.length - 1].toUpperCase();
-                // To avoid taking "28 BAŞAKŞEHİR" from "b1/28 başakşehir", we clean numbers/punctuation
-                let rawIlce = parts[parts.length - 2].toUpperCase();
-                // Extract just the letters for district
-                let match = rawIlce.match(/[A-ZÇĞİÖŞÜçğıöşü\s]+$/);
-                if (match && match[0].trim().length > 2) {
-                    ilce = match[0].trim();
-                } else {
-                    ilce = rawIlce; // fallback
-                }
-                return true;
-            }
-            return false;
+        // 2. Update DB with Barcode and PDF
+        const updateData: any = {
+            updatedAt: new Date(),
+            cargoTrackingNumber: trackingNo,
+            cargoBarcode: trackingNo,
+            status: "shipped",
+            trackingNumber: trackingNo
         };
 
-        // Priority 1: City column
-        if (!tryParseLoc(order.city || "")) {
-            // Priority 2: Address column
-            if (!tryParseLoc(order.address || "")) {
-                if (order.city) {
-                    il = order.city.trim().toUpperCase();
-                    ilce = order.city.trim().toUpperCase();
-                }
-            }
+        if (shipmentRes.labelPdfBase64) {
+            updateData.cargoLabelPdf = shipmentRes.labelPdfBase64;
         }
 
-        let phone = (order.phone || "05551112233").replace(/[^0-9]/g, "");
-
-        const soapUrl = "https://duvarkagidimarketi.com/mng-proxy.php";
-        const actor = bypassAuth ? "TEST_SYSTEM" : session.user.name;
-
-        // Calculate Desi/Weight realistically based on the items
-        let totalDesi = 1;
-        let totalWeight = 1;
-
-        const orderItems = await db.orderItem.findMany({ where: { orderId } });
-        if (orderItems && orderItems.length > 0) {
-            totalDesi = 0;
-            totalWeight = 0;
-            orderItems.forEach((item: any) => {
-                let desi = 1;
-                let weight = 1;
-                const volumeMatch = (item.dimensions || "").match(/(\d+)\s*[xX]\s*(\d+)/);
-                if (volumeMatch) {
-                    const w = parseInt(volumeMatch[1]);
-                    const h = parseInt(volumeMatch[2]);
-                    const minD = Math.min(w, h);
-                    desi = Math.max(1, Math.round((minD * 15 * 15) / 3000));
-                    weight = Math.max(1, Math.round(desi * 0.8));
-                }
-                totalDesi += (desi * (item.quantity || 1));
-                totalWeight += (weight * (item.quantity || 1));
-            });
-
-            if (totalDesi < 1) totalDesi = 1;
-            if (totalWeight < 1) totalWeight = 1;
-        }
-
-        const weightStr = totalWeight.toString().replace(',', '.');
-        const desiStr = totalDesi.toString().replace(',', '.');
-        const pKargoParcaList = `${weightStr}:${desiStr}:15:15:100:;`;
-
-        const cleanTurkish = (str: string) => {
-            return str.replace(/Ğ/g, 'G').replace(/ğ/g, 'g')
-                .replace(/Ü/g, 'U').replace(/ü/g, 'u')
-                .replace(/Ş/g, 'S').replace(/ş/g, 's')
-                .replace(/İ/g, 'I').replace(/ı/g, 'i')
-                .replace(/Ö/g, 'O').replace(/ö/g, 'o')
-                .replace(/Ç/g, 'C').replace(/ç/g, 'c')
-                .replace(/[^\x00-\x7F]/g, "") // Strip any remaining non-ascii chars
-                .trim();
-        };
-
-        const safeCustomerName = cleanTurkish((order.customer || "Musteri")).substring(0, 50);
-        const safeAddress = cleanTurkish((order.address || "Adres Belirtilmemis")).substring(0, 200);
-
-        // 1. CREATE SHIPMENT
-        const siparisGirisiXml = `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-  <soap:Body>
-    <SiparisGirisiDetayliV3 xmlns="http://tempuri.org/">
-      <pChIrsaliyeNo>${order.id}</pChIrsaliyeNo>
-      <pPrKiymet></pPrKiymet>
-      <pChBarkod>${order.id}</pChBarkod>
-      <pChIcerik>Duvarkagidi</pChIcerik>
-      <pGonderiHizmetSekli>NORMAL</pGonderiHizmetSekli>
-      <pTeslimSekli>1</pTeslimSekli>
-      <pFlAlSms>0</pFlAlSms>
-      <pFlGnSms>0</pFlGnSms>
-      <pKargoParcaList>${pKargoParcaList}</pKargoParcaList>
-      <pAliciMusteriMngNo></pAliciMusteriMngNo>
-      <pAliciMusteriBayiNo></pAliciMusteriBayiNo>
-      <pAliciMusteriAdi><![CDATA[${safeCustomerName}]]></pAliciMusteriAdi>
-      <pChSiparisNo>${order.id}</pChSiparisNo>
-      <pLuOdemeSekli>P</pLuOdemeSekli>
-      <pFlAdresFarkli>0</pFlAdresFarkli>
-      <pChIl><![CDATA[${cleanTurkish(il)}]]></pChIl>
-      <pChIlce><![CDATA[${cleanTurkish(ilce)}]]></pChIlce>
-      <pChAdres><![CDATA[${safeAddress}]]></pChAdres>
-      <pChSemt></pChSemt>
-      <pChMahalle></pChMahalle>
-      <pChMeydanBulvar></pChMeydanBulvar>
-      <pChCadde></pChCadde>
-      <pChSokak></pChSokak>
-      <pChTelEv></pChTelEv>
-      <pChTelCep>${phone}</pChTelCep>
-      <pChTelIs></pChTelIs>
-      <pChFax></pChFax>
-      <pChEmail></pChEmail>
-      <pChVergiDairesi></pChVergiDairesi>
-      <pChVergiNumarasi></pChVergiNumarasi>
-      <pFlKapidaOdeme>0</pFlKapidaOdeme>
-      <pMalBedeliOdemeSekli></pMalBedeliOdemeSekli>
-      <pPlatformKisaAdi></pPlatformKisaAdi>
-      <pPlatformSatisKodu></pPlatformSatisKodu>
-      <pKullaniciAdi>${dhlUser}</pKullaniciAdi>
-      <pSifre>${dhlPass}</pSifre>
-    </SiparisGirisiDetayliV3>
-  </soap:Body>
-</soap:Envelope>`;
-
-        serverLog(`[MNG_SOAP] Sending SiparisGirisiDetayliV3 for Order ${order.id}...`);
-
-        const siparisController = new AbortController();
-        const siparisTimeoutId = setTimeout(() => siparisController.abort(), 15000);
-        let siparisRes;
-        try {
-            siparisRes = await fetch(soapUrl, {
-                method: "POST",
-                headers: { 
-                    "Content-Type": "text/xml; charset=utf-8", 
-                    "SOAPAction": '"http://tempuri.org/SiparisGirisiDetayliV3"',
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-                },
-                body: siparisGirisiXml,
-                signal: siparisController.signal,
-                cache: 'no-store'
-            });
-        } catch (err: any) {
-            clearTimeout(siparisTimeoutId);
-            if (err.name === 'AbortError' || err.message?.includes('timeout') || err.message?.includes('aborted')) {
-                serverLog(`[MNG_SOAP] Timeout on SiparisGirisiDetayliV3 (${order.id})`);
-                return { error: "MNG Kargo servisi yanıt vermedi (Sipariş Girişi Zaman Aşımı - 15s). Lütfen tekrar deneyin." };
-            }
-            throw err;
-        }
-
-        const siparisText = await siparisRes.text();
-        clearTimeout(siparisTimeoutId);
-        logActivity(orderId, actor, "MNG_API_RES", siparisText.substring(0, 200)); // Non-blocking
-        const siparisMatch = siparisText.match(/<SiparisGirisiDetayliV3Result>(.*?)<\/SiparisGirisiDetayliV3Result>/);
-        const siparisResult = siparisMatch ? siparisMatch[1] : "";
-
-        if (siparisResult !== "1" && !siparisResult.includes("KAYIT ZATEN VAR")) {
-            serverLog(`[MNG_SOAP] SiparisGirisiDetayliV3 Error: ${siparisResult}`);
-            return { error: `MNG Kargo Hatası: ${siparisResult || 'Bilinmeyen hata'}` };
-        }
-
-        // 2. FETCH BARCODE
-        const barkodXml = `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-  <soap:Body>
-    <MNGGonderiBarkod xmlns="http://tempuri.org/">
-      <req>
-        <WsUserName>${dhlUser}</WsUserName>
-        <WsPassword>${dhlPass}</WsPassword>
-        <ReferansNo>${order.id}</ReferansNo>
-        <OutBarkodType>ZPL</OutBarkodType>
-        <FlKapidaTahsilat>0</FlKapidaTahsilat>
-        <HatadaReferansBarkoduBas>1</HatadaReferansBarkoduBas>
-      </req>
-    </MNGGonderiBarkod>
-  </soap:Body>
-</soap:Envelope>`;
-
-        serverLog(`[MNG_SOAP] Fetching PDF Barcode for ${order.id}...`);
-
-        const barkodController = new AbortController();
-        const barkodTimeoutId = setTimeout(() => barkodController.abort(), 15000);
-        let barkodRes;
-        try {
-            barkodRes = await fetch(soapUrl, {
-                method: "POST",
-                headers: { 
-                    "Content-Type": "text/xml; charset=utf-8", 
-                    "SOAPAction": '"http://tempuri.org/MNGGonderiBarkod"',
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-                },
-                body: barkodXml,
-                signal: barkodController.signal,
-                cache: 'no-store'
-            });
-        } catch (err: any) {
-            clearTimeout(barkodTimeoutId);
-            if (err.name === 'AbortError' || err.message?.includes('timeout') || err.message?.includes('aborted')) {
-                serverLog(`[MNG_SOAP] Timeout on MNGGonderiBarkod (${order.id})`);
-                return { error: "MNG Kargo servisi yanıt vermedi (Barkod Üretimi Zaman Aşımı - 15s). Lütfen tekrar deneyin." };
-            }
-            throw err;
-        }
-
-        const barkodText = await barkodRes.text();
-        clearTimeout(barkodTimeoutId);
-        logActivity(orderId, actor, "MNG_BARKOD_RES", barkodText.substring(0, 400)); // Non-blocking
-        const zplMatch = barkodText.match(/<BarkodText>([\s\S]*?)<\/BarkodText>/);
-        let zplContent = zplMatch ? Buffer.from(zplMatch[1].replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')).toString('utf-8') : null;
-
-        let trackingNoMatch = barkodText.match(/<MngKargoGonderiNo>(.*?)<\/MngKargoGonderiNo>/);
-        let trackingNo = trackingNoMatch ? trackingNoMatch[1] : null;
-
-        let hataMatch = barkodText.match(/<IstekHata>([\s\S]*?)<\/IstekHata>/);
-        let hataMesaji = hataMatch ? hataMatch[1].trim() : null;
-
-        if (!zplContent || zplContent.length < 10) {
-            const fallbackZplMatch = barkodText.match(/<BarkodValue>(.*?)<\/BarkodValue>/);
-            if (fallbackZplMatch) {
-                serverLog(`[MNG_SOAP] No ZPL returned. Result:\n${barkodText.substring(0, 300)}`);
-                return { error: "Barkod üretilemedi, sadece barkod değeri döndü." };
-            }
-            if (hataMesaji && hataMesaji.length > 0) {
-                return { error: `MNG: ${hataMesaji}` };
-            }
-            return { error: "MNG Kargo'dan barkod alınamadı." };
-        }
-
-        if (/MESAJ\s*:/i.test(zplContent) || /VARI[SŞ]\s*[SŞ]UBES[Iİ]\s*BULUNAMAD/i.test(zplContent)) {
-            const embeddedErrorMatch = zplContent.match(/MESAJ\s*:\s*([^^\\]+)/i);
-            const embeddedErrorMessage = embeddedErrorMatch ? embeddedErrorMatch[1].trim() : "Adresiniz için varış şubesi bulunamadı.";
-            serverLog(`[MNG_SOAP] Embedded error in ZPL: ${embeddedErrorMessage}`);
-            return { error: `MNG Hatası: ${embeddedErrorMessage}. Lütfen Müşteri adresini (İl/İlçe) kontrol edin.` };
-        }
-
-        // 3. UPDATE DB
-        serverLog(`[MNG_SOAP] Success! Updating Order ${order.id}. Tracking No: ${trackingNo}`);
+        serverLog(`[KARGO_ENTEGRATOR] Success! Updating Order ${order.id}. Tracking No: ${trackingNo}`);
         await db.order.update({
             where: { id: orderId },
-            data: {
-                updatedAt: new Date(),
-                cargoBarcode: zplContent,
-                cargoTrackingNumber: trackingNo || order.id.toString(),
-                status: "shipped",
-                trackingNumber: trackingNo
-            }
+            data: updateData
         });
 
-        logActivity(orderId, actor, "CARGO_SUCCESS", `Barkod başarıyla MNG/DHL'den çekildi. PDF yazdırmaya hazır.`); // Non-blocking
-        return { success: true, message: "Kargo barkodu başarıyla MNG/DHL'den üretildi!" };
+        await logActivity(
+            orderId, 
+            actorName, 
+            "CARGO_SUCCESS", 
+            `Kargo başarıyla oluşturuldu. (ID: ${shipmentRes.shipmentId}, Barkod: ${trackingNo})`
+        );
+
+        return { success: true, message: "Kargo etiketi başarıyla oluşturuldu!" };
 
     } catch (e: any) {
-        serverLog(`[MNG_SOAP] CRITICAL_ERROR: ${e.message}`);
+        serverLog(`[KARGO_ENTEGRATOR] CRITICAL_ERROR: ${e.message}`);
         return { error: e.message };
     }
 }

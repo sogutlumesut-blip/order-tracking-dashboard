@@ -53,6 +53,18 @@ export async function GET(
     if (!zpl.startsWith('^XA')) {
         if (order.cargoLabelPdf && order.cargoLabelPdf.startsWith('http')) {
             return NextResponse.redirect(order.cargoLabelPdf);
+        } else if (order.cargoLabelPdf && order.cargoLabelPdf.startsWith('data:application/pdf;base64,')) {
+            const base64Data = order.cargoLabelPdf.replace('data:application/pdf;base64,', '');
+            const pdfBuffer = Buffer.from(base64Data, 'base64');
+            return new NextResponse(pdfBuffer, {
+                status: 200,
+                headers: {
+                    "Content-Type": "application/pdf",
+                    "Content-Disposition": `inline; filename="kargo_fisi_${order.cargoTrackingNumber || orderId}.pdf"`,
+                    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+                    "Pragma": "no-cache"
+                }
+            });
         } else {
             return new NextResponse("Geçersiz Barkod Formatı veya ZPL bulunamadı.", { status: 400 });
         }
