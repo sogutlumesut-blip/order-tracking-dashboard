@@ -703,7 +703,8 @@ export async function fetchOrderForCargo(orderId: number) {
     try {
         const order = await db.order.findUnique({
             where: { id: orderId },
-            select: { cargoBarcode: true, cargoTrackingNumber: true, status: true, cargoLabelPdf: true }
+            // Do NOT select cargoLabelPdf because it can be a 1MB+ base64 string which slows down the frontend!
+            select: { cargoBarcode: true, cargoTrackingNumber: true, status: true }
         });
         return order;
     } catch {

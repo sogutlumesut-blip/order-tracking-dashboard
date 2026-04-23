@@ -101,35 +101,11 @@ export async function createKargoEntegratorShipment(order: any, items: any[]) {
             return { error: "API gönderiyi oluşturdu ancak ID dönemedi." };
         }
 
-        // Fetch PDF
-        const pdfController = new AbortController();
-        const pdfTimeoutId = setTimeout(() => pdfController.abort(), 15000); // 15 seconds
-        
-        let pdfRes;
-        try {
-            pdfRes = await fetch(`${BASE_URL}/print-pdf?shipments[0]=${shipmentId}`, {
-                headers,
-                signal: pdfController.signal
-            });
-            clearTimeout(pdfTimeoutId);
-        } catch (pdfErr: any) {
-            clearTimeout(pdfTimeoutId);
-            console.error("PDF fetch timeout or error:", pdfErr);
-        }
-
-        let pdfBase64 = null;
-        if (pdfRes && pdfRes.ok) {
-            const arrayBuffer = await pdfRes.arrayBuffer();
-            pdfBase64 = `data:application/pdf;base64,${Buffer.from(arrayBuffer).toString('base64')}`;
-        } else if (pdfRes) {
-            console.error("Kargo Entegratör PDF API Error:", pdfRes.status, await pdfRes.text());
-        }
-
         return {
             success: true,
             barcode: barcode || String(shipmentId),
             shipmentId: shipmentId,
-            labelPdfBase64: pdfBase64
+            labelPdfBase64: `kargoentegrator:${shipmentId}`
         };
     } catch (e: any) {
         console.error("Kargo Entegratör Network Error:", e);

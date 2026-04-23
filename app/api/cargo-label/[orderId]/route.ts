@@ -53,6 +53,34 @@ export async function GET(
     if (!zpl.startsWith('^XA')) {
         if (order.cargoLabelPdf && order.cargoLabelPdf.startsWith('http')) {
             return NextResponse.redirect(order.cargoLabelPdf);
+        } else if (order.cargoLabelPdf && order.cargoLabelPdf.startsWith('kargoentegrator:')) {
+            const shipmentId = order.cargoLabelPdf.replace('kargoentegrator:', '');
+            const API_KEY = process.env.KARGO_ENTEGRATOR_API_KEY || "OylOoz2vKllZtByiBAbl65NpdsnaNPVlpVTRzgNte8e42427";
+            const BASE_URL = "https://app.kargoentegrator.com/api";
+            
+            try {
+                const pdfRes = await fetch(`${BASE_URL}/print-pdf?shipments[0]=${shipmentId}`, {
+                    headers: {
+                        "Authorization": `Bearer ${API_KEY}`,
+                        "Accept": "application/json"
+                    }
+                });
+                
+                if (!pdfRes.ok) throw new Error("PDF alınamadı");
+                
+                const arrayBuffer = await pdfRes.arrayBuffer();
+                return new NextResponse(arrayBuffer, {
+                    status: 200,
+                    headers: {
+                        "Content-Type": "application/pdf",
+                        "Content-Disposition": `inline; filename="kargo_fisi_${order.cargoTrackingNumber || orderId}.pdf"`,
+                        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+                        "Pragma": "no-cache"
+                    }
+                });
+            } catch (e: any) {
+                return new NextResponse("Kargo Entegratör'den PDF çekilirken hata oluştu: " + e.message, { status: 500 });
+            }
         } else if (order.cargoLabelPdf && order.cargoLabelPdf.startsWith('data:application/pdf;base64,')) {
             const base64Data = order.cargoLabelPdf.replace('data:application/pdf;base64,', '');
             const pdfBuffer = Buffer.from(base64Data, 'base64');
