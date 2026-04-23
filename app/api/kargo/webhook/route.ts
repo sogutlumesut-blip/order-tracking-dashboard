@@ -36,7 +36,13 @@ export async function POST(req: Request) {
         if (order) {
             const updateData: any = {}
             if (trackingNumber) updateData.cargoTrackingNumber = trackingNumber
-            if (barcode) updateData.cargoBarcode = barcode
+            
+            // Do not overwrite a valid ZPL barcode with a simple numeric ID
+            if (barcode) {
+                if (!order.cargoBarcode || !order.cargoBarcode.startsWith('^XA')) {
+                    updateData.cargoBarcode = barcode
+                }
+            }
 
             // AUTOMATION: If Kargo sends a signal, it means it's shipped/processed
             // Update status to 'shipped' if not already completed/cancelled

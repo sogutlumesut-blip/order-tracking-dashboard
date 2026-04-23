@@ -123,7 +123,9 @@ export async function POST(req: Request) {
 
                 let updateData: any = {};
                 if (cargoBarcodeMeta && cargoBarcodeMeta.value && cargoBarcodeMeta.value !== existingOrder.cargoBarcode) {
-                    updateData.cargoBarcode = cargoBarcodeMeta.value;
+                    if (!existingOrder.cargoBarcode || !existingOrder.cargoBarcode.startsWith('^XA')) {
+                        updateData.cargoBarcode = cargoBarcodeMeta.value;
+                    }
                 }
                 if (cargoTrackingMeta && cargoTrackingMeta.value && cargoTrackingMeta.value !== existingOrder.cargoTrackingNumber) {
                     updateData.cargoTrackingNumber = cargoTrackingMeta.value;

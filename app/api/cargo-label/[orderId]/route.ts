@@ -29,6 +29,7 @@ export async function GET(
             note: true,
             cargoBarcode: true,
             cargoTrackingNumber: true,
+            cargoLabelPdf: true,
             barcode: true,
             items: {
                 select: {
@@ -43,11 +44,19 @@ export async function GET(
         }
     });
 
-    if (!order || !order.cargoBarcode) {
+    if (!order || (!order.cargoBarcode && !order.cargoLabelPdf)) {
         return new NextResponse("Barkod verisi bulunamadı", { status: 404 });
     }
 
-    let zpl = order.cargoBarcode;
+    let zpl = order.cargoBarcode || "";
+
+    if (!zpl.startsWith('^XA')) {
+        if (order.cargoLabelPdf && order.cargoLabelPdf.startsWith('http')) {
+            return NextResponse.redirect(order.cargoLabelPdf);
+        } else {
+            return new NextResponse("Geçersiz Barkod Formatı veya ZPL bulunamadı.", { status: 400 });
+        }
+    }
 
     // --- SECOND PAGE: INTERNAL RECEIPT (MANUAL BARCODE REPLACEMENT) ---
     // Helper to remove TR chars since standard ZPL fonts (A0N) might scramble them if CI28 isn't perfectly supported by the printer's specific firmware
