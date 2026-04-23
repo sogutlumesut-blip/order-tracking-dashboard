@@ -62,11 +62,25 @@ export async function createKargoEntegratorShipment(order: any, items: any[]) {
     };
 
     try {
-        const res = await fetch(`${BASE_URL}/shipments`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify(payload)
-        });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 seconds
+        
+        let res;
+        try {
+            res = await fetch(`${BASE_URL}/shipments`, {
+                method: "POST",
+                headers,
+                body: JSON.stringify(payload),
+                signal: controller.signal
+            });
+        } catch (fetchErr: any) {
+            clearTimeout(timeoutId);
+            if (fetchErr.name === 'AbortError') {
+                return { error: "Kargo Entegratör servisi (Gönderi Oluşturma) yanıt vermedi. Lütfen tekrar deneyin." };
+            }
+            throw fetchErr;
+        }
+        clearTimeout(timeoutId);
 
         if (!res.ok) {
             const errText = await res.text();
@@ -88,18 +102,27 @@ export async function createKargoEntegratorShipment(order: any, items: any[]) {
         }
 
         // Fetch PDF
-        const pdfRes = await fetch(`${BASE_URL}/print-pdf?shipments[0]=${shipmentId}`, {
-            headers
-        });
+        const pdfController = new AbortController();
+        const pdfTimeoutId = setTimeout(() => pdfController.abort(), 15000); // 15 seconds
+        
+        let pdfRes;
+        try {
+            pdfRes = await fetch(`${BASE_URL}/print-pdf?shipments[0]=${shipmentId}`, {
+                headers,
+                signal: pdfController.signal
+            });
+            clearTimeout(pdfTimeoutId);
+        } catch (pdfErr: any) {
+            clearTimeout(pdfTimeoutId);
+            console.error("PDF fetch timeout or error:", pdfErr);
+        }
 
         let pdfBase64 = null;
-        if (pdfRes.ok) {
+        if (pdfRes && pdfRes.ok) {
             const arrayBuffer = await pdfRes.arrayBuffer();
             pdfBase64 = `data:application/pdf;base64,${Buffer.from(arrayBuffer).toString('base64')}`;
-        } else {
+        } else if (pdfRes) {
             console.error("Kargo Entegratör PDF API Error:", pdfRes.status, await pdfRes.text());
-            // If we fail to get the PDF right away, we still return the barcode, but PDF will be missing
-            // This is a rare edge case, usually it succeeds
         }
 
         return {
