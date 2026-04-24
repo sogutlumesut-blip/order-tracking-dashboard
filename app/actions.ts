@@ -156,7 +156,11 @@ export async function getOrders(timestamp?: number) {
             sku: item.sku || null,
             url: item.url || null,
             material: item.material || null,
-            dimensions: item.dimensions || null
+            dimensions: item.dimensions || null,
+            // Replace massive Base64 images with a dynamic API URL to prevent 10MB+ JSON payloads
+            image_src: (item.image_src && item.image_src.startsWith('data:image') && item.image_src.length > 500) 
+                ? `/api/order-image/${item.id}` 
+                : item.image_src
         })),
         commentCount: order._count?.comments || 0,
         labels: (() => {

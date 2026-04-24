@@ -5,7 +5,7 @@ import { OrderCard } from "./order-card"
 import { useState, useEffect, useRef, useMemo } from "react"
 import { ChevronDown, ChevronUp, ChevronRight, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck, ScanBarcode, Clock, CheckCircle, Lock, Unlock } from "lucide-react"
 import { Html5QrcodeScanner } from "html5-qrcode"
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDraggable, useDroppable, closestCorners, defaultDropAnimationSideEffects } from "@dnd-kit/core"
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, TouchSensor, MouseSensor, useSensor, useSensors, useDraggable, useDroppable, closestCorners, defaultDropAnimationSideEffects } from "@dnd-kit/core"
 import { arrayMove, SortableContext, horizontalListSortingStrategy, useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { BarcodeScanner } from "./barcode-scanner"
@@ -357,8 +357,14 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     const isDragDisabled = isMobile || isDragLocked
 
     const sensors = useSensors(
-        useSensor(PointerSensor, {
+        useSensor(MouseSensor, {
             activationConstraint: { distance: 8 },
+        }),
+        useSensor(TouchSensor, {
+            activationConstraint: {
+                delay: 200, // Wait 200ms before dragging starts
+                tolerance: 5, // Allow 5px of movement before canceling drag
+            },
         })
     )
 
@@ -988,7 +994,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shrink-0">
                             OMS
                         </div>
-                        <h1 className="font-bold text-sm md:text-lg text-slate-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-slate-400 font-normal">v3.6.6.67 - STABLE_SORT</span></h1>
+                        <h1 className="font-bold text-sm md:text-lg text-slate-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-slate-400 font-normal">v3.6.6.68 - SCROLL_FAST</span></h1>
                         {/* Status Check Indicator */}
                         <div className="flex items-center gap-2">
                             {isValidating ? (
@@ -997,7 +1003,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 </span>
                             ) : (
                                 <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">
-                                    <CheckCircle className="w-3 h-3" /> v3.6.6.67 - STABLE_SORT
+                                    <CheckCircle className="w-3 h-3" /> v3.6.6.68 - SCROLL_FAST
                                 </span>
                             )}
                         </div>
@@ -1480,9 +1486,8 @@ function DraggableItem({ id, children, disabled }: { id: number; children: React
     const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: id, disabled })
     const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined
 
-    // Only apply 'touch-none' if dragging is enabled
-    // If disabled, allow default touch actions (including scroll)
-    const className = disabled ? "touch-manipulation" : "touch-none"
+    // Use 'touch-manipulation' to allow native vertical scrolling while DND kit handles drag delay
+    const className = "touch-manipulation"
 
     return (
         <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={className}>
