@@ -1,12 +1,30 @@
+'use client';
+
 import Link from "next/link";
+import { useState } from "react";
+import { ChevronUp, ChevronDown } from "lucide-react";
 
 export function Footer() {
+    const [isOpen, setIsOpen] = useState(false);
+
     return (
-        <footer className="py-4 border-t bg-white dark:bg-[#020617] transition-colors duration-300">
-            <div className="max-w-7xl mx-auto px-4 flex flex-col items-center gap-4 text-[10px] md:text-xs text-slate-500">
-                <div className="flex flex-col md:flex-row justify-between w-full items-center gap-4">
-                    <p>&copy; {new Date().getFullYear()} Sipariş Takip Sistemi. Tüm hakları saklıdır.</p>
-                    <div className="flex gap-4">
+        <footer className="py-2 border-t bg-white dark:bg-[#020617] transition-colors duration-300">
+            <div className="max-w-7xl mx-auto px-4 flex flex-col items-center gap-2 text-[10px] md:text-xs text-slate-500">
+                <div className="flex w-full items-center justify-between md:justify-center">
+                    <p className="hidden md:block">&copy; {new Date().getFullYear()} Sipariş Takip Sistemi. Tüm hakları saklıdır.</p>
+                    
+                    <button 
+                        onClick={() => setIsOpen(!isOpen)} 
+                        className="md:hidden flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-slate-600 px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-md mx-auto"
+                    >
+                        Yasal Bilgiler {isOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
+                    </button>
+                </div>
+
+                {/* Desktop always shows, Mobile toggles */}
+                <div className={`${isOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row justify-between w-full items-center gap-4 mt-2 md:mt-0`}>
+                    <p className="md:hidden text-center w-full">&copy; {new Date().getFullYear()} Sipariş Takip Sistemi. Tüm hakları saklıdır.</p>
+                    <div className="flex flex-wrap justify-center gap-4">
                         <Link href="/privacy-policy" className="hover:text-slate-900 dark:hover:text-white transition-colors">
                             Privacy Policy
                         </Link>
@@ -18,7 +36,8 @@ export function Footer() {
                         </Link>
                     </div>
                 </div>
-                <div className="text-center opacity-60 max-w-2xl border-t pt-4 w-full">
+
+                <div className={`${isOpen ? 'block' : 'hidden'} md:block text-center opacity-60 max-w-2xl border-t pt-2 w-full mt-2 md:mt-0`}>
                     The term 'Etsy' is a trademark of Etsy, Inc. This application uses the Etsy API but is not endorsed or certified by Etsy, Inc.
                 </div>
             </div>
