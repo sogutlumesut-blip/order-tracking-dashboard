@@ -106,7 +106,37 @@ export async function getOrders(timestamp?: number) {
         where,
         orderBy: { date: "desc" },
         take: 500, // Limit increased to 500 to accommodate large syncs from multiple sources
-        include: {
+        select: {
+            id: true,
+            customer: true,
+            phone: true,
+            email: true,
+            address: true,
+            city: true,
+            total: true,
+            status: true,
+            date: true,
+            note: true,
+            labels: true,
+            trackingNumber: true,
+            printNotes: true,
+            paymentMethod: true,
+            barcode: true,
+            assignedTo: true,
+            cargoBarcode: true,
+            cargoTrackingNumber: true,
+            // cargoLabelPdf is INTENTIONALLY EXCLUDED to prevent massive 100MB+ JSON payloads!
+            customDesi: true,
+            customWeight: true,
+            taxNumber: true,
+            taxOffice: true,
+            invoiceStatus: true,
+            invoiceUrl: true,
+            createdAt: true,
+            updatedAt: true,
+            hasNotification: true,
+            externalId: true,
+            source: true,
             items: true,
             _count: {
                 select: { comments: true }
