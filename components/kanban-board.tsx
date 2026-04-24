@@ -402,13 +402,8 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             ordersInColumn = ordersInColumn.filter(o => o.items.some(i => i.material === filter))
         }
 
-        // Sort by Notification/Recent Updates -> ID (Descending)
+        // Sort strictly by the original order date (newest first) to prevent UI jumping when a notification is cleared
         return ordersInColumn.sort((a, b) => {
-            // 1. Orders with active notifications (new messages/updates) go first
-            if (a.hasNotification && !b.hasNotification) return -1;
-            if (!a.hasNotification && b.hasNotification) return 1;
-
-            // 2. Sort by the original order date (newest first)
             const aDate = new Date(a.date).getTime();
             const bDate = new Date(b.date).getTime();
 
@@ -1013,7 +1008,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shrink-0">
                             OMS
                         </div>
-                        <h1 className="font-bold text-sm md:text-lg text-slate-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-slate-400 font-normal">v3.6.6.66 - DHL_FAST</span></h1>
+                        <h1 className="font-bold text-sm md:text-lg text-slate-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-slate-400 font-normal">v3.6.6.67 - STABLE_SORT</span></h1>
                         {/* Status Check Indicator */}
                         <div className="flex items-center gap-2">
                             {isValidating ? (
@@ -1022,7 +1017,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 </span>
                             ) : (
                                 <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-900/30 px-1 rounded">
-                                    <CheckCircle className="w-3 h-3" /> v3.6.6.66 - DHL_FAST
+                                    <CheckCircle className="w-3 h-3" /> v3.6.6.67 - STABLE_SORT
                                 </span>
                             )}
                         </div>
