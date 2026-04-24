@@ -517,29 +517,8 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     const interactionLocks = useRef<Record<string, number>>({})
 
     const handlePrintCargoLabel = (order: Order) => {
-        if (order.cargoLabelPdf) {
-            const pdfData = order.cargoLabelPdf as string;
-            let url = '';
-
-            // Check if it's already a blob URL or external URL
-            if (pdfData.startsWith('http') || pdfData.startsWith('blob:')) {
-                url = pdfData;
-            } else {
-                // Assume Base64
-                try {
-                    const byteCharacters = atob(pdfData);
-                    const byteNumbers = new Array(byteCharacters.length);
-                    for (let i = 0; i < byteCharacters.length; i++) {
-                        byteNumbers[i] = byteCharacters.charCodeAt(i);
-                    }
-                    const byteArray = new Uint8Array(byteNumbers);
-                    const blob = new Blob([byteArray], { type: 'application/pdf' });
-                    url = URL.createObjectURL(blob);
-                } catch (e) {
-                    console.error("PDF Decode Error", e)
-                    url = pdfData;
-                }
-            }
+        if (order.cargoBarcode || order.cargoLabelPdf) {
+            const url = `/api/cargo-label/${order.id}`;
 
             // DIRECT PRINT IMPLEMENTATION (Mobile Friendly)
             // 1. Try invisible Iframe (Best for "Direct" feel)
@@ -557,7 +536,11 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     fallbackPrint(url);
                 } finally {
                     // Cleanup after a delay
-                    setTimeout(() => document.body.removeChild(iframe), 60000);
+                    setTimeout(() => {
+                        if (document.body.contains(iframe)) {
+                            document.body.removeChild(iframe);
+                        }
+                    }, 60000);
                 }
             };
 
@@ -579,10 +562,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             // Safety timeout for iframe
             setTimeout(() => {
                 if (document.body.contains(iframe)) {
-                    // If it's been 3 seconds and likely nothing happened (mobile often ignores iframe print)
-                    // Trigger fallback strictly on mobile, or just let it be.
-                    // A better UX: trigger fallback if user interaction starts again?
-                    // For now, let's trust the onload.
+                    // Just wait for onload to handle cleanup
                 }
             }, 3000)
 
@@ -668,13 +648,13 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 }
 
                 // AUTO-PRINT PDF LOGIC
-                if (targetOrder.cargoLabelPdf) {
+                if (targetOrder.cargoBarcode || targetOrder.cargoLabelPdf) {
                     handlePrintCargoLabel(targetOrder);
                     successMessage += " (Etiket Açılıyor...)";
                 }
 
                 if (targetOrder.status === nextStatus) {
-                    if (!targetOrder.cargoLabelPdf) toast.info(`Sipariş #${targetOrder.id} zaten bu aşamada.`)
+                    if (!targetOrder.cargoBarcode && !targetOrder.cargoLabelPdf) toast.info(`Sipariş #${targetOrder.id} zaten bu aşamada.`)
                     return
                 }
             }
