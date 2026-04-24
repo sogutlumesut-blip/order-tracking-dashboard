@@ -1,10 +1,8 @@
 import { db } from "./lib/prisma";
 
 async function run() {
-    const settings = await db.systemSetting.findMany({
-        where: { key: { startsWith: 'dhl_' } }
-    });
-    console.log("DHL Settings in DB:", settings);
+    const settings = await db.systemSettings.findMany();
+    settings.forEach(s => console.log(`${s.key}: ${s.value}`));
 }
 
 run().catch(console.error);

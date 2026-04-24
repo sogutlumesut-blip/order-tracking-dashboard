@@ -27,7 +27,7 @@ export async function testMng(il: string, ilce: string, adres: string, orderId: 
       <pChIlce><![CDATA[${ilce}]]></pChIlce>
       <pChAdres><![CDATA[${adres}]]></pChAdres>
       <pChSemt></pChSemt>
-      <pChMahalle></pChMahalle>
+      <pChMahalle>MERKEZ MAH.</pChMahalle>
       <pChMeydanBulvar></pChMeydanBulvar>
       <pChCadde></pChCadde>
       <pChSokak></pChSokak>
@@ -79,4 +79,4 @@ export async function testMng(il: string, ilce: string, adres: string, orderId: 
     console.log("Barkod Res:", await res2.text());
 }
 
-testMng("İSTANBUL", "KADIKÖY", "Caddebostan mahallesi kantarci Riza sokak no:11", 999996).catch(console.error);
+testMng("DIYARBAKIR", "BAGLAR", "Ozdemir gumusler küme evleri no", 999994).catch(console.error);

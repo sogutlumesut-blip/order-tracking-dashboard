@@ -52,10 +52,8 @@ export async function POST(req: Request) {
             }
 
             // Generate print URL (Standardizing on what we think works or will work)
-            // If the user confirms a different URL, we will update this logic.
-            // For now, let's stick to the pattern we are trying to fix:
             if (shipmentId) {
-                updateData.cargoLabelPdf = `https://app.kargoentegrator.com/print-pdf?shipments[0]=${shipmentId}`
+                updateData.cargoLabelPdf = `kargoentegrator:${shipmentId}`
             }
 
             await db.order.update({
