@@ -497,7 +497,8 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                             // BROWSER POPUP BLOCKER FIX: Open tab synchronously before async operations
                                             const newTab = window.open('about:blank', '_blank');
                                             if (newTab) {
-                                                newTab.document.write("<html><head><title>DHL Yükleniyor...</title></head><body style='font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#f8fafc;color:#334155;'><h2>Kargo etiketi oluşturuluyor, lütfen bekleyin...</h2></body></html>");
+                                                newTab.document.write("<html><head><title>DHL Yükleniyor...</title></head><body style='font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#f8fafc;color:#334155;'><div style='width:40px;height:40px;border:4px solid #cbd5e1;border-top-color:#3b82f6;border-radius:50%;animation:spin 1s linear infinite;'></div><h2 style='margin-top:20px'>Kargo etiketi oluşturuluyor, lütfen bekleyin...</h2><style>@keyframes spin{to{transform:rotate(360deg)}}</style></body></html>");
+                                                newTab.document.close();
                                             }
 
                                             const toastId = toast.loading("DHL oluşturuluyor...");
