@@ -65,48 +65,47 @@ export async function createKargoEntegratorShipment(order: any, items: any[]) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 seconds
         
-        let res;
         try {
-            res = await fetch(`${BASE_URL}/shipments`, {
+            const res = await fetch(`${BASE_URL}/shipments`, {
                 method: "POST",
                 headers,
                 body: JSON.stringify(payload),
                 signal: controller.signal
             });
+
+            if (!res.ok) {
+                const errText = await res.text();
+                console.error("Kargo Entegratör API Error:", res.status, errText);
+                try {
+                    const parsed = JSON.parse(errText);
+                    return { error: parsed.message || JSON.stringify(parsed.errors) || "Bilinmeyen API Hatası" };
+                } catch {
+                    return { error: `API Hatası (${res.status}): ${errText}` };
+                }
+            }
+
+            const data = await res.json();
+            const shipmentId = data?.data?.id;
+            const barcode = data?.data?.barcode;
+
+            if (!shipmentId) {
+                return { error: "API gönderiyi oluşturdu ancak ID dönemedi." };
+            }
+
+            return {
+                success: true,
+                barcode: barcode || String(shipmentId),
+                shipmentId: shipmentId,
+                labelPdfBase64: `kargoentegrator:${shipmentId}`
+            };
         } catch (fetchErr: any) {
-            clearTimeout(timeoutId);
             if (fetchErr.name === 'AbortError') {
                 return { error: "Kargo Entegratör servisi (Gönderi Oluşturma) yanıt vermedi. Lütfen tekrar deneyin." };
             }
             throw fetchErr;
+        } finally {
+            clearTimeout(timeoutId);
         }
-        clearTimeout(timeoutId);
-
-        if (!res.ok) {
-            const errText = await res.text();
-            console.error("Kargo Entegratör API Error:", res.status, errText);
-            try {
-                const parsed = JSON.parse(errText);
-                return { error: parsed.message || JSON.stringify(parsed.errors) || "Bilinmeyen API Hatası" };
-            } catch {
-                return { error: `API Hatası (${res.status}): ${errText}` };
-            }
-        }
-
-        const data = await res.json();
-        const shipmentId = data?.data?.id;
-        const barcode = data?.data?.barcode;
-
-        if (!shipmentId) {
-            return { error: "API gönderiyi oluşturdu ancak ID dönemedi." };
-        }
-
-        return {
-            success: true,
-            barcode: barcode || String(shipmentId),
-            shipmentId: shipmentId,
-            labelPdfBase64: `kargoentegrator:${shipmentId}`
-        };
     } catch (e: any) {
         console.error("Kargo Entegratör Network Error:", e);
         return { error: `Bağlantı Hatası: ${e.message}` };
