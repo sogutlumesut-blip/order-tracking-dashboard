@@ -509,8 +509,8 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                 }
                                                 const res = await createDHLShipmentAction(formData.id);
                                                 if (res && res.error) {
+                                                    try { if (newTab) newTab.close(); } catch(e) {}
                                                     toast.error(res.error, { id: toastId });
-                                                    if (newTab) newTab.close();
                                                     return;
                                                 }
 
@@ -519,11 +519,15 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                                                 if (updatedOrder && updatedOrder.cargoBarcode) {
                                                     const pdfUrl = `/api/cargo-label/${formData.id}`;
-                                                    if (newTab) {
-                                                        newTab.location.href = pdfUrl;
-                                                    } else {
-                                                        // Fallback if the popup was completely blocked
-                                                        window.location.href = pdfUrl; 
+                                                    try {
+                                                        if (newTab) {
+                                                            newTab.location.href = pdfUrl;
+                                                        } else {
+                                                            window.location.href = pdfUrl; 
+                                                        }
+                                                    } catch (e) {
+                                                        // Fallback if Safari blocks the location change
+                                                        window.location.href = pdfUrl;
                                                     }
 
                                                     // Reload to show the new data in the panel
@@ -540,12 +544,12 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                     toast.success("DHL Etiketi başarıyla oluşturuldu ve yazdırılıyor!");
                                                 } else {
                                                     router.refresh();
+                                                    try { if (newTab) newTab.close(); } catch(e) {}
                                                     toast.dismiss(toastId);
-                                                    if (newTab) newTab.close();
                                                     toast.error("Kargo barkodu veritabanına kaydedilemedi veya boş döndü.");
                                                 }
                                             } catch (err: any) {
-                                                if (newTab) newTab.close();
+                                                try { if (newTab) newTab.close(); } catch(e) {}
                                                 toast.error(err.message || "Bilinmeyen bir hata oluştu", { id: toastId });
                                             }
                                         }}
