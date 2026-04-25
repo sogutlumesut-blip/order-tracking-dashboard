@@ -3,9 +3,10 @@ import { db } from "@/lib/prisma";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { itemId: string } }
+  props: { params: Promise<{ itemId: string }> }
 ) {
   try {
+    const params = await props.params;
     const itemId = parseInt(params.itemId, 10);
     if (isNaN(itemId)) {
       return new NextResponse("Invalid ID", { status: 400 });
