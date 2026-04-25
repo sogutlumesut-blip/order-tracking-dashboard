@@ -175,17 +175,22 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                         </span>
                         {/* Payment & Source Badges */}
                         <div className="flex items-center gap-1">
-                            {order.source === 'PrintMarkt' && order.paymentMethod !== 'ON_ACCOUNT' && (
+                            {order.source === 'PrintMarkt' && (
                                 <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border text-blue-700 bg-blue-100 border-blue-200 shadow-sm">
                                     PRINTMARKT
                                 </span>
                             )}
                             {order.paymentMethod && (
-                                <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border shadow-sm ${order.paymentMethod.toLowerCase().includes('havale') || order.paymentMethod.toLowerCase().includes('eft')
-                                    ? 'text-purple-700 bg-purple-100 border-purple-200'
-                                    : 'text-slate-500 bg-slate-100 border-slate-200'
-                                    }`}>
-                                    {order.paymentMethod === 'ON_ACCOUNT' ? 'PRINTMARKT' : order.paymentMethod}
+                                <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border shadow-sm ${
+                                    order.paymentMethod.toLowerCase().includes('havale') || order.paymentMethod.toLowerCase().includes('eft')
+                                        ? 'text-purple-700 bg-purple-100 border-purple-200'
+                                        : (order.paymentMethod.toUpperCase() === 'ON_ACCOUNT' || order.paymentMethod.toUpperCase() === 'PRINTMARKT' || order.paymentMethod.toUpperCase() === 'CARI')
+                                            ? 'text-emerald-700 bg-emerald-100 border-emerald-200'
+                                            : 'text-slate-600 bg-slate-100 border-slate-200'
+                                }`}>
+                                    {(order.paymentMethod.toUpperCase() === 'ON_ACCOUNT' || order.paymentMethod.toUpperCase() === 'PRINTMARKT') 
+                                        ? 'CARI' 
+                                        : order.paymentMethod.replace(/_/g, ' ')}
                                 </span>
                             )}
                         </div>

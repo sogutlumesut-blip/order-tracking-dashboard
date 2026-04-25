@@ -2191,7 +2191,7 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                 const mappedStatus = (status.includes("ship") || status === "completed") ? "shipped" : "pending";
 
                 let paymentMethod = pmOrder.payment_method || pmOrder.gateway || "API";
-                if (paymentMethod.toUpperCase() === 'ON_ACCOUNT') paymentMethod = 'PrintMarkt';
+                if (paymentMethod.toUpperCase() === 'ON_ACCOUNT') paymentMethod = 'CARI';
 
                 const customerNote = pmOrder.note || pmOrder.customer_note || pmOrder.order_note || "";
                 const trackingPdf = pmOrder.custom_shipping_label_url || pmOrder.production_file_url || null;
