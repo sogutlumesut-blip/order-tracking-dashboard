@@ -494,6 +494,12 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                                     <button
                                         onClick={async () => {
+                                            // BROWSER POPUP BLOCKER FIX: Open tab synchronously before async operations
+                                            const newTab = window.open('about:blank', '_blank');
+                                            if (newTab) {
+                                                newTab.document.write("<html><head><title>DHL Yükleniyor...</title></head><body style='font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#f8fafc;color:#334155;'><h2>Kargo etiketi oluşturuluyor, lütfen bekleyin...</h2></body></html>");
+                                            }
+
                                             const toastId = toast.loading("DHL oluşturuluyor...");
                                             try {
                                                 if (isModified) {
@@ -503,6 +509,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                 const res = await createDHLShipmentAction(formData.id);
                                                 if (res && res.error) {
                                                     toast.error(res.error, { id: toastId });
+                                                    if (newTab) newTab.close();
                                                     return;
                                                 }
 
@@ -511,7 +518,12 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                                                 if (updatedOrder && updatedOrder.cargoBarcode) {
                                                     const pdfUrl = `/api/cargo-label/${formData.id}`;
-                                                    window.open(pdfUrl, '_blank');
+                                                    if (newTab) {
+                                                        newTab.location.href = pdfUrl;
+                                                    } else {
+                                                        // Fallback if the popup was completely blocked
+                                                        window.location.href = pdfUrl; 
+                                                    }
 
                                                     // Reload to show the new data in the panel
                                                     const updatedState = {
@@ -528,9 +540,11 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                 } else {
                                                     router.refresh();
                                                     toast.dismiss(toastId);
+                                                    if (newTab) newTab.close();
                                                     toast.error("Kargo barkodu veritabanına kaydedilemedi veya boş döndü.");
                                                 }
                                             } catch (err: any) {
+                                                if (newTab) newTab.close();
                                                 toast.error(err.message || "Bilinmeyen bir hata oluştu", { id: toastId });
                                             }
                                         }}
