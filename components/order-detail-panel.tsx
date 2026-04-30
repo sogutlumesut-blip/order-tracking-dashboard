@@ -501,6 +501,12 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                 newTab.document.close();
                                             }
 
+                                            if (!formData.city || formData.city.trim() === "") {
+                                                try { if (newTab) newTab.close(); } catch(e) {}
+                                                toast.error("Lütfen 'DHL Çıkar' butonuna basmadan önce İlçe / İl alanını doldurunuz.");
+                                                return;
+                                            }
+
                                             const toastId = toast.loading("DHL oluşturuluyor...");
                                             try {
                                                 if (isModified) {
