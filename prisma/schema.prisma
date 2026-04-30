@@ -39,17 +39,17 @@ model Order {
   cargoBarcode        String?
   cargoTrackingNumber String?
   cargoLabelPdf       String?
-  customDesi          Float?
-  customWeight        Float?
-  taxNumber           String?
-  taxOffice           String?
-  invoiceStatus       String?         @default("draft")
-  invoiceUrl          String?
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
   hasNotification     Boolean         @default(false)
   externalId          String?
   source              String?
+  invoiceStatus       String?         @default("draft")
+  invoiceUrl          String?
+  taxNumber           String?
+  taxOffice           String?
+  customDesi          Float?
+  customWeight        Float?
   comments            Comment[]
   activities          OrderActivity[]
   items               OrderItem[]
@@ -88,11 +88,11 @@ model OrderItem {
 model Comment {
   id          String   @id @default(uuid())
   message     String
-  type        String   @default("message") // "note" or "message"
   timestamp   DateTime @default(now())
   authorId    String
   orderId     Int
   attachments String?
+  type        String   @default("message")
   author      User     @relation(fields: [authorId], references: [id])
   order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 }

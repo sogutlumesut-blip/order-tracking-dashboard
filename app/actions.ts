@@ -889,7 +889,7 @@ export async function simulateWooCommerceOrder() {
 
     // Get appropriate status ('Gelen Siparişler' or first available)
     const statuses = await db.statusColumn.findMany({ orderBy: { order: 'asc' } })
-    let targetStatus = "pending"
+    let targetStatus = "pending_woo"
 
     if (statuses.length > 0) {
         // Try to find a status causing 'Incoming' logic
@@ -953,7 +953,8 @@ export async function getStatuses() {
     if (statuses.length === 0) {
         console.log("Auto-seeding default statuses...")
         const defaults = [
-            { id: "pending", title: "Bekliyor", color: "#64748b", order: 0 },
+            { id: "pending_woo", title: "Bekliyor (DKM)", color: "#64748b", order: 0 },
+            { id: "pending_pm", title: "Bekliyor (PrintMarkt)", color: "#64748b", order: 1 },
             { id: "processing", title: "Hazırlanıyor", color: "#3b82f6", order: 1 },
             { id: "shipped", title: "Kargolandı", color: "#f97316", order: 2 },
             { id: "completed", title: "Tamamlandı", color: "#22c55e", order: 3 },
@@ -990,7 +991,7 @@ export async function createStatus(formData: FormData) {
 }
 
 export async function deleteStatus(id: string) {
-    if (["pending", "completed"].includes(id)) {
+    if (["pending_woo", "pending_pm", "completed"].includes(id)) {
         // return { error: "Temel durumlar silinemez" }
         // Actually allowing dynamic is fine, but deleting 'pending' might break things if simulating. Safe to allow for now, user knows best.
     }
@@ -1414,7 +1415,7 @@ export async function syncWooCommerceOrders(force: boolean = false) {
 
         // PREFETCH STATUSES to find correct "Incoming" column
         const statuses = await db.statusColumn.findMany({ orderBy: { order: 'asc' } })
-        let defaultStatus = statuses.length > 0 ? statuses[0].id : "pending"
+        let defaultStatus = statuses.length > 0 ? statuses[0].id : "pending_woo"
 
         // Try to find a smarter default
         const incoming = statuses.find(s =>
@@ -1823,7 +1824,7 @@ export async function createManualOrder(orderData: any) {
                 city,
                 note,
                 total: "0.00 ₺", // Default or user provided? For now 0 or hidden
-                status: status || "pending",
+                status: status || "pending_woo",
                 barcode,
                 labels: JSON.stringify(['Manuel']),
                 hasNotification: true,
@@ -2193,7 +2194,7 @@ export async function syncPrintMarktOrders(force: boolean = false) {
 
                 // Map general fields
                 const status = (pmOrder.status || pmOrder.order_status || "pending").toLowerCase();
-                const mappedStatus = (status.includes("ship") || status === "completed") ? "shipped" : "pending";
+                const mappedStatus = (status.includes("ship") || status === "completed") ? "shipped" : "pending_pm";
 
                 let paymentMethod = pmOrder.payment_method || pmOrder.gateway || "API";
                 if (paymentMethod.toUpperCase() === 'ON_ACCOUNT') paymentMethod = 'CARI';

@@ -48,7 +48,8 @@ async function seedStatuses() {
     "use server"
     try {
         const defaults = [
-            { id: "pending", title: "Bekliyor", color: "#64748b", order: 0 },
+            { id: "pending_woo", title: "Bekliyor (DKM)", color: "#64748b", order: 0 },
+            { id: "pending_pm", title: "Bekliyor (PrintMarkt)", color: "#64748b", order: 1 },
             { id: "processing", title: "Hazırlanıyor", color: "#3b82f6", order: 1 },
             { id: "shipped", title: "Kargolandı", color: "#f97316", order: 2 },
             { id: "completed", title: "Tamamlandı", color: "#22c55e", order: 3 },
@@ -74,7 +75,7 @@ async function resetOrdersToPending() {
     "use server"
     try {
         // Find 'pending' status or create it if missing
-        let pending = await db.statusColumn.findUnique({ where: { id: "pending" } })
+        let pending = await db.statusColumn.findUnique({ where: { id: "pending_woo" } })
         if (!pending) {
             // Fallback: Try to find ANY status
             const first = await db.statusColumn.findFirst()

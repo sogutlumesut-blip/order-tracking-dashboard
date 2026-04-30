@@ -26,8 +26,9 @@ export default async function Dashboard() {
     dbError = "Veritabanı bağlantısı kurulamadı. Lütfen 5-10 dakika sonra tekrar deneyiniz."
     // Provide fallback statuses so UI doesn't crash completely
     statuses = [
-      { id: "pending", title: "Bekliyor", color: "bg-slate-100", order: 0 },
-      { id: "error", title: "Sistem Hatası", color: "bg-red-100", order: 1 }
+      { id: "pending_woo", title: "Bekliyor (DKM)", color: "bg-slate-100", order: 0 },
+      { id: "pending_pm", title: "Bekliyor (PrintMarkt)", color: "bg-slate-100", order: 1 },
+      { id: "error", title: "Sistem Hatası", color: "bg-red-100", order: 2 }
     ]
   }
 

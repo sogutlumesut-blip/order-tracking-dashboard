@@ -30,14 +30,14 @@ export async function POST(req: Request) {
         // Map Status
         // PREFETCH STATUSES to find correct "Incoming" column
         const statuses = await db.statusColumn.findMany({ orderBy: { order: 'asc' } })
-        let defaultStatus = statuses.length > 0 ? statuses[0].id : "pending"
+        let defaultStatus = statuses.length > 0 ? statuses[0].id : "pending_woo"
 
         const incoming = statuses.find(s =>
             s.title.toLowerCase().includes("gelen") ||
             s.title.toLowerCase().includes("yeni") ||
             s.title.toLowerCase().includes("sipariş") ||
             s.id === "wc-pending" ||
-            s.id === "pending"
+            s.id === "pending_woo"
         )
         if (incoming) defaultStatus = incoming.id
 
