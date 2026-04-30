@@ -1399,6 +1399,20 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 setOpenFilterId={setOpenFilterId}
                                 setSelectedOrder={setSelectedOrder}
                                 setIsPanelOpen={setIsPanelOpen}
+                                onSelectAll={() => {
+                                    const colOrderIds = getOrdersByStatus(column.id, column.title).map(o => o.id);
+                                    const allSelected = colOrderIds.every(id => selectedOrders.includes(id));
+                                    if (allSelected) {
+                                        // Deselect all in this column
+                                        setSelectedOrders(prev => prev.filter(id => !colOrderIds.includes(id)));
+                                    } else {
+                                        // Select all in this column
+                                        setSelectedOrders(prev => {
+                                            const newSet = new Set([...prev, ...colOrderIds]);
+                                            return Array.from(newSet);
+                                        });
+                                    }
+                                }}
                             />
                         ))}
                     </SortableContext>
@@ -1524,7 +1538,8 @@ function SortableColumn({
     toggleOrderSelection,
     setSelectedOrder,
     setIsPanelOpen,
-    setOrders
+    setOrders,
+    onSelectAll
 }: any) {
     const {
         attributes,
@@ -1606,6 +1621,13 @@ function SortableColumn({
                         </span>
                     </div>
                     <div className="flex items-center gap-1">
+                        <button
+                            onClick={(e) => { e.stopPropagation(); if (typeof onSelectAll === 'function') onSelectAll(); }}
+                            className="p-1.5 hover:bg-black/5 rounded-md transition-colors text-slate-600"
+                            title="Tümünü Seç"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-check-square w-3.5 h-3.5"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                        </button>
                         <div className="relative">
                             <button
                                 className={`p-1.5 rounded-md transition-all filter-menu-trigger ${columnFilters && columnFilters[column.id] ? 'bg-blue-100 text-blue-600 ring-1 ring-blue-500' : 'hover:bg-black/5 text-slate-500'}`}
@@ -1613,6 +1635,7 @@ function SortableColumn({
                                     e.stopPropagation();
                                     if (typeof toggleFilter === 'function') toggleFilter(column.id);
                                 }}
+                                title="Filtrele"
                             >
                                 <Filter className="w-3.5 h-3.5" strokeWidth={2.5} />
                             </button>
