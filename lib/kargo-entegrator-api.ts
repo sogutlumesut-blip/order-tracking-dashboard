@@ -51,6 +51,9 @@ export async function createKargoEntegratorShipment(order: any, items: any[]) {
         desi: 1,
         platform_id: order.externalId || String(order.id),
         platform_d_id: String(order.id),
+        description: items && items.length > 0 
+            ? items.map((item: any) => `${item.quantity}x ${item.name}`).join(" | ").substring(0, 250)
+            : "",
         note: order.note || "",
         lines: items.map((item: any) => ({
             title: item.name,
