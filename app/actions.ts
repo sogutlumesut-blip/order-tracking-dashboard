@@ -817,7 +817,12 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
             `Kargo başarıyla oluşturuldu. (ID: ${shipmentRes.shipmentId}, Barkod: ${trackingNo})`
         );
 
-        return { success: true, message: "Kargo etiketi başarıyla oluşturuldu!" };
+        return { 
+            success: true, 
+            message: "Kargo etiketi başarıyla oluşturuldu!", 
+            cargoBarcode: trackingNo, 
+            cargoTrackingNumber: trackingNo 
+        };
 
     } catch (e: any) {
         serverLog(`[KARGO_ENTEGRATOR] CRITICAL_ERROR: ${e.message}`);

@@ -51,10 +51,17 @@ export async function GET(
     let zpl = order.cargoBarcode || "";
 
     if (!zpl.startsWith('^XA')) {
-        if (order.cargoLabelPdf && order.cargoLabelPdf.startsWith('http')) {
-            return NextResponse.redirect(order.cargoLabelPdf);
+        let shipmentId = null;
+        if (order.cargoLabelPdf && order.cargoLabelPdf.includes('app.kargoentegrator.com/print-pdf')) {
+            try {
+                const urlObj = new URL(order.cargoLabelPdf);
+                shipmentId = urlObj.searchParams.get('shipments[0]');
+            } catch(e) {}
         } else if (order.cargoLabelPdf && order.cargoLabelPdf.startsWith('kargoentegrator:')) {
-            const shipmentId = order.cargoLabelPdf.replace('kargoentegrator:', '');
+            shipmentId = order.cargoLabelPdf.replace('kargoentegrator:', '');
+        }
+
+        if (shipmentId) {
             const API_KEY = process.env.KARGO_ENTEGRATOR_API_KEY || "OylOoz2vKllZtByiBAbl65NpdsnaNPVlpVTRzgNte8e42427";
             const BASE_URL = "https://app.kargoentegrator.com/api";
             
@@ -62,7 +69,7 @@ export async function GET(
                 const pdfRes = await fetch(`${BASE_URL}/print-pdf?shipments[0]=${shipmentId}`, {
                     headers: {
                         "Authorization": `Bearer ${API_KEY}`,
-                        "Accept": "application/json"
+                        "Accept": "application/pdf"
                     }
                 });
                 
@@ -81,6 +88,8 @@ export async function GET(
             } catch (e: any) {
                 return new NextResponse("Kargo Entegratör'den PDF çekilirken hata oluştu: " + e.message, { status: 500 });
             }
+        } else if (order.cargoLabelPdf && order.cargoLabelPdf.startsWith('http')) {
+            return NextResponse.redirect(order.cargoLabelPdf);
         } else if (order.cargoLabelPdf && order.cargoLabelPdf.startsWith('data:application/pdf;base64,')) {
             const base64Data = order.cargoLabelPdf.replace('data:application/pdf;base64,', '');
             const pdfBuffer = Buffer.from(base64Data, 'base64');

@@ -507,15 +507,33 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                     await updateOrderDetails(formData);
                                                     setIsModified(false);
                                                 }
-                                                const res = await createDHLShipmentAction(formData.id);
+                                                // Use standard fetch instead of Server Action to prevent Next.js connection hanging bugs
+                                                const timeoutPromise = new Promise<{error: string}>((_, reject) => 
+                                                    setTimeout(() => reject(new Error("Kargo Entegratör yanıt vermedi (Zaman Aşımı). Lütfen tekrar deneyin.")), 25000)
+                                                );
+                                                
+                                                const fetchPromise = fetch('/api/dhl-create', {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ orderId: formData.id })
+                                                }).then(r => r.json());
+
+                                                const res = await Promise.race([
+                                                    fetchPromise,
+                                                    timeoutPromise
+                                                ]) as any;
+
                                                 if (res && res.error) {
                                                     try { if (newTab) newTab.close(); } catch(e) {}
                                                     toast.error(res.error, { id: toastId });
                                                     return;
                                                 }
 
-                                                // Fetch the updated order directly, polling is no longer required with MNG!
-                                                const updatedOrder = await fetchOrderForCargo(formData.id);
+                                                // Skip extra DB query to save ~0.5 - 1 second round trip latency!
+                                                const updatedOrder = res.success ? {
+                                                    cargoBarcode: res.cargoBarcode,
+                                                    cargoTrackingNumber: res.cargoTrackingNumber
+                                                } : null;
 
                                                 if (updatedOrder && updatedOrder.cargoBarcode) {
                                                     const pdfUrl = `/api/cargo-label/${formData.id}`;
@@ -580,8 +598,9 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                         <div className="flex gap-2">
                                             <button
                                                 onClick={() => {
-                                                    // For new MNG System (ZPL barcode payload)
-                                                    if (formData.cargoBarcode && !formData.cargoLabelPdf) {
+                                                    // For new MNG System (ZPL barcode payload) or Kargo Entegrator URLs
+                                                    if ((formData.cargoBarcode && !formData.cargoLabelPdf) || 
+                                                        (formData.cargoLabelPdf && (formData.cargoLabelPdf.includes('kargoentegrator') || formData.cargoLabelPdf.startsWith('kargoentegrator:')))) {
                                                         window.open(`/api/cargo-label/${formData.id}?t=${Date.now()}`, '_blank');
                                                         return;
                                                     }
