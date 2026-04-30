@@ -53,7 +53,7 @@ export async function createKargoEntegratorShipment(order: any, items: any[]) {
         platform_d_id: String(order.id),
         description: items && items.length > 0 
             ? items.map((item: any) => {
-                const details = [item.sku, item.dimensions, item.productNote].filter(Boolean).join(" | ");
+                const details = [item.sku, item.material, item.dimensions, item.productNote].filter(Boolean).join(" | ");
                 return `${item.quantity}x ${item.name}${details ? ` (${details})` : ''}`;
               }).join(" \n ").substring(0, 250)
             : "",
