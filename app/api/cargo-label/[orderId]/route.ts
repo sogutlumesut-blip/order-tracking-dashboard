@@ -75,8 +75,7 @@ export async function GET(
                 
                 if (!pdfRes.ok) throw new Error("PDF alınamadı");
                 
-                const arrayBuffer = await pdfRes.arrayBuffer();
-                return new NextResponse(arrayBuffer, {
+                return new NextResponse(pdfRes.body, {
                     status: 200,
                     headers: {
                         "Content-Type": "application/pdf",
