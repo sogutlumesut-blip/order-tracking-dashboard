@@ -239,8 +239,8 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                 </span>
                             )}
                             {order.items && order.items.length > 0 && order.items[0].dimensions && (
-                                <span className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300 font-medium flex items-center gap-1">
-                                    <span>📏 {order.items[0].dimensions}</span>
+                                <span className={order.items[0].dimensions === 'SAMPLE' ? "bg-pink-50 dark:bg-pink-900/30 px-1.5 py-0.5 rounded text-pink-700 dark:text-pink-400 font-bold border border-pink-100 dark:border-pink-800 animate-pulse flex items-center gap-1" : "bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300 font-medium flex items-center gap-1"}>
+                                    <span>{order.items[0].dimensions === 'SAMPLE' ? '✨ SAMPLE' : `📏 ${order.items[0].dimensions}`}</span>
                                     {/* Auto M2 Calculation */}
                                     {(() => {
                                         // Try to parse "100x200" or "100 x 200"

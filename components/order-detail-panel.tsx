@@ -388,8 +388,8 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                         </span>
                                                     )}
                                                     {item.dimensions && (
-                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
-                                                            📏 {item.dimensions}
+                                                        <span className={item.dimensions === 'SAMPLE' ? "bg-pink-50 dark:bg-pink-900/30 px-2 py-0.5 rounded text-pink-700 dark:text-pink-400 font-bold border border-pink-100 dark:border-pink-800 animate-pulse" : "bg-slate-100 dark:bg-slate-700/50 px-2 py-0.5 rounded text-slate-700 dark:text-slate-300 border dark:border-slate-600/50"}>
+                                                            {item.dimensions === 'SAMPLE' ? '✨ SAMPLE' : `📏 ${item.dimensions}`}
                                                         </span>
                                                     )}
                                                     <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">

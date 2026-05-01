@@ -2183,7 +2183,10 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                         dimsStr = `${item.width}x${item.height} ${item.unit || 'cm'}`;
                     }
 
-                    const dimensions = dimsStr ? decodeHtml(String(dimsStr)) : "";
+                    let dimensions = dimsStr ? decodeHtml(String(dimsStr)) : "";
+                    if (dimensions.trim().toLowerCase() === "x in") {
+                        dimensions = "SAMPLE";
+                    }
 
                     console.log(`[PM_DEBUG_MAP] Raw Item: `, JSON.stringify(item));
                     let pmCargoName = "";
