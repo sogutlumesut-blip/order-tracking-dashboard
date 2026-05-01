@@ -2183,10 +2183,10 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                     let pmCargoName = "";
                     if (item.shipping_method) {
                         let sm = item.shipping_method.toLowerCase();
-                        if (sm === 'ups') pmCargoName = "UPS";
-                        else if (sm === 'fedex') pmCargoName = "FedEx";
-                        else if (sm === 'custom_label') pmCargoName = "Özel Etiket";
-                        else if (sm.includes('carrier')) pmCargoName = "Standart Kargo";
+                        if (sm === 'ups') pmCargoName = "usa ups";
+                        else if (sm === 'fedex') pmCargoName = "fedex ship";
+                        else if (sm === 'custom_label') pmCargoName = "özel etiket";
+                        else if (sm.includes('carrier')) pmCargoName = "turkey ship";
                         else pmCargoName = item.shipping_method;
                     }
                     if (pmCargoName && !labels.includes(pmCargoName)) {
