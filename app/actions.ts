@@ -2202,8 +2202,8 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                         else if (sm.includes('carrier') || sm.includes('turkey') || sm.includes('mng') || sm.includes('aras') || sm.includes('yurtiçi') || sm.includes('sendeo')) pmCargoName = "turkey ship";
                         else pmCargoName = String(item.shipping_method);
                     }
-                    if (pmCargoName && !labels.includes(pmCargoName)) {
-                        labels.push(pmCargoName);
+                    if (pmCargoName) {
+                        labels.push(pmCargoName.toUpperCase());
                     }
 
                     items.push({
@@ -2222,6 +2222,14 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                 if (totalAmount === 0 && pmOrder.total_price) {
                     totalAmount = parseFloat(pmOrder.total_price);
                 }
+
+                // Sanitize and deduplicate labels
+                labels = labels.map((l: string) => l.toUpperCase());
+                // Remove obsolete/duplicate tags
+                labels = labels.filter((l: string) => l !== "STANDART KARGO" && l !== "PRINTMARKT");
+                // Correct Turkish character encoding issues
+                labels = labels.map((l: string) => l.replace('ÖZEL ETIKET', 'ÖZEL ETİKET'));
+                labels = [...new Set(labels)];
 
                 // Map general fields
                 const status = (pmOrder.status || pmOrder.order_status || "pending").toLowerCase();
