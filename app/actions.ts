@@ -1838,18 +1838,17 @@ export async function createManualOrder(orderData: any) {
             }
         })
 
-        let dhlResult = null;
         const newOrder = await db.order.findUnique({ where: { barcode } })
         if (newOrder) {
             await logManualActivity(newOrder.id, "ORDER_CREATED", "Manuel sipariş oluşturuldu.")
-            dhlResult = await createDHLShipmentAction(newOrder.id, true)
         }
 
-        return { success: true, orderId: newOrder?.id, dhlResult }
+        return { success: true, orderId: newOrder?.id }
 
-    } catch (error) {
+    } catch (error: any) {
+        serverLog("Failed to create manual order: " + (error?.message || error));
         console.error("Failed to create manual order:", error)
-        throw new Error("Sipariş oluşturulamadı.")
+        throw new Error("Sipariş oluşturulamadı: " + (error?.message || String(error)))
     }
 }
 

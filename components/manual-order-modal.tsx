@@ -3,6 +3,7 @@
 import { useState, useRef } from "react"
 import { X, Upload, Loader2, Plus, FileText, Image as ImageIcon } from "lucide-react"
 import { toast } from "sonner"
+import { createDHLShipmentAction } from "@/app/actions"
 
 interface ManualOrderModalProps {
     isOpen: boolean
@@ -176,19 +177,26 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                 }]
             }
 
-            const res = await onCreate(orderPayload)
+            const res: any = await onCreate(orderPayload)
             onClose()
             toast.success("Sipariş başarıyla oluşturuldu!")
-            if (res && res.dhlResult) {
-                if (res.dhlResult.error) {
-                    toast.error("Kargo Hatası: " + res.dhlResult.error)
-                } else {
-                    toast.success("Kargo etiketi de başarıyla oluşturuldu!")
-                }
+            
+            if (res && res.orderId) {
+                toast.promise(
+                    createDHLShipmentAction(res.orderId, false),
+                    {
+                        loading: 'Kargo etiketi oluşturuluyor, lütfen bekleyin...',
+                        success: (dhlRes) => {
+                            if (dhlRes.error) throw new Error(dhlRes.error);
+                            return 'Kargo etiketi de başarıyla oluşturuldu!';
+                        },
+                        error: (err) => `Kargo Hatası: ${err.message}`
+                    }
+                )
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error(error)
-            toast.error("Sipariş oluşturulurken hata oluştu.")
+            toast.error(error?.message || "Sipariş oluşturulurken hata oluştu.")
         } finally {
             setIsLoading(false)
         }
