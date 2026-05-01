@@ -119,7 +119,7 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                 area, // Will be appended to dimensions or stored separately
                 image_src: mainImage,
                 url: specialUrl, // Base64 for now, or cloud link
-                status: 'pending', // Default status ID
+                status: 'pending_woo', // Default status ID
                 items: [{
                     name: formData.productName,
                     sku: formData.sku,
