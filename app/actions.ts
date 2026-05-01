@@ -1844,10 +1844,8 @@ export async function createManualOrder(orderData: any) {
             await logManualActivity(newOrder.id, "ORDER_CREATED", "Manuel sipariş oluşturuldu.")
             
             // AUTO DHL GENERATION FOR MANUAL ORDERS
-            import('./actions').then(m => {
-                m.createDHLShipmentAction(newOrder.id, true).catch(err => {
-                    console.error("[AUTO_DHL_ERR] Failed to auto-generate DHL for manual order:", err);
-                });
+            createDHLShipmentAction(newOrder.id, true).catch(err => {
+                console.error("[AUTO_DHL_ERR] Failed to auto-generate DHL for manual order:", err);
             });
         }
 
