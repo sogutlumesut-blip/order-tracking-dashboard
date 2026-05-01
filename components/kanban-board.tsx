@@ -1092,6 +1092,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                     const res = await syncPrintMarktOrders(true)
                                     if (res.success) {
                                         toast.success(res.message)
+                                        router.refresh()
                                     } else {
                                         toast.error(res.error)
                                     }
