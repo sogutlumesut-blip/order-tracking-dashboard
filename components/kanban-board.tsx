@@ -324,7 +324,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         }, 3000); // FIXED 3S POLLING
 
         // Slower External Sync (WooCommerce & PrintMarkt)
-        const syncInterval = setInterval(async () => {
+        const performExternalSync = async () => {
             if (isBulkProcessingRef.current) return;
             try {
                 const wcRes = await syncWooCommerceOrders(false);
@@ -345,7 +345,13 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     window.location.reload();
                 }
             }
-        }, 60000); // 60S External Sync
+        };
+
+        // Run immediately on mount
+        performExternalSync();
+
+        // Then set the 60s interval
+        const syncInterval = setInterval(performExternalSync, 60000); // 60S External Sync
 
         return () => {
             clearInterval(cargoInterval);
