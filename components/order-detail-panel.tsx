@@ -609,33 +609,12 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     </div>
                                 )}
 
-                                {(formData.cargoBarcode || formData.cargoLabelPdf) ? (
+                                {(formData.cargoBarcode || formData.cargoLabelPdf || formData.hasCargoPdf) ? (
                                     <div className="space-y-2">
                                         <div className="flex gap-2">
                                             <button
                                                 onClick={() => {
-                                                    // For new MNG System (ZPL barcode payload) or Kargo Entegrator URLs
-                                                    if ((formData.cargoBarcode && !formData.cargoLabelPdf) || 
-                                                        (formData.cargoLabelPdf && (formData.cargoLabelPdf.includes('kargoentegrator') || formData.cargoLabelPdf.startsWith('kargoentegrator:')))) {
-                                                        window.open(`/api/cargo-label/${formData.id}?t=${Date.now()}`, '_blank');
-                                                        return;
-                                                    }
-
-                                                    // For legacy ShipEntegra
-                                                    const pdfData = formData.cargoLabelPdf as string;
-                                                    if (pdfData.startsWith('http')) {
-                                                        window.open(pdfData, '_blank');
-                                                    } else {
-                                                        const byteCharacters = atob(pdfData);
-                                                        const byteNumbers = new Array(byteCharacters.length);
-                                                        for (let i = 0; i < byteCharacters.length; i++) {
-                                                            byteNumbers[i] = byteCharacters.charCodeAt(i);
-                                                        }
-                                                        const byteArray = new Uint8Array(byteNumbers);
-                                                        const blob = new Blob([byteArray], { type: 'application/pdf' });
-                                                        const url = URL.createObjectURL(blob);
-                                                        window.open(url, '_blank');
-                                                    }
+                                                    window.open(`/api/cargo-label/${formData.id}?t=${Date.now()}`, '_blank');
                                                 }}
                                                 className="flex-1 py-3 border-2 border-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-xl flex items-center justify-center gap-2 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all text-blue-700 dark:text-blue-400 font-bold"
                                             >

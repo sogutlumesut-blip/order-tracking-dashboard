@@ -145,7 +145,11 @@ export async function getOrders(timestamp?: number) {
     })
 
     // Serializing dates to strings to match interface and avoid hydration issues
+    const ordersWithPdf = await db.order.findMany({ where: { cargoLabelPdf: { not: null } }, select: { id: true } });
+    const pdfIds = new Set(ordersWithPdf.map(o => o.id));
+
     return orders.map(order => ({
+        hasCargoPdf: pdfIds.has(order.id),
         ...order,
         date: order.date.toISOString(),
         createdAt: order.createdAt.toISOString(),
