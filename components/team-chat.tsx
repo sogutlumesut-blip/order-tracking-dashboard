@@ -50,7 +50,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
 
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!newMessage.trim()) return
+        if (!newMessage.trim() && !attachment) return
 
         const optimisticMessage = {
             id: 'temp-' + Date.now(),

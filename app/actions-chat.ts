@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/prisma"
 import { getSession } from "@/lib/auth"
-import { unstable_noStore as noStore } from "next/cache"
+import { unstable_noStore as noStore, revalidatePath } from "next/cache"
 
 export async function getChatMessages() {
     noStore()
@@ -45,6 +45,7 @@ export async function sendChatMessage(text: string, attachment?: string) {
                 }
             }
         })
+        revalidatePath("/")
         return { success: true, message }
     } catch (e: any) {
         console.error("Error sending chat message:", e)
