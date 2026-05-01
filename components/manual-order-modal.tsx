@@ -55,17 +55,62 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                 return
             }
 
-            const reader = new FileReader()
-            reader.onload = (event) => {
-                if (event.target?.result) {
-                    setFiles(prev => [...prev, {
-                        name: file.name,
-                        type: isImage ? 'image' : 'pdf',
-                        content: event.target!.result as string // Base64
-                    }])
+            if (isImage) {
+                // Compress image
+                const reader = new FileReader()
+                reader.onload = (event) => {
+                    const img = new Image()
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas')
+                        const MAX_WIDTH = 800
+                        const MAX_HEIGHT = 800
+                        let width = img.width
+                        let height = img.height
+
+                        if (width > height) {
+                            if (width > MAX_WIDTH) {
+                                height *= MAX_WIDTH / width
+                                width = MAX_WIDTH
+                            }
+                        } else {
+                            if (height > MAX_HEIGHT) {
+                                width *= MAX_HEIGHT / height
+                                height = MAX_HEIGHT
+                            }
+                        }
+                        canvas.width = width
+                        canvas.height = height
+                        const ctx = canvas.getContext('2d')
+                        ctx?.drawImage(img, 0, 0, width, height)
+                        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7)
+
+                        setFiles(prev => [...prev, {
+                            name: file.name,
+                            type: 'image',
+                            content: compressedBase64
+                        }])
+                    }
+                    img.src = event.target?.result as string
                 }
+                reader.readAsDataURL(file)
+            } else {
+                // For PDF, we just read it (we could check size here but we'll allow it)
+                if (file.size > 2 * 1024 * 1024) {
+                    toast.error("PDF dosyası çok büyük (Max 2MB). Lütfen daha küçük bir PDF seçin veya link kullanın.")
+                    return
+                }
+                const reader = new FileReader()
+                reader.onload = (event) => {
+                    if (event.target?.result) {
+                        setFiles(prev => [...prev, {
+                            name: file.name,
+                            type: 'pdf',
+                            content: event.target!.result as string
+                        }])
+                    }
+                }
+                reader.readAsDataURL(file)
             }
-            reader.readAsDataURL(file)
         }
     }
 
