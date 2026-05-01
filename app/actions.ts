@@ -2188,12 +2188,12 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                     console.log(`[PM_DEBUG_MAP] Raw Item: `, JSON.stringify(item));
                     let pmCargoName = "";
                     if (item.shipping_method) {
-                        let sm = item.shipping_method.toLowerCase();
-                        if (sm === 'ups') pmCargoName = "usa ups";
-                        else if (sm === 'fedex') pmCargoName = "fedex ship";
-                        else if (sm === 'custom_label') pmCargoName = "özel etiket";
-                        else if (sm.includes('carrier')) pmCargoName = "turkey ship";
-                        else pmCargoName = item.shipping_method;
+                        let sm = String(item.shipping_method).toLowerCase();
+                        if (sm === 'ups' || sm.includes('ups')) pmCargoName = "usa ups";
+                        else if (sm === 'fedex' || sm.includes('fedex')) pmCargoName = "fedex ship";
+                        else if (sm === 'custom_label' || sm.includes('özel etiket') || sm.includes('custom')) pmCargoName = "özel etiket";
+                        else if (sm.includes('carrier') || sm.includes('turkey') || sm.includes('mng') || sm.includes('aras') || sm.includes('yurtiçi') || sm.includes('sendeo')) pmCargoName = "turkey ship";
+                        else pmCargoName = String(item.shipping_method);
                     }
                     if (pmCargoName && !labels.includes(pmCargoName)) {
                         labels.push(pmCargoName);
