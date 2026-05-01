@@ -1352,9 +1352,10 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         isOpen={isManualOrderOpen}
                         onClose={() => setIsManualOrderOpen(false)}
                         onCreate={async (data) => {
-                            await createManualOrder(data)
+                            const res = await createManualOrder(data)
                             const latest = await getOrders()
                             setOrders(latest as any)
+                            return res
                         }}
                     />
 

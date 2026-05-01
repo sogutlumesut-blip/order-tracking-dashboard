@@ -176,9 +176,16 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                 }]
             }
 
-            await onCreate(orderPayload)
+            const res = await onCreate(orderPayload)
             onClose()
             toast.success("Sipariş başarıyla oluşturuldu!")
+            if (res && res.dhlResult) {
+                if (res.dhlResult.error) {
+                    toast.error("Kargo Hatası: " + res.dhlResult.error)
+                } else {
+                    toast.success("Kargo etiketi de başarıyla oluşturuldu!")
+                }
+            }
         } catch (error) {
             console.error(error)
             toast.error("Sipariş oluşturulurken hata oluştu.")
