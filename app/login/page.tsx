@@ -4,7 +4,7 @@ import { loginAction } from "./actions"
 import { SubmitButton } from "./submit-button"
 import Link from "next/link"
 
-export default async function LoginPage({ searchParams }: { searchParams: { error?: string } }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
     // Server-Side Debug Checks
     let debugInfo = { status: 'init', db: false, err: '' }
     try {
@@ -23,7 +23,8 @@ export default async function LoginPage({ searchParams }: { searchParams: { erro
         "Sunucu_Hatasi": "Sunucuda bir sorun oluştu."
     }
 
-    const errorMessage = searchParams.error ? (errorMap[searchParams.error] || "Giriş yapılamadı.") : null
+    const resolvedParams = await searchParams;
+    const errorMessage = resolvedParams.error ? (errorMap[resolvedParams.error] || "Giriş yapılamadı.") : null
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 relative z-50">

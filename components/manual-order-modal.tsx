@@ -94,9 +94,9 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                 }
                 reader.readAsDataURL(file)
             } else {
-                // For PDF, we just read it (we could check size here but we'll allow it)
-                if (file.size > 2 * 1024 * 1024) {
-                    toast.error("PDF dosyası çok büyük (Max 2MB). Lütfen daha küçük bir PDF seçin veya link kullanın.")
+                // For PDF, we just read it (restrict size heavily to avoid Server Action base64 limits)
+                if (file.size > 500 * 1024) {
+                    toast.error("PDF dosyası çok büyük (Max 500KB). Lütfen 'Kargo Barkodu (PDF Linki)' alanını kullanın.")
                     return
                 }
                 const reader = new FileReader()
@@ -417,7 +417,7 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                                     onChange={handleFileChange}
                                 />
                             </div>
-                            <p className="text-[10px] text-slate-500">* PDF veya Görsel yükleyebilirsiniz. Yüklenen ilk görsel ürün görseli olarak kullanılacaktır.</p>
+                            <p className="text-[10px] text-slate-500">* PDF veya Görsel yükleyebilirsiniz. Yüklenen ilk görsel ürün görseli olarak kullanılacaktır. PDF dosyaları max 500KB olmalıdır.</p>
                         </div>
                     </form>
                 </div>

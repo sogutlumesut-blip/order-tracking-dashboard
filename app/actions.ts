@@ -1838,6 +1838,13 @@ export async function createManualOrder(orderData: any) {
         const newOrder = await db.order.findUnique({ where: { barcode } })
         if (newOrder) {
             await logManualActivity(newOrder.id, "ORDER_CREATED", "Manuel sipariş oluşturuldu.")
+            
+            // AUTO DHL GENERATION FOR MANUAL ORDERS
+            import('./actions').then(m => {
+                m.createDHLShipmentAction(newOrder.id, true).catch(err => {
+                    console.error("[AUTO_DHL_ERR] Failed to auto-generate DHL for manual order:", err);
+                });
+            });
         }
 
     } catch (error) {
@@ -2162,7 +2169,7 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                             .replace(/&gt;/g, '>');
                     };
 
-                    let materialStr = item.material || item.selectedTexture || "";
+                    let materialStr = item.material || item.selectedTexture || item.variant || "";
                     const material = materialStr ? decodeHtml(String(materialStr)) : "";
 
                     let dimsStr = item.dimensions || item.size || "";
