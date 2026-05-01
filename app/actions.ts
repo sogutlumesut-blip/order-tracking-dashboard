@@ -2180,8 +2180,18 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                     const dimensions = dimsStr ? decodeHtml(String(dimsStr)) : "";
 
                     console.log(`[PM_DEBUG_MAP] Raw Item: `, JSON.stringify(item));
-                    if (pmOrder.custom_shipping_label_url) console.log(`[PM_DEBUG_MAP] PDF URL: ${pmOrder.custom_shipping_label_url}`);
-                    else if (pmOrder.production_file_url) console.log(`[PM_DEBUG_MAP] PROD PDF URL: ${pmOrder.production_file_url}`);
+                    let pmCargoName = "";
+                    if (item.shipping_method) {
+                        let sm = item.shipping_method.toLowerCase();
+                        if (sm === 'ups') pmCargoName = "UPS";
+                        else if (sm === 'fedex') pmCargoName = "FedEx";
+                        else if (sm === 'custom_label') pmCargoName = "Özel Etiket";
+                        else if (sm.includes('carrier')) pmCargoName = "Standart Kargo";
+                        else pmCargoName = item.shipping_method;
+                    }
+                    if (pmCargoName && !labels.includes(pmCargoName)) {
+                        labels.push(pmCargoName);
+                    }
 
                     items.push({
                         name: decodeHtml(item.name || item.title || "Özel Sipariş Ürün (Manuel)"),
@@ -2190,7 +2200,8 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                         image_src: item.image_url || item.image || item.thumbnail || item.selectedImage || "",
                         material: material,
                         dimensions: dimensions,
-                        url: item.external_url || item.product_link || item.url || pmOrder.external_product_link || ""
+                        url: item.external_url || item.product_link || item.url || pmOrder.external_product_link || "",
+                        productNote: item.note || ""
                     });
                 }
 
@@ -2222,7 +2233,7 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                         status: mappedStatus,
                         note: customerNote,
                         cargoLabelPdf: trackingPdf,
-                        labels: "[]",
+                        labels: JSON.stringify(labels),
                         items: {
                             create: items
                         }
