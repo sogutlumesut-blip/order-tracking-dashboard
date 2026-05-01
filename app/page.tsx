@@ -1,6 +1,7 @@
 import { KanbanBoard } from "@/components/kanban-board"
 import { getOrders, getStatuses, getLabels } from "./actions"
 import { Footer } from "@/components/footer"
+import { TeamChat } from "@/components/team-chat"
 import { getSession } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { db } from "@/lib/prisma"
@@ -80,6 +81,7 @@ export default async function Dashboard() {
           tags={labels}
         />
       </main>
+      <TeamChat currentUser={{ id: session.user.id, name: session.user.name, role: session.user.role }} />
       <Footer />
     </div>
   )

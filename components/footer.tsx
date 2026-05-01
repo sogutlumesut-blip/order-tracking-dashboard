@@ -15,15 +15,15 @@ export function Footer() {
                     
                     <button 
                         onClick={() => setIsOpen(!isOpen)} 
-                        className="md:hidden flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-slate-600 px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-md mx-auto"
+                        className="flex items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-slate-600 px-2 py-1 bg-slate-100 dark:bg-slate-800 rounded-md mx-auto"
                     >
                         Yasal Bilgiler {isOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
                     </button>
                 </div>
 
-                {/* Desktop always shows, Mobile toggles */}
-                <div className={`${isOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row justify-between w-full items-center gap-4 mt-2 md:mt-0`}>
-                    <p className="md:hidden text-center w-full">&copy; {new Date().getFullYear()} Sipariş Takip Sistemi. Tüm hakları saklıdır.</p>
+                {/* Collapsible Content */}
+                <div className={`${isOpen ? 'flex' : 'hidden'} flex-col justify-between w-full items-center gap-4 mt-2`}>
+                    <p className="text-center w-full">&copy; {new Date().getFullYear()} Sipariş Takip Sistemi. Tüm hakları saklıdır.</p>
                     <div className="flex flex-wrap justify-center gap-4">
                         <Link href="/privacy-policy" className="hover:text-slate-900 dark:hover:text-white transition-colors">
                             Privacy Policy
@@ -37,7 +37,7 @@ export function Footer() {
                     </div>
                 </div>
 
-                <div className={`${isOpen ? 'block' : 'hidden'} md:block text-center opacity-60 max-w-2xl border-t pt-2 w-full mt-2 md:mt-0`}>
+                <div className={`${isOpen ? 'block' : 'hidden'} text-center opacity-60 max-w-2xl border-t pt-2 w-full mt-2`}>
                     The term 'Etsy' is a trademark of Etsy, Inc. This application uses the Etsy API but is not endorsed or certified by Etsy, Inc.
                 </div>
             </div>
