@@ -127,9 +127,10 @@ model SystemSetting {
 }
 
 model ChatMessage {
-  id        String   @id @default(uuid())
-  text      String
-  senderId  String
-  createdAt DateTime @default(now())
-  sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  id         String   @id @default(uuid())
+  text       String
+  senderId   String
+  attachment String?
+  createdAt  DateTime @default(now())
+  sender     User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
 }

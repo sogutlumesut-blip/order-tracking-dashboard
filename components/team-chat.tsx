@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from "react"
-import { MessageCircle, X, Send, User as UserIcon } from "lucide-react"
+import { MessageCircle, X, Send, User as UserIcon, Paperclip, ImageIcon } from "lucide-react"
 import { getChatMessages, sendChatMessage } from "@/app/actions-chat"
 
 interface User {
@@ -14,6 +14,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     const [isOpen, setIsOpen] = useState(false)
     const [messages, setMessages] = useState<any[]>([])
     const [newMessage, setNewMessage] = useState("")
+    const [attachment, setAttachment] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(false)
     const [hasUnread, setHasUnread] = useState(false)
     const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -54,6 +55,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         const optimisticMessage = {
             id: 'temp-' + Date.now(),
             text: newMessage,
+            attachment: attachment,
             senderId: currentUser.id,
             createdAt: new Date(),
             sender: currentUser,
@@ -62,8 +64,9 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         
         setMessages(prev => [...prev, optimisticMessage])
         setNewMessage("")
+        setAttachment(null)
 
-        const res = await sendChatMessage(optimisticMessage.text)
+        const res = await sendChatMessage(optimisticMessage.text, optimisticMessage.attachment || undefined)
         if (!res.success) {
             // Revert on error
             setMessages(prev => prev.filter(m => m.id !== optimisticMessage.id))
@@ -113,10 +116,11 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                     ? 'bg-emerald-600 text-white rounded-br-none' 
                                                     : 'bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-bl-none text-slate-800 dark:text-slate-200'
                                             } ${msg.isOptimistic ? 'opacity-70' : ''}`}>
-                                                {!isMe && (
-                                                    <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mb-1">
-                                                        {msg.sender?.name || 'Bilinmeyen'}
-                                                    </div>
+                                                <div className={`text-[10px] font-bold mb-1 ${isMe ? 'text-emerald-200' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                                    {msg.sender?.name || 'Bilinmeyen'}
+                                                </div>
+                                                {msg.attachment && (
+                                                    <img src={msg.attachment} alt="Attachment" className="max-w-full rounded-lg mb-2 max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity" onClick={() => window.open(msg.attachment, '_blank')} />
                                                 )}
                                                 {msg.text}
                                             </div>
@@ -132,22 +136,55 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                     </div>
 
                     {/* Input */}
-                    <form onSubmit={handleSend} className="p-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex gap-2">
-                        <input
-                            type="text"
-                            value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
-                            placeholder="Mesaj yazın..."
-                            className="flex-1 bg-slate-100 dark:bg-slate-800 border-0 rounded-full px-4 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
-                        />
-                        <button 
-                            type="submit" 
-                            disabled={!newMessage.trim()}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <Send className="w-4 h-4 ml-0.5" />
-                        </button>
-                    </form>
+                    <div className="p-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-2">
+                        {attachment && (
+                            <div className="relative inline-block self-start">
+                                <img src={attachment} alt="Preview" className="h-16 w-16 object-cover rounded-lg border border-slate-200" />
+                                <button onClick={() => setAttachment(null)} className="absolute -top-2 -right-2 bg-slate-800 text-white rounded-full p-0.5 hover:bg-slate-700">
+                                    <X className="w-3 h-3" />
+                                </button>
+                            </div>
+                        )}
+                        <form onSubmit={handleSend} className="flex gap-2 items-center relative">
+                            <label className="cursor-pointer text-slate-400 hover:text-emerald-600 transition-colors p-2">
+                                <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    className="hidden" 
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0]
+                                        if (file) {
+                                            if (file.size > 2 * 1024 * 1024) {
+                                                alert("Dosya boyutu 2MB'dan büyük olamaz.")
+                                                return
+                                            }
+                                            const reader = new FileReader()
+                                            reader.onload = () => {
+                                                setAttachment(reader.result as string)
+                                            }
+                                            reader.readAsDataURL(file)
+                                        }
+                                        e.target.value = ''
+                                    }}
+                                />
+                                <Paperclip className="w-5 h-5" />
+                            </label>
+                            <input
+                                type="text"
+                                value={newMessage}
+                                onChange={(e) => setNewMessage(e.target.value)}
+                                placeholder="Mesaj yazın..."
+                                className="flex-1 bg-slate-100 dark:bg-slate-800 border-0 rounded-full px-4 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+                            />
+                            <button 
+                                type="submit" 
+                                disabled={(!newMessage.trim() && !attachment)}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <Send className="w-4 h-4 ml-0.5" />
+                            </button>
+                        </form>
+                    </div>
                 </div>
             )}
 

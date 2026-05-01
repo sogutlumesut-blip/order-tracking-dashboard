@@ -2,8 +2,10 @@
 
 import { db } from "@/lib/prisma"
 import { getSession } from "@/lib/auth"
+import { unstable_noStore as noStore } from "next/cache"
 
 export async function getChatMessages() {
+    noStore()
     const session = await getSession()
     if (!session) return { success: false, error: "Unauthorized" }
 
@@ -24,16 +26,17 @@ export async function getChatMessages() {
     }
 }
 
-export async function sendChatMessage(text: string) {
+export async function sendChatMessage(text: string, attachment?: string) {
     const session = await getSession()
     if (!session) return { success: false, error: "Unauthorized" }
     
-    if (!text || text.trim() === "") return { success: false, error: "Message cannot be empty" }
+    if ((!text || text.trim() === "") && !attachment) return { success: false, error: "Message cannot be empty" }
 
     try {
         const message = await db.chatMessage.create({
             data: {
                 text: text.trim(),
+                attachment: attachment || null,
                 senderId: session.user.id
             },
             include: {
