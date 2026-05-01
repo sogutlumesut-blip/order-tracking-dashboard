@@ -165,7 +165,19 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                 </div>
                             )}
                         </div>
-                        <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">{order.customer}</p>
+                        <div className="text-sm text-slate-600 dark:text-slate-400 font-medium flex flex-col leading-tight mt-0.5">
+                            {order.customer.split('\n').map((line, i, arr) => (
+                                <span key={i} className={
+                                    arr.length > 1 && i === 0 
+                                        ? "font-bold text-red-800 dark:text-red-400 text-base" 
+                                        : arr.length > 1 && i > 0 
+                                            ? "text-[11px] text-slate-500 uppercase mt-0.5" 
+                                            : ""
+                                }>
+                                    {line}
+                                </span>
+                            ))}
+                        </div>
                     </div>
                     <div className="flex flex-col items-end gap-1">
                         <span className={`text-sm font-semibold px-2 py-1 rounded-md ${isPaymentFailed ? 'text-red-700 bg-red-100 line-through' : 'text-green-600 bg-green-50'}`}>

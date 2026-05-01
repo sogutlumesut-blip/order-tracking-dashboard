@@ -2125,6 +2125,12 @@ export async function syncPrintMarktOrders(force: boolean = false) {
 
                 // Map Address from flat JSON PrintMarkt Schema
                 let shippingName = pmOrder.dealer_name || pmOrder.user_full_name || pmOrder.recipient_name || "Bilinmiyor";
+                if (pmOrder.dealer_name && pmOrder.recipient_name && pmOrder.dealer_name !== pmOrder.recipient_name) {
+                    shippingName = `${pmOrder.dealer_name}\n${pmOrder.recipient_name}`;
+                } else if (pmOrder.user_full_name && pmOrder.recipient_name && pmOrder.user_full_name !== pmOrder.recipient_name) {
+                    shippingName = `${pmOrder.user_full_name}\n${pmOrder.recipient_name}`;
+                }
+
                 let shippingEmail = pmOrder.recipient_email || pmOrder.email || pmOrder.account_email || "";
                 let shippingPhone = pmOrder.recipient_phone || pmOrder.phone || "";
 

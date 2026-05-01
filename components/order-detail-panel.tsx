@@ -175,12 +175,16 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                             Sipariş {formData.source === 'woo' && formData.externalId ? `#${formData.externalId}` : `#${formData.id}`}
                         </h2>
                         {/* Compact user info for header */}
-                        <p className="font-medium text-slate-900 dark:text-slate-300">
-                            {formData.customer}
+                        <div className="font-medium text-slate-900 dark:text-slate-300">
+                            {formData.customer.split('\n').map((line, i, arr) => (
+                                <span key={i} className={arr.length > 1 && i === 0 ? "font-bold" : arr.length > 1 && i > 0 ? "text-xs text-slate-500 uppercase block" : ""}>
+                                    {line}
+                                </span>
+                            ))}
                             {formData.source === 'woo' && formData.externalId && (
-                                <span className="ml-2 text-xs text-slate-400 font-mono">(Sistem ID: #{formData.id})</span>
+                                <span className="ml-2 text-xs text-slate-400 font-mono inline-block">(Sistem ID: #{formData.id})</span>
                             )}
-                        </p>
+                        </div>
                     </div>
                     <div className="flex gap-2">
                         <button onClick={handlePrint} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full text-slate-600 dark:text-slate-400" title="Yazdır">
@@ -247,7 +251,13 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                             <div className="print:hidden bg-slate-50 dark:bg-slate-800/50 p-4 rounded-lg border dark:border-slate-700">
                                 <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-2">Müşteri Bilgileri</h3>
                                 <div className="text-sm space-y-2">
-                                    <p className="font-bold text-lg text-slate-900 dark:text-slate-100">{formData.customer}</p>
+                                    <div className="font-bold text-lg text-slate-900 dark:text-slate-100 leading-tight">
+                                        {formData.customer.split('\n').map((line, i, arr) => (
+                                            <span key={i} className={arr.length > 1 && i === 0 ? "text-red-800 dark:text-red-400 text-xl block" : arr.length > 1 && i > 0 ? "text-sm text-slate-500 uppercase mt-0.5 block font-semibold" : "block"}>
+                                                {line}
+                                            </span>
+                                        ))}
+                                    </div>
 
                                     <div className="text-slate-600 dark:text-slate-400 text-sm space-y-1">
                                         {formData.phone && <p className="flex items-center gap-2">📞 {formData.phone}</p>}
