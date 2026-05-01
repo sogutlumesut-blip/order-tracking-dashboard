@@ -198,13 +198,13 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                                     />
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Şehir</label>
+                                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Şehir (İlçe / İl)</label>
                                     <input
                                         name="city"
                                         value={formData.city}
                                         onChange={handleChange}
                                         className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
-                                        placeholder="İstanbul"
+                                        placeholder="Örn: İzmit / Kocaeli"
                                     />
                                 </div>
                                 <div className="space-y-1">

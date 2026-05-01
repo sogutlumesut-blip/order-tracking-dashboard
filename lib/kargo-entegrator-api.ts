@@ -21,6 +21,19 @@ export async function createKargoEntegratorShipment(order: any, items: any[]) {
         ilce = order.district || "Bilinmiyor";
     }
 
+    // Fallback: Try to extract İlçe / İl from address if ilce is "Bilinmiyor"
+    if (ilce === "Bilinmiyor" && order.address) {
+        const addressMatch = order.address.match(/([a-zA-ZçğıöşüÇĞİÖŞÜ\s]+)\s*\/\s*([a-zA-ZçğıöşüÇĞİÖŞÜ\s]+)$/);
+        if (addressMatch) {
+            ilce = addressMatch[1].trim();
+            il = addressMatch[2].trim();
+        } else {
+            // Last resort: If they just wrote "İZMİT" in city, use it as district and default city to same or "Merkez"
+            // Usually Kargo Entegratör prefers district over city if one is missing
+            ilce = order.city;
+        }
+    }
+
     const nameParts = (order.customer || "").trim().split(' ');
     const surname = nameParts.length > 1 ? nameParts.pop() : "Müşteri";
     const name = nameParts.join(' ') || "Müşteri";
