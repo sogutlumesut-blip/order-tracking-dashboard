@@ -173,7 +173,26 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                 type="text"
                                 value={newMessage}
                                 onChange={(e) => setNewMessage(e.target.value)}
-                                placeholder="Mesaj yazın..."
+                                onPaste={(e) => {
+                                    const items = e.clipboardData.items
+                                    for (let i = 0; i < items.length; i++) {
+                                        if (items[i].type.indexOf('image') !== -1) {
+                                            const file = items[i].getAsFile()
+                                            if (file) {
+                                                if (file.size > 2 * 1024 * 1024) {
+                                                    alert("Dosya boyutu 2MB'dan büyük olamaz.")
+                                                    return
+                                                }
+                                                const reader = new FileReader()
+                                                reader.onload = () => {
+                                                    setAttachment(reader.result as string)
+                                                }
+                                                reader.readAsDataURL(file)
+                                            }
+                                        }
+                                    }
+                                }}
+                                placeholder="Mesaj yazın... (Görsel yapıştırabilirsiniz)"
                                 className="flex-1 bg-slate-100 dark:bg-slate-800 border-0 rounded-full px-4 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
                             />
                             <button 
