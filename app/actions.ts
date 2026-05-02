@@ -1810,7 +1810,7 @@ export async function syncWooCommerceOrders(force: boolean = false) {
 
 
 export async function createManualOrder(orderData: any) {
-    const { items, customer, phone, email, address, city, note, status, clientBarcode } = orderData
+    const { items, customer, phone, email, address, city, note, status, clientBarcode, total } = orderData
 
     // Use a manual barcode prefix or the client-generated one for perfect optimistic UI sync
     const barcode = clientBarcode || `MANUAL-${Date.now()}`
@@ -1825,7 +1825,7 @@ export async function createManualOrder(orderData: any) {
                 address,
                 city,
                 note,
-                total: "0.00 ₺", // Default or user provided? For now 0 or hidden
+                total: total ? `${total} ₺` : "0.00 ₺",
                 status: status || "pending_woo",
                 barcode,
                 labels: JSON.stringify(['Manuel']),

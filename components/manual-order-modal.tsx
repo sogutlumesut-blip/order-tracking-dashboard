@@ -31,6 +31,7 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
         material: "",
         sample: "",
         note: "",
+        total: "",
 
         // Extra
         sku: "PM-" + Math.floor(100000 + Math.random() * 900000),
@@ -278,15 +279,30 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                         <div className="space-y-4">
                             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200 border-b dark:border-slate-800 pb-1">📦 Ürün Bilgileri</h3>
 
-                            <div className="space-y-1">
-                                <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Ürün Adı *</label>
-                                <input
-                                    name="productName"
-                                    value={formData.productName}
-                                    onChange={handleChange}
-                                    className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
-                                    placeholder="Özel Duvar Kağıdı - Orman Temalı"
-                                />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Ürün Adı *</label>
+                                    <input
+                                        name="productName"
+                                        value={formData.productName}
+                                        onChange={handleChange}
+                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
+                                        placeholder="Özel Duvar Kağıdı - Orman Temalı"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Fiyat</label>
+                                    <div className="relative">
+                                        <input
+                                            name="total"
+                                            value={formData.total}
+                                            onChange={handleChange}
+                                            className="w-full pl-2 pr-6 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
+                                            placeholder="Örn: 1500"
+                                        />
+                                        <span className="absolute right-3 top-2 text-sm font-semibold text-slate-400">₺</span>
+                                    </div>
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-3 gap-4">
