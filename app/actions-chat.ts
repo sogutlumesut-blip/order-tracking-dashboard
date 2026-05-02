@@ -4,7 +4,7 @@ import { db } from "@/lib/prisma"
 import { getSession } from "@/lib/auth"
 import { unstable_noStore as noStore, revalidatePath } from "next/cache"
 
-export async function getChatMessages() {
+export async function getChatMessages(timestamp?: number) {
     noStore()
     const session = await getSession()
     if (!session) return { success: false, error: "Unauthorized" }

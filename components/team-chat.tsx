@@ -21,7 +21,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
 
     const fetchMessages = async (showLoading = false) => {
         if (showLoading) setIsLoading(true)
-        const res = await getChatMessages()
+        const res = await getChatMessages(Date.now())
         if (res.success && res.messages) {
             setMessages(res.messages)
             if (!isOpen && res.messages.length > messages.length && messages.length > 0) {
@@ -126,7 +126,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                             </div>
                                         </div>
                                         <span className="text-[9px] text-slate-400 mt-1 mx-8">
-                                            {new Date(msg.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                                            {new Date(msg.createdAt).toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                                         </span>
                                     </div>
                                 )
