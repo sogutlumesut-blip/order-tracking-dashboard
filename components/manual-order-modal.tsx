@@ -184,21 +184,6 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
             // 2. Start upload in background, wrapped in setTimeout to escape React's startTransition batching
             setTimeout(() => {
                 onCreate(orderPayload)
-                    .then((res: any) => {
-                        if (res && res.orderId) {
-                            toast.promise(
-                                createDHLShipmentAction(res.orderId, false),
-                                {
-                                    loading: 'Kargo etiketi oluşturuluyor...',
-                                    success: (dhlRes) => {
-                                        if (dhlRes.error) throw new Error(dhlRes.error);
-                                        return 'Kargo etiketi başarıyla oluşturuldu!';
-                                    },
-                                    error: (err) => `Kargo Hatası: ${err.message}`
-                                }
-                            )
-                        }
-                    })
                     .catch((err: any) => {
                         toast.error(err?.message || 'Sipariş yüklenirken hata oluştu.')
                     })

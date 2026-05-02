@@ -88,3 +88,8 @@
 [2026-05-02T09:38:36.546Z] [CREATE_MANUAL] Order retrieved from DB: 1887
 [2026-05-02T09:38:36.549Z] [CREATE_MANUAL_ERR] Failed: Dynamic server usage: Route /test couldn't be rendered statically because it used `cookies`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error
 [2026-05-02T09:38:36.549Z] Failed to create manual order: Dynamic server usage: Route /test couldn't be rendered statically because it used `cookies`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error
+[2026-05-02T09:49:14.697Z] [CREATE_MANUAL] Starting for customer: KARDEŞLER TARIM
+[2026-05-02T09:49:16.014Z] [CREATE_MANUAL] Order created in DB.
+[2026-05-02T09:49:16.363Z] [CREATE_MANUAL] Order retrieved from DB: 1889
+[2026-05-02T09:49:16.368Z] [CREATE_MANUAL_ERR] Failed: Dynamic server usage: Route /test couldn't be rendered statically because it used `cookies`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error
+[2026-05-02T09:49:16.368Z] Failed to create manual order: Dynamic server usage: Route /test couldn't be rendered statically because it used `cookies`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error

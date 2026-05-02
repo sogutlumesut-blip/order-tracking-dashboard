@@ -1382,24 +1382,24 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                             setOrders(prev => [optimisticOrder, ...prev] as any);
                             toast.success("Sipariş başarıyla oluşturuldu!");
 
-                            // 2. Actual server upload
-                            try {
-                                const payload = { ...data, clientBarcode };
-                                const timeoutPromise = new Promise((_, reject) => 
-                                    setTimeout(() => reject(new Error("Sunucu yanıt vermedi (Zaman Aşımı). Lütfen internet bağlantınızı kontrol edin veya görsel boyutunu küçültün.")), 30000)
-                                );
-                                
-                                const res = await Promise.race([
-                                    createManualOrder(payload),
-                                    timeoutPromise
-                                ]);
-                                
-                                return res
-                            } catch (e: any) {
-                                // Revert optimistic update on failure
-                                setOrders(prev => prev.filter(o => o.id !== tempId) as any);
-                                throw e;
-                            }
+                            // 2. Actual server upload (Fire and forget!)
+                            const payload = { ...data, clientBarcode };
+                            
+                            createManualOrder(payload)
+                                .then(async (res) => {
+                                    if (res && res.orderId) {
+                                        try {
+                                            await createDHLShipmentAction(res.orderId, false);
+                                        } catch (err) {
+                                            console.error("Kargo etiketi hatası:", err);
+                                        }
+                                    }
+                                })
+                                .catch((e: any) => {
+                                    // Revert optimistic update on failure
+                                    setOrders(prev => prev.filter(o => o.id !== tempId) as any);
+                                    toast.error("Sipariş yüklenemedi: " + (e.message || "Bağlantı hatası"));
+                                });
                         }}
                     />
 
