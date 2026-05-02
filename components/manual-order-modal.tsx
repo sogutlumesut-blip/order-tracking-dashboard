@@ -182,31 +182,26 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
             setIsLoading(false)
 
             // 2. Start upload in background, wrapped in setTimeout to escape React's startTransition batching
-            // If we don't use setTimeout, Next.js Server Action will block the modal from closing until the upload finishes!
             setTimeout(() => {
-                toast.promise(
-                    onCreate(orderPayload).then((res: any) => {
-                    if (res && res.orderId) {
-                        toast.promise(
-                            createDHLShipmentAction(res.orderId, false),
-                            {
-                                loading: 'Kargo etiketi oluşturuluyor...',
-                                success: (dhlRes) => {
-                                    if (dhlRes.error) throw new Error(dhlRes.error);
-                                    return 'Kargo etiketi başarıyla oluşturuldu!';
-                                },
-                                error: (err) => `Kargo Hatası: ${err.message}`
-                            }
-                        )
-                    }
-                    return res;
-                }),
-                {
-                    loading: 'Sipariş sisteme yükleniyor (Dosya boyutuna göre sürebilir)...',
-                    success: 'Sipariş başarıyla oluşturuldu ve listeye eklendi!',
-                    error: (err) => err?.message || 'Sipariş yüklenirken hata oluştu.'
-                }
-            )
+                onCreate(orderPayload)
+                    .then((res: any) => {
+                        if (res && res.orderId) {
+                            toast.promise(
+                                createDHLShipmentAction(res.orderId, false),
+                                {
+                                    loading: 'Kargo etiketi oluşturuluyor...',
+                                    success: (dhlRes) => {
+                                        if (dhlRes.error) throw new Error(dhlRes.error);
+                                        return 'Kargo etiketi başarıyla oluşturuldu!';
+                                    },
+                                    error: (err) => `Kargo Hatası: ${err.message}`
+                                }
+                            )
+                        }
+                    })
+                    .catch((err: any) => {
+                        toast.error(err?.message || 'Sipariş yüklenirken hata oluştu.')
+                    })
             }, 100)
 
         } catch (error: any) {

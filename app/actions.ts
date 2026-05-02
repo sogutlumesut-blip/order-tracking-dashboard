@@ -1816,6 +1816,7 @@ export async function createManualOrder(orderData: any) {
     const barcode = `MANUAL-${Date.now()}`
 
     try {
+        serverLog(`[CREATE_MANUAL] Starting for customer: ${customer}`);
         await db.order.create({
             data: {
                 customer,
@@ -1834,8 +1835,10 @@ export async function createManualOrder(orderData: any) {
                 }
             }
         })
+        serverLog(`[CREATE_MANUAL] Order created in DB.`);
 
         const newOrder = await db.order.findUnique({ where: { barcode } })
+        serverLog(`[CREATE_MANUAL] Order retrieved from DB: ${newOrder?.id}`);
         if (newOrder) {
             await logManualActivity(newOrder.id, "ORDER_CREATED", "Manuel sipariş oluşturuldu.")
         }
@@ -1843,6 +1846,7 @@ export async function createManualOrder(orderData: any) {
         return { success: true, orderId: newOrder?.id }
 
     } catch (error: any) {
+        serverLog(`[CREATE_MANUAL_ERR] Failed: ${error?.message || error}`);
         serverLog("Failed to create manual order: " + (error?.message || error));
         console.error("Failed to create manual order:", error)
         throw new Error("Sipariş oluşturulamadı: " + (error?.message || String(error)))

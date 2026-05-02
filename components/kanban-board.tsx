@@ -1352,10 +1352,38 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         isOpen={isManualOrderOpen}
                         onClose={() => setIsManualOrderOpen(false)}
                         onCreate={async (data) => {
-                            const res = await createManualOrder(data)
-                            const latest = await getOrders()
-                            setOrders(latest as any)
-                            return res
+                            // 1. Optimistic UI Update (Instant feedback)
+                            const tempId = Math.random() * -100000; // Negative temp ID
+                            const optimisticOrder = {
+                                id: tempId,
+                                barcode: `YÜKLENİYOR...`,
+                                customer: data.customer || "Müşteri",
+                                status: data.status || 'pending_woo',
+                                date: new Date().toISOString(),
+                                createdAt: new Date().toISOString(),
+                                updatedAt: new Date().toISOString(),
+                                labels: ['Manuel'],
+                                items: data.items || [],
+                                total: "0.00 ₺",
+                                commentCount: 0,
+                                hasNotification: false,
+                                isUploading: true // Custom flag
+                            };
+
+                            setOrders(prev => [optimisticOrder, ...prev] as any);
+                            toast.success("Sipariş taslağa eklendi, arka planda yükleniyor...");
+
+                            // 2. Actual server upload
+                            try {
+                                const res = await createManualOrder(data)
+                                const latest = await getOrders()
+                                setOrders(latest as any)
+                                return res
+                            } catch (e) {
+                                // Revert optimistic update on failure
+                                setOrders(prev => prev.filter(o => o.id !== tempId) as any);
+                                throw e;
+                            }
                         }}
                     />
 

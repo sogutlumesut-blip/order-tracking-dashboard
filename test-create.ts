@@ -1,54 +1,33 @@
-import { PrismaClient } from '@prisma/client';
-const db = new PrismaClient();
+import { db } from './lib/prisma';
 
-async function run() {
-    try {
-        const orderData = {
-            customer: "Test Customer",
-            phone: "0555",
+async function main() {
+    console.log("Creating dummy order...");
+    const barcode = `MANUAL-${Date.now()}`;
+    const start = Date.now();
+    const order = await db.order.create({
+        data: {
+            customer: "Test",
+            phone: "Test",
             email: "test@test.com",
-            address: "Test Address",
-            city: "Test City",
-            note: "Test Note",
+            address: "Test",
+            city: "Test",
+            note: "Test",
+            total: "0.00 ₺",
             status: "pending_woo",
-            items: [{
-                name: "Test Item",
-                sku: "TEST-01",
-                quantity: 1,
-                image_src: "https://example.com/image.jpg",
-                material: "Test Material",
-                dimensions: "100 x 100 cm",
-                url: "https://example.com/pdf.pdf"
-            }]
-        };
-
-        const { items, customer, phone, email, address, city, note, status } = orderData;
-        const barcode = `MANUAL-${Date.now()}`;
-
-        const newOrder = await db.order.create({
-            data: {
-                customer,
-                phone,
-                email,
-                address,
-                city,
-                note,
-                total: "0.00 ₺",
-                status: status || "pending_woo",
-                barcode,
-                labels: JSON.stringify(['Manuel']),
-                hasNotification: true,
-                items: {
-                    create: items
-                }
+            barcode,
+            labels: JSON.stringify(['Manuel']),
+            hasNotification: true,
+            items: {
+                create: [{
+                    name: "Test item",
+                    quantity: 1,
+                    // Simulate 3MB image
+                    image_src: "data:image/jpeg;base64," + "A".repeat(3000000),
+                    url: "data:application/pdf;base64," + "B".repeat(400000)
+                }]
             }
-        });
-        
-        console.log("Success", newOrder.id);
-    } catch (e) {
-        console.error("Error:", e);
-    } finally {
-        await db.$disconnect();
-    }
+        }
+    });
+    console.log(`Created in ${Date.now() - start}ms:`, order.id);
 }
-run();
+main().catch(console.error);
