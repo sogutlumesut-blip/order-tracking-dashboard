@@ -299,7 +299,15 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         }
                     }
 
-                    return hasChanges ? mergedOrders : currentOrders;
+                    // Keep local optimistic orders that haven't been returned by the server yet
+                    const serverBarcodes = new Set(latestOrders.map((o: any) => o.barcode));
+                    const optimisticOrders = currentOrders.filter(o => o.id < 0 && !serverBarcodes.has(o.barcode));
+
+                    if (hasChanges || optimisticOrders.length > 0 || currentOrders.length !== latestOrders.length) {
+                        return [...optimisticOrders, ...mergedOrders] as any;
+                    }
+
+                    return currentOrders;
                 });
 
                 // Sound Logic
@@ -1386,12 +1394,6 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                     timeoutPromise
                                 ]);
                                 
-                                const latest = await Promise.race([
-                                    getOrders(Date.now()), // Pass timestamp to bust Next.js Client Router Cache
-                                    timeoutPromise
-                                ]);
-                                
-                                setOrders(latest as any)
                                 return res
                             } catch (e: any) {
                                 // Revert optimistic update on failure

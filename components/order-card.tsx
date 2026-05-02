@@ -149,7 +149,7 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                 {order.barcode}
                             </span>
                             <h3 className="font-bold text-slate-900 dark:text-slate-100">
-                                {order.source === 'woo' && order.externalId ? `#${order.externalId}` : `#${order.id}`}
+                                {order.source === 'woo' && order.externalId ? `#${order.externalId}` : (order.id > 0 ? `#${order.id}` : null)}
                             </h3>
                             {order.source === 'etsy' && (
                                 <span className="bg-[#F1641E] text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm">
