@@ -1354,9 +1354,11 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         onCreate={async (data) => {
                             // 1. Optimistic UI Update (Instant feedback)
                             const tempId = Math.random() * -100000; // Negative temp ID
+                            const clientBarcode = `MANUAL-${Date.now()}`;
+                            
                             const optimisticOrder = {
                                 id: tempId,
-                                barcode: `YÜKLENİYOR...`,
+                                barcode: clientBarcode,
                                 customer: data.customer || "Müşteri",
                                 status: data.status || 'pending_woo',
                                 date: new Date().toISOString(),
@@ -1366,20 +1368,32 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 items: data.items || [],
                                 total: "0.00 ₺",
                                 commentCount: 0,
-                                hasNotification: false,
-                                isUploading: true // Custom flag
+                                hasNotification: false
                             };
 
                             setOrders(prev => [optimisticOrder, ...prev] as any);
-                            toast.success("Sipariş taslağa eklendi, arka planda yükleniyor...");
+                            toast.success("Sipariş başarıyla oluşturuldu!");
 
                             // 2. Actual server upload
                             try {
-                                const res = await createManualOrder(data)
-                                const latest = await getOrders()
+                                const payload = { ...data, clientBarcode };
+                                const timeoutPromise = new Promise((_, reject) => 
+                                    setTimeout(() => reject(new Error("Sunucu yanıt vermedi (Zaman Aşımı). Lütfen internet bağlantınızı kontrol edin veya görsel boyutunu küçültün.")), 30000)
+                                );
+                                
+                                const res = await Promise.race([
+                                    createManualOrder(payload),
+                                    timeoutPromise
+                                ]);
+                                
+                                const latest = await Promise.race([
+                                    getOrders(),
+                                    timeoutPromise
+                                ]);
+                                
                                 setOrders(latest as any)
                                 return res
-                            } catch (e) {
+                            } catch (e: any) {
                                 // Revert optimistic update on failure
                                 setOrders(prev => prev.filter(o => o.id !== tempId) as any);
                                 throw e;

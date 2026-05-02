@@ -1810,10 +1810,10 @@ export async function syncWooCommerceOrders(force: boolean = false) {
 
 
 export async function createManualOrder(orderData: any) {
-    const { items, customer, phone, email, address, city, note, status } = orderData
+    const { items, customer, phone, email, address, city, note, status, clientBarcode } = orderData
 
-    // Use a manual barcode prefix
-    const barcode = `MANUAL-${Date.now()}`
+    // Use a manual barcode prefix or the client-generated one for perfect optimistic UI sync
+    const barcode = clientBarcode || `MANUAL-${Date.now()}`
 
     try {
         serverLog(`[CREATE_MANUAL] Starting for customer: ${customer}`);

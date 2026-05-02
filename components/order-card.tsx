@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 
 import { Order } from "../data/mock-orders"
 import Image from "next/image"
-import { Calendar, Package, AlertCircle, User, Truck, Clock, AlertTriangle, Loader2 } from "lucide-react"
+import { Calendar, Package, AlertCircle, User, Truck, Clock, AlertTriangle } from "lucide-react"
 import { getColorClasses } from "@/lib/colors"
 
 interface OrderCardProps {
@@ -147,7 +147,6 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                         <div className="flex items-center gap-2">
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 flex items-center gap-1">
                                 {order.barcode}
-                                {(order as any).isUploading && <Loader2 className="w-3 h-3 text-blue-500 animate-spin ml-1" />}
                             </span>
                             <h3 className="font-bold text-slate-900 dark:text-slate-100">
                                 {order.source === 'woo' && order.externalId ? `#${order.externalId}` : `#${order.id}`}
