@@ -177,27 +177,38 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                 }]
             }
 
-            const res: any = await onCreate(orderPayload)
+            // 1. Close modal immediately to not block UI
             onClose()
-            toast.success("Sipariş başarıyla oluşturuldu!")
-            
-            if (res && res.orderId) {
-                toast.promise(
-                    createDHLShipmentAction(res.orderId, false),
-                    {
-                        loading: 'Kargo etiketi oluşturuluyor, lütfen bekleyin...',
-                        success: (dhlRes) => {
-                            if (dhlRes.error) throw new Error(dhlRes.error);
-                            return 'Kargo etiketi de başarıyla oluşturuldu!';
-                        },
-                        error: (err) => `Kargo Hatası: ${err.message}`
+            setIsLoading(false)
+
+            // 2. Start upload in background
+            toast.promise(
+                onCreate(orderPayload).then((res: any) => {
+                    if (res && res.orderId) {
+                        toast.promise(
+                            createDHLShipmentAction(res.orderId, false),
+                            {
+                                loading: 'Kargo etiketi oluşturuluyor...',
+                                success: (dhlRes) => {
+                                    if (dhlRes.error) throw new Error(dhlRes.error);
+                                    return 'Kargo etiketi başarıyla oluşturuldu!';
+                                },
+                                error: (err) => `Kargo Hatası: ${err.message}`
+                            }
+                        )
                     }
-                )
-            }
+                    return res;
+                }),
+                {
+                    loading: 'Sipariş sisteme yükleniyor (Dosya boyutuna göre sürebilir)...',
+                    success: 'Sipariş başarıyla oluşturuldu ve listeye eklendi!',
+                    error: (err) => err?.message || 'Sipariş yüklenirken hata oluştu.'
+                }
+            )
+
         } catch (error: any) {
             console.error(error)
             toast.error(error?.message || "Sipariş oluşturulurken hata oluştu.")
-        } finally {
             setIsLoading(false)
         }
     }
