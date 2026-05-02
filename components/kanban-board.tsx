@@ -1746,7 +1746,7 @@ function SortableColumn({
             <div className="flex-1 min-h-0 overflow-hidden relative">
                 <DroppableId id={column.id} className="h-full overflow-y-auto p-3 space-y-3 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-slate-700 hover:scrollbar-thumb-gray-300 dark:hover:scrollbar-thumb-slate-600">
                     {columnOrders.map((order: any) => (
-                        <DraggableItem key={order.id} id={order.id} disabled={isDragDisabled}>
+                        <DraggableItem key={order.id} id={order.id} disabled={isDragDisabled || order.id < 0}>
                             <OrderCard
                                 order={order}
                                 onClick={() => {

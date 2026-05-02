@@ -332,6 +332,14 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                     )}
                 </div>
             </div>
+
+            {/* Optimistic Saving Indicator */}
+            {order.id < 0 && (
+                <div className="absolute bottom-0 left-0 w-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold text-center py-1 flex items-center justify-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Sunucuya Kaydediliyor... Lütfen sayfayı yenilemeyin.
+                </div>
+            )}
         </div>
     )
 }
