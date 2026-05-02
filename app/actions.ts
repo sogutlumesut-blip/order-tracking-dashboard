@@ -158,13 +158,10 @@ export async function getOrders(timestamp?: number) {
         items: order.items.map(item => ({
             ...item,
             sku: item.sku || null,
-            url: item.url || null,
+            image_src: item.image_src?.startsWith('data:image') ? `/api/order-image/${item.id}` : item.image_src,
+            url: item.url?.startsWith('data:') ? `/api/order-url/${item.id}` : item.url,
             material: item.material || null,
             dimensions: item.dimensions || null,
-            // Replace massive Base64 images with a dynamic API URL to prevent 10MB+ JSON payloads
-            image_src: (item.image_src && item.image_src.startsWith('data:image') && item.image_src.length > 500) 
-                ? `/api/order-image/${item.id}` 
-                : item.image_src
         })),
         commentCount: order._count?.comments || 0,
         labels: (() => {

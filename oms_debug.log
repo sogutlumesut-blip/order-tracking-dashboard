@@ -64,3 +64,5 @@
 [2026-04-28T12:54:18.574Z] [KARGO_ENTEGRATOR] Success! Updating Order 1806. Tracking No: 428087553982
 [2026-04-30T08:33:32.265Z] [KARGO_ENTEGRATOR] START: Generating cargo label for Order #1834
 [2026-04-30T08:33:36.265Z] [KARGO_ENTEGRATOR] Success! Updating Order 1834. Tracking No: 315253461901
+[2026-05-01T20:49:16.779Z] Failed to create manual order: Dynamic server usage: Route /test couldn't be rendered statically because it used `cookies`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error
+[2026-05-02T07:29:21.089Z] Failed to create manual order: Dynamic server usage: Route /test couldn't be rendered statically because it used `cookies`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error
