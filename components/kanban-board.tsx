@@ -1353,7 +1353,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         onClose={() => setIsManualOrderOpen(false)}
                         onCreate={async (data) => {
                             // 1. Optimistic UI Update (Instant feedback)
-                            const tempId = Math.random() * -100000; // Negative temp ID
+                            const tempId = -Math.floor(Math.random() * 100000); // Negative integer temp ID
                             const clientBarcode = `MANUAL-${Date.now()}`;
                             
                             const optimisticOrder = {
@@ -1387,7 +1387,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 ]);
                                 
                                 const latest = await Promise.race([
-                                    getOrders(),
+                                    getOrders(Date.now()), // Pass timestamp to bust Next.js Client Router Cache
                                     timeoutPromise
                                 ]);
                                 
