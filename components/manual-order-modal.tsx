@@ -181,9 +181,11 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
             onClose()
             setIsLoading(false)
 
-            // 2. Start upload in background
-            toast.promise(
-                onCreate(orderPayload).then((res: any) => {
+            // 2. Start upload in background, wrapped in setTimeout to escape React's startTransition batching
+            // If we don't use setTimeout, Next.js Server Action will block the modal from closing until the upload finishes!
+            setTimeout(() => {
+                toast.promise(
+                    onCreate(orderPayload).then((res: any) => {
                     if (res && res.orderId) {
                         toast.promise(
                             createDHLShipmentAction(res.orderId, false),
@@ -205,6 +207,7 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                     error: (err) => err?.message || 'Sipariş yüklenirken hata oluştu.'
                 }
             )
+            }, 100)
 
         } catch (error: any) {
             console.error(error)
