@@ -2092,8 +2092,12 @@ export async function syncPrintMarktOrders(force: boolean = false) {
             return { error: `PrintMarkt sitesine bağlanılamadı (HTTP ${response.status}). Yanıt: ${errText.substring(0, 50)}` }
         }
 
-        const pmOrders = await response.json()
-        console.log("[DEBUG] PrintMarkt Sync Response:", JSON.stringify(pmOrders, null, 2))
+        let pmOrders = await response.json()
+        console.log("[DEBUG] PrintMarkt Sync Response:", JSON.stringify(pmOrders, null, 2).substring(0, 500))
+
+        if (pmOrders && !Array.isArray(pmOrders) && Array.isArray(pmOrders.orders)) {
+            pmOrders = pmOrders.orders;
+        }
 
         if (!Array.isArray(pmOrders)) {
             return { error: "PrintMarkt API'si beklenen listeyi (Array) döndürmedi." }
