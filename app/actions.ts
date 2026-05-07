@@ -2149,6 +2149,7 @@ export async function syncPrintMarktOrders(force: boolean = false) {
 
                 // Map Items
                 const items = [];
+                let labels: string[] = [];
                 let totalAmount = pmOrder.amount ? parseFloat(pmOrder.amount) : 0;
 
                 let lineItems: any[] = [];
