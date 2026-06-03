@@ -9,20 +9,17 @@ export async function POST(req: Request) {
         // PrintMarkt'ın kendi payload yapısı önemsiz,
         // Biz sadece bu çağrıyı bir "yeni sipariş var, gidip API'den çek" sinyali olarak kullanıyoruz.
         
-        // Asenkron olarak sync işlemini başlat (webhook'a hemen cevap dönmek için)
-        syncPrintMarktOrders(false).then((res: any) => {
-            if (res && res.success && res.count > 0) {
-                console.log(`PrintMarkt Webhook: ${res.count} yeni sipariş başarıyla çekildi.`);
-                revalidatePath("/");
-            } else if (res && res.error) {
-                console.error("PrintMarkt Webhook Sync Error:", res.error);
-            }
-        }).catch(err => {
-            console.error("PrintMarkt Webhook Sync Exception:", err);
-        });
+        // Await the sync to ensure it completes before returning the response
+        const res = await syncPrintMarktOrders(false);
+        if (res && res.success && res.count > 0) {
+            console.log(`PrintMarkt Webhook: ${res.count} yeni sipariş başarıyla çekildi.`);
+            revalidatePath("/");
+        } else if (res && res.error) {
+            console.error("PrintMarkt Webhook Sync Error:", res.error);
+        }
 
-        // Webhook'u bekletmeden 200 OK dönüyoruz.
-        return NextResponse.json({ success: true, message: "Webhook alındı, eşitleme arka planda başlatıldı." }, { status: 200 });
+        // Webhook'u başarılı şekilde tamamlayıp 200 OK dönüyoruz.
+        return NextResponse.json({ success: true, message: "Webhook alındı ve başarıyla senkronize edildi." }, { status: 200 });
         
     } catch (error) {
         console.error("PrintMarkt Webhook Error:", error);
