@@ -2109,18 +2109,35 @@ export async function syncPrintMarktOrders(force: boolean = false) {
 
         let importedCount = 0;
 
+        // Fetch all existing PrintMarkt externalIds in a single query to avoid N+1 query performance bottleneck
+        const externalIdsToCheck = pmOrders
+            .map((pmOrder: any) => {
+                const externalId = pmOrder.id?.toString() || pmOrder.external_id || pmOrder.order_number?.toString() || pmOrder.number?.toString();
+                return externalId ? `pm_${externalId}` : null;
+            })
+            .filter(Boolean) as string[];
+
+        const existingOrders = await db.order.findMany({
+            where: {
+                externalId: {
+                    in: externalIdsToCheck
+                }
+            },
+            select: {
+                externalId: true
+            }
+        });
+
+        const existingExternalIds = new Set(existingOrders.map(o => o.externalId));
+
         for (const pmOrder of pmOrders) {
             try {
                 // Determine order number
                 const externalId = pmOrder.id?.toString() || pmOrder.external_id || pmOrder.order_number?.toString() || pmOrder.number?.toString();
                 if (!externalId) continue; // Skip if no ID
 
-                // Check if already exists
-                const existingOrder = await db.order.findFirst({
-                    where: { externalId: `pm_${externalId}` }
-                });
-
-                if (existingOrder) continue; // Skip duplicates
+                // Check if already exists in our Set
+                if (existingExternalIds.has(`pm_${externalId}`)) continue; // Skip duplicates
 
                 // Müşterinin PrintMarkt üzerinden gelen tüm siparişleri (Etsy dahil) alması için Etsy atlama koşulu kaldırıldı.
                 // Map Address from flat JSON PrintMarkt Schema
