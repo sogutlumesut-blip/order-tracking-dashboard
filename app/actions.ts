@@ -2221,8 +2221,15 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                     }
 
                     let rawImageSrc = item.image_url || item.image || item.thumbnail || item.selectedImage || "";
-                    if (rawImageSrc.startsWith('/')) {
-                        rawImageSrc = `${cleanUrl}${rawImageSrc}`;
+                    if (rawImageSrc && !rawImageSrc.startsWith("http") && !rawImageSrc.startsWith("data:")) {
+                        rawImageSrc = `${cleanUrl}${rawImageSrc.startsWith('/') ? '' : '/'}${rawImageSrc}`;
+                    }
+
+                    let itemUrl = item.external_url || item.product_link || item.url || pmOrder.external_product_link || "";
+                    if (itemUrl && !itemUrl.startsWith("http") && !itemUrl.startsWith("data:")) {
+                        if (itemUrl.includes('/') || itemUrl.includes('.')) {
+                            itemUrl = `${cleanUrl}${itemUrl.startsWith('/') ? '' : '/'}${itemUrl}`;
+                        }
                     }
 
                     items.push({
@@ -2232,7 +2239,7 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                         image_src: rawImageSrc,
                         material: material,
                         dimensions: dimensions,
-                        url: item.external_url || item.product_link || item.url || pmOrder.external_product_link || "",
+                        url: itemUrl,
                         productNote: item.note || ""
                     });
                 }
@@ -2258,7 +2265,10 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                 if (paymentMethod.toUpperCase() === 'ON_ACCOUNT') paymentMethod = 'CARI';
 
                 const customerNote = pmOrder.note || pmOrder.customer_note || pmOrder.order_note || "";
-                const trackingPdf = pmOrder.custom_shipping_label_url || pmOrder.production_file_url || null;
+                let trackingPdf = pmOrder.custom_shipping_label_url || pmOrder.production_file_url || null;
+                if (trackingPdf && !trackingPdf.startsWith("http") && !trackingPdf.startsWith("data:")) {
+                    trackingPdf = `${cleanUrl}${trackingPdf.startsWith('/') ? '' : '/'}${trackingPdf}`;
+                }
 
                 await db.order.create({
                     data: {
