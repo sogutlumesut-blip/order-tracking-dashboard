@@ -2122,11 +2122,7 @@ export async function syncPrintMarktOrders(force: boolean = false) {
 
                 if (existingOrder) continue; // Skip duplicates
 
-                // Skip Etsy orders coming from PrintMarkt (handled by native Etsy webhook)
-                if (pmOrder?.source?.toString().toLowerCase() === 'etsy') {
-                    continue;
-                }
-
+                // Müşterinin PrintMarkt üzerinden gelen tüm siparişleri (Etsy dahil) alması için Etsy atlama koşulu kaldırıldı.
                 // Map Address from flat JSON PrintMarkt Schema
                 let shippingName = pmOrder.dealer_name || pmOrder.user_full_name || pmOrder.recipient_name || "Bilinmiyor";
                 if (pmOrder.dealer_name && pmOrder.recipient_name && pmOrder.dealer_name !== pmOrder.recipient_name) {
@@ -2207,11 +2203,16 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                         labels.push(pmCargoName.toUpperCase());
                     }
 
+                    let rawImageSrc = item.image_url || item.image || item.thumbnail || item.selectedImage || "";
+                    if (rawImageSrc.startsWith('/')) {
+                        rawImageSrc = `${cleanUrl}${rawImageSrc}`;
+                    }
+
                     items.push({
                         name: decodeHtml(item.name || item.title || "Özel Sipariş Ürün (Manuel)"),
                         quantity: qty,
                         sku: item.sku || item.stockCode || "",
-                        image_src: item.image_url || item.image || item.thumbnail || item.selectedImage || "",
+                        image_src: rawImageSrc,
                         material: material,
                         dimensions: dimensions,
                         url: item.external_url || item.product_link || item.url || pmOrder.external_product_link || "",
@@ -2253,6 +2254,7 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                         total: totalAmount.toFixed(2),
                         paymentMethod: paymentMethod,
                         status: mappedStatus,
+                        date: pmOrder.created_at ? new Date(pmOrder.created_at) : undefined,
                         note: customerNote,
                         cargoLabelPdf: trackingPdf,
                         labels: JSON.stringify(labels),

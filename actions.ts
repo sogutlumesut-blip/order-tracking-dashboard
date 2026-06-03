@@ -104,23 +104,52 @@ export async function getOrders(timestamp?: number) {
 
     const orders = await db.order.findMany({
         where,
-        orderBy: { updatedAt: "desc" },
+        orderBy: { date: "desc" },
         take: 500, // Limit increased to 500 to accommodate large syncs from multiple sources
-        include: {
+        select: {
+            id: true,
+            customer: true,
+            phone: true,
+            email: true,
+            address: true,
+            city: true,
+            total: true,
+            status: true,
+            date: true,
+            note: true,
+            labels: true,
+            trackingNumber: true,
+            printNotes: true,
+            paymentMethod: true,
+            barcode: true,
+            assignedTo: true,
+            cargoBarcode: true,
+            cargoTrackingNumber: true,
+            // cargoLabelPdf is INTENTIONALLY EXCLUDED to prevent massive 100MB+ JSON payloads!
+            customDesi: true,
+            customWeight: true,
+            taxNumber: true,
+            taxOffice: true,
+            invoiceStatus: true,
+            invoiceUrl: true,
+            createdAt: true,
+            updatedAt: true,
+            hasNotification: true,
+            externalId: true,
+            source: true,
             items: true,
-            comments: {
-                include: { author: { select: { name: true } } },
-                orderBy: { timestamp: "asc" }
-            },
-            activities: {
-                orderBy: { timestamp: "desc" },
-                take: 10 // Last 10 is enough for initial view
+            _count: {
+                select: { comments: true }
             }
         }
     })
 
     // Serializing dates to strings to match interface and avoid hydration issues
+    const ordersWithPdf = await db.order.findMany({ where: { cargoLabelPdf: { not: null } }, select: { id: true } });
+    const pdfIds = new Set(ordersWithPdf.map(o => o.id));
+
     return orders.map(order => ({
+        hasCargoPdf: pdfIds.has(order.id),
         ...order,
         date: order.date.toISOString(),
         createdAt: order.createdAt.toISOString(),
@@ -129,31 +158,12 @@ export async function getOrders(timestamp?: number) {
         items: order.items.map(item => ({
             ...item,
             sku: item.sku || null,
-            url: item.url || null,
+            image_src: item.image_src?.startsWith('data:image') ? `/api/order-image/${item.id}` : item.image_src,
+            url: item.url?.startsWith('data:') ? `/api/order-url/${item.id}` : item.url,
             material: item.material || null,
-            dimensions: item.dimensions || null
+            dimensions: item.dimensions || null,
         })),
-        comments: order.comments.map(c => ({
-            id: c.id,
-            message: c.message,
-            type: (c as any).type || "message",
-            timestamp: c.timestamp.toISOString(),
-            author: c.author?.name || "Unknown",
-            attachments: (() => {
-                if (!c.attachments) return undefined
-                try {
-                    const parsed = JSON.parse(c.attachments);
-                    return Array.isArray(parsed) ? parsed : undefined;
-                } catch { return undefined; }
-            })()
-        })),
-        activities: order.activities.map(a => ({
-            id: a.id,
-            author: a.author,
-            action: a.action,
-            details: a.details,
-            timestamp: a.timestamp.toISOString()
-        })),
+        commentCount: order._count?.comments || 0,
         labels: (() => {
             if (!order.labels) return []
             try {
@@ -728,6 +738,7 @@ export async function fetchOrderForCargo(orderId: number) {
     try {
         const order = await db.order.findUnique({
             where: { id: orderId },
+            // Do NOT select cargoLabelPdf because it can be a 1MB+ base64 string which slows down the frontend!
             select: { cargoBarcode: true, cargoTrackingNumber: true, status: true }
         });
         return order;
@@ -736,276 +747,86 @@ export async function fetchOrderForCargo(orderId: number) {
     }
 }
 
+import { createDHLExpressShipment } from "@/lib/dhl-api";
+
+import { createKargoEntegratorShipment } from "@/lib/kargo-entegrator-api";
+
 export async function createDHLShipmentAction(orderId: number, bypassAuth: boolean = false) {
     noStore();
-    serverLog(`[MNG_SOAP] START: Connecting directly to MNG Kargo for Order #${orderId}`);
+    serverLog(`[KARGO_ENTEGRATOR] START: Generating cargo label for Order #${orderId}`);
 
     let session = null;
     if (!bypassAuth) {
         session = await getSession();
         if (!session) {
-            serverLog(`[MNG_SOAP] ERR: No session for #${orderId}`);
+            serverLog(`[KARGO_ENTEGRATOR] ERR: No session for #${orderId}`);
             return { error: "Oturum kapalı" };
         }
     }
 
-    const settings = await getSystemSettings();
-    const dhlUser = settings['dhl_user'];
-    const dhlPass = settings['dhl_pass'];
-
-    if (!dhlUser || !dhlPass) {
-        serverLog(`[MNG_SOAP] ERR: Missing MNG/DHL credentials for #${orderId}`);
-        return { error: "Lütfen Ayarlar sayfasından MNG Kargo (DHL) Kullanıcı Adı ve Şifrenizi eksiksiz girin." };
-    }
-
     try {
-        const order = await db.order.findUnique({ where: { id: orderId } });
+        const order = await db.order.findUnique({
+            where: { id: orderId },
+            include: { items: true }
+        });
 
         if (!order) {
-            serverLog(`[MNG_SOAP] ERR: Order not found #${orderId}`);
+            serverLog(`[KARGO_ENTEGRATOR] ERR: Order not found #${orderId}`);
             return { error: "Sipariş bulunamadı" };
         }
 
         const actorName = bypassAuth || !session ? "TEST_SYSTEM" : session.user.name;
-        await logActivity(orderId, actorName, "CARGO_START", "Doğrudan MNG Kargo API'sine barkod oluşturma kaydı iletiliyor...");
+        await logActivity(orderId, actorName, "CARGO_START", "Kargo Entegratör API'sine gönderi oluşturma kaydı iletiliyor...");
 
-        // Parse address to City / District
-        let il = "ISTANBUL";
-        let ilce = "SISLI";
-        const addressMatch = (order.address || "").match(/\b([A-ZŞİĞÜÇÖa-zşıiğüçö]+)\s*\/\s*([A-ZŞİĞÜÇÖa-zşıiğüçö]+)\b/);
-        if (addressMatch) {
-            ilce = addressMatch[1].trim().toUpperCase();
-            il = addressMatch[2].trim().toUpperCase();
-        } else if (order.city) {
-            il = order.city.trim().toUpperCase();
-            ilce = order.city.trim().toUpperCase();
+        // 1. Create Shipment via Kargo Entegrator API
+        const shipmentRes = await createKargoEntegratorShipment(order, order.items);
+
+        if (shipmentRes.error) {
+            serverLog(`[KARGO_ENTEGRATOR] Error: ${shipmentRes.error}`);
+            return { error: `Kargo Entegratör Hatası: ${shipmentRes.error}` };
         }
 
-        let phone = (order.phone || "05551112233").replace(/[^0-9]/g, "");
-
-        // Use direct MNG endpoint since the DigitalOcean Static IP has been whitelisted
-        const soapUrl = "https://service.mngkargo.com.tr/musterikargosiparis/musterikargosiparis.asmx";
-        const actor = bypassAuth ? "TEST_SYSTEM" : session.user.name;
-
-        // Calculate Desi/Weight realistically based on the items
-        let totalDesi = 1;
-        let totalWeight = 1;
-
-        const orderItems = await db.orderItem.findMany({ where: { orderId } });
-        if (orderItems && orderItems.length > 0) {
-            totalDesi = 0;
-            totalWeight = 0;
-            orderItems.forEach((item: any) => {
-                // Basic parse of dims like "300 x 200" or fallback
-                let desi = 1;
-                let weight = 1;
-                const volumeMatch = (item.dimensions || "").match(/(\d+)\s*[xX]\s*(\d+)/);
-                if (volumeMatch) {
-                    const w = parseInt(volumeMatch[1]);
-                    const h = parseInt(volumeMatch[2]);
-                    // Wallpaper tube approximation: 15cm x 15cm x Width
-                    const minD = Math.min(w, h);
-                    // Desi calculation: (Width * 15 * 15) / 3000
-                    desi = Math.max(1, Math.round((minD * 15 * 15) / 3000));
-                    weight = Math.max(1, Math.round(desi * 0.8)); // roughly 0.8kg per desi
-                }
-                totalDesi += (desi * (item.quantity || 1));
-                totalWeight += (weight * (item.quantity || 1));
-            });
-
-            if (totalDesi < 1) totalDesi = 1;
-            if (totalWeight < 1) totalWeight = 1;
+        if (!shipmentRes.success || !shipmentRes.shipmentId) {
+            return { error: "Gönderi oluşturuldu ancak ID alınamadı." };
         }
 
-        // (No custom values used as the feature was unselected)
-        // Ensure safe float representation for XML (Some SOAP services prefer comma, but MNG standard is dot or integer)
-        // MNG Format: Weight:Desi:Width:Length:Height:; 
-        const weightStr = totalWeight.toString().replace(',', '.');
-        const desiStr = totalDesi.toString().replace(',', '.');
-        const pKargoParcaList = `${weightStr}:${desiStr}:15:15:100:;`;
-
-
-        const cleanTurkish = (str: string) => {
-            return str.replace(/Ğ/g, 'G').replace(/ğ/g, 'g')
-                .replace(/Ü/g, 'U').replace(/ü/g, 'u')
-                .replace(/Ş/g, 'S').replace(/ş/g, 's')
-                .replace(/İ/g, 'I').replace(/ı/g, 'i')
-                .replace(/Ö/g, 'O').replace(/ö/g, 'o')
-                .replace(/Ç/g, 'C').replace(/ç/g, 'c')
-                .replace(/[^\x00-\x7F]/g, "") // Strip any remaining non-ascii chars
-                .trim();
+        const trackingNo = shipmentRes.barcode || String(shipmentRes.shipmentId);
+        
+        // 2. Update DB with Barcode and PDF
+        const updateData: any = {
+            updatedAt: new Date(),
+            cargoTrackingNumber: trackingNo,
+            cargoBarcode: trackingNo,
+            status: "shipped",
+            trackingNumber: trackingNo
         };
 
-        const safeCustomerName = cleanTurkish((order.customer || "Musteri")).substring(0, 50);
-        const safeAddress = cleanTurkish((order.address || "Adres Belirtilmemis")).substring(0, 200);
-
-        // 1. CREATE SHIPMENT
-        const siparisGirisiXml = `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-  <soap:Body>
-    <SiparisGirisiDetayliV3 xmlns="http://tempuri.org/">
-      <pChIrsaliyeNo>${order.id}</pChIrsaliyeNo>
-      <pPrKiymet></pPrKiymet>
-      <pChBarkod>${order.id}</pChBarkod>
-      <pChIcerik>Duvarkagidi</pChIcerik>
-      <pGonderiHizmetSekli>NORMAL</pGonderiHizmetSekli>
-      <pTeslimSekli>1</pTeslimSekli>
-      <pFlAlSms>0</pFlAlSms>
-      <pFlGnSms>0</pFlGnSms>
-      <pKargoParcaList>${pKargoParcaList}</pKargoParcaList>
-      <pAliciMusteriMngNo></pAliciMusteriMngNo>
-      <pAliciMusteriBayiNo></pAliciMusteriBayiNo>
-      <pAliciMusteriAdi><![CDATA[${safeCustomerName}]]></pAliciMusteriAdi>
-      <pChSiparisNo>${order.id}</pChSiparisNo>
-      <pLuOdemeSekli>P</pLuOdemeSekli>
-      <pFlAdresFarkli>0</pFlAdresFarkli>
-      <pChIl><![CDATA[${cleanTurkish(il)}]]></pChIl>
-      <pChIlce><![CDATA[${cleanTurkish(ilce)}]]></pChIlce>
-      <pChAdres><![CDATA[${safeAddress}]]></pChAdres>
-      <pChSemt></pChSemt>
-      <pChMahalle></pChMahalle>
-      <pChMeydanBulvar></pChMeydanBulvar>
-      <pChCadde></pChCadde>
-      <pChSokak></pChSokak>
-      <pChTelEv></pChTelEv>
-      <pChTelCep>${phone}</pChTelCep>
-      <pChTelIs></pChTelIs>
-      <pChFax></pChFax>
-      <pChEmail></pChEmail>
-      <pChVergiDairesi></pChVergiDairesi>
-      <pChVergiNumarasi></pChVergiNumarasi>
-      <pFlKapidaOdeme>0</pFlKapidaOdeme>
-      <pMalBedeliOdemeSekli></pMalBedeliOdemeSekli>
-      <pPlatformKisaAdi></pPlatformKisaAdi>
-      <pPlatformSatisKodu></pPlatformSatisKodu>
-      <pKullaniciAdi>${dhlUser}</pKullaniciAdi>
-      <pSifre>${dhlPass}</pSifre>
-    </SiparisGirisiDetayliV3>
-  </soap:Body>
-</soap:Envelope>`;
-
-        serverLog(`[MNG_SOAP] Sending SiparisGirisiDetayliV3 for Order ${order.id}...`);
-
-        const siparisController = new AbortController();
-        const siparisTimeoutId = setTimeout(() => siparisController.abort(), 15000);
-        let siparisRes;
-        try {
-            siparisRes = await fetch(soapUrl, {
-                method: "POST",
-                headers: { "Content-Type": "text/xml; charset=utf-8", "SOAPAction": '"http://tempuri.org/SiparisGirisiDetayliV3"' },
-                body: siparisGirisiXml,
-                signal: siparisController.signal,
-                cache: 'no-store'
-            });
-        } catch (err: any) {
-            clearTimeout(siparisTimeoutId);
-            if (err.name === 'AbortError' || err.message?.includes('timeout') || err.message?.includes('aborted')) {
-                serverLog(`[MNG_SOAP] Timeout on SiparisGirisiDetayliV3 (${order.id})`);
-                return { error: "MNG Kargo servisi yanıt vermedi (Sipariş Girişi Zaman Aşımı - 15s). Lütfen tekrar deneyin." };
-            }
-            throw err;
+        if (shipmentRes.labelPdfBase64) {
+            updateData.cargoLabelPdf = shipmentRes.labelPdfBase64;
         }
 
-        const siparisText = await siparisRes.text();
-        clearTimeout(siparisTimeoutId);
-        logActivity(orderId, actor, "MNG_API_RES", siparisText.substring(0, 200)); // Non-blocking
-        const siparisMatch = siparisText.match(/<SiparisGirisiDetayliV3Result>(.*?)<\/SiparisGirisiDetayliV3Result>/);
-        const siparisResult = siparisMatch ? siparisMatch[1] : "";
-
-        if (siparisResult !== "1" && !siparisResult.includes("KAYIT ZATEN VAR")) {
-            serverLog(`[MNG_SOAP] SiparisGirisiDetayliV3 Error: ${siparisResult}`);
-            return { error: `MNG Kargo Hatası: ${siparisResult || 'Bilinmeyen hata'}` };
-        }
-
-        // 2. FETCH BARCODE
-        const barkodXml = `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-  <soap:Body>
-    <MNGGonderiBarkod xmlns="http://tempuri.org/">
-      <req>
-        <WsUserName>${dhlUser}</WsUserName>
-        <WsPassword>${dhlPass}</WsPassword>
-        <ReferansNo>${order.id}</ReferansNo>
-        <OutBarkodType>ZPL</OutBarkodType>
-        <FlKapidaTahsilat>0</FlKapidaTahsilat>
-        <HatadaReferansBarkoduBas>1</HatadaReferansBarkoduBas>
-      </req>
-    </MNGGonderiBarkod>
-  </soap:Body>
-</soap:Envelope>`;
-
-        serverLog(`[MNG_SOAP] Fetching PDF Barcode for ${order.id}...`);
-
-        const barkodController = new AbortController();
-        const barkodTimeoutId = setTimeout(() => barkodController.abort(), 15000);
-        let barkodRes;
-        try {
-            barkodRes = await fetch(soapUrl, {
-                method: "POST",
-                headers: { "Content-Type": "text/xml; charset=utf-8", "SOAPAction": '"http://tempuri.org/MNGGonderiBarkod"' },
-                body: barkodXml,
-                signal: barkodController.signal,
-                cache: 'no-store'
-            });
-        } catch (err: any) {
-            clearTimeout(barkodTimeoutId);
-            if (err.name === 'AbortError' || err.message?.includes('timeout') || err.message?.includes('aborted')) {
-                serverLog(`[MNG_SOAP] Timeout on MNGGonderiBarkod (${order.id})`);
-                return { error: "MNG Kargo servisi yanıt vermedi (Barkod Üretimi Zaman Aşımı - 15s). Lütfen tekrar deneyin." };
-            }
-            throw err;
-        }
-
-        const barkodText = await barkodRes.text();
-        clearTimeout(barkodTimeoutId);
-        // console.error(`[MNG_DEBUG_BARKOD] Response:`, barkodText); 
-        logActivity(orderId, actor, "MNG_BARKOD_RES", barkodText.substring(0, 400)); // Non-blocking
-        const zplMatch = barkodText.match(/<BarkodText>([\s\S]*?)<\/BarkodText>/);
-        let zplContent = zplMatch ? Buffer.from(zplMatch[1].replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')).toString('utf-8') : null;
-
-        let trackingNoMatch = barkodText.match(/<MngKargoGonderiNo>(.*?)<\/MngKargoGonderiNo>/);
-        let trackingNo = trackingNoMatch ? trackingNoMatch[1] : null;
-
-        let hataMatch = barkodText.match(/<IstekHata>([\s\S]*?)<\/IstekHata>/);
-        let hataMesaji = hataMatch ? hataMatch[1].trim() : null;
-
-        if (!zplContent || zplContent.length < 10) {
-            const fallbackZplMatch = barkodText.match(/<BarkodValue>(.*?)<\/BarkodValue>/);
-            if (fallbackZplMatch) {
-                // Fallback: If no ZPL was returned but BarkodValue exists, the label wasn't generated properly.
-                serverLog(`[MNG_SOAP] No ZPL returned. Result:\n${barkodText.substring(0, 300)}`);
-                return { error: "Barkod üretilemedi, sadece barkod değeri döndü." };
-            }
-            if (hataMesaji && hataMesaji.length > 0) {
-                return { error: `MNG: ${hataMesaji}` };
-            }
-            return { error: "MNG Kargo'dan barkod alınamadı." };
-        }
-
-        // Check if ZPL contains an embedded MNG error message (MNG sometimes returns 200 OK but writes the error directly onto the label)
-        if (/MESAJ\s*:/i.test(zplContent) || /VARI[SŞ]\s*[SŞ]UBES[Iİ]\s*BULUNAMAD/i.test(zplContent)) {
-            const embeddedErrorMatch = zplContent.match(/MESAJ\s*:\s*([^^\\]+)/i);
-            const embeddedErrorMessage = embeddedErrorMatch ? embeddedErrorMatch[1].trim() : "Adresiniz için varış şubesi bulunamadı.";
-            serverLog(`[MNG_SOAP] Embedded error in ZPL: ${embeddedErrorMessage}`);
-            return { error: `MNG Hatası: ${embeddedErrorMessage}. Lütfen Müşteri adresini (İl/İlçe) kontrol edin.` };
-        }
-
-        // 3. UPDATE DB
-        serverLog(`[MNG_SOAP] Success! Updating Order ${order.id}. Tracking No: ${trackingNo}`);
+        serverLog(`[KARGO_ENTEGRATOR] Success! Updating Order ${order.id}. Tracking No: ${trackingNo}`);
         await db.order.update({
             where: { id: orderId },
-            data: {
-                updatedAt: new Date(),
-                cargoBarcode: zplContent, // We store the raw ZPL string
-                cargoTrackingNumber: trackingNo || order.id.toString()
-            }
+            data: updateData
         });
 
-        logActivity(orderId, actor, "CARGO_SUCCESS", `Barkod başarıyla MNG'den çekildi. PDF yazdırmaya hazır.`); // Non-blocking
-        return { success: true, message: "Kargo barkodu başarıyla anında üretildi!" };
+        await logActivity(
+            orderId, 
+            actorName, 
+            "CARGO_SUCCESS", 
+            `Kargo başarıyla oluşturuldu. (ID: ${shipmentRes.shipmentId}, Barkod: ${trackingNo})`
+        );
+
+        return { 
+            success: true, 
+            message: "Kargo etiketi başarıyla oluşturuldu!", 
+            cargoBarcode: trackingNo, 
+            cargoTrackingNumber: trackingNo 
+        };
 
     } catch (e: any) {
-        serverLog(`[MNG_SOAP] CRITICAL_ERROR: ${e.message}`);
+        serverLog(`[KARGO_ENTEGRATOR] CRITICAL_ERROR: ${e.message}`);
         return { error: e.message };
     }
 }
@@ -1069,7 +890,7 @@ export async function simulateWooCommerceOrder() {
 
     // Get appropriate status ('Gelen Siparişler' or first available)
     const statuses = await db.statusColumn.findMany({ orderBy: { order: 'asc' } })
-    let targetStatus = "pending"
+    let targetStatus = "pending_woo"
 
     if (statuses.length > 0) {
         // Try to find a status causing 'Incoming' logic
@@ -1133,7 +954,8 @@ export async function getStatuses() {
     if (statuses.length === 0) {
         console.log("Auto-seeding default statuses...")
         const defaults = [
-            { id: "pending", title: "Bekliyor", color: "#64748b", order: 0 },
+            { id: "pending_woo", title: "Bekliyor (DKM)", color: "#64748b", order: 0 },
+            { id: "pending_pm", title: "Bekliyor (PrintMarkt)", color: "#64748b", order: 1 },
             { id: "processing", title: "Hazırlanıyor", color: "#3b82f6", order: 1 },
             { id: "shipped", title: "Kargolandı", color: "#f97316", order: 2 },
             { id: "completed", title: "Tamamlandı", color: "#22c55e", order: 3 },
@@ -1170,7 +992,7 @@ export async function createStatus(formData: FormData) {
 }
 
 export async function deleteStatus(id: string) {
-    if (["pending", "completed"].includes(id)) {
+    if (["pending_woo", "pending_pm", "completed"].includes(id)) {
         // return { error: "Temel durumlar silinemez" }
         // Actually allowing dynamic is fine, but deleting 'pending' might break things if simulating. Safe to allow for now, user knows best.
     }
@@ -1594,7 +1416,7 @@ export async function syncWooCommerceOrders(force: boolean = false) {
 
         // PREFETCH STATUSES to find correct "Incoming" column
         const statuses = await db.statusColumn.findMany({ orderBy: { order: 'asc' } })
-        let defaultStatus = statuses.length > 0 ? statuses[0].id : "pending"
+        let defaultStatus = statuses.length > 0 ? statuses[0].id : "pending_woo"
 
         // Try to find a smarter default
         const incoming = statuses.find(s =>
@@ -1938,6 +1760,11 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                         }
                     })
                     currentOrderId = newOrder.id;
+                    
+                    // AUTO DHL GENERATION REQUESTED BY USER
+                    createDHLShipmentAction(newOrder.id, true).catch(err => {
+                        console.error("[AUTO_DHL_ERR] Failed to auto-generate DHL for new order:", err);
+                    });
                 }
 
                 // ADD "COMPLETED" LOG if applicable
@@ -1983,12 +1810,13 @@ export async function syncWooCommerceOrders(force: boolean = false) {
 
 
 export async function createManualOrder(orderData: any) {
-    const { items, customer, phone, email, address, city, note, status } = orderData
+    const { items, customer, phone, email, address, city, note, status, clientBarcode, total } = orderData
 
-    // Use a manual barcode prefix
-    const barcode = `MANUAL-${Date.now()}`
+    // Use a manual barcode prefix or the client-generated one for perfect optimistic UI sync
+    const barcode = clientBarcode || `MANUAL-${Date.now()}`
 
     try {
+        serverLog(`[CREATE_MANUAL] Starting for customer: ${customer}`);
         await db.order.create({
             data: {
                 customer,
@@ -1997,8 +1825,8 @@ export async function createManualOrder(orderData: any) {
                 address,
                 city,
                 note,
-                total: "0.00 ₺", // Default or user provided? For now 0 or hidden
-                status: status || "pending",
+                total: total ? `${total} ₺` : "0.00 ₺",
+                status: status || "pending_woo",
                 barcode,
                 labels: JSON.stringify(['Manuel']),
                 hasNotification: true,
@@ -2007,16 +1835,21 @@ export async function createManualOrder(orderData: any) {
                 }
             }
         })
+        serverLog(`[CREATE_MANUAL] Order created in DB.`);
 
-        // Log activity
         const newOrder = await db.order.findUnique({ where: { barcode } })
+        serverLog(`[CREATE_MANUAL] Order retrieved from DB: ${newOrder?.id}`);
         if (newOrder) {
             await logManualActivity(newOrder.id, "ORDER_CREATED", "Manuel sipariş oluşturuldu.")
         }
 
-    } catch (error) {
+        return { success: true, orderId: newOrder?.id }
+
+    } catch (error: any) {
+        serverLog(`[CREATE_MANUAL_ERR] Failed: ${error?.message || error}`);
+        serverLog("Failed to create manual order: " + (error?.message || error));
         console.error("Failed to create manual order:", error)
-        throw new Error("Sipariş oluşturulamadı.")
+        throw new Error("Sipariş oluşturulamadı: " + (error?.message || String(error)))
     }
 }
 
@@ -2259,8 +2092,12 @@ export async function syncPrintMarktOrders(force: boolean = false) {
             return { error: `PrintMarkt sitesine bağlanılamadı (HTTP ${response.status}). Yanıt: ${errText.substring(0, 50)}` }
         }
 
-        const pmOrders = await response.json()
-        console.log("[DEBUG] PrintMarkt Sync Response:", JSON.stringify(pmOrders, null, 2))
+        let pmOrders = await response.json()
+        console.log("[DEBUG] PrintMarkt Sync Response:", JSON.stringify(pmOrders, null, 2).substring(0, 500))
+
+        if (pmOrders && !Array.isArray(pmOrders) && Array.isArray(pmOrders.orders)) {
+            pmOrders = pmOrders.orders;
+        }
 
         if (!Array.isArray(pmOrders)) {
             return { error: "PrintMarkt API'si beklenen listeyi (Array) döndürmedi." }
@@ -2285,13 +2122,15 @@ export async function syncPrintMarktOrders(force: boolean = false) {
 
                 if (existingOrder) continue; // Skip duplicates
 
-                // Skip Etsy orders coming from PrintMarkt (handled by native Etsy webhook)
-                if (pmOrder?.source?.toString().toLowerCase() === 'etsy') {
-                    continue;
-                }
-
+                // Müşterinin PrintMarkt üzerinden gelen tüm siparişleri (Etsy dahil) alması için Etsy atlama koşulu kaldırıldı.
                 // Map Address from flat JSON PrintMarkt Schema
                 let shippingName = pmOrder.dealer_name || pmOrder.user_full_name || pmOrder.recipient_name || "Bilinmiyor";
+                if (pmOrder.dealer_name && pmOrder.recipient_name && pmOrder.dealer_name !== pmOrder.recipient_name) {
+                    shippingName = `${pmOrder.dealer_name}\n${pmOrder.recipient_name}`;
+                } else if (pmOrder.user_full_name && pmOrder.recipient_name && pmOrder.user_full_name !== pmOrder.recipient_name) {
+                    shippingName = `${pmOrder.user_full_name}\n${pmOrder.recipient_name}`;
+                }
+
                 let shippingEmail = pmOrder.recipient_email || pmOrder.email || pmOrder.account_email || "";
                 let shippingPhone = pmOrder.recipient_phone || pmOrder.phone || "";
 
@@ -2306,6 +2145,7 @@ export async function syncPrintMarktOrders(force: boolean = false) {
 
                 // Map Items
                 const items = [];
+                let labels: string[] = [];
                 let totalAmount = pmOrder.amount ? parseFloat(pmOrder.amount) : 0;
 
                 let lineItems: any[] = [];
@@ -2336,7 +2176,7 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                             .replace(/&gt;/g, '>');
                     };
 
-                    let materialStr = item.material || item.selectedTexture || "";
+                    let materialStr = item.material || item.selectedTexture || item.variant || "";
                     const material = materialStr ? decodeHtml(String(materialStr)) : "";
 
                     let dimsStr = item.dimensions || item.size || "";
@@ -2344,20 +2184,39 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                         dimsStr = `${item.width}x${item.height} ${item.unit || 'cm'}`;
                     }
 
-                    const dimensions = dimsStr ? decodeHtml(String(dimsStr)) : "";
+                    let dimensions = dimsStr ? decodeHtml(String(dimsStr)) : "";
+                    if (dimensions.trim().toLowerCase() === "x in") {
+                        dimensions = "SAMPLE";
+                    }
 
                     console.log(`[PM_DEBUG_MAP] Raw Item: `, JSON.stringify(item));
-                    if (pmOrder.custom_shipping_label_url) console.log(`[PM_DEBUG_MAP] PDF URL: ${pmOrder.custom_shipping_label_url}`);
-                    else if (pmOrder.production_file_url) console.log(`[PM_DEBUG_MAP] PROD PDF URL: ${pmOrder.production_file_url}`);
+                    let pmCargoName = "";
+                    if (item.shipping_method) {
+                        let sm = String(item.shipping_method).toLowerCase();
+                        if (sm === 'ups' || sm.includes('ups')) pmCargoName = "usa ups";
+                        else if (sm === 'fedex' || sm.includes('fedex')) pmCargoName = "fedex ship";
+                        else if (sm === 'custom_label' || sm.includes('özel etiket') || sm.includes('custom')) pmCargoName = "özel etiket";
+                        else if (sm.includes('carrier') || sm.includes('turkey') || sm.includes('mng') || sm.includes('aras') || sm.includes('yurtiçi') || sm.includes('sendeo')) pmCargoName = "turkey ship";
+                        else pmCargoName = String(item.shipping_method);
+                    }
+                    if (pmCargoName) {
+                        labels.push(pmCargoName.toUpperCase());
+                    }
+
+                    let rawImageSrc = item.image_url || item.image || item.thumbnail || item.selectedImage || "";
+                    if (rawImageSrc.startsWith('/')) {
+                        rawImageSrc = `${cleanUrl}${rawImageSrc}`;
+                    }
 
                     items.push({
                         name: decodeHtml(item.name || item.title || "Özel Sipariş Ürün (Manuel)"),
                         quantity: qty,
                         sku: item.sku || item.stockCode || "",
-                        image_src: item.image_url || item.image || item.thumbnail || item.selectedImage || "",
+                        image_src: rawImageSrc,
                         material: material,
                         dimensions: dimensions,
-                        url: item.external_url || item.product_link || item.url || pmOrder.external_product_link || ""
+                        url: item.external_url || item.product_link || item.url || pmOrder.external_product_link || "",
+                        productNote: item.note || ""
                     });
                 }
 
@@ -2366,12 +2225,20 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                     totalAmount = parseFloat(pmOrder.total_price);
                 }
 
+                // Sanitize and deduplicate labels
+                labels = labels.map((l: string) => l.toUpperCase());
+                // Remove obsolete/duplicate tags
+                labels = labels.filter((l: string) => l !== "STANDART KARGO" && l !== "PRINTMARKT");
+                // Correct Turkish character encoding issues
+                labels = labels.map((l: string) => l.replace('ÖZEL ETIKET', 'ÖZEL ETİKET'));
+                labels = [...new Set(labels)];
+
                 // Map general fields
                 const status = (pmOrder.status || pmOrder.order_status || "pending").toLowerCase();
-                const mappedStatus = (status.includes("ship") || status === "completed") ? "shipped" : "pending";
+                const mappedStatus = (status.includes("ship") || status === "completed") ? "shipped" : "pending_pm";
 
                 let paymentMethod = pmOrder.payment_method || pmOrder.gateway || "API";
-                if (paymentMethod.toUpperCase() === 'ON_ACCOUNT') paymentMethod = 'PrintMarkt';
+                if (paymentMethod.toUpperCase() === 'ON_ACCOUNT') paymentMethod = 'CARI';
 
                 const customerNote = pmOrder.note || pmOrder.customer_note || pmOrder.order_note || "";
                 const trackingPdf = pmOrder.custom_shipping_label_url || pmOrder.production_file_url || null;
@@ -2387,9 +2254,10 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                         total: totalAmount.toFixed(2),
                         paymentMethod: paymentMethod,
                         status: mappedStatus,
+                        date: pmOrder.created_at ? new Date(pmOrder.created_at) : undefined,
                         note: customerNote,
                         cargoLabelPdf: trackingPdf,
-                        labels: "[]",
+                        labels: JSON.stringify(labels),
                         items: {
                             create: items
                         }
