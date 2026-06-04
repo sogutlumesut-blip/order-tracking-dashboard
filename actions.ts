@@ -797,9 +797,12 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
             updatedAt: new Date(),
             cargoTrackingNumber: trackingNo,
             cargoBarcode: trackingNo,
-            status: "shipped",
             trackingNumber: trackingNo
         };
+
+        if (!bypassAuth) {
+            updateData.status = "shipped";
+        }
 
         if (shipmentRes.labelPdfBase64) {
             updateData.cargoLabelPdf = shipmentRes.labelPdfBase64;
