@@ -372,11 +372,33 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                             {item.material}
                                                         </span>
                                                     )}
-                                                    {item.dimensions && (
-                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
-                                                            📏 {item.dimensions}
-                                                        </span>
-                                                    )}
+                                                    {item.dimensions && (() => {
+                                                        const dimStr = item.dimensions;
+                                                        const hasM2 = /m²|m2/i.test(dimStr);
+                                                        
+                                                        // Try to parse dimensions
+                                                        const match = dimStr.match(/(\d+(?:\.\d+)?)\s*[^0-9]*?\s*[x*]\s*[^0-9]*?\s*(\d+(?:\.\d+)?)/)
+                                                        let extraM2 = "";
+                                                        if (match && !hasM2) {
+                                                            const w = parseFloat(match[1])
+                                                            const h = parseFloat(match[2])
+                                                            const isInch = dimStr.includes('"') || 
+                                                                           /(?:^|\d|\s)(in|inch|inches|inc|inç)(?:\b|$)/i.test(dimStr);
+                                                            let m2 = 0
+                                                            if (isInch) {
+                                                                m2 = (w * 0.0254) * (h * 0.0254)
+                                                            } else {
+                                                                m2 = (w * h) / 10000
+                                                            }
+                                                            extraM2 = ` (${m2.toFixed(2)} m²)`;
+                                                        }
+                                                        
+                                                        return (
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                                                📏 {dimStr}{extraM2}
+                                                            </span>
+                                                        );
+                                                    })()}
                                                     <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
                                                         ADET: {item.quantity}
                                                     </span>
