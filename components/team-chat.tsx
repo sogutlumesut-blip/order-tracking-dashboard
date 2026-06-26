@@ -18,13 +18,24 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     const [isLoading, setIsLoading] = useState(false)
     const [hasUnread, setHasUnread] = useState(false)
     const messagesEndRef = useRef<HTMLDivElement>(null)
+    const messagesRef = useRef(messages)
+    const isOpenRef = useRef(isOpen)
+
+    useEffect(() => {
+        messagesRef.current = messages
+    }, [messages])
+
+    useEffect(() => {
+        isOpenRef.current = isOpen
+    }, [isOpen])
 
     const fetchMessages = async (showLoading = false) => {
         if (showLoading) setIsLoading(true)
         const res = await getChatMessages(Date.now())
         if (res.success && res.messages) {
+            const currentMessages = messagesRef.current
             setMessages(res.messages)
-            if (!isOpen && res.messages.length > messages.length && messages.length > 0) {
+            if (!isOpenRef.current && res.messages.length > currentMessages.length && currentMessages.length > 0) {
                 setHasUnread(true)
             }
         }
@@ -66,14 +77,19 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         setNewMessage("")
         setAttachment(null)
 
-        const res = await sendChatMessage(optimisticMessage.text, optimisticMessage.attachment || undefined)
-        if (!res.success) {
-            // Revert on error
+        try {
+            const res = await sendChatMessage(optimisticMessage.text, optimisticMessage.attachment || undefined)
+            if (!res.success) {
+                // Revert on error
+                setMessages(prev => prev.filter(m => m.id !== optimisticMessage.id))
+                alert("Mesaj gönderilemedi: " + res.error)
+            } else {
+                // We fetch the real list to get exact timestamps and IDs from DB
+                fetchMessages()
+            }
+        } catch (error: any) {
             setMessages(prev => prev.filter(m => m.id !== optimisticMessage.id))
-            alert("Mesaj gönderilemedi: " + res.error)
-        } else {
-            // We fetch the real list to get exact timestamps and IDs from DB
-            fetchMessages()
+            alert("Mesaj gönderilirken bir hata oluştu: " + (error.message || error))
         }
     }
 

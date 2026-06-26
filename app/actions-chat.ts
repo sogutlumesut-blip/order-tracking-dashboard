@@ -45,7 +45,7 @@ export async function sendChatMessage(text: string, attachment?: string) {
                 }
             }
         })
-        revalidatePath("/")
+        // revalidatePath("/") - Removed to prevent timeouts on serverless environments
         return { success: true, message }
     } catch (e: any) {
         console.error("Error sending chat message:", e)
