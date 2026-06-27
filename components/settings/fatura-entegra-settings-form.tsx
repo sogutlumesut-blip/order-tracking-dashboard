@@ -44,7 +44,7 @@ export function FaturaEntegraSettingsForm({ initialSettings }: FaturaEntegraSett
                         defaultValue={initialSettings.fe_user || ''}
                         placeholder="Kullanıcı adınız"
                         required
-                        className="w-full pl-10 p-2 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                        className="w-full pl-10 p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 bg-white dark:text-slate-100 dark:bg-slate-900 dark:border-slate-800"
                     />
                 </div>
             </div>
@@ -59,7 +59,7 @@ export function FaturaEntegraSettingsForm({ initialSettings }: FaturaEntegraSett
                         defaultValue={initialSettings.fe_pass || ''}
                         placeholder="••••••••"
                         required
-                        className="w-full pl-10 p-2 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                        className="w-full pl-10 p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 bg-white dark:text-slate-100 dark:bg-slate-900 dark:border-slate-800"
                     />
                 </div>
             </div>
@@ -72,7 +72,7 @@ export function FaturaEntegraSettingsForm({ initialSettings }: FaturaEntegraSett
                         name="fe_app_key"
                         defaultValue={initialSettings.fe_app_key || ''}
                         placeholder="Uygulama anahtarı"
-                        className="w-full pl-10 p-2 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                        className="w-full pl-10 p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 bg-white dark:text-slate-100 dark:bg-slate-900 dark:border-slate-800"
                     />
                 </div>
             </div>

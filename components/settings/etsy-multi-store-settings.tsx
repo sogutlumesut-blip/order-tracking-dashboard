@@ -139,7 +139,7 @@ export function EtsyMultiStoreSettings({ initialStores, initialGlobalKey }: Etsy
                                             <input
                                                 value={store.name}
                                                 onChange={(e) => updateStore(index, "name", e.target.value)}
-                                                className="p-2 border border-slate-300 rounded outline-none focus:border-orange-500"
+                                                className="p-2 border border-slate-300 rounded outline-none focus:border-orange-500 text-slate-900 bg-white dark:text-slate-100 dark:bg-slate-900 dark:border-slate-800"
                                             />
                                         </div>
                                         <div className="flex flex-col gap-1">
@@ -148,7 +148,7 @@ export function EtsyMultiStoreSettings({ initialStores, initialGlobalKey }: Etsy
                                                 value={store.apiKey}
                                                 onChange={(e) => updateStore(index, "apiKey", e.target.value)}
                                                 placeholder="Örn: 1aa2bb3cc4dd..."
-                                                className="p-2 border border-slate-300 rounded font-mono outline-none focus:border-orange-500"
+                                                className="p-2 border border-slate-300 rounded font-mono outline-none focus:border-orange-500 text-slate-900 bg-white dark:text-slate-100 dark:bg-slate-900 dark:border-slate-800"
                                             />
                                         </div>
                                     </>

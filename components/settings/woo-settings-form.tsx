@@ -49,7 +49,7 @@ export function WooSettingsForm({ initialSettings }: WooSettingsFormProps) {
                         defaultValue={initialSettings.wc_url || ''}
                         placeholder="https://siteadresiniz.com"
                         required
-                        className="w-full pl-10 p-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                        className="w-full pl-10 p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 bg-white dark:text-slate-100 dark:bg-slate-900 dark:border-slate-800"
                     />
                 </div>
             </div>
@@ -64,7 +64,7 @@ export function WooSettingsForm({ initialSettings }: WooSettingsFormProps) {
                         defaultValue={initialSettings.wc_key || ''}
                         placeholder="ck_xxxxxxxxxxxx"
                         required
-                        className="w-full pl-10 p-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                        className="w-full pl-10 p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 bg-white dark:text-slate-100 dark:bg-slate-900 dark:border-slate-800"
                     />
                 </div>
             </div>
@@ -79,7 +79,7 @@ export function WooSettingsForm({ initialSettings }: WooSettingsFormProps) {
                         defaultValue={initialSettings.wc_secret || ''}
                         placeholder="cs_xxxxxxxxxxxx"
                         required
-                        className="w-full pl-10 p-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                        className="w-full pl-10 p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 bg-white dark:text-slate-100 dark:bg-slate-900 dark:border-slate-800"
                     />
                 </div>
             </div>

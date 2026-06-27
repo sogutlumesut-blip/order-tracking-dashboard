@@ -60,7 +60,7 @@ export function PrintMarktSettingsForm({ initialSettings }: PrintMarktSettingsFo
                         defaultValue={initialSettings.pm_url || ''}
                         placeholder="https://www.printmarkt.co/api/orders"
                         required
-                        className="w-full pl-10 p-2 text-sm border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                        className="w-full pl-10 p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none text-slate-900 bg-white dark:text-slate-100 dark:bg-slate-900 dark:border-slate-800"
                     />
                 </div>
             </div>
@@ -75,7 +75,7 @@ export function PrintMarktSettingsForm({ initialSettings }: PrintMarktSettingsFo
                         defaultValue={initialSettings.pm_key || ''}
                         placeholder="Özel API Anahtarınız"
                         required
-                        className="w-full pl-10 p-2 text-sm border rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
+                        className="w-full pl-10 p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none text-slate-900 bg-white dark:text-slate-100 dark:bg-slate-900 dark:border-slate-800"
                     />
                 </div>
             </div>

@@ -44,7 +44,7 @@ export function DHLSettingsForm({ initialSettings }: DHLSettingsFormProps) {
                         defaultValue={initialSettings.dhl_user || ''}
                         placeholder="DHL Kullanıcı Adı"
                         required
-                        className="w-full pl-10 p-2 text-sm border rounded-lg focus:ring-2 focus:ring-red-500 outline-none"
+                        className="w-full pl-10 p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 outline-none text-slate-900 bg-white dark:text-slate-100 dark:bg-slate-900 dark:border-slate-800"
                     />
                 </div>
             </div>
@@ -59,7 +59,7 @@ export function DHLSettingsForm({ initialSettings }: DHLSettingsFormProps) {
                         defaultValue={initialSettings.dhl_pass || ''}
                         placeholder="••••••••"
                         required
-                        className="w-full pl-10 p-2 text-sm border rounded-lg focus:ring-2 focus:ring-red-500 outline-none"
+                        className="w-full pl-10 p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 outline-none text-slate-900 bg-white dark:text-slate-100 dark:bg-slate-900 dark:border-slate-800"
                     />
                 </div>
             </div>
@@ -72,7 +72,7 @@ export function DHLSettingsForm({ initialSettings }: DHLSettingsFormProps) {
                         name="dhl_customer_id"
                         defaultValue={initialSettings.dhl_customer_id || ''}
                         placeholder="DHL Müşteri Numarası"
-                        className="w-full pl-10 p-2 text-sm border rounded-lg focus:ring-2 focus:ring-red-500 outline-none"
+                        className="w-full pl-10 p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 outline-none text-slate-900 bg-white dark:text-slate-100 dark:bg-slate-900 dark:border-slate-800"
                     />
                 </div>
             </div>

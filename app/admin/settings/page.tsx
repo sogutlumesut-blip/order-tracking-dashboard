@@ -25,10 +25,12 @@ export default async function SettingsPage() {
         redirect("/")
     }
 
-    const statuses = await getStatuses()
-    const labels = await getLabels()
-    const users = await getUsers()
-    const systemSettings = await getSystemSettings()
+    const [statuses, labels, users, systemSettings] = await Promise.all([
+        getStatuses(),
+        getLabels(),
+        getUsers(),
+        getSystemSettings()
+    ])
 
     return (
         <div className="min-h-screen bg-slate-50 p-4 md:p-8">
