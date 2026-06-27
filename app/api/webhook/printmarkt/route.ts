@@ -9,8 +9,19 @@ export async function POST(req: Request) {
         // PrintMarkt'ın kendi payload yapısı önemsiz,
         // Biz sadece bu çağrıyı bir "yeni sipariş var, gidip API'den çek" sinyali olarak kullanıyoruz.
         
-        // Await the sync to ensure it completes before returning the response
-        const res = await syncPrintMarktOrders(false);
+        // 1. PrintMarkt API veri eşitleme gecikmesini (replica lag) aşmak için 3 saniye bekliyoruz
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        // 2. İlk senkronizasyon denemesi
+        let res = await syncPrintMarktOrders(false);
+        
+        // 3. Çift sigorta: Eğer ilk denemede yeni sipariş bulunamadıysa (lag devam ediyorsa), 5 saniye daha bekleyip tekrar deniyoruz
+        if (res && res.success && res.count === 0) {
+            console.log("PrintMarkt Webhook: İlk denemede yeni sipariş bulunamadı, 5s bekleniyor...");
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            res = await syncPrintMarktOrders(false);
+        }
+        
         if (res && res.success && res.count > 0) {
             console.log(`PrintMarkt Webhook: ${res.count} yeni sipariş başarıyla çekildi.`);
             // revalidatePath("/"); // Removed to prevent Vercel Serverless Function timeouts
