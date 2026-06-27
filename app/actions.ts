@@ -1172,8 +1172,8 @@ export async function saveWooCommerceSettings(formData: FormData) {
 }
 
 export async function savePrintMarktSettings(formData: FormData) {
-    const url = formData.get("pm_url") as string
-    const key = formData.get("pm_key") as string
+    const url = (formData.get("pm_url") as string)?.trim()
+    const key = (formData.get("pm_key") as string)?.trim()
 
     if (!url || !key) return { error: "Lütfen URL ve API anahtarını doldurunuz." }
 
@@ -2076,16 +2076,17 @@ export async function syncPrintMarktOrders(force: boolean = false) {
     }
 
     try {
-        let cleanUrl = settings['pm_url'].replace(/\/+$/, '');
+        let cleanUrl = settings['pm_url'].trim().replace(/\/+$/, '');
+        let pmKey = settings['pm_key'].trim();
         let fetchUrl = `${cleanUrl}/api/orders?_t=${Date.now()}`;
         let response = await fetch(fetchUrl, {
-            headers: { "X-API-Key": settings['pm_key'] },
+            headers: { "X-API-Key": pmKey },
             cache: 'no-store'
         })
 
         if (response.status === 401 || response.status === 403) {
             response = await fetch(fetchUrl, {
-                headers: { "Authorization": `Bearer ${settings['pm_key']}` },
+                headers: { "Authorization": `Bearer ${pmKey}` },
                 cache: 'no-store'
             })
         }
