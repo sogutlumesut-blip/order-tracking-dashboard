@@ -13,7 +13,7 @@ export async function POST(req: Request) {
         const res = await syncPrintMarktOrders(false);
         if (res && res.success && res.count > 0) {
             console.log(`PrintMarkt Webhook: ${res.count} yeni sipariş başarıyla çekildi.`);
-            revalidatePath("/");
+            // revalidatePath("/"); // Removed to prevent Vercel Serverless Function timeouts
         } else if (res && res.error) {
             console.error("PrintMarkt Webhook Sync Error:", res.error);
         }

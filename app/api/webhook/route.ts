@@ -294,7 +294,7 @@ export async function POST(req: Request) {
             })
         }
 
-        revalidatePath("/")
+        // revalidatePath("/") // Removed to prevent Vercel Serverless Function timeouts
         return NextResponse.json({ success: true, message: "Order processed successfully", id: newOrder.id })
 
     } catch (error) {
