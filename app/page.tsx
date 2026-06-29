@@ -1,5 +1,5 @@
 import { KanbanBoard } from "@/components/kanban-board"
-import { getOrders, getStatuses, getLabels } from "./actions"
+import { getOrders, getStatuses, getLabels, syncWooCommerceOrders, syncPrintMarktOrders } from "./actions"
 import { Footer } from "@/components/footer"
 import { TeamChat } from "@/components/team-chat"
 import { getSession } from "@/lib/auth"
@@ -12,6 +12,10 @@ export const revalidate = 0
 export default async function Dashboard() {
   const session = await getSession()
   if (!session) redirect("/login")
+
+  // Kick off background syncs asynchronously without awaiting
+  syncWooCommerceOrders(false).catch(e => console.error("BG WC Sync Error:", e));
+  syncPrintMarktOrders(false).catch(e => console.error("BG PM Sync Error:", e));
 
   let orders: any[] = []
   let statuses: any[] = []

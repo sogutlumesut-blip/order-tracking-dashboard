@@ -334,30 +334,36 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         // Slower External Sync (WooCommerce & PrintMarkt)
         const performExternalSync = async () => {
             if (isBulkProcessingRef.current) return;
+            setIsValidating(true);
             
-            // 1. WooCommerce Sync
             try {
-                const wcRes = await syncWooCommerceOrders(false);
-                if (wcRes && !wcRes.error && !(wcRes as any).skipped) {
-                    console.log("External Sync: WC data updated");
-                    router.refresh();
+                // 1. WooCommerce Sync
+                try {
+                    const wcRes = await syncWooCommerceOrders(false);
+                    if (wcRes && !wcRes.error && !(wcRes as any).skipped) {
+                        console.log("External Sync: WC data updated");
+                        router.refresh();
+                    }
+                } catch (e: any) {
+                    console.error("WooCommerce External Sync Error", e);
                 }
-            } catch (e: any) {
-                console.error("WooCommerce External Sync Error", e);
-            }
 
-            // 2. PrintMarkt Sync
-            try {
-                const pmRes = await syncPrintMarktOrders(false);
-                if (pmRes && !pmRes.error && (pmRes as any).success && (pmRes as any).count > 0) {
-                    console.log("External Sync: PrintMarkt data updated");
-                    router.refresh();
+                // 2. PrintMarkt Sync
+                try {
+                    const pmRes = await syncPrintMarktOrders(false);
+                    if (pmRes && !pmRes.error && (pmRes as any).success && (pmRes as any).count > 0) {
+                        console.log("External Sync: PrintMarkt data updated");
+                        router.refresh();
+                    }
+                } catch (e: any) { 
+                    console.error("PrintMarkt External Sync Error", e);
+                    if (e?.message?.includes('Failed to find Server Action')) {
+                        window.location.reload();
+                    }
                 }
-            } catch (e: any) { 
-                console.error("PrintMarkt External Sync Error", e);
-                if (e?.message?.includes('Failed to find Server Action')) {
-                    window.location.reload();
-                }
+            } finally {
+                setIsValidating(false);
+                setLastSynced(new Date());
             }
         };
 
