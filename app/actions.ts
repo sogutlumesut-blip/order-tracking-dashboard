@@ -2327,3 +2327,23 @@ export async function wipePrintMarktOrders() {
         return { error: "Silme hatası: " + e.message };
     }
 }
+
+// Background periodic sync for persistent Node.js servers (DigitalOcean App Platform, VPS, etc.)
+if (typeof window === 'undefined' && process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE !== 'phase-production-build') {
+    const GLOBAL_SYNC_INTERVAL = 10 * 60 * 1000; // 10 minutes
+    
+    // Start interval
+    setInterval(async () => {
+        console.log("[BACKGROUND_SYNC] Starting scheduled order sync on server...");
+        try {
+            const wc = await syncWooCommerceOrders(false).catch(e => ({ error: e.message }));
+            const pm = await syncPrintMarktOrders(false).catch(e => ({ error: e.message }));
+            const etsy = await syncEtsyOrders().catch(e => ({ error: e.message }));
+            console.log("[BACKGROUND_SYNC] Scheduled sync completed:", { wc, pm, etsy });
+        } catch (error) {
+            console.error("[BACKGROUND_SYNC] Fatal error in scheduled sync:", error);
+        }
+    }, GLOBAL_SYNC_INTERVAL);
+    
+    console.log("[BACKGROUND_SYNC] Registered server-side background interval (10m).");
+}
