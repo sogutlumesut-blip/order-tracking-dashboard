@@ -45,6 +45,25 @@ export function CronTrigger() {
             <p className="text-[10px] text-slate-400 mt-2 text-center">
                 * Bu işlem normalde günde 1 kez otomatik çalışacak şekilde ayarlanabilir.
             </p>
+
+            <div className="mt-6 pt-4 border-t border-orange-100 dark:border-slate-800">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Otomatik Periyodik Eşitleme URL'i (Cron)</label>
+                <div className="relative">
+                    <input
+                        readOnly
+                        value={typeof window !== "undefined" ? `${window.location.origin}/api/cron/sync` : ""}
+                        onClick={(e) => {
+                            (e.target as HTMLInputElement).select();
+                            navigator.clipboard.writeText((e.target as HTMLInputElement).value);
+                            toast.success("Cron URL kopyalandı!");
+                        }}
+                        className="w-full p-2 text-[11px] border border-slate-300 dark:border-slate-800 rounded bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 font-mono outline-none cursor-pointer"
+                    />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1.5">
+                    * Tüm entegrasyonlardaki (WooCommerce, Etsy, PrintMarkt) yeni siparişleri arka planda otomatik çekmek için bu adresi cron-job.org gibi bir ücretsiz servise 5-10 dakikada bir çağrılacak şekilde tanımlayabilirsiniz.
+                </p>
+            </div>
         </div>
     )
 }

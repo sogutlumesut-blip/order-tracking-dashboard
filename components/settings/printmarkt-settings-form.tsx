@@ -80,6 +80,25 @@ export function PrintMarktSettingsForm({ initialSettings }: PrintMarktSettingsFo
                 </div>
             </div>
 
+            <div className="col-span-2 bg-orange-50 dark:bg-slate-900/50 p-4 rounded-lg border border-orange-100 dark:border-slate-800">
+                <label className="block text-xs font-bold text-orange-950 dark:text-slate-300 mb-1">PrintMarkt Webhook URL (Otomatik Sipariş Bildirimi İçin)</label>
+                <div className="relative">
+                    <input
+                        readOnly
+                        value={typeof window !== "undefined" ? `${window.location.origin}/api/webhook/printmarkt` : ""}
+                        onClick={(e) => {
+                            (e.target as HTMLInputElement).select();
+                            navigator.clipboard.writeText((e.target as HTMLInputElement).value);
+                            toast.success("Webhook URL kopyalandı!");
+                        }}
+                        className="w-full p-2 text-xs border border-orange-200 dark:border-slate-800 rounded bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 font-mono outline-none cursor-pointer"
+                    />
+                </div>
+                <p className="text-[10px] text-orange-700/80 dark:text-slate-400 mt-1.5">
+                    * Siparişlerin bu panele **anında ve otomatik** düşmesi için bu URL'i PrintMarkt bayi panelinizdeki Webhook ayarlarına eklemeniz gerekir. (Kutunun üzerine tıklayarak kopyalayabilirsiniz)
+                </p>
+            </div>
+
             <div className="col-span-2 flex justify-between items-center mt-4">
                 <button
                     type="button"
