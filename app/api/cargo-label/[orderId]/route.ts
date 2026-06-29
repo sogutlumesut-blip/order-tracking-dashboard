@@ -101,6 +101,68 @@ export async function GET(
                     "Pragma": "no-cache"
                 }
             });
+        } else if (order.cargoLabelPdf && order.cargoLabelPdf.startsWith('data:image/')) {
+            const match = order.cargoLabelPdf.match(/^data:(image\/[a-zA-Z+.-]+);base64,/);
+            if (match) {
+                const mimeType = match[1];
+                const base64Data = order.cargoLabelPdf.substring(match[0].length);
+                const imgBuffer = Buffer.from(base64Data, 'base64');
+                const ext = mimeType.split('/')[1] === 'jpeg' ? 'jpg' : mimeType.split('/')[1];
+                return new NextResponse(imgBuffer, {
+                    status: 200,
+                    headers: {
+                        "Content-Type": mimeType,
+                        "Content-Disposition": `inline; filename="kargo_fisi_${order.cargoTrackingNumber || orderId}.${ext}"`,
+                        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+                        "Pragma": "no-cache"
+                    }
+                });
+            }
+            return new NextResponse("Geçersiz Resim Formatı", { status: 400 });
+        } else if (order.cargoLabelPdf && order.cargoLabelPdf.startsWith('production_files/')) {
+            return NextResponse.redirect(`https://printmarkt.co/${order.cargoLabelPdf}`);
+        } else if (order.cargoLabelPdf && (order.cargoLabelPdf.startsWith('/uploads/') || order.cargoLabelPdf.startsWith('uploads/'))) {
+            const cleanPath = order.cargoLabelPdf.startsWith('/') ? order.cargoLabelPdf : `/${order.cargoLabelPdf}`;
+            return NextResponse.redirect(`https://duvarkagidimarketi.com${cleanPath}`);
+        } else if (order.cargoLabelPdf && /^[A-Za-z0-9+/=]+$/.test(order.cargoLabelPdf)) {
+            try {
+                const buffer = Buffer.from(order.cargoLabelPdf, 'base64');
+                const fileHeader = buffer.subarray(0, 4).toString('utf-8');
+                if (fileHeader === '%PDF') {
+                    return new NextResponse(buffer, {
+                        status: 200,
+                        headers: {
+                            "Content-Type": "application/pdf",
+                            "Content-Disposition": `inline; filename="kargo_fisi_${order.cargoTrackingNumber || orderId}.pdf"`,
+                            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+                            "Pragma": "no-cache"
+                        }
+                    });
+                }
+                
+                if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+                    return new NextResponse(buffer, {
+                        status: 200,
+                        headers: {
+                            "Content-Type": "image/jpeg",
+                            "Content-Disposition": `inline; filename="kargo_fisi_${order.cargoTrackingNumber || orderId}.jpg"`,
+                            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+                            "Pragma": "no-cache"
+                        }
+                    });
+                } else if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
+                    return new NextResponse(buffer, {
+                        status: 200,
+                        headers: {
+                            "Content-Type": "image/png",
+                            "Content-Disposition": `inline; filename="kargo_fisi_${order.cargoTrackingNumber || orderId}.png"`,
+                            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+                            "Pragma": "no-cache"
+                        }
+                    });
+                }
+            } catch (e) {}
+            return new NextResponse("Geçersiz Barkod Formatı veya ZPL bulunamadı.", { status: 400 });
         } else {
             return new NextResponse("Geçersiz Barkod Formatı veya ZPL bulunamadı.", { status: 400 });
         }

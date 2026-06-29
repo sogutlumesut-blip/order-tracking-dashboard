@@ -178,10 +178,8 @@ export async function getOrders(timestamp?: number) {
 
 export async function getOrderDetails(orderId: number) {
     noStore(); // Restore noStore to ensure fresh data and fix visibility issues
-    const session = await getSession()
-    if (!session) return null
-
-    console.log(`[DEBUG] Fetching details for Order #${orderId}...`)
+    const session = await getSession().catch(() => null);
+    serverLog(`[GET_ORDER_DETAILS] Fetching #${orderId}, sessionUser=${session?.user?.name || "NULL"}`);
     try {
         const order = await db.order.findUnique({
             where: { id: orderId },
