@@ -4,7 +4,7 @@ import path from "path"
 
 export async function GET(request: Request) {
     try {
-        const logPath = path.join(process.cwd(), "oms_debug.log");
+        const logPath = "/tmp/oms_debug.log";
         if (fs.existsSync(logPath)) {
             const stats = fs.statSync(logPath);
             const content = fs.readFileSync(logPath, 'utf8');

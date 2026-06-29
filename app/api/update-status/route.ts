@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache"
 import fs from "fs"
 import path from "path"
 
-const LOG_PATH = path.join(process.cwd(), "oms_debug.log");
+const LOG_PATH = "/tmp/oms_debug.log";
 
 function logToFile(msg: string) {
     const ts = new Date().toISOString();

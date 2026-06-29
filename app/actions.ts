@@ -10,7 +10,7 @@ import WooCommerceRestApi from "@woocommerce/woocommerce-rest-api"
 import fs from "fs"
 import path from "path"
 
-const DEBUG_LOG_PATH = path.join(process.cwd(), "oms_debug.log");
+const DEBUG_LOG_PATH = "/tmp/oms_debug.log";
 
 function serverLog(msg: string) {
     const timestamp = new Date().toISOString();
