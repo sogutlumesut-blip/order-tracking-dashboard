@@ -1144,7 +1144,11 @@ export async function createUser(formData: FormData) {
 
 // SYSTEM SETTINGS ACTIONS
 export async function getSystemSettings(): Promise<Record<string, string>> {
-    noStore()
+    try {
+        noStore();
+    } catch (e) {
+        // Safe to ignore if called outside of request context (like in background server syncs)
+    }
     const settings = await db.systemSetting.findMany()
     return settings.reduce((acc: Record<string, string>, curr: any) => ({ ...acc, [curr.key]: curr.value }), {} as Record<string, string>)
 }
