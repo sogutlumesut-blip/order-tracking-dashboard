@@ -5,9 +5,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
     try {
-        const where: any = {};
         const allOrders = await db.order.findMany({
-            where,
             orderBy: { date: "desc" },
             take: 500,
             select: {
@@ -19,24 +17,27 @@ export async function GET() {
             }
         });
         
-        const found = allOrders.find((o: any) => o.externalId === 'pm_2100');
+        const counts = allOrders.reduce((acc: any, curr: any) => {
+            acc[curr.status] = (acc[curr.status] || 0) + 1;
+            return acc;
+        }, {});
+        
+        const pm2100 = allOrders.find((o: any) => o.externalId === 'pm_2100');
+        
+        // Find position of pm_2100 in the sorted list
+        const pm2100Index = allOrders.findIndex((o: any) => o.externalId === 'pm_2100');
         
         return NextResponse.json({
             success: true,
-            total_returned_for_admin: allOrders.length,
-            pm_2100_in_admin_list: found ? {
-                id: found.id,
-                customer: found.customer,
-                status: found.status,
-                date: found.date
-            } : null,
-            last_5_in_admin_list: allOrders.slice(0, 5).map((o: any) => ({
-                id: o.id,
-                externalId: o.externalId,
-                customer: o.customer,
-                status: o.status,
-                date: o.date
-            }))
+            total_orders_returned: allOrders.length,
+            status_counts_in_top_500: counts,
+            pm_2100_index: pm2100Index,
+            pm_2100_details: pm2100 ? {
+                id: pm2100.id,
+                customer: pm2100.customer,
+                status: pm2100.status,
+                date: pm2100.date
+            } : null
         });
     } catch (e: any) {
         return NextResponse.json({ success: false, error: e.message });
