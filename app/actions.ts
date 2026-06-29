@@ -2083,7 +2083,8 @@ export async function syncPrintMarktOrders(force: boolean = false) {
     try {
         let cleanUrl = settings['pm_url'].trim().replace(/\/+$/, '');
         let pmKey = settings['pm_key'].trim();
-        let fetchUrl = `${cleanUrl}/api/orders?_t=${Date.now()}`;
+        const limit = force ? 100 : 40;
+        let fetchUrl = `${cleanUrl}/api/orders?limit=${limit}&_t=${Date.now()}`;
         let response = await fetch(fetchUrl, {
             headers: { "X-API-Key": pmKey },
             cache: 'no-store'
