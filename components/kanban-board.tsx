@@ -370,8 +370,8 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         // Run immediately on mount
         performExternalSync();
 
-        // Then set the 30s interval
-        const syncInterval = setInterval(performExternalSync, 30000); // 30S External Sync
+        // Then set the 15s interval
+        const syncInterval = setInterval(performExternalSync, 15000); // 15S External Sync
 
         return () => {
             clearInterval(cargoInterval);
