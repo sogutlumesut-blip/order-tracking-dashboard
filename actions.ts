@@ -176,8 +176,13 @@ export async function getOrders(timestamp?: number) {
     })) as any
 }
 
-export async function getOrderDetails(orderId: number) {
+export async function getOrderDetails(rawOrderId: any) {
     noStore(); // Restore noStore to ensure fresh data and fix visibility issues
+    const orderId = Number(rawOrderId);
+    if (isNaN(orderId)) {
+        serverLog(`[GET_ORDER_DETAILS] Invalid ID: ${rawOrderId}`);
+        return null;
+    }
     const session = await getSession().catch(() => null);
     serverLog(`[GET_ORDER_DETAILS] Fetching #${orderId}, sessionUser=${session?.user?.name || "NULL"}`);
     try {
