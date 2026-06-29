@@ -306,6 +306,36 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                     <span className="translate-y-[0.5px]">🏷️</span> Etiket
                                 </button>
                             )}
+                            {/* SHARE TO CHAT BUTTON */}
+                            <button
+                                onClick={async (e) => {
+                                    e.stopPropagation();
+                                    const orderNo = order.source === 'woo' && order.externalId ? `#${order.externalId}` : `#${order.id}`;
+                                    const productName = order.items && order.items.length > 0 ? order.items[0].name : "Ürün detayı yok";
+                                    const productSku = order.items && order.items.length > 0 && order.items[0].sku ? ` (Kod: ${order.items[0].sku})` : "";
+                                    const text = `📦 Sipariş Paylaşıldı:\n• Sipariş No: ${orderNo}\n• Müşteri: ${order.customer}\n• Ürün: ${productName}${productSku}\n• Tutar: ${order.total}`;
+                                    
+                                    try {
+                                        const res = await fetch('/api/chat', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ text })
+                                        });
+                                        if (res.ok) {
+                                            window.dispatchEvent(new CustomEvent('open-team-chat'));
+                                        } else {
+                                            alert("Sohbete gönderilemedi.");
+                                        }
+                                    } catch (err) {
+                                        console.error(err);
+                                        alert("Sohbete gönderilirken hata oluştu.");
+                                    }
+                                }}
+                                className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded transition-colors shadow-sm z-10 relative"
+                                title="Sohbette Paylaş"
+                            >
+                                <span className="translate-y-[0.5px]">💬</span> Sohbete Gönder
+                            </button>
                             {order.assignedTo && (
                                 <div className="flex items-center gap-1 text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-full">
                                     <User className="w-3 h-3" />
