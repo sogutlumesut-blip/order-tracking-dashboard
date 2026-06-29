@@ -107,7 +107,6 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                                                         src={firstImg}
                                                         alt=""
                                                         className="w-full h-full object-cover"
-                                                        crossOrigin="anonymous"
                                                     />
                                                 </div>
                                             )}
