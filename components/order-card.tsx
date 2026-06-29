@@ -319,7 +319,10 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                         const res = await fetch('/api/chat', {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ text })
+                                            body: JSON.stringify({ 
+                                                text,
+                                                attachment: mainImage || undefined
+                                            })
                                         });
                                         if (res.ok) {
                                             window.dispatchEvent(new CustomEvent('open-team-chat'));
