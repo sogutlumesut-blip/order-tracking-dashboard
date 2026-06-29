@@ -13,9 +13,11 @@ export default async function Dashboard() {
   const session = await getSession()
   if (!session) redirect("/login")
 
-  // Kick off background syncs asynchronously without awaiting
-  syncWooCommerceOrders(false).catch(e => console.error("BG WC Sync Error:", e));
-  syncPrintMarktOrders(false).catch(e => console.error("BG PM Sync Error:", e));
+  // Sync WooCommerce and PrintMarkt orders in parallel before loading database
+  await Promise.all([
+    syncWooCommerceOrders(false).catch(e => console.error("BG WC Sync Error:", e)),
+    syncPrintMarktOrders(false).catch(e => console.error("BG PM Sync Error:", e))
+  ]);
 
   let orders: any[] = []
   let statuses: any[] = []
