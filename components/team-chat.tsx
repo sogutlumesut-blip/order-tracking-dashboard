@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from "react"
-import { MessageCircle, X, Send, User as UserIcon, Paperclip, ImageIcon } from "lucide-react"
+import { MessageCircle, X, Send, User as UserIcon, Paperclip } from "lucide-react"
 import { getChatMessages, sendChatMessage } from "@/app/actions-chat"
 
 interface User {
@@ -10,19 +10,79 @@ interface User {
     role: string
 }
 
+// Client-side image compression utility
+const compressImage = (base64Str: string): Promise<string> => {
+    return new Promise((resolve) => {
+        const img = new Image()
+        img.src = base64Str
+        img.onload = () => {
+            const canvas = document.createElement('canvas')
+            const maxDimension = 800
+            let width = img.width
+            let height = img.height
+
+            if (width > maxDimension || height > maxDimension) {
+                if (width > height) {
+                    height = Math.round((height * maxDimension) / width)
+                    width = maxDimension
+                } else {
+                    width = Math.round((width * maxDimension) / height)
+                    height = maxDimension
+                }
+            }
+
+            canvas.width = width
+            canvas.height = height
+            const ctx = canvas.getContext('2d')
+            if (ctx) {
+                ctx.drawImage(img, 0, 0, width, height)
+                // Compress to JPEG with 0.7 quality
+                resolve(canvas.toDataURL('image/jpeg', 0.7))
+            } else {
+                resolve(base64Str)
+            }
+        }
+        img.onerror = () => {
+            resolve(base64Str)
+        }
+    })
+}
+
 export function TeamChat({ currentUser }: { currentUser: User }) {
     const [isOpen, setIsOpen] = useState(false)
-    const [messages, setMessages] = useState<any[]>([])
+    
+    // Initialize messages from localStorage cache if available for instant load
+    const [messages, setMessages] = useState<any[]>(() => {
+        if (typeof window !== 'undefined') {
+            const cached = localStorage.getItem('team_chat_messages')
+            if (cached) {
+                try {
+                    return JSON.parse(cached)
+                } catch (e) {
+                    return []
+                }
+            }
+        }
+        return []
+    })
+    
     const [newMessage, setNewMessage] = useState("")
     const [attachment, setAttachment] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(false)
     const [hasUnread, setHasUnread] = useState(false)
     const messagesEndRef = useRef<HTMLDivElement>(null)
+    
     const messagesRef = useRef(messages)
     const isOpenRef = useRef(isOpen)
+    const sendingMessageIdsRef = useRef<Set<string>>(new Set())
 
+    // Keep refs up-to-date to avoid stale closures in polling callbacks
     useEffect(() => {
         messagesRef.current = messages
+        if (typeof window !== 'undefined') {
+            const nonOptimistic = messages.filter(m => !m.isOptimistic)
+            localStorage.setItem('team_chat_messages', JSON.stringify(nonOptimistic))
+        }
     }, [messages])
 
     useEffect(() => {
@@ -30,11 +90,15 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     }, [isOpen])
 
     const fetchMessages = async (showLoading = false) => {
-        if (showLoading) setIsLoading(true)
+        if (showLoading && messagesRef.current.length === 0) setIsLoading(true)
         const res = await getChatMessages(Date.now())
         if (res.success && res.messages) {
             const currentMessages = messagesRef.current
-            setMessages(res.messages)
+            // Preserve in-flight optimistic messages
+            const inFlight = currentMessages.filter(m => m.isOptimistic && sendingMessageIdsRef.current.has(m.id))
+            
+            setMessages([...res.messages, ...inFlight])
+            
             if (!isOpenRef.current && res.messages.length > currentMessages.length && currentMessages.length > 0) {
                 setHasUnread(true)
             }
@@ -43,17 +107,30 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     }
 
     useEffect(() => {
-        fetchMessages(true)
-        const interval = setInterval(() => fetchMessages(), 10000) // Poll every 10 seconds
-        return () => clearInterval(interval)
+        // Initial fetch on mount (shows spinner only if there's no cached data)
+        fetchMessages(messages.length === 0)
     }, [])
 
     useEffect(() => {
         if (isOpen) {
             setHasUnread(false)
             scrollToBottom()
+            // Immediately fetch fresh messages on open
+            fetchMessages(false)
         }
-    }, [isOpen, messages])
+        
+        // Dynamic polling: 2s when open (real-time chat feel), 10s when closed
+        const intervalTime = isOpen ? 2000 : 10000
+        const interval = setInterval(() => fetchMessages(), intervalTime)
+        
+        return () => clearInterval(interval)
+    }, [isOpen])
+
+    useEffect(() => {
+        if (isOpen) {
+            scrollToBottom()
+        }
+    }, [messages])
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -63,8 +140,9 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         e.preventDefault()
         if (!newMessage.trim() && !attachment) return
 
+        const optimisticId = 'temp-' + Date.now()
         const optimisticMessage = {
-            id: 'temp-' + Date.now(),
+            id: optimisticId,
             text: newMessage,
             attachment: attachment,
             senderId: currentUser.id,
@@ -73,6 +151,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
             isOptimistic: true
         }
         
+        sendingMessageIdsRef.current.add(optimisticId)
         setMessages(prev => [...prev, optimisticMessage])
         setNewMessage("")
         setAttachment(null)
@@ -80,15 +159,18 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         try {
             const res = await sendChatMessage(optimisticMessage.text, optimisticMessage.attachment || undefined)
             if (!res.success) {
+                sendingMessageIdsRef.current.delete(optimisticId)
                 // Revert on error
-                setMessages(prev => prev.filter(m => m.id !== optimisticMessage.id))
+                setMessages(prev => prev.filter(m => m.id !== optimisticId))
                 alert("Mesaj gönderilemedi: " + res.error)
             } else {
-                // We fetch the real list to get exact timestamps and IDs from DB
-                fetchMessages()
+                sendingMessageIdsRef.current.delete(optimisticId)
+                // Replace the optimistic message directly with the server-saved message
+                setMessages(prev => prev.map(m => m.id === optimisticId ? res.message : m))
             }
         } catch (error: any) {
-            setMessages(prev => prev.filter(m => m.id !== optimisticMessage.id))
+            sendingMessageIdsRef.current.delete(optimisticId)
+            setMessages(prev => prev.filter(m => m.id !== optimisticId))
             alert("Mesaj gönderilirken bir hata oluştu: " + (error.message || error))
         }
     }
@@ -142,7 +224,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                             </div>
                                         </div>
                                         <span className="text-[9px] text-slate-400 mt-1 mx-8">
-                                            {new Date(msg.createdAt).toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                            {new Date(msg.createdAt).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                                         </span>
                                     </div>
                                 )
@@ -170,13 +252,14 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                     onChange={(e) => {
                                         const file = e.target.files?.[0]
                                         if (file) {
-                                            if (file.size > 2 * 1024 * 1024) {
-                                                alert("Dosya boyutu 2MB'dan büyük olamaz.")
+                                            if (file.size > 10 * 1024 * 1024) {
+                                                alert("Dosya boyutu 10MB'dan büyük olamaz.")
                                                 return
                                             }
                                             const reader = new FileReader()
-                                            reader.onload = () => {
-                                                setAttachment(reader.result as string)
+                                            reader.onload = async () => {
+                                                const compressed = await compressImage(reader.result as string)
+                                                setAttachment(compressed)
                                             }
                                             reader.readAsDataURL(file)
                                         }
@@ -195,13 +278,14 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                         if (items[i].type.indexOf('image') !== -1) {
                                             const file = items[i].getAsFile()
                                             if (file) {
-                                                if (file.size > 2 * 1024 * 1024) {
-                                                    alert("Dosya boyutu 2MB'dan büyük olamaz.")
+                                                if (file.size > 10 * 1024 * 1024) {
+                                                    alert("Dosya boyutu 10MB'dan büyük olamaz.")
                                                     return
                                                 }
                                                 const reader = new FileReader()
-                                                reader.onload = () => {
-                                                    setAttachment(reader.result as string)
+                                                reader.onload = async () => {
+                                                    const compressed = await compressImage(reader.result as string)
+                                                    setAttachment(compressed)
                                                 }
                                                 reader.readAsDataURL(file)
                                             }

@@ -277,7 +277,7 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                     <div className="flex items-center justify-between mt-1">
                         <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
                             <Calendar className="w-3.5 h-3.5" />
-                            <span>{order.date ? new Date(order.date).toLocaleString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                            <span>{order.date ? new Date(order.date).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</span>
                         </div>
                         <div className="flex items-center gap-2">
                             {/* DESIGN PDF LINK (PrintMarkt / Custom URL) */}

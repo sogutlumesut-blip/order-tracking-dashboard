@@ -59,6 +59,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                             const d = new Date(c.timestamp);
                             if (d instanceof Date && !isNaN(d.getTime())) {
                                 displayTime = d.toLocaleString('tr-TR', {
+                                    timeZone: 'Europe/Istanbul',
                                     day: '2-digit', month: '2-digit', year: 'numeric',
                                     hour: '2-digit', minute: '2-digit'
                                 });
@@ -87,6 +88,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
             author: currentUser.name,
             message: msg,
             timestamp: new Date().toLocaleString('tr-TR', {
+                timeZone: 'Europe/Istanbul',
                 day: '2-digit',
                 month: '2-digit',
                 year: 'numeric',
@@ -234,7 +236,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                             <p>{formData.city}</p>
                         </div>
                         <div className="text-right">
-                            <p className="font-bold">Tarih: {formData.date}</p>
+                             <p className="font-bold">Tarih: {formData.date ? new Date(formData.date).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</p>
                             <p className="text-xl font-bold mt-2">{formData.total}</p>
                         </div>
                     </div>
