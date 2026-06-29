@@ -129,6 +129,16 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         isOpenRef.current = isOpen
     }, [isOpen])
 
+    // Event listener to open chat window when an order is shared
+    useEffect(() => {
+        const handleOpenChat = () => {
+            setIsOpen(true)
+            fetchMessages(false)
+        }
+        window.addEventListener('open-team-chat', handleOpenChat)
+        return () => window.removeEventListener('open-team-chat', handleOpenChat)
+    }, [])
+
     const fetchMessages = async (showLoading = false) => {
         if (showLoading && messagesRef.current.length === 0) setIsLoading(true)
         try {
