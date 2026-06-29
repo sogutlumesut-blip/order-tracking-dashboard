@@ -1,31 +1,30 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/prisma';
+import { getOrders } from '@/app/actions';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
     try {
-        const pmCount = await db.order.count({ where: { source: 'PrintMarkt' } });
-        const pendingPmCount = await db.order.count({ where: { status: 'pending_pm' } });
-        const lastPmOrders = await db.order.findMany({
-            where: { source: 'PrintMarkt' },
-            orderBy: { id: 'desc' },
-            take: 10,
-            select: {
-                id: true,
-                externalId: true,
-                customer: true,
-                status: true,
-                date: true
-            }
-        });
+        const allOrders = await getOrders();
+        const found = allOrders.find((o: any) => o.externalId === 'pm_2100');
         
         return NextResponse.json({
             success: true,
-            database_url_truncated: process.env.DATABASE_URL?.split('@')[1] || 'no-db-url',
-            total_pm_orders: pmCount,
-            total_pending_pm_orders: pendingPmCount,
-            last_10_pm_orders: lastPmOrders
+            total_returned_by_getOrders: allOrders.length,
+            pm_2100_in_getOrders: found ? {
+                id: found.id,
+                customer: found.customer,
+                status: found.status,
+                date: found.date
+            } : null,
+            last_5_in_getOrders: allOrders.slice(0, 5).map((o: any) => ({
+                id: o.id,
+                externalId: o.externalId,
+                customer: o.customer,
+                status: o.status,
+                date: o.date
+            }))
         });
     } catch (e: any) {
         return NextResponse.json({ success: false, error: e.message });
