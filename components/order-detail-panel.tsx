@@ -51,27 +51,32 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
             setLazyComments([])
             setLazyActivities([])
 
-            // Background fetch FULL details
-            getOrderDetails(order.id).then((details) => {
-                if (details) {
-                    const formattedComments = (details.comments || []).map((c: any) => {
-                        let displayTime = c.timestamp;
-                        try {
-                            const d = new Date(c.timestamp);
-                            if (d instanceof Date && !isNaN(d.getTime())) {
-                                displayTime = d.toLocaleString('tr-TR', {
-                                    timeZone: 'Europe/Istanbul',
-                                    day: '2-digit', month: '2-digit', year: 'numeric',
-                                    hour: '2-digit', minute: '2-digit'
-                                });
-                            }
-                        } catch (e) {}
-                        return { ...c, timestamp: displayTime };
-                    });
-                    setLazyComments(formattedComments)
-                    setLazyActivities(details.activities)
-                }
-            }).catch(e => console.error("Lazy fetch err:", e))
+            // Background fetch FULL details via REST API
+            fetch(`/api/order-details?orderId=${order.id}`)
+                .then((res) => {
+                    if (!res.ok) throw new Error("API hatası");
+                    return res.json();
+                })
+                .then((details) => {
+                    if (details) {
+                        const formattedComments = (details.comments || []).map((c: any) => {
+                            let displayTime = c.timestamp;
+                            try {
+                                const d = new Date(c.timestamp);
+                                if (d instanceof Date && !isNaN(d.getTime())) {
+                                    displayTime = d.toLocaleString('tr-TR', {
+                                        timeZone: 'Europe/Istanbul',
+                                        day: '2-digit', month: '2-digit', year: 'numeric',
+                                        hour: '2-digit', minute: '2-digit'
+                                    });
+                                }
+                            } catch (e) {}
+                            return { ...c, timestamp: displayTime };
+                        });
+                        setLazyComments(formattedComments)
+                        setLazyActivities(details.activities)
+                    }
+                }).catch(e => console.error("Lazy fetch err:", e))
         } else if (!isOpen) {
             // Reset for next time
             setFormData(null)
