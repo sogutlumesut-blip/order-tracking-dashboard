@@ -1391,8 +1391,9 @@ export async function syncWooCommerceOrders(force: boolean = false) {
 
     try {
         const auth = Buffer.from(`${settings['wc_key']}:${settings['wc_secret']}`).toString('base64')
-        // Filter: After Dec 20, 2025 - Increase limit to catch gaps
-        const response = await fetch(`${settings['wc_url']}/wp-json/wc/v3/orders?per_page=100&after=2025-12-20T00:00:00`, {
+        // Filter: After Dec 20, 2025 - Limit count in background to prevent timeout issues
+        const perPage = force ? 100 : 20;
+        const response = await fetch(`${settings['wc_url']}/wp-json/wc/v3/orders?per_page=${perPage}&after=2025-12-20T00:00:00`, {
             headers: {
                 Authorization: `Basic ${auth}`
             },
