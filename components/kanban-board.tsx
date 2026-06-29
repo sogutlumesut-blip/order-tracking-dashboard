@@ -552,6 +552,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     mode: 'single_status',
                     orderId: activeId,
                     status: overId,
+                    userName: currentUser.name,
                     version: "v3.6.6.36"
                 })
             });
@@ -744,6 +745,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         mode: 'single_status',
                         orderId: targetOrder.id,
                         status: nextStatus,
+                        userName: currentUser.name,
                         version: "v3.6.6.36"
                     })
                 });
@@ -847,6 +849,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         mode: 'bulk_status',
                         orderIds: chunk,
                         status: targetStatusId,
+                        userName: currentUser.name,
                         version: "v3.6.6.36"
                     })
                 });
@@ -900,6 +903,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 body: JSON.stringify({
                     mode: 'full_update',
                     orderData: updatedOrder,
+                    userName: currentUser.name,
                     version: "v3.6.6.36"
                 })
             });

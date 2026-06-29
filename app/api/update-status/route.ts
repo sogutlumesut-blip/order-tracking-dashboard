@@ -19,25 +19,48 @@ export async function POST(request: Request) {
     logToFile("API Call Started");
     try {
         const body = await request.json();
-        const { mode, orderId, status, orderData, orderIds, version } = body;
+        const { mode, orderId, status, orderData, orderIds, userName, version } = body;
 
         const session = await getSession();
-        const user = session?.user?.name || "Sistem (API)";
+        const user = userName || session?.user?.name || "Sistem (API)";
 
         logToFile(`Mode: ${mode} | User: ${user} | v: ${version}`);
 
+        // Fetch all statuses to map status IDs to titles
+        const statusesList = await db.statusColumn.findMany();
+        const statusMap = new Map(statusesList.map(s => [s.id, s.title]));
+
         if (mode === 'single_status') {
             logToFile(`Updating #${orderId} to ${status}`);
+            
+            const oldOrder = await db.order.findUnique({ where: { id: Number(orderId) } });
+            const oldStatusTitle = oldOrder ? (statusMap.get(oldOrder.status) || oldOrder.status) : "Bilinmeyen";
+            const newStatusTitle = statusMap.get(status) || status;
+
             await db.orderActivity.create({
-                data: { orderId: Number(orderId), author: user, action: "STATUS_CHANGE_API", details: `Durum '${status}' olarak güncellendi (v15)` }
+                data: { 
+                    orderId: Number(orderId), 
+                    author: user, 
+                    action: "STATUS_CHANGE", 
+                    details: `Sipariş durumu değiştirildi: '${oldStatusTitle}' -> '${newStatusTitle}'` 
+                }
             });
             await db.order.update({ where: { id: Number(orderId) }, data: { status, updatedAt: new Date(), hasNotification: true } });
         }
         else if (mode === 'bulk_status') {
             logToFile(`Bulk Update [${orderIds?.join(',')}] to ${status}`);
+            const newStatusTitle = statusMap.get(status) || status;
             for (const id of orderIds) {
+                const oldOrder = await db.order.findUnique({ where: { id: Number(id) } });
+                const oldStatusTitle = oldOrder ? (statusMap.get(oldOrder.status) || oldOrder.status) : "Bilinmeyen";
+
                 await db.orderActivity.create({
-                    data: { orderId: Number(id), author: user, action: "BULK_MOVE_API", details: `Toplu taşıma ile '${status}' yapıldı (v15)` }
+                    data: { 
+                        orderId: Number(id), 
+                        author: user, 
+                        action: "STATUS_CHANGE", 
+                        details: `Toplu durum değişikliği: '${oldStatusTitle}' -> '${newStatusTitle}'` 
+                    }
                 });
                 await db.order.update({ where: { id: Number(id) }, data: { status, updatedAt: new Date(), hasNotification: true } });
             }
@@ -47,16 +70,85 @@ export async function POST(request: Request) {
             const id = Number(order.id);
             logToFile(`Full Update #${id}`);
 
-            // Log changes logic (simplified from actions.ts)
-            await db.orderActivity.create({
-                data: { orderId: id, author: user, action: "DETAILS_UPDATE_API", details: `Sipariş detayları API üzerinden güncellendi (v15)` }
+            const oldOrder = await db.order.findUnique({
+                where: { id },
+                include: { items: true }
             });
+
+            if (oldOrder) {
+                // 1. Assignee Change
+                if (oldOrder.assignedTo !== order.assignedTo && order.assignedTo) {
+                    await db.orderActivity.create({
+                        data: { orderId: id, author: user, action: "ASSIGN_CHANGE", details: `Sorumluluk atandı: ${order.assignedTo}` }
+                    });
+                }
+
+                // 2. Status Change
+                if (oldOrder.status !== order.status) {
+                    const oldStatusTitle = statusMap.get(oldOrder.status) || oldOrder.status;
+                    const newStatusTitle = statusMap.get(order.status) || order.status;
+                    await db.orderActivity.create({
+                        data: { orderId: id, author: user, action: "STATUS_CHANGE", details: `Sipariş durumu değiştirildi: '${oldStatusTitle}' -> '${newStatusTitle}'` }
+                    });
+                }
+
+                // 3. Customer Details Change
+                const customerChanged =
+                    oldOrder.customer !== order.customer ||
+                    oldOrder.phone !== order.phone ||
+                    oldOrder.address !== order.address ||
+                    oldOrder.city !== order.city;
+
+                if (customerChanged) {
+                    await db.orderActivity.create({
+                        data: { orderId: id, author: user, action: "DETAILS_UPDATE", details: "Müşteri ve teslimat bilgileri güncellendi." }
+                    });
+                }
+
+                // 4. Tracking Number
+                if (oldOrder.trackingNumber !== order.trackingNumber && order.trackingNumber) {
+                    await db.orderActivity.create({
+                        data: { orderId: id, author: user, action: "TRACKING_UPDATE", details: `Kargo takip no girildi: ${order.trackingNumber}` }
+                    });
+                }
+
+                // 5. Note Added
+                if (oldOrder.printNotes !== order.printNotes) {
+                    await db.orderActivity.create({
+                        data: { orderId: id, author: user, action: "NOTE_ADDED", details: "İşlem notu güncellendi." }
+                    });
+                }
+
+                // 6. Labels Change
+                const oldLabels = oldOrder.labels;
+                const newLabels = typeof order.labels === 'string' ? order.labels : JSON.stringify(order.labels);
+                if (oldLabels !== newLabels) {
+                    await db.orderActivity.create({
+                        data: { orderId: id, author: user, action: "LABEL_UPDATE", details: "Etiketler güncellendi." }
+                    });
+                }
+
+                // 7. Item Updates
+                if (order.items && Array.isArray(order.items)) {
+                    const itemsChanged = JSON.stringify(oldOrder.items.map(i => ({ sku: i.sku, material: i.material, dimensions: i.dimensions }))) !==
+                        JSON.stringify(order.items.map((i: any) => ({ sku: i.sku, material: i.material, dimensions: i.dimensions })));
+                    if (itemsChanged) {
+                        await db.orderActivity.create({
+                            data: { orderId: id, author: user, action: "ITEM_UPDATE", details: "Ürün detayları (SKU/Doku/Ölçü) güncellendi." }
+                        });
+                    }
+                }
+            } else {
+                await db.orderActivity.create({
+                    data: { orderId: id, author: user, action: "DETAILS_UPDATE_API", details: `Sipariş detayları güncellendi.` }
+                });
+            }
 
             await db.order.update({
                 where: { id },
                 data: {
                     labels: typeof order.labels === 'string' ? order.labels : JSON.stringify(order.labels),
-                    assignedTo: user,
+                    assignedTo: order.assignedTo || user,
                     status: order.status,
                     trackingNumber: order.trackingNumber,
                     printNotes: order.printNotes,
