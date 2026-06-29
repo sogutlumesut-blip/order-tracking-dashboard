@@ -86,6 +86,34 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         toast.info(newState ? "Sürükleme Kilidi Aktif 🔒" : "Sürükleme Kilidi Açıldı 🔓")
     }
 
+    const handleSafeAction = async (
+        actionFn: () => Promise<any>,
+        loadingMessage: string,
+        successMessage?: string | ((res: any) => string)
+    ) => {
+        toast.info(loadingMessage);
+        try {
+            const res = await actionFn();
+            if (res && res.error) {
+                toast.error(res.error);
+            } else {
+                const msg = typeof successMessage === 'function' 
+                    ? successMessage(res) 
+                    : (successMessage || res?.message || "İşlem tamamlandı");
+                toast.success(msg);
+                router.refresh();
+            }
+        } catch (e: any) {
+            console.error("Action Error:", e);
+            if (e?.message?.includes("Failed to find Server Action") || e?.message?.includes("server-action") || e?.message?.includes("not found on the server")) {
+                toast.warning("Sistem güncellendiği için sayfa yenileniyor...");
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                toast.error("Bir hata oluştu: " + e.message);
+            }
+        }
+    };
+
     const toggleOrderSelection = (orderId: number) => {
         setSelectedOrders(prev =>
             prev.includes(orderId) ? prev.filter(id => id !== orderId) : [...prev, orderId]
@@ -1096,79 +1124,49 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         </button>
 
                         {/* Woo & Etsy Sync - Styled similarly */}
-                        {(currentUser.role === 'admin' || (currentUser as any).allowedStatuses?.includes("MANUAL_SYNC")) && ( // Note: currentUser in props might need mapping for permissions if detailed object passed
+                        {(currentUser.role === 'admin' || (currentUser as any).allowedStatuses?.includes("MANUAL_SYNC")) && (
                             <>
-                                <form action={async () => {
-                                    toast.info("WooCommerce senkronizasyonu...")
-                                    await syncWooCommerceOrders(true) // FORCE SYNC
-                                    toast.success("Senkronizasyon tamamlandı")
-                                }}>
-                                    <button
-                                        type="submit"
-                                        className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
-                                        title="WooCommerce'den son siparişleri manuel çek"
-                                    >
-                                        <RefreshCw className="w-3.5 h-3.5" />
-                                        Woo Çek
-                                    </button>
-                                </form>
+                                <button
+                                    onClick={() => handleSafeAction(() => syncWooCommerceOrders(true), "WooCommerce senkronizasyonu...", "Senkronizasyon tamamlandı")}
+                                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
+                                    title="WooCommerce'den son siparişleri manuel çek"
+                                >
+                                    <RefreshCw className="w-3.5 h-3.5" />
+                                    Woo Çek
+                                </button>
 
-                                <form action={async () => {
-                                    toast.info("PrintMarkt senkronizasyonu...")
-                                    const res = await syncPrintMarktOrders(true)
-                                    if (res.success) {
-                                        toast.success(res.message)
-                                        router.refresh()
-                                    } else {
-                                        toast.error(res.error)
-                                    }
-                                }}>
-                                    <button
-                                        type="submit"
-                                        className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
-                                        title="PrintMarkt.co'dan siparişleri manuel çek"
-                                    >
-                                        <RefreshCw className="w-3.5 h-3.5" />
-                                        PM Çek
-                                    </button>
-                                </form>
+                                <button
+                                    onClick={() => handleSafeAction(() => syncPrintMarktOrders(true), "PrintMarkt senkronizasyonu...")}
+                                    className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
+                                    title="PrintMarkt.co'dan siparişleri manuel çek"
+                                >
+                                    <RefreshCw className="w-3.5 h-3.5" />
+                                    PM Çek
+                                </button>
 
                                 {currentUser.role === 'admin' && (
-                                    <form action={async () => {
-                                        toast.info("Etsy senkronizasyonu...")
-                                        await syncEtsyOrders()
-                                        toast.success("Senkronizasyon tamamlandı")
-                                    }}>
-                                        <button
-                                            type="submit"
-                                            className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
-                                            title="Etsy'den son siparişleri manuel çek"
-                                        >
-                                            <RefreshCw className="w-3.5 h-3.5" />
-                                            Etsy Çek
-                                        </button>
-                                    </form>
+                                    <button
+                                        onClick={() => handleSafeAction(() => syncEtsyOrders(), "Etsy senkronizasyonu...", "Senkronizasyon tamamlandı")}
+                                        className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
+                                        title="Etsy'den son siparişleri manuel çek"
+                                    >
+                                        <RefreshCw className="w-3.5 h-3.5" />
+                                        Etsy Çek
+                                    </button>
                                 )}
                             </>
                         )}
 
                         {/* Kargo Sync - Admin Only? Or Staff with Permission? Let's say Admin for now or same permission */}
                         {(currentUser.role === 'admin' || (currentUser as any).allowedStatuses?.includes("MANUAL_SYNC")) && (
-                            <form action={async () => {
-                                toast.info("Kargo entegrasyonu (MNG/DHL) kontrol ediliyor...")
-                                const res = await syncCargoKargoEntegrator()
-                                if (res?.success) toast.success(res.message)
-                                else if (res?.error) toast.error(res.error)
-                            }}>
-                                <button
-                                    type="submit"
-                                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
-                                    title="Kargo takip numaralarını ve etiketleri çek"
-                                >
-                                    <Truck className="w-3.5 h-3.5" />
-                                    Kargo Çek
-                                </button>
-                            </form>
+                            <button
+                                onClick={() => handleSafeAction(() => syncCargoKargoEntegrator(), "Kargo entegrasyonu (MNG/DHL) kontrol ediliyor...")}
+                                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
+                                title="Kargo takip numaralarını ve etiketleri çek"
+                            >
+                                <Truck className="w-3.5 h-3.5" />
+                                Kargo Çek
+                            </button>
                         )}
 
 
@@ -1250,52 +1248,51 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
                         <div className="flex flex-col gap-2">
                             {(currentUser.role === 'admin' || (currentUser as any).allowedStatuses?.includes("MANUAL_SYNC")) && (
-                                <form action={async () => {
-                                    toast.info("Woo Senkronize ediliyor...")
-                                    await syncWooCommerceOrders(true)
-                                    setMobileMenuOpen(false)
-                                }} className="w-full">
-                                    <button className="w-full flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-lg hover:bg-blue-100 font-bold text-sm border border-blue-100 dark:border-blue-900/30">
-                                        <div className="flex items-center gap-2">
-                                            <RefreshCw className="w-4 h-4" />
-                                            WooCommerce Çek
-                                        </div>
-                                        <ChevronRight className="w-4 h-4 opacity-50" />
-                                    </button>
-                                </form>
+                                <button
+                                    onClick={() => {
+                                        setMobileMenuOpen(false);
+                                        handleSafeAction(() => syncWooCommerceOrders(true), "WooCommerce senkronizasyonu...", "Senkronizasyon tamamlandı");
+                                    }}
+                                    className="w-full flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-lg hover:bg-blue-100 font-bold text-sm border border-blue-100 dark:border-blue-900/30"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <RefreshCw className="w-4 h-4" />
+                                        WooCommerce Çek
+                                    </div>
+                                    <ChevronRight className="w-4 h-4 opacity-50" />
+                                </button>
                             )}
 
                             {currentUser.role === 'admin' && (
-                                <form action={async () => {
-                                    toast.info("Etsy Senkronize ediliyor...")
-                                    await syncEtsyOrders()
-                                    setMobileMenuOpen(false)
-                                }} className="w-full">
-                                    <button className="w-full flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 rounded-lg hover:bg-orange-100 font-bold text-sm border border-orange-100 dark:border-orange-900/30">
-                                        <div className="flex items-center gap-2">
-                                            <RefreshCw className="w-4 h-4" />
-                                            Etsy Siparişleri Çek
-                                        </div>
-                                        <ChevronRight className="w-4 h-4 opacity-50" />
-                                    </button>
-                                </form>
+                                <button
+                                    onClick={() => {
+                                        setMobileMenuOpen(false);
+                                        handleSafeAction(() => syncEtsyOrders(), "Etsy senkronizasyonu...", "Senkronizasyon tamamlandı");
+                                    }}
+                                    className="w-full flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 rounded-lg hover:bg-orange-100 font-bold text-sm border border-orange-100 dark:border-orange-900/30"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <RefreshCw className="w-4 h-4" />
+                                        Etsy Siparişleri Çek
+                                    </div>
+                                    <ChevronRight className="w-4 h-4 opacity-50" />
+                                </button>
                             )}
 
                             {(currentUser.role === 'admin' || (currentUser as any).allowedStatuses?.includes("MANUAL_SYNC")) && (
-                                <form action={async () => {
-                                    toast.info("Kargo Senkronize ediliyor...")
-                                    const res = await syncCargoKargoEntegrator()
-                                    if (res?.success) toast.success(res.message)
-                                    setMobileMenuOpen(false)
-                                }} className="w-full">
-                                    <button className="w-full flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 font-bold text-sm border border-indigo-100 dark:border-indigo-900/30">
-                                        <div className="flex items-center gap-2">
-                                            <Truck className="w-4 h-4" />
-                                            Kargo Bilgilerini Çek
-                                        </div>
-                                        <ChevronRight className="w-4 h-4 opacity-50" />
-                                    </button>
-                                </form>
+                                <button
+                                    onClick={() => {
+                                        setMobileMenuOpen(false);
+                                        handleSafeAction(() => syncCargoKargoEntegrator(), "Kargo entegrasyonu (MNG/DHL) kontrol ediliyor...");
+                                    }}
+                                    className="w-full flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 font-bold text-sm border border-indigo-100 dark:border-indigo-900/30"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <Truck className="w-4 h-4" />
+                                        Kargo Bilgilerini Çek
+                                    </div>
+                                    <ChevronRight className="w-4 h-4 opacity-50" />
+                                </button>
                             )}
 
                             {currentUser.role === 'admin' && (
