@@ -2,12 +2,52 @@
 
 import { useState, useEffect, useRef } from "react"
 import { MessageCircle, X, Send, User as UserIcon, Paperclip } from "lucide-react"
-import { getChatMessages, sendChatMessage } from "@/app/actions-chat"
 
 interface User {
     id: string
     name: string
     role: string
+}
+
+// Web Audio API notification sound (soft premium chime)
+const playNotificationSound = () => {
+    try {
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext
+        if (!AudioContext) return
+        const ctx = new AudioContext()
+        
+        const now = ctx.currentTime
+        
+        // Tone 1 (soft bell)
+        const osc1 = ctx.createOscillator()
+        const gain1 = ctx.createGain()
+        osc1.type = 'sine'
+        osc1.frequency.setValueAtTime(880, now) // A5 note
+        gain1.gain.setValueAtTime(0, now)
+        gain1.gain.linearRampToValueAtTime(0.1, now + 0.05)
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35)
+        
+        osc1.connect(gain1)
+        gain1.connect(ctx.destination)
+        osc1.start(now)
+        osc1.stop(now + 0.4)
+        
+        // Tone 2 (E6, starts slightly later)
+        const osc2 = ctx.createOscillator()
+        const gain2 = ctx.createGain()
+        osc2.type = 'sine'
+        osc2.frequency.setValueAtTime(1320, now + 0.08) // E6 note
+        gain2.gain.setValueAtTime(0, now + 0.08)
+        gain2.gain.linearRampToValueAtTime(0.15, now + 0.12)
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.45)
+        
+        osc2.connect(gain2)
+        gain2.connect(ctx.destination)
+        osc2.start(now + 0.08)
+        osc2.stop(now + 0.5)
+    } catch (e) {
+        console.error("Web Audio API error", e)
+    }
 }
 
 // Client-side image compression utility
@@ -91,17 +131,34 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
 
     const fetchMessages = async (showLoading = false) => {
         if (showLoading && messagesRef.current.length === 0) setIsLoading(true)
-        const res = await getChatMessages(Date.now())
-        if (res.success && res.messages) {
-            const currentMessages = messagesRef.current
-            // Preserve in-flight optimistic messages
-            const inFlight = currentMessages.filter(m => m.isOptimistic && sendingMessageIdsRef.current.has(m.id))
-            
-            setMessages([...res.messages, ...inFlight])
-            
-            if (!isOpenRef.current && res.messages.length > currentMessages.length && currentMessages.length > 0) {
-                setHasUnread(true)
+        try {
+            const response = await fetch('/api/chat')
+            const res = await response.json()
+            if (res.success && res.messages) {
+                const currentMessages = messagesRef.current
+                // Preserve in-flight optimistic messages
+                const inFlight = currentMessages.filter(m => m.isOptimistic && sendingMessageIdsRef.current.has(m.id))
+                
+                // Identify new incoming messages from other users
+                const newOtherMessages = res.messages.filter((newMsg: any) => {
+                    const alreadyExists = currentMessages.some(m => m.id === newMsg.id)
+                    const isNotMe = newMsg.senderId !== currentUser.id
+                    return !alreadyExists && isNotMe
+                })
+
+                setMessages([...res.messages, ...inFlight])
+
+                // Play notification sound on new incoming messages
+                if (newOtherMessages.length > 0 && currentMessages.length > 0) {
+                    playNotificationSound()
+                }
+                
+                if (!isOpenRef.current && res.messages.length > currentMessages.length && currentMessages.length > 0) {
+                    setHasUnread(true)
+                }
             }
+        } catch (e) {
+            console.error("Failed to fetch messages:", e)
         }
         if (showLoading) setIsLoading(false)
     }
@@ -157,7 +214,17 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         setAttachment(null)
 
         try {
-            const res = await sendChatMessage(optimisticMessage.text, optimisticMessage.attachment || undefined)
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    text: optimisticMessage.text,
+                    attachment: optimisticMessage.attachment || undefined
+                })
+            })
+            const res = await response.json()
             if (!res.success) {
                 sendingMessageIdsRef.current.delete(optimisticId)
                 // Revert on error
