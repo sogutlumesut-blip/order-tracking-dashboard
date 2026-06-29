@@ -28,7 +28,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
     const router = useRouter()
     const [formData, setFormData] = useState<Order | null>(null)
     const [isModified, setIsModified] = useState(false)
-    const [isActivityLogOpen, setIsActivityLogOpen] = useState(false)
+    const [isActivityLogOpen, setIsActivityLogOpen] = useState(true)
     const [previewImage, setPreviewImage] = useState<string | null>(null)
     const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false)
 
@@ -44,6 +44,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
             if (!formData || formData.id !== order.id || !isModified) {
                 setFormData({ ...order })
                 setIsModified(false)
+                setIsActivityLogOpen(true)
             }
 
             // Sync comments and activities - using order.comments as source of truth from server
