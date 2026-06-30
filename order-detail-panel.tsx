@@ -818,7 +818,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                 </button>
 
                                 {isActivityLogOpen && (
-                                    <div className="mt-2 border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm animate-in slide-in-from-top-2 duration-200">
+                                    <div className="mt-2 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden bg-white dark:bg-slate-900 shadow-sm animate-in slide-in-from-top-2 duration-200">
                                         <ActivityLog activities={lazyActivities || []} />
                                     </div>
                                 )}
