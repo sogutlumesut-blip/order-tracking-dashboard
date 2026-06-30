@@ -189,7 +189,11 @@ export async function getOrders(timestamp?: number) {
         items: order.items.map(item => ({
             ...item,
             sku: item.sku || null,
-            image_src: item.image_src?.startsWith('data:image') ? `/api/order-image/${item.id}` : item.image_src,
+            image_src: item.image_src?.startsWith('data:image') 
+                ? `/api/order-image/${item.id}` 
+                : (item.image_src && (item.image_src.startsWith('/api/uploads/') || item.image_src.startsWith('/uploads/') || item.image_src.startsWith('uploads/'))
+                    ? `https://printmarkt.co${item.image_src.startsWith('/') ? '' : '/'}${item.image_src}`
+                    : item.image_src),
             url: item.url?.startsWith('data:') ? `/api/order-url/${item.id}` : item.url,
             material: item.material || null,
             dimensions: item.dimensions || null,
@@ -2279,7 +2283,8 @@ export async function syncPrintMarktOrders(force: boolean = false) {
 
                     let rawImageSrc = item.image_url || item.image || item.thumbnail || item.selectedImage || "";
                     if (rawImageSrc && !rawImageSrc.startsWith("http") && !rawImageSrc.startsWith("data:")) {
-                        rawImageSrc = `${cleanUrl}${rawImageSrc.startsWith('/') ? '' : '/'}${rawImageSrc}`;
+                        const domain = (cleanUrl && cleanUrl.startsWith("http")) ? cleanUrl : "https://printmarkt.co";
+                        rawImageSrc = `${domain}${rawImageSrc.startsWith('/') ? '' : '/'}${rawImageSrc}`;
                     }
 
                     let itemUrl = item.external_url || item.product_link || item.url || pmOrder.external_product_link || "";
