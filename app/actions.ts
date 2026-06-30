@@ -99,8 +99,18 @@ export async function getOrders(timestamp?: number) {
         }
     }
 
-    const activeStatuses = ["pending_woo", "pending_pm", "draft", "Awaiting Approval", "Approved", "In print", "Ready/Packaged"];
     const terminalStatuses = ["shipped", "completed", "cancelled"];
+    let activeStatuses = ["pending_woo", "pending_pm", "draft", "Awaiting Approval", "Approved", "In print", "Ready/Packaged"];
+
+    try {
+        const dbColumns = await db.statusColumn.findMany({ select: { id: true } });
+        if (dbColumns.length > 0) {
+            const allStatusIds = dbColumns.map(c => c.id);
+            activeStatuses = allStatusIds.filter(id => !terminalStatuses.includes(id));
+        }
+    } catch (e) {
+        console.error("Failed to fetch dynamic statuses, using fallback activeStatuses", e);
+    }
 
     let targetActive = activeStatuses;
     let targetTerminal = terminalStatuses;
