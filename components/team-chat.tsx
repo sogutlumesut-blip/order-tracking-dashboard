@@ -120,6 +120,7 @@ const renderMessageText = (text: string, isMe: boolean) => {
 
 export function TeamChat({ currentUser }: { currentUser: User }) {
     const [isOpen, setIsOpen] = useState(false)
+    const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null)
     
     // Initialize messages from localStorage cache if available for instant load
     const [messages, setMessages] = useState<any[]>(() => {
@@ -347,7 +348,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                     {msg.sender?.name || 'Bilinmeyen'}
                                                 </div>
                                                 {msg.attachment && (
-                                                    <img src={msg.attachment} alt="Attachment" className="max-w-full rounded-lg mb-2 max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity" onClick={() => window.open(msg.attachment, '_blank')} />
+                                                    <img src={msg.attachment} alt="Attachment" className="max-w-full rounded-lg mb-2 max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity" onClick={() => setActiveLightboxImage(msg.attachment)} />
                                                 )}
                                                 {renderMessageText(msg.text, isMe)}
                                             </div>
@@ -461,6 +462,26 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                         <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-red-500 border-2 border-white dark:border-slate-900 rounded-full animate-pulse"></span>
                     )}
                 </button>
+            )}
+
+            {activeLightboxImage && (
+                <div 
+                    className="fixed inset-0 bg-black/80 z-[9999] flex items-center justify-center p-4 cursor-zoom-out"
+                    onClick={() => setActiveLightboxImage(null)}
+                >
+                    <button 
+                        className="absolute top-4 right-4 text-white hover:text-slate-200 bg-slate-900/50 p-2 rounded-full backdrop-blur-md transition-colors"
+                        onClick={() => setActiveLightboxImage(null)}
+                    >
+                        <X className="w-6 h-6" />
+                    </button>
+                    <img 
+                        src={activeLightboxImage} 
+                        alt="Görsel Detayı" 
+                        className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-200 cursor-default"
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                </div>
             )}
         </div>
     )
