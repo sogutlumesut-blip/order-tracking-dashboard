@@ -148,8 +148,15 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
             const res = await response.json()
             if (res.success && res.messages) {
                 const currentMessages = messagesRef.current
-                // Preserve in-flight optimistic messages
-                const inFlight = currentMessages.filter(m => m.isOptimistic && sendingMessageIdsRef.current.has(m.id))
+                // Preserve in-flight optimistic messages or recently sent messages that aren't in the server poll yet
+                const now = Date.now()
+                const temporaryOrRecent = currentMessages.filter(m => {
+                    const isOptimistic = m.isOptimistic && sendingMessageIdsRef.current.has(m.id)
+                    const isRecentMe = m.senderId === currentUser.id && 
+                                       (now - new Date(m.createdAt).getTime()) < 10000 &&
+                                       !res.messages.some((serverMsg: any) => serverMsg.id === m.id)
+                    return isOptimistic || isRecentMe
+                })
                 
                 // Identify new incoming messages from other users
                 const newOtherMessages = res.messages.filter((newMsg: any) => {
@@ -158,7 +165,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                     return !alreadyExists && isNotMe
                 })
 
-                setMessages([...res.messages, ...inFlight])
+                setMessages([...res.messages, ...temporaryOrRecent])
 
                 // Play notification sound on new incoming messages
                 if (newOtherMessages.length > 0 && currentMessages.length > 0) {
