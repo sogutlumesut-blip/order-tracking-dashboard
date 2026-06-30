@@ -111,6 +111,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     const [isLoading, setIsLoading] = useState(false)
     const [hasUnread, setHasUnread] = useState(false)
     const messagesEndRef = useRef<HTMLDivElement>(null)
+    const scrollContainerRef = useRef<HTMLDivElement>(null)
     
     const messagesRef = useRef(messages)
     const isOpenRef = useRef(isOpen)
@@ -134,6 +135,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         const handleOpenChat = () => {
             setIsOpen(true)
             fetchMessages(false)
+            setTimeout(() => scrollToBottom(true), 100)
         }
         window.addEventListener('open-team-chat', handleOpenChat)
         return () => window.removeEventListener('open-team-chat', handleOpenChat)
@@ -181,7 +183,8 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     useEffect(() => {
         if (isOpen) {
             setHasUnread(false)
-            scrollToBottom()
+            // Force scroll to bottom on open (using setTimeout to ensure layout has updated)
+            setTimeout(() => scrollToBottom(true), 50)
             // Immediately fetch fresh messages on open
             fetchMessages(false)
         }
@@ -195,12 +198,23 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
 
     useEffect(() => {
         if (isOpen) {
-            scrollToBottom()
+            scrollToBottom(false) // Only scroll if already at bottom
         }
     }, [messages])
 
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    const scrollToBottom = (force = false) => {
+        const container = scrollContainerRef.current
+        if (!container) return
+
+        // User is near bottom if within 200px of scroll limit
+        const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 200
+
+        if (force || isNearBottom) {
+            container.scrollTo({
+                top: container.scrollHeight,
+                behavior: force ? 'auto' : 'smooth'
+            })
+        }
     }
 
     const handleSend = async (e: React.FormEvent) => {
@@ -222,6 +236,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         setMessages(prev => [...prev, optimisticMessage])
         setNewMessage("")
         setAttachment(null)
+        setTimeout(() => scrollToBottom(true), 50)
 
         try {
             const response = await fetch('/api/chat', {
@@ -268,7 +283,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                     </div>
 
                     {/* Messages */}
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 dark:bg-slate-950/50">
+                    <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 dark:bg-slate-950/50">
                         {isLoading && messages.length === 0 ? (
                             <div className="flex justify-center items-center h-full">
                                 <span className="animate-pulse text-slate-400">Yükleniyor...</span>
