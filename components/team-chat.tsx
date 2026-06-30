@@ -125,13 +125,13 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     // Initialize messages from localStorage cache if available for instant load
     const [messages, setMessages] = useState<any[]>(() => {
         if (typeof window !== 'undefined') {
-            const cached = localStorage.getItem('team_chat_messages')
-            if (cached) {
-                try {
+            try {
+                const cached = localStorage.getItem('team_chat_messages')
+                if (cached) {
                     return JSON.parse(cached)
-                } catch (e) {
-                    return []
                 }
+            } catch (e) {
+                console.error("Error reading team_chat_messages from localStorage:", e)
             }
         }
         return []
@@ -152,8 +152,19 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     useEffect(() => {
         messagesRef.current = messages
         if (typeof window !== 'undefined') {
-            const nonOptimistic = messages.filter(m => !m.isOptimistic)
-            localStorage.setItem('team_chat_messages', JSON.stringify(nonOptimistic))
+            try {
+                // To avoid QuotaExceededError in localStorage, we omit large base64 attachments from the cache.
+                // Text messages are small and safe to cache. Actual attachments will load from the API fetch.
+                const nonOptimistic = messages.filter(m => !m.isOptimistic).map(m => {
+                    if (m.attachment && m.attachment.startsWith('data:')) {
+                        return { ...m, attachment: null }
+                    }
+                    return m
+                })
+                localStorage.setItem('team_chat_messages', JSON.stringify(nonOptimistic))
+            } catch (e) {
+                console.warn("Failed to save team_chat_messages to localStorage (quota exceeded or disabled):", e)
+            }
         }
     }, [messages])
 
