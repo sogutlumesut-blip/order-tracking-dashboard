@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from "react"
-import { MessageCircle, X, Send, User as UserIcon, Paperclip } from "lucide-react"
+import { MessageCircle, X, Send, User as UserIcon, Paperclip, Download } from "lucide-react"
 
 interface User {
     id: string
@@ -348,9 +348,45 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                     {msg.sender?.name || 'Bilinmeyen'}
                                                 </div>
                                                 {msg.attachment && (
-                                                    <img src={msg.attachment} alt="Attachment" className="max-w-full rounded-lg mb-2 max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity" onClick={() => setActiveLightboxImage(msg.attachment)} />
+                                                    msg.attachment.startsWith('data:application/pdf') || msg.attachment.endsWith('.pdf') ? (
+                                                        <>
+                                                            <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800/80 mt-1 mb-2 max-w-full">
+                                                                <div className="w-9 h-9 rounded bg-red-100 dark:bg-red-950/40 flex items-center justify-center flex-shrink-0 text-red-600 dark:text-red-400 font-extrabold text-xs">
+                                                                    PDF
+                                                                </div>
+                                                                <div className="flex-1 min-w-0 text-left">
+                                                                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate max-w-[130px]" title={msg.text && msg.text.endsWith('.pdf') ? msg.text : 'Belge.pdf'}>
+                                                                        {msg.text && msg.text.endsWith('.pdf') ? msg.text : "Belge.pdf"}
+                                                                    </p>
+                                                                    <p className="text-[9px] text-slate-400">
+                                                                        PDF Dosyası
+                                                                    </p>
+                                                                </div>
+                                                                <a 
+                                                                    href={msg.attachment} 
+                                                                    download={msg.text && msg.text.endsWith('.pdf') ? msg.text : "belge.pdf"}
+                                                                    className="p-1.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 transition-colors"
+                                                                    title="İndir"
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                >
+                                                                    <Download className="w-4 h-4" />
+                                                                </a>
+                                                            </div>
+                                                            {/* Only render text below the PDF card if it is not just the filename */}
+                                                            {msg.text && !msg.text.endsWith('.pdf') && (
+                                                                <div className="text-xs mt-1">
+                                                                    {renderMessageText(msg.text, isMe)}
+                                                                </div>
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <img src={msg.attachment} alt="Attachment" className="max-w-full rounded-lg mb-2 max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity" onClick={() => setActiveLightboxImage(msg.attachment)} />
+                                                            {renderMessageText(msg.text, isMe)}
+                                                        </>
+                                                    )
                                                 )}
-                                                {renderMessageText(msg.text, isMe)}
+                                                {!msg.attachment && renderMessageText(msg.text, isMe)}
                                             </div>
                                         </div>
                                         <span className="text-[9px] text-slate-400 mt-1 mx-8">
@@ -366,18 +402,24 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                     {/* Input */}
                     <div className="p-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-2">
                         {attachment && (
-                            <div className="relative inline-block self-start">
-                                <img src={attachment} alt="Preview" className="h-16 w-16 object-cover rounded-lg border border-slate-200" />
-                                <button onClick={() => setAttachment(null)} className="absolute -top-2 -right-2 bg-slate-800 text-white rounded-full p-0.5 hover:bg-slate-700">
-                                    <X className="w-3 h-3" />
-                                </button>
-                            </div>
-                        )}
+                                                            <div className="relative inline-block self-start">
+                                                                {attachment.startsWith('data:application/pdf') ? (
+                                                                    <div className="h-16 px-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-lg flex items-center gap-2 text-xs text-red-600 dark:text-red-400 font-bold">
+                                                                        📄 PDF Belgesi
+                                                                    </div>
+                                                                ) : (
+                                                                    <img src={attachment} alt="Preview" className="h-16 w-16 object-cover rounded-lg border border-slate-200" />
+                                                                )}
+                                                                <button onClick={() => setAttachment(null)} className="absolute -top-2 -right-2 bg-slate-800 text-white rounded-full p-0.5 hover:bg-slate-700">
+                                                                    <X className="w-3 h-3" />
+                                                                </button>
+                                                            </div>
+                                                        )}
                         <form onSubmit={handleSend} className="flex gap-2 items-center relative">
                             <label className="cursor-pointer text-slate-400 hover:text-emerald-600 transition-colors p-2">
                                 <input 
                                     type="file" 
-                                    accept="image/*" 
+                                    accept="image/*,application/pdf" 
                                     className="hidden" 
                                     onChange={(e) => {
                                         const file = e.target.files?.[0]
@@ -394,11 +436,18 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                             }
                                             const reader = new FileReader()
                                             reader.onload = async () => {
-                                                try {
-                                                    const compressed = await compressImage(reader.result as string)
-                                                    setAttachment(compressed)
-                                                } catch (err: any) {
-                                                    alert("Görsel yüklenemedi: " + err.message)
+                                                if (file.type === 'application/pdf') {
+                                                    setAttachment(reader.result as string)
+                                                    if (!newMessage.trim()) {
+                                                        setNewMessage(file.name)
+                                                    }
+                                                } else {
+                                                    try {
+                                                        const compressed = await compressImage(reader.result as string)
+                                                        setAttachment(compressed)
+                                                    } catch (err: any) {
+                                                        alert("Görsel yüklenemedi: " + err.message)
+                                                    }
                                                 }
                                             }
                                             reader.readAsDataURL(file)
@@ -412,31 +461,47 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                 type="text"
                                 value={newMessage}
                                 onChange={(e) => setNewMessage(e.target.value)}
-                                onPaste={(e) => {
-                                    const items = e.clipboardData.items
-                                    for (let i = 0; i < items.length; i++) {
-                                        // Ignore TIFF format from clipboard (macOS clipboards copy TIFF alongside PNG/JPEG)
-                                        if (items[i].type.indexOf('image') !== -1 && !items[i].type.includes('tiff')) {
-                                            const file = items[i].getAsFile()
-                                            if (file) {
-                                                if (file.size > 10 * 1024 * 1024) {
-                                                    alert("Dosya boyutu 10MB'dan büyük olamaz.")
-                                                    return
-                                                }
-                                                const reader = new FileReader()
-                                                reader.onload = async () => {
-                                                    try {
-                                                        const compressed = await compressImage(reader.result as string)
-                                                        setAttachment(compressed)
-                                                    } catch (err: any) {
-                                                        alert("Görsel yüklenemedi: " + err.message)
+                                    onPaste={(e) => {
+                                        const items = e.clipboardData.items
+                                        for (let i = 0; i < items.length; i++) {
+                                            // Ignore TIFF format from clipboard (macOS clipboards copy TIFF alongside PNG/JPEG)
+                                            if (items[i].type.indexOf('image') !== -1 && !items[i].type.includes('tiff')) {
+                                                const file = items[i].getAsFile()
+                                                if (file) {
+                                                    if (file.size > 10 * 1024 * 1024) {
+                                                        alert("Dosya boyutu 10MB'dan büyük olamaz.")
+                                                        return
                                                     }
+                                                    const reader = new FileReader()
+                                                    reader.onload = async () => {
+                                                        try {
+                                                            const compressed = await compressImage(reader.result as string)
+                                                            setAttachment(compressed)
+                                                        } catch (err: any) {
+                                                            alert("Görsel yüklenemedi: " + err.message)
+                                                        }
+                                                    }
+                                                    reader.readAsDataURL(file)
                                                 }
-                                                reader.readAsDataURL(file)
+                                            } else if (items[i].type === 'application/pdf') {
+                                                const file = items[i].getAsFile()
+                                                if (file) {
+                                                    if (file.size > 10 * 1024 * 1024) {
+                                                        alert("Dosya boyutu 10MB'dan büyük olamaz.")
+                                                        return
+                                                    }
+                                                    const reader = new FileReader()
+                                                    reader.onload = () => {
+                                                        setAttachment(reader.result as string)
+                                                        if (!newMessage.trim()) {
+                                                            setNewMessage(file.name)
+                                                        }
+                                                    }
+                                                    reader.readAsDataURL(file)
+                                                }
                                             }
                                         }
-                                    }
-                                }}
+                                    }}
                                 placeholder="Mesaj yazın... (Görsel yapıştırabilirsiniz)"
                                 className="flex-1 bg-slate-100 dark:bg-slate-800 border-0 rounded-full px-4 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
                             />
