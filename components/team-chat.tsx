@@ -88,6 +88,36 @@ const compressImage = (base64Str: string): Promise<string> => {
     })
 }
 
+// Helper function to render text with clickable links
+const renderMessageText = (text: string, isMe: boolean) => {
+    if (!text) return null;
+    
+    // Match URLs starting with http:// or https://
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+    
+    return parts.map((part, index) => {
+        if (part.match(urlRegex)) {
+            const linkClass = isMe 
+                ? "text-emerald-200 hover:text-white underline break-all font-medium" 
+                : "text-emerald-600 dark:text-emerald-400 hover:underline break-all font-medium";
+            return (
+                <a 
+                    key={index} 
+                    href={part} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className={linkClass}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    {part}
+                </a>
+            );
+        }
+        return part;
+    });
+};
+
 export function TeamChat({ currentUser }: { currentUser: User }) {
     const [isOpen, setIsOpen] = useState(false)
     
@@ -319,7 +349,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                 {msg.attachment && (
                                                     <img src={msg.attachment} alt="Attachment" className="max-w-full rounded-lg mb-2 max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity" onClick={() => window.open(msg.attachment, '_blank')} />
                                                 )}
-                                                {msg.text}
+                                                {renderMessageText(msg.text, isMe)}
                                             </div>
                                         </div>
                                         <span className="text-[9px] text-slate-400 mt-1 mx-8">
