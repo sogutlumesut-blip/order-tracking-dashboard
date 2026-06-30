@@ -295,30 +295,63 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
                 setOrders(currentOrders => {
                     let hasChanges = false;
+
+                    // Filter out local optimistic orders (id < 0) from currentOrders for comparison
+                    const currentNonOptimistic = currentOrders.filter(o => o.id >= 0);
+
+                    // Check if the set of non-optimistic IDs has changed
+                    const localIds = new Set(currentNonOptimistic.map(o => o.id));
+                    const serverIds = new Set(latestOrders.map((o: any) => o.id));
+
+                    let idsChanged = localIds.size !== serverIds.size;
+                    if (!idsChanged) {
+                        for (const id of serverIds) {
+                            if (!localIds.has(id)) {
+                                idsChanged = true;
+                                break;
+                            }
+                        }
+                    }
+
                     const mergedOrders = latestOrders.map((serverOrder: any) => {
                         const localOrder = currentOrders.find(o => o.id === serverOrder.id);
 
+                        if (!localOrder) {
+                            hasChanges = true;
+                            return serverOrder;
+                        }
+
                         // Safety check for newer local data vs server
                         const serverTime = new Date(serverOrder.updatedAt).getTime();
-                        const localTime = localOrder ? new Date(localOrder.updatedAt).getTime() : 0;
+                        const localTime = new Date(localOrder.updatedAt).getTime();
 
-                        if (localOrder && serverTime > localTime) {
+                        if (serverTime > localTime) {
                             hasChanges = true;
                             return serverOrder;
                         }
 
-                        if (!localOrder ||
-                            localOrder.status !== serverOrder.status ||
+                        // Check other fields that might change
+                        if (localOrder.status !== serverOrder.status ||
                             localOrder.commentCount !== serverOrder.commentCount ||
-                            localOrder.hasNotification !== serverOrder.hasNotification) {
+                            localOrder.hasNotification !== serverOrder.hasNotification ||
+                            localOrder.customer !== serverOrder.customer ||
+                            localOrder.phone !== serverOrder.phone ||
+                            localOrder.address !== serverOrder.address ||
+                            localOrder.total !== serverOrder.total ||
+                            localOrder.printNotes !== serverOrder.printNotes ||
+                            localOrder.note !== serverOrder.note ||
+                            localOrder.assignedTo !== serverOrder.assignedTo ||
+                            localOrder.cargoTrackingNumber !== serverOrder.cargoTrackingNumber ||
+                            localOrder.cargoBarcode !== serverOrder.cargoBarcode ||
+                            JSON.stringify(localOrder.labels) !== JSON.stringify(serverOrder.labels)) {
                             hasChanges = true;
                             return serverOrder;
                         }
 
-                        return localOrder || serverOrder;
+                        return localOrder;
                     });
 
-                    if (hasChanges) {
+                    if (hasChanges || idsChanged) {
                         // Notify Panel if open
                         if (isPanelOpenRef.current && selectedOrderRef.current) {
                             const currentId = (selectedOrderRef.current as any).id;
@@ -331,7 +364,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     const serverBarcodes = new Set(latestOrders.map((o: any) => o.barcode));
                     const optimisticOrders = currentOrders.filter(o => o.id < 0 && !serverBarcodes.has(o.barcode));
 
-                    if (hasChanges || optimisticOrders.length > 0 || currentOrders.length !== latestOrders.length) {
+                    if (hasChanges || idsChanged || optimisticOrders.length > 0) {
                         return [...optimisticOrders, ...mergedOrders] as any;
                     }
 

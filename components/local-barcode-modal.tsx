@@ -77,6 +77,21 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                             boxSizing: "border-box"
                         }}
                     >
+                        <style dangerouslySetInnerHTML={{ __html: `
+                            @media print {
+                                @page {
+                                    size: 100mm 150mm;
+                                    margin: 0 !important;
+                                }
+                                html, body {
+                                    width: 100mm !important;
+                                    height: 150mm !important;
+                                    margin: 0 !important;
+                                    padding: 0 !important;
+                                    -webkit-print-color-adjust: exact;
+                                }
+                            }
+                        ` }} />
                         {/* Sender / Header */}
                         <div className="w-full border-b-2 border-black pb-2 mb-4" style={{ borderColor: "#000000" }}>
                             <h1 className="text-xl font-bold uppercase tracking-wider" style={{ color: "#000000" }}>KARGO GÖNDERİSİ</h1>

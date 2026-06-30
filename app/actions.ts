@@ -90,59 +90,80 @@ export async function getOrders(timestamp?: number) {
         console.error("Failed to fetch user permissions:", e)
     }
 
-    // Condition: If admin, see all. If allowedStatuses is set, filter. Else see all (default).
-    const where: any = {}
+    // Filter active and terminal statuses based on user permissions
+    let visibleStatuses: string[] | null = null;
     if (!isAdmin && allowedStatuses && Array.isArray(allowedStatuses)) {
-        // Filter out feature flags (capabilities) from status filters (view restrictions)
-        const visibleStatuses = allowedStatuses.filter((s: string) => s !== "MANUAL_SYNC")
-
-        // Only apply filter if there are ACTUAL status restrictions left
-        if (visibleStatuses.length > 0) {
-            where.status = { in: visibleStatuses }
+        const filtered = allowedStatuses.filter((s: string) => s !== "MANUAL_SYNC");
+        if (filtered.length > 0) {
+            visibleStatuses = filtered;
         }
     }
 
-    const orders = await db.order.findMany({
-        where,
-        orderBy: { date: "desc" },
-        take: 500, // Limit increased to 500 to accommodate large syncs from multiple sources
-        select: {
-            id: true,
-            customer: true,
-            phone: true,
-            email: true,
-            address: true,
-            city: true,
-            total: true,
-            status: true,
-            date: true,
-            note: true,
-            labels: true,
-            trackingNumber: true,
-            printNotes: true,
-            paymentMethod: true,
-            barcode: true,
-            assignedTo: true,
-            cargoBarcode: true,
-            cargoTrackingNumber: true,
-            // cargoLabelPdf is INTENTIONALLY EXCLUDED to prevent massive 100MB+ JSON payloads!
-            customDesi: true,
-            customWeight: true,
-            taxNumber: true,
-            taxOffice: true,
-            invoiceStatus: true,
-            invoiceUrl: true,
-            createdAt: true,
-            updatedAt: true,
-            hasNotification: true,
-            externalId: true,
-            source: true,
-            items: true,
-            _count: {
-                select: { comments: true }
-            }
+    const activeStatuses = ["pending_woo", "pending_pm", "draft", "Awaiting Approval", "Approved", "In print", "Ready/Packaged"];
+    const terminalStatuses = ["shipped", "completed", "cancelled"];
+
+    let targetActive = activeStatuses;
+    let targetTerminal = terminalStatuses;
+
+    if (visibleStatuses) {
+        targetActive = activeStatuses.filter(s => visibleStatuses!.includes(s));
+        targetTerminal = terminalStatuses.filter(s => visibleStatuses!.includes(s));
+    }
+
+    // Common select object to avoid duplication
+    const orderSelect = {
+        id: true,
+        customer: true,
+        phone: true,
+        email: true,
+        address: true,
+        city: true,
+        total: true,
+        status: true,
+        date: true,
+        note: true,
+        labels: true,
+        trackingNumber: true,
+        printNotes: true,
+        paymentMethod: true,
+        barcode: true,
+        assignedTo: true,
+        cargoBarcode: true,
+        cargoTrackingNumber: true,
+        customDesi: true,
+        customWeight: true,
+        taxNumber: true,
+        taxOffice: true,
+        invoiceStatus: true,
+        invoiceUrl: true,
+        createdAt: true,
+        updatedAt: true,
+        hasNotification: true,
+        externalId: true,
+        source: true,
+        items: true,
+        _count: {
+            select: { comments: true }
         }
-    })
+    };
+
+    // Query 1: Fetch all active orders (no limit, since they are active!)
+    const activeOrdersPromise = targetActive.length > 0 ? db.order.findMany({
+        where: { status: { in: targetActive } },
+        orderBy: { date: "desc" },
+        select: orderSelect
+    }) : Promise.resolve([]);
+
+    // Query 2: Fetch latest 200 terminal orders to show recent history
+    const terminalOrdersPromise = targetTerminal.length > 0 ? db.order.findMany({
+        where: { status: { in: targetTerminal } },
+        orderBy: { date: "desc" },
+        take: 200,
+        select: orderSelect
+    }) : Promise.resolve([]);
+
+    const [activeOrders, terminalOrders] = await Promise.all([activeOrdersPromise, terminalOrdersPromise]);
+    const orders = [...activeOrders, ...terminalOrders];
 
     // Serializing dates to strings to match interface and avoid hydration issues
     const ordersWithPdf = await db.order.findMany({ where: { cargoLabelPdf: { not: null } }, select: { id: true } });
@@ -2137,11 +2158,24 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                 }
             },
             select: {
-                externalId: true
+                id: true,
+                externalId: true,
+                status: true,
+                customer: true,
+                email: true,
+                phone: true,
+                address: true,
+                total: true,
+                labels: true,
+                cargoBarcode: true,
+                cargoTrackingNumber: true,
+                cargoLabelPdf: true,
+                paymentMethod: true,
+                updatedAt: true
             }
         });
 
-        const existingExternalIds = new Set(existingOrders.map(o => o.externalId));
+        const existingOrdersMap = new Map(existingOrders.map(o => [o.externalId, o]));
 
         for (const pmOrder of pmOrders) {
             try {
@@ -2149,8 +2183,8 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                 const externalId = pmOrder.id?.toString() || pmOrder.external_id || pmOrder.order_number?.toString() || pmOrder.number?.toString();
                 if (!externalId) continue; // Skip if no ID
 
-                // Check if already exists in our Set
-                if (existingExternalIds.has(`pm_${externalId}`)) continue; // Skip duplicates
+                const orderKey = `pm_${externalId}`;
+                const existingOrder = existingOrdersMap.get(orderKey);
 
                 // Müşterinin PrintMarkt üzerinden gelen tüm siparişleri (Etsy dahil) alması için Etsy atlama koşulu kaldırıldı.
                 // Map Address from flat JSON PrintMarkt Schema
@@ -2283,34 +2317,82 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                     trackingPdf = `${cleanUrl}${trackingPdf.startsWith('/') ? '' : '/'}${trackingPdf}`;
                 }
 
-                await db.order.create({
-                    data: {
-                        externalId: `pm_${externalId}`,
-                        source: "PrintMarkt",
-                        customer: shippingName,
-                        email: shippingEmail,
-                        phone: shippingPhone,
-                        address: shippingAddress,
-                        total: totalAmount.toFixed(2),
-                        paymentMethod: paymentMethod,
-                        status: mappedStatus,
-                        date: pmOrder.created_at ? new Date(pmOrder.created_at) : undefined,
-                        note: customerNote,
-                        cargoLabelPdf: trackingPdf,
-                        labels: JSON.stringify(labels),
-                        items: {
-                            create: items
-                        }
-                    }
-                });
+                if (existingOrder) {
+                    const dbStatus = existingOrder.status;
+                    const incomingStatus = mappedStatus;
 
-                importedCount++;
+                    const isTerminalIncoming = incomingStatus === "shipped" || incomingStatus === "completed" || incomingStatus === "cancelled";
+                    const isLocalTerminal = dbStatus === "shipped" || dbStatus === "completed" || dbStatus === "cancelled";
+                    const isLocalModified = dbStatus !== "pending_pm";
+
+                    let keepLocalStatus = (isLocalModified && !isTerminalIncoming) || isLocalTerminal;
+                    
+                    let finalStatus = incomingStatus;
+                    if (keepLocalStatus) {
+                        finalStatus = dbStatus;
+                    }
+
+                    const hasStatusChange = dbStatus !== finalStatus;
+                    const hasDataChange = 
+                        existingOrder.customer !== shippingName ||
+                        existingOrder.address !== shippingAddress ||
+                        existingOrder.phone !== shippingPhone ||
+                        existingOrder.total !== totalAmount.toFixed(2) ||
+                        (trackingPdf && existingOrder.cargoLabelPdf !== trackingPdf);
+
+                    if (hasStatusChange || hasDataChange) {
+                        if (hasStatusChange) {
+                            await logActivity(existingOrder.id, "PrintMarkt Senkronizasyon", "STATUS_CHANGE", `Durum PrintMarkt tarafından '${finalStatus}' olarak güncellendi.`);
+                        }
+                        
+                        await db.order.update({
+                            where: { id: existingOrder.id },
+                            data: {
+                                customer: shippingName,
+                                email: shippingEmail,
+                                phone: shippingPhone,
+                                address: shippingAddress,
+                                total: totalAmount.toFixed(2),
+                                status: finalStatus,
+                                updatedAt: new Date(),
+                                cargoLabelPdf: trackingPdf || existingOrder.cargoLabelPdf,
+                                labels: JSON.stringify(labels),
+                                note: customerNote,
+                                paymentMethod: paymentMethod,
+                            }
+                        });
+                        importedCount++;
+                    }
+                } else {
+                    await db.order.create({
+                        data: {
+                            externalId: `pm_${externalId}`,
+                            source: "PrintMarkt",
+                            customer: shippingName,
+                            email: shippingEmail,
+                            phone: shippingPhone,
+                            address: shippingAddress,
+                            total: totalAmount.toFixed(2),
+                            paymentMethod: paymentMethod,
+                            status: mappedStatus,
+                            date: pmOrder.created_at ? new Date(pmOrder.created_at) : undefined,
+                            note: customerNote,
+                            cargoLabelPdf: trackingPdf,
+                            labels: JSON.stringify(labels),
+                            items: {
+                                create: items
+                            }
+                        }
+                    });
+
+                    importedCount++;
+                }
             } catch (err) {
                 console.error(`Error mapping PrintMarkt order:`, err);
             }
         }
 
-        return { success: true, message: `Bağlantı BAŞARILI! ${importedCount} yeni sipariş sisteme eklendi. (Toplam kuyruk: ${pmOrders.length})`, count: importedCount }
+        return { success: true, message: `Bağlantı BAŞARILI! ${importedCount} sipariş sisteme eklendi veya güncellendi. (Toplam kuyruk: ${pmOrders.length})`, count: importedCount }
 
     } catch (e: any) {
         console.error("PrintMarkt Sync Error:", e)
