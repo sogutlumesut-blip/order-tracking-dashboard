@@ -52,7 +52,7 @@ const playNotificationSound = () => {
 
 // Client-side image compression utility
 const compressImage = (base64Str: string): Promise<string> => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
         const img = new Image()
         img.src = base64Str
         img.onload = () => {
@@ -79,11 +79,11 @@ const compressImage = (base64Str: string): Promise<string> => {
                 // Compress to JPEG with 0.7 quality
                 resolve(canvas.toDataURL('image/jpeg', 0.7))
             } else {
-                resolve(base64Str)
+                reject(new Error("Canvas context or loading failed."))
             }
         }
         img.onerror = () => {
-            resolve(base64Str)
+            reject(new Error("Seçilen görsel formatı tarayıcı tarafından desteklenmiyor. Lütfen PNG veya JPG formatında yükleyin."))
         }
     })
 }
@@ -329,14 +329,24 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                     onChange={(e) => {
                                         const file = e.target.files?.[0]
                                         if (file) {
+                                            if (file.type.includes('tiff') || file.name.endsWith('.tiff') || file.name.endsWith('.tif')) {
+                                                alert("TIFF formatındaki görseller tarayıcılar tarafından doğrudan gösterilemez. Lütfen görseli PNG veya JPG formatına dönüştürüp tekrar yükleyin.")
+                                                e.target.value = ''
+                                                return
+                                            }
                                             if (file.size > 10 * 1024 * 1024) {
                                                 alert("Dosya boyutu 10MB'dan büyük olamaz.")
+                                                e.target.value = ''
                                                 return
                                             }
                                             const reader = new FileReader()
                                             reader.onload = async () => {
-                                                const compressed = await compressImage(reader.result as string)
-                                                setAttachment(compressed)
+                                                try {
+                                                    const compressed = await compressImage(reader.result as string)
+                                                    setAttachment(compressed)
+                                                } catch (err: any) {
+                                                    alert("Görsel yüklenemedi: " + err.message)
+                                                }
                                             }
                                             reader.readAsDataURL(file)
                                         }
@@ -352,7 +362,8 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                 onPaste={(e) => {
                                     const items = e.clipboardData.items
                                     for (let i = 0; i < items.length; i++) {
-                                        if (items[i].type.indexOf('image') !== -1) {
+                                        // Ignore TIFF format from clipboard (macOS clipboards copy TIFF alongside PNG/JPEG)
+                                        if (items[i].type.indexOf('image') !== -1 && !items[i].type.includes('tiff')) {
                                             const file = items[i].getAsFile()
                                             if (file) {
                                                 if (file.size > 10 * 1024 * 1024) {
@@ -361,8 +372,12 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                 }
                                                 const reader = new FileReader()
                                                 reader.onload = async () => {
-                                                    const compressed = await compressImage(reader.result as string)
-                                                    setAttachment(compressed)
+                                                    try {
+                                                        const compressed = await compressImage(reader.result as string)
+                                                        setAttachment(compressed)
+                                                    } catch (err: any) {
+                                                        alert("Görsel yüklenemedi: " + err.message)
+                                                    }
                                                 }
                                                 reader.readAsDataURL(file)
                                             }
