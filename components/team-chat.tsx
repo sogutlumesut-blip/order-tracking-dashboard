@@ -419,7 +419,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                             <label className="cursor-pointer text-slate-400 hover:text-emerald-600 transition-colors p-2">
                                 <input 
                                     type="file" 
-                                    accept="image/*,application/pdf" 
+                                    accept="image/*,.pdf,application/pdf" 
                                     className="hidden" 
                                     onChange={(e) => {
                                         const file = e.target.files?.[0]
