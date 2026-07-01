@@ -57,7 +57,7 @@ const compressImage = (base64Str: string): Promise<string> => {
         img.src = base64Str
         img.onload = () => {
             const canvas = document.createElement('canvas')
-            const maxDimension = 800
+            const maxDimension = 2048 // 2K Ultra High Resolution
             let width = img.width
             let height = img.height
 
@@ -76,8 +76,8 @@ const compressImage = (base64Str: string): Promise<string> => {
             const ctx = canvas.getContext('2d')
             if (ctx) {
                 ctx.drawImage(img, 0, 0, width, height)
-                // Compress to JPEG with 0.7 quality
-                resolve(canvas.toDataURL('image/jpeg', 0.7))
+                // Compress as JPEG with 0.90 quality (lossless look, small footprint)
+                resolve(canvas.toDataURL('image/jpeg', 0.90))
             } else {
                 reject(new Error("Canvas context or loading failed."))
             }
@@ -157,9 +157,12 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         messagesRef.current = messages
         if (typeof window !== 'undefined') {
             try {
-                // To avoid QuotaExceededError in localStorage, we omit large base64 attachments from the cache.
-                // Text messages are small and safe to cache. Actual attachments will load from the API fetch.
+                // To avoid QuotaExceededError in localStorage, we save high-res images as a lightweight placeholder.
+                // This lets chat history load instantly on F5 while showing a nice loading state until the API returns.
                 const nonOptimistic = messages.filter(m => !m.isOptimistic).map(m => {
+                    if (m.attachment && m.attachment.startsWith('data:image/') && m.attachment.length > 50000) {
+                        return { ...m, attachment: "placeholder-loading" }
+                    }
                     if (m.attachment && m.attachment.startsWith('data:')) {
                         return { ...m, attachment: null }
                     }
@@ -530,7 +533,19 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                             </>
                                                         ) : (
                                                             <>
-                                                                <img src={msg.attachment} alt="Attachment" className="max-w-full rounded-lg mb-2 max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity" onClick={() => setActiveLightboxImage(msg.attachment)} />
+                                                                {msg.attachment === "placeholder-loading" ? (
+                                                                    <div className="w-48 h-32 bg-slate-100 dark:bg-slate-700/50 rounded-lg mb-2 animate-pulse flex flex-col items-center justify-center text-[10px] text-slate-450">
+                                                                        <span className="animate-spin mb-1 text-slate-400">⌛</span>
+                                                                        Görsel yükleniyor...
+                                                                    </div>
+                                                                ) : (
+                                                                    <img 
+                                                                        src={msg.attachment} 
+                                                                        alt="Attachment" 
+                                                                        className="max-w-full rounded-lg mb-2 max-h-48 min-h-[120px] min-w-[150px] object-cover cursor-pointer hover:opacity-90 transition-opacity bg-slate-100 dark:bg-slate-700/50" 
+                                                                        onClick={() => setActiveLightboxImage(msg.attachment)} 
+                                                                    />
+                                                                )}
                                                                 {renderMessageText(msg.text, isMe)}
                                                             </>
                                                         )
@@ -628,8 +643,12 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                         setNewMessage(file.name)
                                                     }
                                                 } else {
-                                                    // Do not compress, keep original resolution!
-                                                    setAttachment(reader.result as string)
+                                                    try {
+                                                        const compressed = await compressImage(reader.result as string)
+                                                        setAttachment(compressed)
+                                                    } catch (err: any) {
+                                                        setAttachment(reader.result as string)
+                                                    }
                                                 }
                                             }
                                             reader.readAsDataURL(file)
@@ -656,9 +675,13 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                         return
                                                     }
                                                     const reader = new FileReader()
-                                                    reader.onload = () => {
-                                                        // Do not compress, keep original resolution!
-                                                        setAttachment(reader.result as string)
+                                                    reader.onload = async () => {
+                                                        try {
+                                                            const compressed = await compressImage(reader.result as string)
+                                                            setAttachment(compressed)
+                                                        } catch (err: any) {
+                                                            setAttachment(reader.result as string)
+                                                        }
                                                     }
                                                     reader.readAsDataURL(file)
                                                 }

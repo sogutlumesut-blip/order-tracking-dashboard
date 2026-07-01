@@ -27,7 +27,7 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
         setAttachment(null)
     }
 
-    const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
+    const compressImage = (base64Str: string, maxWidth = 2048, maxHeight = 2048): Promise<string> => {
         return new Promise((resolve) => {
             const img = new Image()
             img.src = base64Str
@@ -52,7 +52,7 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
                 canvas.height = height
                 const ctx = canvas.getContext('2d')
                 ctx?.drawImage(img, 0, 0, width, height)
-                resolve(canvas.toDataURL('image/jpeg', 0.7)) // Compress as JPEG at 70% quality
+                resolve(canvas.toDataURL('image/jpeg', 0.90)) // Compress as JPEG at 90% quality (High-Res)
             }
         })
     }
@@ -62,9 +62,17 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
         if (!file) return
 
         const reader = new FileReader()
-        reader.onload = () => {
-            const result = reader.result as string
+        reader.onload = async () => {
+            let result = reader.result as string
             const isImg = file.type.startsWith('image/')
+
+            if (isImg) {
+                try {
+                    result = await compressImage(result)
+                } catch (err) {
+                    // Fallback to raw base64 if compression fails
+                }
+            }
 
             setAttachment({
                 name: file.name,
@@ -82,14 +90,17 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
                 const file = items[i].getAsFile()
                 if (file) {
                     const reader = new FileReader()
-                    reader.onload = () => {
-                        const result = reader.result as string
+                    reader.onload = async () => {
+                        let result = reader.result as string
+                        try {
+                            result = await compressImage(result)
+                        } catch (err) {}
                         setAttachment({
                             name: `yapistirilan-gorsel-${Date.now()}.jpg`,
                             type: 'image',
                             url: result
                         })
-                        console.log("Görsel orijinal kalitede yapıştırıldı.")
+                        console.log("Görsel yüksek kalitede yapıştırıldı.")
                     }
                     reader.readAsDataURL(file)
                 }
@@ -141,7 +152,7 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
                                             <img
                                                 src={att.url}
                                                 alt="attachment"
-                                                className="w-full h-auto rounded-md max-w-[200px] cursor-zoom-in hover:opacity-90 transition-opacity"
+                                                className="w-full h-auto rounded-md max-w-[200px] min-h-[100px] min-w-[120px] bg-slate-100 dark:bg-slate-700/50 object-cover cursor-zoom-in hover:opacity-90 transition-opacity"
                                                 onClick={() => onImageClick?.(att.url)}
                                             />
                                         ) : (
