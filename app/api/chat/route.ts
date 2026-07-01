@@ -48,7 +48,7 @@ export async function POST(req: Request) {
 
     try {
         const body = await req.json()
-        const { text, attachment } = body
+        const { text, attachment, replyToText, replyToName } = body
 
         if ((!text || text.trim() === "") && !attachment) {
             return NextResponse.json({ success: false, error: "Message cannot be empty" }, { status: 400 })
@@ -58,6 +58,8 @@ export async function POST(req: Request) {
             data: {
                 text: text.trim(),
                 attachment: attachment || null,
+                replyToText: replyToText || null,
+                replyToName: replyToName || null,
                 senderId: session.user.id
             },
             include: {

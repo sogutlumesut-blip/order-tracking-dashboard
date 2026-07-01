@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from "react"
-import { MessageCircle, X, Send, User as UserIcon, Paperclip, Download } from "lucide-react"
+import { MessageCircle, X, Send, User as UserIcon, Paperclip, Download, CornerUpLeft } from "lucide-react"
 
 interface User {
     id: string
@@ -121,6 +121,8 @@ const renderMessageText = (text: string, isMe: boolean) => {
 export function TeamChat({ currentUser }: { currentUser: User }) {
     const [isOpen, setIsOpen] = useState(false)
     const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null)
+    const [replyToMessage, setReplyToMessage] = useState<any | null>(null)
+    const inputRef = useRef<HTMLInputElement>(null)
     
     // Initialize messages from localStorage cache if available for instant load
     const [messages, setMessages] = useState<any[]>(() => {
@@ -319,10 +321,22 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         if (!newMessage.trim() && !attachment) return
 
         const optimisticId = 'temp-' + Date.now()
+        
+        // Truncate and format the reply text to store in DB
+        const replyText = replyToMessage 
+            ? (replyToMessage.attachment && (replyToMessage.attachment.startsWith('data:application/pdf') || replyToMessage.attachment.endsWith('.pdf'))
+                ? "📄 PDF Belgesi" 
+                : replyToMessage.attachment 
+                    ? "📷 Görsel" 
+                    : replyToMessage.text)
+            : null
+
         const optimisticMessage = {
             id: optimisticId,
             text: newMessage,
             attachment: attachment,
+            replyToText: replyText,
+            replyToName: replyToMessage ? (replyToMessage.sender?.name || 'Bilinmeyen') : null,
             senderId: currentUser.id,
             createdAt: new Date(),
             sender: currentUser,
@@ -333,6 +347,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         setMessages(prev => [...prev, optimisticMessage])
         setNewMessage("")
         setAttachment(null)
+        setReplyToMessage(null) // Reset reply preview bar
         setTimeout(() => scrollToBottom(true), 50)
 
         try {
@@ -343,7 +358,9 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                 },
                 body: JSON.stringify({
                     text: optimisticMessage.text,
-                    attachment: optimisticMessage.attachment || undefined
+                    attachment: optimisticMessage.attachment || undefined,
+                    replyToText: optimisticMessage.replyToText || undefined,
+                    replyToName: optimisticMessage.replyToName || undefined
                 })
             })
             const res = await response.json()
@@ -394,59 +411,92 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                 const isMe = msg.senderId === currentUser.id
                                 return (
                                     <div key={msg.id || i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                                        <div className={`flex items-end gap-1.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
-                                            <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
-                                                <UserIcon className="w-3.5 h-3.5 text-slate-500" />
-                                            </div>
-                                            <div className={`px-3 py-2 rounded-2xl max-w-[240px] text-sm break-words ${
-                                                isMe 
-                                                    ? 'bg-emerald-600 text-white rounded-br-none' 
-                                                    : 'bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-bl-none text-slate-800 dark:text-slate-200'
-                                            } ${msg.isOptimistic ? 'opacity-70' : ''}`}>
-                                                <div className={`text-[10px] font-bold mb-1 ${isMe ? 'text-emerald-200' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                                                    {msg.sender?.name || 'Bilinmeyen'}
+                                        <div className={`flex items-center gap-2 group ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                                            <div className={`flex items-end gap-1.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                                                <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
+                                                    <UserIcon className="w-3.5 h-3.5 text-slate-500" />
                                                 </div>
-                                                {msg.attachment && (
-                                                    msg.attachment.startsWith('data:application/pdf') || msg.attachment.endsWith('.pdf') ? (
-                                                        <>
-                                                            <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800/80 mt-1 mb-2 max-w-full">
-                                                                <div className="w-9 h-9 rounded bg-red-100 dark:bg-red-950/40 flex items-center justify-center flex-shrink-0 text-red-600 dark:text-red-400 font-extrabold text-xs">
-                                                                    PDF
-                                                                </div>
-                                                                <div className="flex-1 min-w-0 text-left">
-                                                                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate max-w-[130px]" title={msg.text && msg.text.endsWith('.pdf') ? msg.text : 'Belge.pdf'}>
-                                                                        {msg.text && msg.text.endsWith('.pdf') ? msg.text : "Belge.pdf"}
-                                                                    </p>
-                                                                    <p className="text-[9px] text-slate-400">
-                                                                        PDF Dosyası
-                                                                    </p>
-                                                                </div>
-                                                                <a 
-                                                                    href={msg.attachment} 
-                                                                    download={msg.text && msg.text.endsWith('.pdf') ? msg.text : "belge.pdf"}
-                                                                    className="p-1.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 transition-colors"
-                                                                    title="İndir"
-                                                                    onClick={(e) => e.stopPropagation()}
-                                                                >
-                                                                    <Download className="w-4 h-4" />
-                                                                </a>
+                                                <div className={`px-3 py-2 rounded-2xl max-w-[240px] text-sm break-words ${
+                                                    isMe 
+                                                        ? 'bg-emerald-600 text-white rounded-br-none' 
+                                                        : 'bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-bl-none text-slate-800 dark:text-slate-200'
+                                                } ${msg.isOptimistic ? 'opacity-70' : ''}`}>
+                                                    <div className={`text-[10px] font-bold mb-1 ${isMe ? 'text-emerald-200' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                                        {msg.sender?.name || 'Bilinmeyen'}
+                                                    </div>
+
+                                                    {/* Quoted Message Render */}
+                                                    {msg.replyToText && (
+                                                        <div className={`p-2 rounded-lg text-left text-[11px] leading-tight mb-1.5 border-l-4 ${
+                                                            isMe 
+                                                                ? 'bg-emerald-700/40 border-emerald-300 text-emerald-100' 
+                                                                : 'bg-slate-100 dark:bg-slate-900 border-emerald-500 text-slate-600 dark:text-slate-400'
+                                                        } truncate max-w-full`}>
+                                                            <div className={`font-bold text-[9px] mb-0.5 ${isMe ? 'text-emerald-200' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                                                {msg.replyToName}
                                                             </div>
-                                                            {/* Only render text below the PDF card if it is not just the filename */}
-                                                            {msg.text && !msg.text.endsWith('.pdf') && (
-                                                                <div className="text-xs mt-1">
-                                                                    {renderMessageText(msg.text, isMe)}
+                                                            <div className="truncate opacity-90">
+                                                                {msg.replyToText}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {msg.attachment && (
+                                                        msg.attachment.startsWith('data:application/pdf') || msg.attachment.endsWith('.pdf') ? (
+                                                            <>
+                                                                <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800/80 mt-1 mb-2 max-w-full">
+                                                                    <div className="w-9 h-9 rounded bg-red-100 dark:bg-red-950/40 flex items-center justify-center flex-shrink-0 text-red-600 dark:text-red-400 font-extrabold text-xs">
+                                                                        PDF
+                                                                    </div>
+                                                                    <div className="flex-1 min-w-0 text-left">
+                                                                        <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate max-w-[130px]" title={msg.text && msg.text.endsWith('.pdf') ? msg.text : 'Belge.pdf'}>
+                                                                            {msg.text && msg.text.endsWith('.pdf') ? msg.text : "Belge.pdf"}
+                                                                        </p>
+                                                                        <p className="text-[9px] text-slate-400">
+                                                                            PDF Dosyası
+                                                                        </p>
+                                                                    </div>
+                                                                    <a 
+                                                                        href={msg.attachment} 
+                                                                        download={msg.text && msg.text.endsWith('.pdf') ? msg.text : "belge.pdf"}
+                                                                        className="p-1.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 transition-colors"
+                                                                        title="İndir"
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                    >
+                                                                        <Download className="w-4 h-4" />
+                                                                    </a>
                                                                 </div>
-                                                            )}
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <img src={msg.attachment} alt="Attachment" className="max-w-full rounded-lg mb-2 max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity" onClick={() => setActiveLightboxImage(msg.attachment)} />
-                                                            {renderMessageText(msg.text, isMe)}
-                                                        </>
-                                                    )
-                                                )}
-                                                {!msg.attachment && renderMessageText(msg.text, isMe)}
+                                                                {/* Only render text below the PDF card if it is not just the filename */}
+                                                                {msg.text && !msg.text.endsWith('.pdf') && (
+                                                                    <div className="text-xs mt-1">
+                                                                        {renderMessageText(msg.text, isMe)}
+                                                                    </div>
+                                                                )}
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <img src={msg.attachment} alt="Attachment" className="max-w-full rounded-lg mb-2 max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity" onClick={() => setActiveLightboxImage(msg.attachment)} />
+                                                                {renderMessageText(msg.text, isMe)}
+                                                            </>
+                                                        )
+                                                    )}
+                                                    {!msg.attachment && renderMessageText(msg.text, isMe)}
+                                                </div>
                                             </div>
+
+                                            {/* Reply Button on Hover */}
+                                            {!msg.isOptimistic && (
+                                                <button 
+                                                    onClick={() => {
+                                                        setReplyToMessage(msg)
+                                                        inputRef.current?.focus()
+                                                    }}
+                                                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-850 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer flex-shrink-0"
+                                                    title="Yanıtla"
+                                                >
+                                                    <CornerUpLeft className="w-3.5 h-3.5" />
+                                                </button>
+                                            )}
                                         </div>
                                         <span className="text-[9px] text-slate-400 mt-1 mx-8">
                                             {new Date(msg.createdAt).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
@@ -460,6 +510,28 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
 
                     {/* Input */}
                     <div className="p-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-2">
+                        {replyToMessage && (
+                            <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-950 px-3 py-1.5 rounded-lg border-l-4 border-emerald-500 text-xs animate-in slide-in-from-top-2 duration-100">
+                                <div className="text-left min-w-0">
+                                    <div className="font-bold text-[9px] text-emerald-600 dark:text-emerald-400">
+                                        {replyToMessage.sender?.name || 'Bilinmeyen'} kullanıcısına yanıt veriliyor
+                                    </div>
+                                    <div className="text-slate-500 dark:text-slate-400 truncate max-w-[240px]">
+                                        {replyToMessage.attachment && (replyToMessage.attachment.startsWith('data:application/pdf') || replyToMessage.attachment.endsWith('.pdf')) 
+                                            ? "📄 PDF Belgesi" 
+                                            : replyToMessage.attachment 
+                                                ? "📷 Görsel" 
+                                                : replyToMessage.text}
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => setReplyToMessage(null)}
+                                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-0.5 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
+                                >
+                                    <X className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                        )}
                         {attachment && (
                                                             <div className="relative inline-block self-start">
                                                                 {attachment.startsWith('data:application/pdf') ? (
@@ -517,6 +589,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                 <Paperclip className="w-5 h-5" />
                             </label>
                             <input
+                                ref={inputRef}
                                 type="text"
                                 value={newMessage}
                                 onChange={(e) => setNewMessage(e.target.value)}
