@@ -615,8 +615,8 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                 e.target.value = ''
                                                 return
                                             }
-                                            if (file.size > 10 * 1024 * 1024) {
-                                                alert("Dosya boyutu 10MB'dan büyük olamaz.")
+                                            if (file.size > 200 * 1024 * 1024) {
+                                                alert("Dosya boyutu 200MB'dan büyük olamaz.")
                                                 e.target.value = ''
                                                 return
                                             }
@@ -655,8 +655,8 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                             if (items[i].type.indexOf('image') !== -1 && !items[i].type.includes('tiff')) {
                                                 const file = items[i].getAsFile()
                                                 if (file) {
-                                                    if (file.size > 10 * 1024 * 1024) {
-                                                        alert("Dosya boyutu 10MB'dan büyük olamaz.")
+                                                    if (file.size > 200 * 1024 * 1024) {
+                                                        alert("Dosya boyutu 200MB'dan büyük olamaz.")
                                                         return
                                                     }
                                                     const reader = new FileReader()
@@ -673,8 +673,8 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                             } else if (items[i].type === 'application/pdf') {
                                                 const file = items[i].getAsFile()
                                                 if (file) {
-                                                    if (file.size > 10 * 1024 * 1024) {
-                                                        alert("Dosya boyutu 10MB'dan büyük olamaz.")
+                                                    if (file.size > 200 * 1024 * 1024) {
+                                                        alert("Dosya boyutu 200MB'dan büyük olamaz.")
                                                         return
                                                     }
                                                     const reader = new FileReader()
