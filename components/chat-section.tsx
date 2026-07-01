@@ -62,13 +62,9 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
         if (!file) return
 
         const reader = new FileReader()
-        reader.onload = async () => {
-            let result = reader.result as string
+        reader.onload = () => {
+            const result = reader.result as string
             const isImg = file.type.startsWith('image/')
-
-            if (isImg) {
-                result = await compressImage(result)
-            }
 
             setAttachment({
                 name: file.name,
@@ -86,15 +82,14 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
                 const file = items[i].getAsFile()
                 if (file) {
                     const reader = new FileReader()
-                    reader.onload = async () => {
-                        let result = reader.result as string
-                        result = await compressImage(result)
+                    reader.onload = () => {
+                        const result = reader.result as string
                         setAttachment({
                             name: `yapistirilan-gorsel-${Date.now()}.jpg`,
                             type: 'image',
                             url: result
                         })
-                        console.log("Görsel sıkıştırılarak yapıştırıldı.")
+                        console.log("Görsel orijinal kalitede yapıştırıldı.")
                     }
                     reader.readAsDataURL(file)
                 }

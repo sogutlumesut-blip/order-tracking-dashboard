@@ -2,7 +2,7 @@
 
 import { Order, OrderStatus, Comment } from "../data/mock-orders"
 import { APP_CONFIG } from "../data/settings"
-import { X, Save, Truck, User, Tag, FileText, Upload, Printer, FileDown, History, ChevronDown, ChevronRight, ExternalLink, Receipt, ShieldCheck } from "lucide-react"
+import { X, Save, Truck, User, Tag, FileText, Upload, Printer, FileDown, History, ChevronDown, ChevronRight, ExternalLink, Receipt, ShieldCheck, Download } from "lucide-react"
 import { useState, useEffect } from "react"
 import { NoteLog } from "./note-log"
 import { ChatSection } from "./chat-section"
@@ -168,9 +168,20 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
             {/* Image Preview Modal */}
             {previewImage && (
                 <div className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setPreviewImage(null)}>
-                    <button className="absolute top-4 right-4 text-white hover:text-slate-300 transition-colors">
-                        <X className="w-8 h-8" />
-                    </button>
+                    <div className="absolute top-4 right-4 flex gap-2">
+                        <a 
+                            href={previewImage} 
+                            download="taslak.png"
+                            className="text-white hover:text-slate-200 bg-slate-900/50 p-2.5 rounded-full backdrop-blur-md transition-colors flex items-center justify-center cursor-pointer"
+                            title="Görseli İndir"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <Download className="w-5 h-5" />
+                        </a>
+                        <button className="text-white hover:text-slate-300 transition-colors p-1" onClick={() => setPreviewImage(null)}>
+                            <X className="w-8 h-8" />
+                        </button>
+                    </div>
                     <img
                         src={previewImage}
                         alt="Preview"
