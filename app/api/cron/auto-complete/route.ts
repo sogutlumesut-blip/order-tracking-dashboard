@@ -48,10 +48,7 @@ export async function GET(req: Request) {
             })
         );
 
-        await db.$transaction([...updates, ...activities]);
-
-        revalidatePath("/");
-
+        // revalidatePath("/"); // Commented out to prevent query bottlenecks during cron runs
         return NextResponse.json({
             success: true,
             message: `${ordersToComplete.length} orders auto-completed.`,

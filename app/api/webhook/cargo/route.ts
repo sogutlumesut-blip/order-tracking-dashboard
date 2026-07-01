@@ -71,9 +71,7 @@ export async function POST(req: Request) {
             }
         })
 
-        console.log(`Order ${existingOrder.id} updated with cargo data: ${barcode} / ${trackingNumber}`)
-
-        revalidatePath("/")
+        // revalidatePath("/") // Commented out to prevent slow webhook responses
         return NextResponse.json({ success: true, message: "Cargo data updated" })
 
     } catch (error: any) {

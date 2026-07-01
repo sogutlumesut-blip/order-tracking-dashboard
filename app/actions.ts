@@ -382,9 +382,9 @@ export async function updateOrderStatusV2(rawOrderId: any, status: string) {
             }
         }).catch(e => console.error("DEBUG_END FAIL:", e))
 
-        try {
-            revalidatePath("/")
-        } catch (e) { }
+        // try {
+        //     revalidatePath("/")
+        // } catch (e) { }
 
         return { success: true, id: orderId, status: status, v: "3.6.6.7" }
     } catch (e: any) {

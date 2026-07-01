@@ -71,7 +71,7 @@ export async function POST(req: Request) {
                 }
             })
 
-            revalidatePath("/")
+            // revalidatePath("/") // Commented out to prevent slow webhook responses
             return NextResponse.json({ success: true, message: "Order updated via Webhook" })
         } else {
             console.warn(`Kargo Webhook: Order not found for platform_id: ${platformId}`)

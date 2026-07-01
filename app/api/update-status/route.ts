@@ -177,7 +177,7 @@ export async function POST(request: Request) {
         }
 
         logToFile("SUCCESS");
-        revalidatePath("/");
+        // revalidatePath("/"); // Commented out to prevent database query bottleneck and team chat lag
         return NextResponse.json({ success: true });
 
     } catch (e: any) {

@@ -147,6 +147,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     const messagesRef = useRef(messages)
     const isOpenRef = useRef(isOpen)
     const sendingMessageIdsRef = useRef<Set<string>>(new Set())
+    const isFirstFetchRef = useRef(true)
 
     // Keep refs up-to-date to avoid stale closures in polling callbacks
     useEffect(() => {
@@ -186,36 +187,83 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     const fetchMessages = async (showLoading = false) => {
         if (showLoading && messagesRef.current.length === 0) setIsLoading(true)
         try {
-            const response = await fetch('/api/chat')
+            const currentMessages = messagesRef.current
+            const nonOptimisticMessages = currentMessages.filter(m => !m.isOptimistic)
+            const lastMessage = nonOptimisticMessages[nonOptimisticMessages.length - 1]
+            
+            let url = '/api/chat'
+            // Use incremental fetch on subsequent polls if we have a last message timestamp
+            if (!isFirstFetchRef.current && lastMessage && lastMessage.createdAt) {
+                const timestamp = new Date(lastMessage.createdAt).getTime()
+                url = `/api/chat?since=${timestamp}`
+            }
+            
+            isFirstFetchRef.current = false
+
+            const response = await fetch(url)
             const res = await response.json()
             if (res.success && res.messages) {
-                const currentMessages = messagesRef.current
-                // Preserve in-flight optimistic messages or recently sent messages that aren't in the server poll yet
-                const now = Date.now()
-                const temporaryOrRecent = currentMessages.filter(m => {
-                    const isOptimistic = m.isOptimistic && sendingMessageIdsRef.current.has(m.id)
-                    const isRecentMe = m.senderId === currentUser.id && 
-                                       (now - new Date(m.createdAt).getTime()) < 10000 &&
-                                       !res.messages.some((serverMsg: any) => serverMsg.id === m.id)
-                    return isOptimistic || isRecentMe
-                })
-                
-                // Identify new incoming messages from other users
-                const newOtherMessages = res.messages.filter((newMsg: any) => {
-                    const alreadyExists = currentMessages.some(m => m.id === newMsg.id)
-                    const isNotMe = newMsg.senderId !== currentUser.id
-                    return !alreadyExists && isNotMe
-                })
+                if (url.includes('since=')) {
+                    // Incremental Poll
+                    if (res.messages.length === 0) {
+                        if (showLoading) setIsLoading(false)
+                        return
+                    }
+                    
+                    // Filter out any messages from res.messages that already exist in currentMessages
+                    const newUniqueMessages = res.messages.filter((newMsg: any) => 
+                        !currentMessages.some(m => m.id === newMsg.id)
+                    )
+                    
+                    if (newUniqueMessages.length === 0) {
+                        if (showLoading) setIsLoading(false)
+                        return
+                    }
+                    
+                    // Identify new incoming messages from other users (for sound/unread notification)
+                    const newOtherMessages = newUniqueMessages.filter((newMsg: any) => 
+                        newMsg.senderId !== currentUser.id
+                    )
+                    
+                    // Keep optimistic messages that are still sending or haven't arrived yet
+                    const filteredCurrent = currentMessages.filter(m => 
+                        m.isOptimistic || !res.messages.some((nm: any) => nm.id === m.id)
+                    )
+                    
+                    setMessages([...filteredCurrent, ...newUniqueMessages])
+                    
+                    if (newOtherMessages.length > 0) {
+                        playNotificationSound()
+                        if (!isOpenRef.current) {
+                            setHasUnread(true)
+                        }
+                    }
+                } else {
+                    // Initial Load
+                    const now = Date.now()
+                    const temporaryOrRecent = currentMessages.filter(m => {
+                        const isOptimistic = m.isOptimistic && sendingMessageIdsRef.current.has(m.id)
+                        const isRecentMe = m.senderId === currentUser.id && 
+                                           (now - new Date(m.createdAt).getTime()) < 10000 &&
+                                           !res.messages.some((serverMsg: any) => serverMsg.id === m.id)
+                        return isOptimistic || isRecentMe
+                    })
+                    
+                    const newOtherMessages = res.messages.filter((newMsg: any) => {
+                        const alreadyExists = currentMessages.some(m => m.id === newMsg.id)
+                        const isNotMe = newMsg.senderId !== currentUser.id
+                        return !alreadyExists && isNotMe
+                    })
 
-                setMessages([...res.messages, ...temporaryOrRecent])
-
-                // Play notification sound on new incoming messages
-                if (newOtherMessages.length > 0 && currentMessages.length > 0) {
-                    playNotificationSound()
-                }
-                
-                if (!isOpenRef.current && res.messages.length > currentMessages.length && currentMessages.length > 0) {
-                    setHasUnread(true)
+                    setMessages([...res.messages, ...temporaryOrRecent])
+                    
+                    if (newOtherMessages.length > 0 && currentMessages.length > 0) {
+                        playNotificationSound()
+                    }
+                    
+                    if (!isOpenRef.current && res.messages.length > currentMessages.length && currentMessages.length > 0) {
+                        setHasUnread(true)
+                    }
                 }
             }
         } catch (e) {
