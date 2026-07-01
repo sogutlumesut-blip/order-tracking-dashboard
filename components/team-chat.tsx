@@ -628,12 +628,8 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                         setNewMessage(file.name)
                                                     }
                                                 } else {
-                                                    try {
-                                                        const compressed = await compressImage(reader.result as string)
-                                                        setAttachment(compressed)
-                                                    } catch (err: any) {
-                                                        alert("Görsel yüklenemedi: " + err.message)
-                                                    }
+                                                    // Do not compress, keep original resolution!
+                                                    setAttachment(reader.result as string)
                                                 }
                                             }
                                             reader.readAsDataURL(file)
@@ -660,13 +656,9 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                         return
                                                     }
                                                     const reader = new FileReader()
-                                                    reader.onload = async () => {
-                                                        try {
-                                                            const compressed = await compressImage(reader.result as string)
-                                                            setAttachment(compressed)
-                                                        } catch (err: any) {
-                                                            alert("Görsel yüklenemedi: " + err.message)
-                                                        }
+                                                    reader.onload = () => {
+                                                        // Do not compress, keep original resolution!
+                                                        setAttachment(reader.result as string)
                                                     }
                                                     reader.readAsDataURL(file)
                                                 }
@@ -721,12 +713,23 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                     className="fixed inset-0 bg-black/80 z-[9999] flex items-center justify-center p-4 cursor-zoom-out"
                     onClick={() => setActiveLightboxImage(null)}
                 >
-                    <button 
-                        className="absolute top-4 right-4 text-white hover:text-slate-200 bg-slate-900/50 p-2 rounded-full backdrop-blur-md transition-colors"
-                        onClick={() => setActiveLightboxImage(null)}
-                    >
-                        <X className="w-6 h-6" />
-                    </button>
+                    <div className="absolute top-4 right-4 flex gap-2">
+                        <a 
+                            href={activeLightboxImage} 
+                            download="gorsel.png"
+                            className="text-white hover:text-slate-200 bg-slate-900/50 p-2.5 rounded-full backdrop-blur-md transition-colors flex items-center justify-center cursor-pointer"
+                            title="Görseli İndir"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <Download className="w-5 h-5" />
+                        </a>
+                        <button 
+                            className="text-white hover:text-slate-200 bg-slate-900/50 p-2 rounded-full backdrop-blur-md transition-colors cursor-pointer"
+                            onClick={() => setActiveLightboxImage(null)}
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
                     <img 
                         src={activeLightboxImage} 
                         alt="Görsel Detayı" 
