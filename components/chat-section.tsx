@@ -9,9 +9,10 @@ interface ChatSectionProps {
     onAddComment: (message: string, attachments: any[]) => void
     currentUser: { id: string; name: string; role: string }
     onImageClick?: (url: string) => void
+    isLoading?: boolean
 }
 
-export function ChatSection({ comments = [], onAddComment, currentUser, onImageClick }: ChatSectionProps) {
+export function ChatSection({ comments = [], onAddComment, currentUser, onImageClick, isLoading }: ChatSectionProps) {
     const [message, setMessage] = useState("")
     const [attachment, setAttachment] = useState<{ name: string, type: 'image' | 'file', url: string } | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
@@ -61,32 +62,33 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
         if (!file) return
 
         const reader = new FileReader()
-        reader.onload = async (e) => {
-            let result = e.target?.result as string
-            const type = file.type.startsWith('image/') ? 'image' : 'file'
+        reader.onload = async () => {
+            let result = reader.result as string
+            const isImg = file.type.startsWith('image/')
 
-            if (type === 'image') {
+            if (isImg) {
                 result = await compressImage(result)
             }
 
             setAttachment({
                 name: file.name,
-                type: type,
+                type: isImg ? 'image' : 'file',
                 url: result
             })
         }
         reader.readAsDataURL(file)
     }
 
-    const handlePaste = (e: React.ClipboardEvent) => {
+    const handlePaste = async (e: React.ClipboardEvent) => {
         const items = e.clipboardData.items
         for (let i = 0; i < items.length; i++) {
-            if (items[i].type.startsWith('image/')) {
+            if (items[i].type.indexOf("image") !== -1) {
                 const file = items[i].getAsFile()
                 if (file) {
                     const reader = new FileReader()
-                    reader.onload = async (e) => {
-                        const result = await compressImage(e.target?.result as string)
+                    reader.onload = async () => {
+                        let result = reader.result as string
+                        result = await compressImage(result)
                         setAttachment({
                             name: `yapistirilan-gorsel-${Date.now()}.jpg`,
                             type: 'image',
@@ -101,7 +103,7 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
     }
 
     return (
-        <div className="flex flex-col h-[600px] border dark:border-slate-700 rounded-xl overflow-hidden bg-slate-50/50 dark:bg-slate-900/50 shadow-sm transition-all">
+        <div className="flex flex-col h-[600px] border dark:border-slate-700 rounded-xl overflow-hidden bg-slate-50/50 dark:bg-slate-900/50 shadow-sm transition-all" onPaste={handlePaste}>
             {/* Header */}
             <div className="p-3 border-b dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-between text-xs">
                 <span className="font-semibold text-slate-500 dark:text-slate-400">Yazışma Geçmişi</span>
@@ -110,14 +112,19 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {comments.length === 0 && (
-                    <div className="text-center text-slate-400 text-sm mt-10">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col">
+                {isLoading ? (
+                    <div className="flex flex-col items-center justify-center my-auto text-slate-400 dark:text-slate-500 gap-2">
+                        <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                        <span className="text-xs font-medium animate-pulse">Yükleniyor...</span>
+                    </div>
+                ) : comments.length === 0 ? (
+                    <div className="text-center text-slate-400 text-sm mt-10 italic">
                         Henüz mesaj yok.
                     </div>
-                )}
+                ) : null}
 
-                {comments.map(comment => {
+                {!isLoading && comments.map(comment => {
                     const isMe = comment.author === currentUser.name; // Simple check by name for now
                     return (
                         <div key={comment.id} className={`flex flex-col gap-1 ${isMe ? 'items-end' : 'items-start'}`}>

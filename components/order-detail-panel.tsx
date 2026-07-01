@@ -35,6 +35,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
     // Detaylar artık sipariş objesiyle beraber geliyor
     const [lazyComments, setLazyComments] = useState<any[] | null>(null)
     const [lazyActivities, setLazyActivities] = useState<any[] | null>(null)
+    const [isLoadingDetails, setIsLoadingDetails] = useState(false)
 
     useEffect(() => {
         if (order && isOpen) {
@@ -50,6 +51,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
             // Setup placeholder state until server fetch completes
             setLazyComments([])
             setLazyActivities([])
+            setIsLoadingDetails(true)
 
             // Background fetch FULL details via REST API
             fetch(`/api/order-details?orderId=${order.id}`)
@@ -76,7 +78,11 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                         setLazyComments(formattedComments)
                         setLazyActivities(details.activities)
                     }
-                }).catch(e => console.error("Lazy fetch err:", e))
+                })
+                .catch(e => console.error("Lazy fetch err:", e))
+                .finally(() => {
+                    setIsLoadingDetails(false)
+                })
         } else if (!isOpen) {
             // Reset for next time
             setFormData(null)
@@ -395,11 +401,38 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                             {item.material}
                                                         </span>
                                                     )}
-                                                    {item.dimensions && (
-                                                        <span className={item.dimensions === 'SAMPLE' ? "bg-pink-50 dark:bg-pink-900/30 px-2 py-0.5 rounded text-pink-700 dark:text-pink-400 font-bold border border-pink-100 dark:border-pink-800 animate-pulse" : "bg-slate-100 dark:bg-slate-700/50 px-2 py-0.5 rounded text-slate-700 dark:text-slate-300 border dark:border-slate-600/50"}>
-                                                            {item.dimensions === 'SAMPLE' ? '✨ SAMPLE' : `📏 ${item.dimensions}`}
-                                                        </span>
-                                                    )}
+                                                    {item.dimensions && (() => {
+                                                         const dimStr = item.dimensions;
+                                                         const hasM2 = /m²|m2/i.test(dimStr);
+                                                         
+                                                         // Try to parse dimensions (supports decimals and spaces)
+                                                         const match = dimStr.match(/(\d+(?:\.\d+)?)\s*[^0-9]*?\s*[x*]\s*[^0-9]*?\s*(\d+(?:\.\d+)?)/)
+                                                         let extraM2 = "";
+                                                         if (match && !hasM2) {
+                                                             const w = parseFloat(match[1])
+                                                             const h = parseFloat(match[2])
+                                                             
+                                                             // Detect if it is in inches
+                                                             const isInch = dimStr.includes('"') || 
+                                                                            /(?:^|\d|\s)(in|inch|inches|inc|inç)(?:\b|$)/i.test(dimStr);
+                                                             
+                                                             let m2 = 0
+                                                             if (isInch) {
+                                                                 // 1 inch = 0.0254 meters
+                                                                 m2 = (w * 0.0254) * (h * 0.0254)
+                                                             } else {
+                                                                 // Assuming cm, convert to m²
+                                                                 m2 = (w * h) / 10000
+                                                             }
+                                                             extraM2 = ` (${m2.toFixed(2)} m²)`;
+                                                         }
+                                                         
+                                                         return (
+                                                             <span className={item.dimensions === 'SAMPLE' ? "bg-pink-50 dark:bg-pink-900/30 px-2 py-0.5 rounded text-pink-700 dark:text-pink-400 font-bold border border-pink-100 dark:border-pink-800 animate-pulse" : "bg-slate-100 dark:bg-slate-700/50 px-2 py-0.5 rounded text-slate-700 dark:text-slate-300 border dark:border-slate-600/50"}>
+                                                                 {item.dimensions === 'SAMPLE' ? '✨ SAMPLE' : `📏 ${dimStr}${extraM2}`}
+                                                             </span>
+                                                         );
+                                                     })()}
                                                     <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
                                                         ADET: {item.quantity}
                                                     </span>
@@ -816,6 +849,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     onAddNote={(msg) => handleInternalAddComment(msg, [], 'note')}
                                     currentUser={currentUser}
                                     className="h-[300px]"
+                                    isLoading={isLoadingDetails}
                                 />
                             </div>
 
@@ -828,6 +862,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     onAddComment={(msg, att) => handleInternalAddComment(msg, att, 'message')}
                                     currentUser={currentUser}
                                     onImageClick={setPreviewImage}
+                                    isLoading={isLoadingDetails}
                                 />
                             </div>
 
@@ -844,7 +879,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                                 {isActivityLogOpen && (
                                     <div className="mt-2 border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden bg-white dark:bg-slate-900 shadow-sm animate-in slide-in-from-top-2 duration-200">
-                                        <ActivityLog activities={lazyActivities || []} />
+                                        <ActivityLog activities={lazyActivities || []} isLoading={isLoadingDetails} />
                                     </div>
                                 )}
                             </div>

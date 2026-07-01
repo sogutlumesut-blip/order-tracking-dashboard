@@ -84,6 +84,8 @@ model OrderItem {
   sampleData  String?
   orderId     Int
   order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
 }
 
 model Comment {
@@ -96,6 +98,8 @@ model Comment {
   type        String   @default("message")
   author      User     @relation(fields: [authorId], references: [id])
   order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
 }
 
 model OrderActivity {
@@ -106,6 +110,8 @@ model OrderActivity {
   details   String
   timestamp DateTime @default(now())
   order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
 }
 
 model StatusColumn {

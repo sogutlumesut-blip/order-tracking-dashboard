@@ -10,9 +10,10 @@ interface Activity {
 
 interface ActivityLogProps {
     activities: Activity[]
+    isLoading?: boolean
 }
 
-export function ActivityLog({ activities }: ActivityLogProps) {
+export function ActivityLog({ activities, isLoading }: ActivityLogProps) {
     const getIcon = (action: string) => {
         switch (action) {
             case 'STATUS_CHANGE': return <Truck className="w-3 h-3 text-blue-600 dark:text-blue-400" />
@@ -47,8 +48,13 @@ export function ActivityLog({ activities }: ActivityLogProps) {
                 İşlem Geçmişi (Log)
             </div>
 
-            <div className="overflow-y-auto p-4 space-y-4 flex-1 bg-slate-50/30 dark:bg-slate-900/30">
-                {!activities || activities.length === 0 ? (
+            <div className="overflow-y-auto p-4 space-y-4 flex-1 bg-slate-50/30 dark:bg-slate-900/30 flex flex-col">
+                {isLoading ? (
+                    <div className="flex flex-col items-center justify-center my-auto text-slate-400 dark:text-slate-500 gap-2">
+                        <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                        <span className="text-xs font-medium animate-pulse">Yükleniyor...</span>
+                    </div>
+                ) : !activities || activities.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-slate-400 dark:text-slate-500 gap-2">
                         <Info className="w-8 h-8 opacity-50" />
                         <span className="text-xs font-medium">Henüz bir işlem geçmişi bulunmuyor.</span>

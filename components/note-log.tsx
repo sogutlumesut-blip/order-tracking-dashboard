@@ -9,9 +9,10 @@ interface NoteLogProps {
     onAddNote: (message: string) => void
     currentUser: { id: string; name: string; role: string }
     className?: string
+    isLoading?: boolean
 }
 
-export function NoteLog({ comments = [], onAddNote, currentUser, className }: NoteLogProps) {
+export function NoteLog({ comments = [], onAddNote, currentUser, className, isLoading }: NoteLogProps) {
     const [note, setNote] = useState("")
 
     const handleSend = () => {
@@ -29,14 +30,21 @@ export function NoteLog({ comments = [], onAddNote, currentUser, className }: No
             </div>
 
             {/* Log Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50 dark:bg-slate-900/50">
-                {comments.length === 0 && (
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50 dark:bg-slate-900/50 flex flex-col">
+                {isLoading ? (
+                    <div className="flex flex-col items-center justify-center my-auto text-slate-400 dark:text-slate-500 gap-2">
+                        <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                        <span className="text-xs font-medium animate-pulse">Yükleniyor...</span>
+                    </div>
+                ) : comments.length === 0 ? (
                     <div className="text-center text-slate-400 text-xs mt-10 italic">
                         Henüz not eklenmemiş.
                     </div>
+                ) : (
+                    null
                 )}
 
-                {comments.map(comment => (
+                {!isLoading && comments.map(comment => (
                     <div key={comment.id} className="relative bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-lg p-3 shadow-sm group hover:shadow-md transition-shadow">
                         {/* Note Content */}
                         <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap font-medium mb-4">

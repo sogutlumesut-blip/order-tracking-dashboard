@@ -11,26 +11,28 @@ export async function GET(request: Request) {
     }
 
     try {
-        const order = await db.order.findUnique({
-            where: { id: orderId },
-            include: {
-                comments: {
-                    include: { author: { select: { name: true } } },
-                    orderBy: { timestamp: "asc" }
-                },
-                activities: {
-                    orderBy: { timestamp: "desc" },
-                    take: 20
-                }
-            }
-        });
+        const [order, comments, activities] = await Promise.all([
+            db.order.findUnique({
+                where: { id: orderId }
+            }),
+            db.comment.findMany({
+                where: { orderId },
+                include: { author: { select: { name: true } } },
+                orderBy: { timestamp: "asc" }
+            }),
+            db.orderActivity.findMany({
+                where: { orderId },
+                orderBy: { timestamp: "desc" },
+                take: 25 // Limit to latest 25 activities for high performance
+            })
+        ]);
 
         if (!order) {
             return NextResponse.json({ comments: [], activities: [] });
         }
 
         return NextResponse.json({
-            comments: order.comments.map(c => ({
+            comments: comments.map(c => ({
                 id: c.id,
                 author: c.author?.name || "Bilinmeyen",
                 message: c.message,
@@ -38,7 +40,7 @@ export async function GET(request: Request) {
                 attachments: c.attachments ? JSON.parse(c.attachments as string) : [],
                 type: c.type || "message"
             })),
-            activities: order.activities.map(a => ({
+            activities: activities.map(a => ({
                 id: a.id,
                 author: a.author,
                 action: a.action,
