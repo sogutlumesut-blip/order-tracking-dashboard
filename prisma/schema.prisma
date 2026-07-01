@@ -137,6 +137,7 @@ model ChatMessage {
   text        String
   senderId    String
   attachment  String?
+  replyToId   String?
   replyToText String?
   replyToName String?
   createdAt   DateTime @default(now())

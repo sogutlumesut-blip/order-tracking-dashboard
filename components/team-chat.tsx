@@ -122,6 +122,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     const [isOpen, setIsOpen] = useState(false)
     const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null)
     const [replyToMessage, setReplyToMessage] = useState<any | null>(null)
+    const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
     const inputRef = useRef<HTMLInputElement>(null)
     
     // Initialize messages from localStorage cache if available for instant load
@@ -316,6 +317,17 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         }
     }
 
+    const jumpToMessage = (msgId: string) => {
+        const element = document.getElementById(`msg-${msgId}`)
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            setHighlightedMessageId(msgId)
+            setTimeout(() => {
+                setHighlightedMessageId(null)
+            }, 1500)
+        }
+    }
+
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!newMessage.trim() && !attachment) return
@@ -335,6 +347,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
             id: optimisticId,
             text: newMessage,
             attachment: attachment,
+            replyToId: replyToMessage ? replyToMessage.id : null,
             replyToText: replyText,
             replyToName: replyToMessage ? (replyToMessage.sender?.name || 'Bilinmeyen') : null,
             senderId: currentUser.id,
@@ -359,6 +372,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                 body: JSON.stringify({
                     text: optimisticMessage.text,
                     attachment: optimisticMessage.attachment || undefined,
+                    replyToId: optimisticMessage.replyToId || undefined,
                     replyToText: optimisticMessage.replyToText || undefined,
                     replyToName: optimisticMessage.replyToName || undefined
                 })
@@ -410,13 +424,17 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                             messages.map((msg, i) => {
                                 const isMe = msg.senderId === currentUser.id
                                 return (
-                                    <div key={msg.id || i} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                                    <div key={msg.id || i} id={`msg-${msg.id}`} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                                         <div className={`flex items-center gap-2 group ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                                             <div className={`flex items-end gap-1.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                                                 <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
                                                     <UserIcon className="w-3.5 h-3.5 text-slate-500" />
                                                 </div>
-                                                <div className={`px-3 py-2 rounded-2xl max-w-[240px] text-sm break-words ${
+                                                <div className={`px-3 py-2 rounded-2xl max-w-[240px] text-sm break-words transition-all duration-300 ${
+                                                    highlightedMessageId === msg.id 
+                                                        ? 'ring-4 ring-amber-400 dark:ring-amber-500 scale-[1.03] shadow-md z-10' 
+                                                        : ''
+                                                } ${
                                                     isMe 
                                                         ? 'bg-emerald-600 text-white rounded-br-none' 
                                                         : 'bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-bl-none text-slate-800 dark:text-slate-200'
@@ -426,20 +444,57 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                     </div>
 
                                                     {/* Quoted Message Render */}
-                                                    {msg.replyToText && (
-                                                        <div className={`p-2 rounded-lg text-left text-[11px] leading-tight mb-1.5 border-l-4 ${
-                                                            isMe 
-                                                                ? 'bg-emerald-700/40 border-emerald-300 text-emerald-100' 
-                                                                : 'bg-slate-100 dark:bg-slate-900 border-emerald-500 text-slate-600 dark:text-slate-400'
-                                                        } truncate max-w-full`}>
-                                                            <div className={`font-bold text-[9px] mb-0.5 ${isMe ? 'text-emerald-200' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                                                                {msg.replyToName}
+                                                    {msg.replyToText && (() => {
+                                                        const quotedMsg = msg.replyToId ? messages.find(m => m.id === msg.replyToId) : null;
+                                                        const quotedName = quotedMsg ? (quotedMsg.sender?.name || 'Bilinmeyen') : msg.replyToName;
+                                                        
+                                                        // Determine text to show
+                                                        let quotedText = msg.replyToText;
+                                                        if (quotedMsg) {
+                                                            if (quotedMsg.attachment && (quotedMsg.attachment.startsWith('data:application/pdf') || quotedMsg.attachment.endsWith('.pdf'))) {
+                                                                quotedText = `📄 PDF Belgesi`;
+                                                            } else if (quotedMsg.attachment) {
+                                                                quotedText = quotedMsg.text ? `📷 ${quotedMsg.text}` : `📷 Görsel`;
+                                                            } else {
+                                                                quotedText = quotedMsg.text;
+                                                            }
+                                                        }
+
+                                                        // Check if quoted message has an image attachment for thumbnail
+                                                        const hasImageThumbnail = quotedMsg && quotedMsg.attachment && 
+                                                                                   !quotedMsg.attachment.startsWith('data:application/pdf') &&
+                                                                                   !quotedMsg.attachment.endsWith('.pdf');
+
+                                                        return (
+                                                            <div 
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    if (msg.replyToId) jumpToMessage(msg.replyToId);
+                                                                }}
+                                                                className={`p-2 rounded-lg text-left text-[11px] leading-tight mb-1.5 border-l-4 flex justify-between gap-2 items-center cursor-pointer transition-all hover:opacity-90 ${
+                                                                    isMe 
+                                                                        ? 'bg-emerald-700/40 border-emerald-300 text-emerald-100' 
+                                                                        : 'bg-slate-100 dark:bg-slate-900 border-emerald-500 text-slate-600 dark:text-slate-400'
+                                                                } max-w-full`}
+                                                            >
+                                                                <div className="min-w-0 flex-1">
+                                                                    <div className={`font-bold text-[9px] mb-0.5 ${isMe ? 'text-emerald-200' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                                                        {quotedName}
+                                                                    </div>
+                                                                    <div className="truncate opacity-90">
+                                                                        {quotedText}
+                                                                    </div>
+                                                                </div>
+                                                                {hasImageThumbnail && (
+                                                                    <img 
+                                                                        src={quotedMsg.attachment} 
+                                                                        alt="Quote thumbnail" 
+                                                                        className="w-7 h-7 object-cover rounded border border-slate-200 dark:border-slate-700 flex-shrink-0"
+                                                                    />
+                                                                )}
                                                             </div>
-                                                            <div className="truncate opacity-90">
-                                                                {msg.replyToText}
-                                                            </div>
-                                                        </div>
-                                                    )}
+                                                        );
+                                                    })()}
 
                                                     {msg.attachment && (
                                                         msg.attachment.startsWith('data:application/pdf') || msg.attachment.endsWith('.pdf') ? (
