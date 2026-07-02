@@ -1,8 +1,17 @@
 import { PrismaClient } from '@prisma/client';
 const db = new PrismaClient();
 async function run() {
-    const pmOrders = await db.order.findMany({ where: { status: "pending_woo" } });
-    console.log("Sources in pending_woo:", [...new Set(pmOrders.map(o => o.source))]);
+    const summary = await db.order.groupBy({
+        by: ['source'],
+        _count: {
+            id: true
+        },
+        _max: {
+            date: true
+        }
+    });
+    console.log("Order summary by source:");
+    console.log(JSON.stringify(summary, null, 2));
     await db.$disconnect();
 }
 run();

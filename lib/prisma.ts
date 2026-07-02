@@ -25,4 +25,4 @@ const getPrismaClient = () => {
 
 export const db = globalForPrisma.prisma_oms ?? getPrismaClient()
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma_oms = db
+globalForPrisma.prisma_oms = db

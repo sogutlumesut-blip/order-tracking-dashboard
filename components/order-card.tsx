@@ -246,13 +246,27 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                     <span>{order.items[0].dimensions === 'SAMPLE' ? '✨ SAMPLE' : `📏 ${order.items[0].dimensions}`}</span>
                                     {/* Auto M2 Calculation */}
                                     {(() => {
-                                        // Try to parse "100x200" or "100 x 200"
-                                        const dims = order.items[0].dimensions!.toLowerCase().match(/(\d+)\s*[x*]\s*(\d+)/)
-                                        if (dims) {
-                                            const w = parseInt(dims[1])
-                                            const h = parseInt(dims[2])
-                                            // Assuming cm, convert to m²
-                                            const m2 = (w * h) / 10000
+                                        const dimStr = order.items[0].dimensions!;
+                                        if (/m²|m2/i.test(dimStr)) return null;
+
+                                        // Try to parse dimensions (supports decimals and spaces like "195x96.5")
+                                        const match = dimStr.match(/(\d+(?:\.\d+)?)\s*[^0-9]*?\s*[x*]\s*[^0-9]*?\s*(\d+(?:\.\d+)?)/)
+                                        if (match) {
+                                            const w = parseFloat(match[1])
+                                            const h = parseFloat(match[2])
+                                            
+                                            // Detect if it is in inches
+                                            const isInch = dimStr.includes('"') || 
+                                                           /(?:^|\d|\s)(in|inch|inches|inc|inç)(?:\b|$)/i.test(dimStr);
+                                            
+                                            let m2 = 0
+                                            if (isInch) {
+                                                // 1 inch = 0.0254 meters
+                                                m2 = (w * 0.0254) * (h * 0.0254)
+                                            } else {
+                                                // Assuming cm, convert to m²
+                                                m2 = (w * h) / 10000
+                                            }
                                             return <span className="text-slate-400">({m2.toFixed(2)} m²)</span>
                                         }
                                         return null

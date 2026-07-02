@@ -42,6 +42,24 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
 
     if (!isOpen || !order) return null
 
+    // Parse labels to check for USA DEPO / USA UPS
+    const getLabels = (labelsStr: any): string[] => {
+        if (!labelsStr) return [];
+        if (Array.isArray(labelsStr)) return labelsStr;
+        try {
+            const parsed = typeof labelsStr === 'string' ? JSON.parse(labelsStr) : labelsStr;
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            return [];
+        }
+    };
+
+    const orderLabels = getLabels(order.labels);
+    const isUSA = orderLabels.some(l => {
+        const upper = l.toUpperCase();
+        return upper.includes("USA DEPO") || upper.includes("USA UPS") || upper.includes("USA");
+    });
+
     return (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
@@ -93,9 +111,22 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                             }
                         ` }} />
                         {/* Sender / Header */}
-                        <div className="w-full border-b-2 border-black pb-2 mb-4" style={{ borderColor: "#000000" }}>
+                        <div className="w-full border-b-2 border-black pb-2 mb-4 relative" style={{ borderColor: "#000000" }}>
                             <h1 className="text-xl font-bold uppercase tracking-wider" style={{ color: "#000000" }}>KARGO GÖNDERİSİ</h1>
                             <p className="text-sm font-semibold" style={{ color: "#000000" }}>Duvar Kağıdı Marketi</p>
+                            {isUSA && (
+                                <div 
+                                    className="absolute right-0 top-1 px-3 py-1 bg-black text-white font-black text-xs rounded uppercase tracking-widest border border-black"
+                                    style={{
+                                        backgroundColor: '#000000',
+                                        color: '#ffffff',
+                                        WebkitPrintColorAdjust: 'exact',
+                                        printColorAdjust: 'exact'
+                                    }}
+                                >
+                                    USA DEPO
+                                </div>
+                            )}
                         </div>
 
                         {/* Middle: Receiver Info */}

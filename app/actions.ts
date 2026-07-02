@@ -1423,8 +1423,8 @@ export async function syncWooCommerceOrders(force: boolean = false) {
         if (lastSyncStr) {
             const lastSync = parseInt(lastSyncStr)
             const now = Date.now()
-            // 15 Seconds = 15,000 ms (Align with 20s client poll)
-            if (now - lastSync < 15000) {
+            // 5 minutes rate limit for background auto-sync to prevent resource exhaustion
+            if (now - lastSync < 300000) {
                 // Too early, skip
                 return { skipped: true, message: "Sync skipped (Rate Limit)" }
             }
@@ -2031,14 +2031,36 @@ export async function deleteCargoLabel(orderId: number) {
     }
 }
 
-export async function syncCargoKargoEntegrator() {
+export async function syncCargoKargoEntegrator(force: boolean = false) {
+    const settings = (await getSystemSettings()) as Record<string, string>;
+    
+    // RATE LIMIT CHECK
+    if (!force) {
+        const lastSyncStr = settings['last_cargo_sync_time'];
+        if (lastSyncStr) {
+            const lastSync = parseInt(lastSyncStr);
+            const now = Date.now();
+            // 5 minutes rate limit for background auto-sync
+            if (now - lastSync < 300000) {
+                return { skipped: true, message: "Sync skipped (Rate Limit)" };
+            }
+        }
+    }
+
     const apiKey = process.env.KARGO_ENTEGRATOR_API_KEY || "OylOoz2vKllZtByiBAbl65NpdsnaNPVlpVTRzgNte8e42427";
     let updatedCount = 0;
 
-    // API limits to 15 per page. We need to fetch multiple pages to cover recent 100 orders.
-    const MAX_PAGES = 7; // 7 * 15 = 105 items
+    // Background sync scans 1 page of 100 items; manual sync scans 7 pages.
+    const MAX_PAGES = force ? 7 : 1;
 
     try {
+        // UPDATE TIMESTAMP
+        await db.systemSetting.upsert({
+            where: { key: 'last_cargo_sync_time' },
+            update: { value: Date.now().toString() },
+            create: { key: 'last_cargo_sync_time', value: Date.now().toString() }
+        });
+
         for (let page = 1; page <= MAX_PAGES; page++) {
             const res = await fetch(`https://app.kargoentegrator.com/api/shipments?per_page=100&page=${page}`, {
                 headers: {
@@ -2050,7 +2072,6 @@ export async function syncCargoKargoEntegrator() {
 
             if (!res.ok) {
                 console.error(`Cargo API Error (Page ${page}):`, res.status);
-                // If one page fails, maybe stop? Or continue? Let's stop to be safe.
                 if (page === 1) return { error: "Kargo API Hatası: " + res.status };
                 break;
             }
@@ -2060,32 +2081,44 @@ export async function syncCargoKargoEntegrator() {
 
             if (shipments.length === 0) break; // End of list
 
-            for (const ship of shipments) {
-                if (!ship.platform_id) continue;
+            // Filter shipments and map to find matching orders in DB in one query
+            const validShipments = shipments.filter((s: any) => s.platform_id);
+            if (validShipments.length === 0) continue;
 
+            const platformIds = validShipments.map((s: any) => String(s.platform_id));
+            const targetBarcodes = platformIds.map((id: string) => `WC-${id}`).concat(platformIds);
+
+            // Fetch all matching orders in one bulk query
+            const dbOrders = await db.order.findMany({
+                where: {
+                    barcode: {
+                        in: targetBarcodes
+                    }
+                },
+                select: {
+                    id: true,
+                    barcode: true,
+                    cargoTrackingNumber: true,
+                    cargoBarcode: true,
+                    cargoLabelPdf: true
+                }
+            });
+
+            // Map database orders by barcode for O(1) lookup
+            const ordersMap = new Map(dbOrders.map(o => [o.barcode, o]));
+
+            for (const ship of validShipments) {
                 const platformId = String(ship.platform_id);
                 const barcode = ship.barcode;
                 const trackingNum = ship.tracking_number;
-
-                // Construct Print URL (Corrected via User Feedback)
                 const printUrl = `https://app.kargoentegrator.com/print-pdf?shipments[0]=${ship.id}`;
 
                 if (!trackingNum && !barcode && !ship.status) continue;
 
-                // Try matching by Barcode (WC-123 or just 123)
-                let targetBarcode = `WC-${platformId}`;
-
-                // First try strict match by WC- prefix
-                let order = await db.order.findUnique({ where: { barcode: targetBarcode } });
-
-                // If not found, try raw ID
-                if (!order) {
-                    order = await db.order.findUnique({ where: { barcode: platformId } });
-                }
+                // Try WC- platform_id first, then raw platform_id
+                let order = ordersMap.get(`WC-${platformId}`) || ordersMap.get(platformId);
 
                 if (order) {
-                    // Only update if something is missing or changed
-                    // To avoid DB spam, check if we actually have new info
                     if (order.cargoTrackingNumber !== trackingNum || order.cargoBarcode !== barcode || order.cargoLabelPdf !== printUrl) {
                         await db.order.update({
                             where: { id: order.id },
@@ -2101,7 +2134,6 @@ export async function syncCargoKargoEntegrator() {
             }
         }
 
-        //  // revalidatePath("/"); - Removed from polling to prevent DO hangs
         return { success: true, message: `${updatedCount} siparişin kargo bilgisi güncellendi.` };
 
     } catch (error: any) {
@@ -2118,7 +2150,26 @@ export async function syncPrintMarktOrders(force: boolean = false) {
         return { error: "PrintMarkt ayarları eksik. Lütfen Ayarlar sayfasından tamamlayınız." }
     }
 
+    // RATE LIMIT CHECK
+    if (!force) {
+        const lastSyncStr = settings['last_pm_sync_time']
+        if (lastSyncStr) {
+            const lastSync = parseInt(lastSyncStr)
+            const now = Date.now()
+            // 5 minutes rate limit for background auto-sync to prevent resource exhaustion
+            if (now - lastSync < 300000) {
+                return { skipped: true, message: "Sync skipped (Rate Limit)" }
+            }
+        }
+    }
+
     try {
+        // UPDATE TIMESTAMP
+        await db.systemSetting.upsert({
+            where: { key: 'last_pm_sync_time' },
+            update: { value: Date.now().toString() },
+            create: { key: 'last_pm_sync_time', value: Date.now().toString() }
+        })
         let cleanUrl = settings['pm_url'].trim().replace(/\/+$/, '');
         let pmKey = settings['pm_key'].trim();
         const limit = force ? 100 : 40;

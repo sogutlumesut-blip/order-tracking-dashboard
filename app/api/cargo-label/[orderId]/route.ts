@@ -31,6 +31,7 @@ export async function GET(
             cargoTrackingNumber: true,
             cargoLabelPdf: true,
             barcode: true,
+            labels: true,
             items: {
                 select: {
                     name: true,
@@ -223,7 +224,31 @@ export async function GET(
     const noteSafe = cleanTR(order.note || "NOT: YOK").substring(0, 90);
     const customerSafe = cleanTR(order.customer).substring(0, 45);
 
+    // Parse labels to check for USA DEPO / USA UPS
+    const getLabels = (labelsStr: string | null | undefined): string[] => {
+        if (!labelsStr) return [];
+        try {
+            const parsed = typeof labelsStr === 'string' ? JSON.parse(labelsStr) : labelsStr;
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            return [];
+        }
+    };
+
+    const orderLabels = getLabels(order.labels);
+    const isUSA = orderLabels.some(l => {
+        const upper = l.toUpperCase();
+        return upper.includes("USA DEPO") || upper.includes("USA UPS") || upper.includes("USA");
+    });
+
+    let usaDepoZpl = "";
+    if (isUSA) {
+        // Draw a reverse-printed (white text on black background) "USA DEPO" badge on the top right
+        usaDepoZpl = `^FO550,740^GB230,35,35^FS\n^FO570,746^A0N,22,22^FR^FDUSA DEPO^FS\n`;
+    }
+
     const customReceiptZpl = `
+${usaDepoZpl}
 ^FO20,750^A0N,18,18^FDSIPARIS ICERIGI: ${customerSafe}^FS
 
 ${itemsZpl}

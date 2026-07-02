@@ -264,11 +264,11 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
     // Unified Polling & Sync Logic (v43 REALTIME_SYNC)
     useEffect(() => {
-        // 1. Cargo Sync (30s)
+        // 1. Cargo Sync (5m)
         const cargoInterval = setInterval(async () => {
             try {
                 const now = Date.now();
-                if (now - lastKargoSyncRef.current > 30000) {
+                if (now - lastKargoSyncRef.current > 300000) {
                     syncCargoKargoEntegrator().then(res => {
                         if (res?.success && (res.message.includes("güncellendi") && !res.message.startsWith("0"))) {
                             toast.success("Kargo bilgileri güncellendi", { id: "kargo-auto-sync" })
@@ -283,7 +283,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     window.location.reload();
                 }
             }
-        }, 30000);
+        }, 300000);
 
         // 2. High-frequency Polling for DB changes (Chat/Status/Internal)
         const pollInterval = setInterval(async () => {
@@ -431,8 +431,8 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         // Run immediately on mount
         performExternalSync();
 
-        // Then set the 15s interval
-        const syncInterval = setInterval(performExternalSync, 15000); // 15S External Sync
+        // Then set the 5m interval
+        const syncInterval = setInterval(performExternalSync, 300000); // 5M External Sync
 
         return () => {
             clearInterval(cargoInterval);
