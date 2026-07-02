@@ -7,10 +7,10 @@ const globalForPrisma = globalThis as unknown as {
 const getPrismaClient = () => {
     const databaseUrl = process.env.DATABASE_URL
     if (databaseUrl) {
-        // Automatically append connection_limit=3 if not already set, to prevent serverless pool exhaustion
+        // Automatically append connection_limit=15 if not already set, to prevent queuing timeouts
         if (!databaseUrl.includes("connection_limit=")) {
             const separator = databaseUrl.includes("?") ? "&" : "?"
-            const pooledUrl = `${databaseUrl}${separator}connection_limit=3`
+            const pooledUrl = `${databaseUrl}${separator}connection_limit=15`
             return new PrismaClient({
                 datasources: {
                     db: {
