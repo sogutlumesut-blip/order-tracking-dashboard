@@ -97,3 +97,40 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: false, error: e.message }, { status: 500 })
     }
 }
+
+export async function DELETE(req: Request) {
+    const session = await getSession()
+    if (!session) {
+        return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+    }
+
+    try {
+        const { searchParams } = new URL(req.url)
+        const messageId = searchParams.get('messageId')
+        if (!messageId) {
+            return NextResponse.json({ success: false, error: "Message ID is required" }, { status: 400 })
+        }
+
+        const message = await db.chatMessage.findUnique({
+            where: { id: messageId }
+        })
+
+        if (!message) {
+            return NextResponse.json({ success: false, error: "Message not found" }, { status: 404 })
+        }
+
+        // Check ownership: only sender can delete their own message
+        if (message.senderId !== session.user.id) {
+            return NextResponse.json({ success: false, error: "You can only delete your own messages" }, { status: 403 })
+        }
+
+        await db.chatMessage.delete({
+            where: { id: messageId }
+        })
+
+        return NextResponse.json({ success: true })
+    } catch (e: any) {
+        console.error("Error deleting chat message:", e)
+        return NextResponse.json({ success: false, error: e.message }, { status: 500 })
+    }
+}

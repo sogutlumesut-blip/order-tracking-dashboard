@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from "react"
-import { MessageCircle, X, Send, User as UserIcon, Paperclip, Download, CornerUpLeft } from "lucide-react"
+import { MessageCircle, X, Send, User as UserIcon, Paperclip, Download, CornerUpLeft, Trash2 } from "lucide-react"
 
 interface User {
     id: string
@@ -397,7 +397,29 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
             alert("Mesaj gönderilirken bir hata oluştu: " + (error.message || error))
         }
     }
+    const handleDeleteMessage = async (messageId: string) => {
+        if (!confirm("Bu mesajı silmek istediğinize emin misiniz?")) return
 
+        const previousMessages = [...messages]
+        setMessages(prev => prev.filter(m => m.id !== messageId))
+
+        try {
+            const response = await fetch(`/api/chat?messageId=${messageId}`, {
+                method: 'DELETE'
+            })
+            const res = await response.json()
+            if (!res.success) {
+                setMessages(previousMessages)
+                alert("Mesaj silinemedi: " + res.error)
+            } else {
+                const updatedCache = previousMessages.filter(m => m.id !== messageId)
+                localStorage.setItem('team_chat_messages', JSON.stringify(updatedCache))
+            }
+        } catch (error: any) {
+            setMessages(previousMessages)
+            alert("Mesaj silinirken bir hata oluştu: " + (error.message || error))
+        }
+    }
     return (
         <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end">
             {isOpen && (
@@ -552,21 +574,31 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                     )}
                                                     {!msg.attachment && renderMessageText(msg.text, isMe)}
                                                 </div>
+                                                {/* Action Buttons on Hover */}
+                                                {!msg.isOptimistic && (
+                                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 flex-shrink-0">
+                                                        <button 
+                                                            onClick={() => {
+                                                                setReplyToMessage(msg)
+                                                                inputRef.current?.focus()
+                                                            }}
+                                                            className="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-850 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
+                                                            title="Yanıtla"
+                                                        >
+                                                            <CornerUpLeft className="w-3.5 h-3.5" />
+                                                        </button>
+                                                        {isMe && (
+                                                            <button 
+                                                                onClick={() => handleDeleteMessage(msg.id)}
+                                                                className="p-1 rounded-full hover:bg-red-50 dark:hover:bg-red-950/20 text-slate-400 hover:text-red-600 dark:hover:text-red-400 cursor-pointer"
+                                                                title="Sil"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
-
-                                            {/* Reply Button on Hover */}
-                                            {!msg.isOptimistic && (
-                                                <button 
-                                                    onClick={() => {
-                                                        setReplyToMessage(msg)
-                                                        inputRef.current?.focus()
-                                                    }}
-                                                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-850 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer flex-shrink-0"
-                                                    title="Yanıtla"
-                                                >
-                                                    <CornerUpLeft className="w-3.5 h-3.5" />
-                                                </button>
-                                            )}
                                         </div>
                                         <span className="text-[9px] text-slate-400 mt-1 mx-8">
                                             {new Date(msg.createdAt).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
