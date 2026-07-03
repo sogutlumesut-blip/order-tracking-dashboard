@@ -2255,6 +2255,14 @@ export async function syncPrintMarktOrders(force: boolean = false) {
                 const externalId = pmOrder.id?.toString() || pmOrder.external_id || pmOrder.order_number?.toString() || pmOrder.number?.toString();
                 if (!externalId) continue; // Skip if no ID
 
+                // Skip unplaced integration orders (e.g. Etsy/WooCommerce integration orders that have not been submitted/paid on PrintMarkt yet)
+                const source = pmOrder.source || "";
+                const isIntegration = source && source !== "manual";
+                const hasPaymentMethod = pmOrder.payment_method || pmOrder.gateway;
+                if (isIntegration && !hasPaymentMethod) {
+                    continue;
+                }
+
                 const orderKey = `pm_${externalId}`;
                 const existingOrder = existingOrdersMap.get(orderKey);
 
