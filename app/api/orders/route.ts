@@ -126,7 +126,28 @@ export async function GET(req: NextRequest) {
             createdAt: order.createdAt.toISOString(),
             updatedAt: order.updatedAt.toISOString(),
             total: order.total || "0 ₺",
-            commentCount: order._count.comments,
+            items: order.items.map(item => ({
+                ...item,
+                sku: item.sku || null,
+                image_src: item.image_src?.startsWith('data:image') 
+                    ? `/api/order-image/${item.id}` 
+                    : (item.image_src && (item.image_src.startsWith('/api/uploads/') || item.image_src.startsWith('/uploads/') || item.image_src.startsWith('uploads/'))
+                        ? `https://printmarkt.co${item.image_src.startsWith('/') ? '' : '/'}${item.image_src}`
+                        : item.image_src),
+                url: item.url?.startsWith('data:') ? `/api/order-url/${item.id}` : item.url,
+                material: item.material || null,
+                dimensions: item.dimensions || null,
+            })),
+            commentCount: order._count?.comments || 0,
+            labels: (() => {
+                if (!order.labels) return [];
+                try {
+                    const parsed = typeof order.labels === 'string' ? JSON.parse(order.labels) : order.labels;
+                    return Array.isArray(parsed) ? parsed : [];
+                } catch (e) {
+                    return [];
+                }
+            })(),
             _count: undefined
         }));
 
