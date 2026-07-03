@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createDHLShipmentAction } from "@/app/actions";
+import { generateDHLShipment } from "@/lib/cargo-service";
 import { getSession } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Geçersiz sipariş ID" }, { status: 400 });
         }
 
-        const res = await createDHLShipmentAction(orderId, false);
+        const res = await generateDHLShipment(orderId, session.user.name, false);
         return NextResponse.json(res);
     } catch (e: any) {
         return NextResponse.json({ error: e.message || "Bilinmeyen bir hata oluştu" }, { status: 500 });

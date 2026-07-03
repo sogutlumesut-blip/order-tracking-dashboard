@@ -792,89 +792,23 @@ export async function fetchOrderForCargo(orderId: number) {
     }
 }
 
-import { createDHLExpressShipment } from "@/lib/dhl-api";
-
-import { createKargoEntegratorShipment } from "@/lib/kargo-entegrator-api";
+import { generateDHLShipment } from "@/lib/cargo-service";
 
 export async function createDHLShipmentAction(orderId: number, bypassAuth: boolean = false) {
     noStore();
-    serverLog(`[KARGO_ENTEGRATOR] START: Generating cargo label for Order #${orderId}`);
-
+    
     let session = null;
     if (!bypassAuth) {
         session = await getSession();
         if (!session) {
-            serverLog(`[KARGO_ENTEGRATOR] ERR: No session for #${orderId}`);
             return { error: "Oturum kapalı" };
         }
     }
 
     try {
-        const order = await db.order.findUnique({
-            where: { id: orderId },
-            include: { items: true }
-        });
-
-        if (!order) {
-            serverLog(`[KARGO_ENTEGRATOR] ERR: Order not found #${orderId}`);
-            return { error: "Sipariş bulunamadı" };
-        }
-
         const actorName = bypassAuth || !session ? "TEST_SYSTEM" : session.user.name;
-        await logActivity(orderId, actorName, "CARGO_START", "Kargo Entegratör API'sine gönderi oluşturma kaydı iletiliyor...");
-
-        // 1. Create Shipment via Kargo Entegrator API
-        const shipmentRes = await createKargoEntegratorShipment(order, order.items);
-
-        if (shipmentRes.error) {
-            serverLog(`[KARGO_ENTEGRATOR] Error: ${shipmentRes.error}`);
-            return { error: `Kargo Entegratör Hatası: ${shipmentRes.error}` };
-        }
-
-        if (!shipmentRes.success || !shipmentRes.shipmentId) {
-            return { error: "Gönderi oluşturuldu ancak ID alınamadı." };
-        }
-
-        const trackingNo = shipmentRes.barcode || String(shipmentRes.shipmentId);
-        
-        // 2. Update DB with Barcode and PDF
-        const updateData: any = {
-            updatedAt: new Date(),
-            cargoTrackingNumber: trackingNo,
-            cargoBarcode: trackingNo,
-            trackingNumber: trackingNo
-        };
-
-        if (!bypassAuth) {
-            updateData.status = "shipped";
-        }
-
-        if (shipmentRes.labelPdfBase64) {
-            updateData.cargoLabelPdf = shipmentRes.labelPdfBase64;
-        }
-
-        serverLog(`[KARGO_ENTEGRATOR] Success! Updating Order ${order.id}. Tracking No: ${trackingNo}`);
-        await db.order.update({
-            where: { id: orderId },
-            data: updateData
-        });
-
-        await logActivity(
-            orderId, 
-            actorName, 
-            "CARGO_SUCCESS", 
-            `Kargo başarıyla oluşturuldu. (ID: ${shipmentRes.shipmentId}, Barkod: ${trackingNo})`
-        );
-
-        return { 
-            success: true, 
-            message: "Kargo etiketi başarıyla oluşturuldu!", 
-            cargoBarcode: trackingNo, 
-            cargoTrackingNumber: trackingNo 
-        };
-
+        return await generateDHLShipment(orderId, actorName, bypassAuth);
     } catch (e: any) {
-        serverLog(`[KARGO_ENTEGRATOR] CRITICAL_ERROR: ${e.message}`);
         return { error: e.message };
     }
 }
