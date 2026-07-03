@@ -33,6 +33,9 @@ export async function GET(req: Request) {
         // Transform the messages to return lightweight URLs instead of raw base64 data
         const serializedMessages = messages.map(m => {
             if (m.attachment) {
+                if (m.attachment.startsWith('http://') || m.attachment.startsWith('https://')) {
+                    return m
+                }
                 const isPdf = m.attachment.startsWith('data:application/pdf') || (m.text && m.text.toLowerCase().endsWith('.pdf'))
                 const ext = isPdf ? '.pdf' : '.jpg'
                 return {
@@ -87,7 +90,9 @@ export async function POST(req: Request) {
         const serializedMessage = {
             ...message,
             attachment: message.attachment 
-                ? `/api/chat/attachment?id=${message.id}&ext=${(message.attachment.startsWith('data:application/pdf') || (message.text && message.text.toLowerCase().endsWith('.pdf'))) ? '.pdf' : '.jpg'}`
+                ? (message.attachment.startsWith('http://') || message.attachment.startsWith('https://')
+                    ? message.attachment
+                    : `/api/chat/attachment?id=${message.id}&ext=${(message.attachment.startsWith('data:application/pdf') || (message.text && message.text.toLowerCase().endsWith('.pdf'))) ? '.pdf' : '.jpg'}`)
                 : null
         }
 

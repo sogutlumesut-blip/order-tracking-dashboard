@@ -53,6 +53,11 @@ export async function GET(req: Request) {
             })
         }
 
+        // Fallback: if it's a URL, redirect to it!
+        if (message.attachment.startsWith('http://') || message.attachment.startsWith('https://')) {
+            return Response.redirect(message.attachment, 307)
+        }
+
         // Fallback in case the stored attachment is not a data URI
         return new Response(message.attachment)
     } catch (e: any) {
