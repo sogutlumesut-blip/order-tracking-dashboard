@@ -2444,7 +2444,8 @@ if (typeof window === 'undefined' && process.env.NODE_ENV === 'production' && pr
             const wc = await syncWooCommerceOrders(false).catch(e => ({ error: e.message }));
             const pm = await syncPrintMarktOrders(false).catch(e => ({ error: e.message }));
             const etsy = await syncEtsyOrders().catch(e => ({ error: e.message }));
-            console.log("[BACKGROUND_SYNC] Scheduled sync completed:", { wc, pm, etsy });
+            const cargo = await syncCargoKargoEntegrator().catch(e => ({ error: e.message }));
+            console.log("[BACKGROUND_SYNC] Scheduled sync completed:", { wc, pm, etsy, cargo });
         } catch (error) {
             console.error("[BACKGROUND_SYNC] Fatal error in scheduled sync:", error);
         }

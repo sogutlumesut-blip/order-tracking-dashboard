@@ -264,27 +264,6 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
     // Unified Polling & Sync Logic (v43 REALTIME_SYNC)
     useEffect(() => {
-        // 1. Cargo Sync (5m)
-        const cargoInterval = setInterval(async () => {
-            try {
-                const now = Date.now();
-                if (now - lastKargoSyncRef.current > 300000) {
-                    syncCargoKargoEntegrator().then(res => {
-                        if (res?.success && (res.message.includes("güncellendi") && !res.message.startsWith("0"))) {
-                            toast.success("Kargo bilgileri güncellendi", { id: "kargo-auto-sync" })
-                            router.refresh()
-                        }
-                    })
-                    lastKargoSyncRef.current = now;
-                }
-            } catch (e: any) { 
-                console.error("Cargo Sync Err", e);
-                if (e?.message?.includes('Failed to find Server Action')) {
-                    window.location.reload();
-                }
-            }
-        }, 300000);
-
         // 2. High-frequency Polling for DB changes (Chat/Status/Internal)
         const pollInterval = setInterval(async () => {
             if (activeId || isBulkProcessingRef.current) return;
@@ -392,52 +371,8 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             }
         }, 3000); // FIXED 3S POLLING
 
-        // Slower External Sync (WooCommerce & PrintMarkt)
-        const performExternalSync = async () => {
-            if (isBulkProcessingRef.current) return;
-            setIsValidating(true);
-            
-            try {
-                // 1. WooCommerce Sync
-                try {
-                    const wcRes = await syncWooCommerceOrders(false);
-                    if (wcRes && !wcRes.error && !(wcRes as any).skipped) {
-                        console.log("External Sync: WC data updated");
-                        router.refresh();
-                    }
-                } catch (e: any) {
-                    console.error("WooCommerce External Sync Error", e);
-                }
-
-                // 2. PrintMarkt Sync
-                try {
-                    const pmRes = await syncPrintMarktOrders(false);
-                    if (pmRes && !pmRes.error && (pmRes as any).success && (pmRes as any).count > 0) {
-                        console.log("External Sync: PrintMarkt data updated");
-                        router.refresh();
-                    }
-                } catch (e: any) { 
-                    console.error("PrintMarkt External Sync Error", e);
-                    if (e?.message?.includes('Failed to find Server Action')) {
-                        window.location.reload();
-                    }
-                }
-            } finally {
-                setIsValidating(false);
-                setLastSynced(new Date());
-            }
-        };
-
-        // Run immediately on mount
-        performExternalSync();
-
-        // Then set the 5m interval
-        const syncInterval = setInterval(performExternalSync, 300000); // 5M External Sync
-
         return () => {
-            clearInterval(cargoInterval);
             clearInterval(pollInterval);
-            clearInterval(syncInterval);
         };
     }, [activeId]);
 
