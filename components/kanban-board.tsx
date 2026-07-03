@@ -269,10 +269,14 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             if (activeId || isBulkProcessingRef.current) return;
 
             try {
-                const latestOrders = await getOrders(Date.now());
-                setLastSynced(new Date());
+                const response = await fetch('/api/orders');
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const latestOrders = await response.json();
+                
+                if (latestOrders && Array.isArray(latestOrders)) {
+                    setLastSynced(new Date());
 
-                setOrders(currentOrders => {
+                    setOrders(currentOrders => {
                     let hasChanges = false;
 
                     // Filter out local optimistic orders (id < 0) from currentOrders for comparison
@@ -362,7 +366,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     }
                 }
                 previousOrderIds.current = latestIds;
-
+                }
             } catch (error: any) {
                 console.error("Polling Error:", error);
                 if (error?.message?.includes('Failed to find Server Action')) {
