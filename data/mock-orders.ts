@@ -28,6 +28,7 @@ export interface OrderItem {
     dimensions?: string | null;
     productNote?: string | null;
     sampleData?: string | null;
+    croppedImage?: string | null;
 }
 
 export interface Order {

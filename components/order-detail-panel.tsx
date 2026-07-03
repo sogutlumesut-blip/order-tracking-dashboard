@@ -478,6 +478,21 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                     </div>
                                                 )}
 
+                                                {/* Cropped Image Link */}
+                                                {item.croppedImage && (
+                                                    <div className="mt-2">
+                                                        <a
+                                                            href={item.croppedImage}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="flex items-center justify-center gap-2 w-full py-2 bg-emerald-50 text-emerald-600 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-900/40 rounded-md text-xs font-bold transition-all shadow-sm"
+                                                        >
+                                                            <ExternalLink className="w-4 h-4" />
+                                                            Kırpılan Resim (Görüntüle)
+                                                        </a>
+                                                    </div>
+                                                )}
+
                                                 {item.productNote && (
                                                     <div className="mt-2 text-amber-700 text-xs border border-amber-200 bg-amber-50 p-2 rounded font-medium">
                                                         📝 <span className="font-bold">Ürün Notu:</span> {item.productNote}

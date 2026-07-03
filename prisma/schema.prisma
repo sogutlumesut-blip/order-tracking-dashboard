@@ -82,6 +82,7 @@ model OrderItem {
   dimensions  String?
   productNote String?
   sampleData  String?
+  croppedImage String?
   orderId     Int
   order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
 

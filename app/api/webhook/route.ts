@@ -241,6 +241,30 @@ export async function POST(req: Request) {
                 }
             }
 
+            const getCroppedImage = () => {
+                if (!Array.isArray(item.meta_data)) return null;
+                const keys = ['kırpılan resim', 'kirpilan resim', 'cropped_image', '_cropped_image', 'cropped-image'];
+                const normKeys = keys.map(normalizeKey);
+                const found = item.meta_data.find((m: any) => {
+                    const mKey = normalizeKey(m.key || '');
+                    const mDisplay = normalizeKey(m.display_key || '');
+                    return normKeys.includes(mKey) || normKeys.includes(mDisplay);
+                });
+                if (!found) return null;
+
+                const rawValue = found.value || found.display_value || '';
+                if (typeof rawValue === 'string') {
+                    const hrefMatch = rawValue.match(/href=["'](.*?)["']/i);
+                    if (hrefMatch && hrefMatch[1]) {
+                        return hrefMatch[1];
+                    }
+                    if (rawValue.trim().startsWith('http')) {
+                        return rawValue.trim();
+                    }
+                }
+                return null;
+            }
+
             return {
                 name: item.name || 'Ürün',
                 quantity: item.quantity || 1,
@@ -250,7 +274,8 @@ export async function POST(req: Request) {
                 dimensions: dimensions,
                 material: material,
                 productNote: getMeta(['Ürün Notu', 'Urun Notu', 'Not', 'Note', '_urun_notu']) || null,
-                sampleData: getMeta(['Numune İsteği', 'Numune Istegi', 'Numune', 'Sample', '_numune']) || null
+                sampleData: getMeta(['Numune İsteği', 'Numune Istegi', 'Numune', 'Sample', '_numune']) || null,
+                croppedImage: getCroppedImage()
             };
         })
 
