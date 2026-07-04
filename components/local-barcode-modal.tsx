@@ -71,10 +71,27 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
     };
 
     const orderLabels = getLabels(order.labels);
-    const isUSA = orderLabels.some(l => {
-        const upper = l.toUpperCase();
-        return upper.includes("USA DEPO") || upper.includes("USA UPS") || upper.includes("USA");
-    });
+    const findActiveBadge = () => {
+        const keywords = [
+            "USA DEPO", "USA UPS", "USA", 
+            "TURKEY SHIP", "TURKEY", "TR SHIP", 
+            "FEDEX SHIP", "FEDEX", 
+            "OZEL ETİKET", "ÖZEL ETİKET", "OZEL", "ÖZEL"
+        ];
+        for (const label of orderLabels) {
+            const upper = label.toUpperCase();
+            const matchedKeyword = keywords.find(keyword => upper.includes(keyword));
+            if (matchedKeyword) {
+                if (matchedKeyword.startsWith("USA")) return "USA DEPO";
+                if (matchedKeyword.startsWith("TURKEY") || matchedKeyword === "TR SHIP") return "TURKEY SHIP";
+                if (matchedKeyword.startsWith("FEDEX")) return "FEDEX SHIP";
+                if (matchedKeyword.startsWith("OZEL") || matchedKeyword.startsWith("ÖZEL")) return "ÖZEL ETİKET";
+                return label.toUpperCase();
+            }
+        }
+        return null;
+    };
+    const activeBadge = findActiveBadge();
 
     return (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
@@ -120,10 +137,9 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                         <div style={{
                             width: "100%",
                             borderBottom: "2px solid #000000",
-                            paddingBottom: "8px",
+                            paddingBottom: activeBadge ? "10px" : "8px",
                             marginBottom: "12px",
-                            textAlign: "center",
-                            position: "relative"
+                            textAlign: "center"
                         }}>
                             <h1 style={{
                                 fontSize: "20px",
@@ -139,25 +155,24 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                                 margin: "0",
                                 color: "#000000"
                             }}>Duvar Kağıdı Marketi</p>
-                            {isUSA && (
+                            {activeBadge && (
                                 <div 
                                     style={{
-                                        position: "absolute",
-                                        right: "0",
-                                        top: "4px",
-                                        padding: "4px 12px",
+                                        display: "inline-block",
+                                        marginTop: "6px",
+                                        padding: "4px 14px",
                                         backgroundColor: '#000000',
                                         color: '#ffffff',
                                         fontWeight: "900",
                                         fontSize: "12px",
                                         borderRadius: "4px",
                                         textTransform: "uppercase",
-                                        letterSpacing: "0.1em",
+                                        letterSpacing: "0.05em",
                                         WebkitPrintColorAdjust: 'exact',
                                         printColorAdjust: 'exact'
                                     }}
                                 >
-                                    USA DEPO
+                                    {activeBadge}
                                 </div>
                             )}
                         </div>
