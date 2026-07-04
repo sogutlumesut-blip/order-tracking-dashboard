@@ -2,7 +2,7 @@
 
 import { Comment } from "../data/mock-orders" // Ensure this type matches generic Comment structure
 import { useState, useRef } from "react"
-import { Send, Paperclip, File as FileIcon, Image as ImageIcon, Trash2 } from "lucide-react"
+import { Send, Paperclip, File as FileIcon, Trash2 } from "lucide-react"
 
 interface ChatAttachment {
     name: string
@@ -188,10 +188,26 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
             {/* Input Area */}
             <div className="p-3 bg-white dark:bg-slate-800 border-t dark:border-slate-700 space-y-2">
                 {attachment && (
-                    <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 p-2 rounded-lg text-sm w-fit">
-                        {attachment.type === 'image' ? <ImageIcon className="w-4 h-4" /> : <FileIcon className="w-4 h-4" />}
-                        <span className="max-w-[200px] truncate">{attachment.name}</span>
-                        <button onClick={() => setAttachment(null)} className="ml-2 hover:bg-blue-100 dark:hover:bg-blue-800 rounded-full p-1">X</button>
+                    <div className="relative flex items-center bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 p-2 rounded-lg text-sm w-fit border border-blue-200 dark:border-blue-900/30">
+                        {attachment.type === 'image' ? (
+                            <div className="relative w-16 h-16 mr-2 rounded overflow-hidden border border-blue-300 dark:border-blue-900/50 bg-white">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                    src={attachment.url}
+                                    alt="Önizleme"
+                                    className="w-full h-full object-cover"
+                                />
+                            </div>
+                        ) : (
+                            <FileIcon className="w-4 h-4 mr-1 flex-shrink-0" />
+                        )}
+                        <span className="max-w-[200px] truncate mr-2 font-medium">{attachment.name}</span>
+                        <button
+                            onClick={() => setAttachment(null)}
+                            className="hover:bg-blue-100 dark:hover:bg-blue-800 rounded-full p-1 font-bold flex items-center justify-center w-5 h-5 text-xs text-blue-850 dark:text-blue-200 transition-colors"
+                        >
+                            ✕
+                        </button>
                     </div>
                 )}
 
