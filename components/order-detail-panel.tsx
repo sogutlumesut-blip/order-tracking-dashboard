@@ -3,7 +3,7 @@
 import { Order, OrderStatus, Comment } from "../data/mock-orders"
 import { APP_CONFIG } from "../data/settings"
 import { X, Save, Truck, User, Tag, FileText, Upload, Printer, FileDown, History, ChevronDown, ChevronRight, ExternalLink, Receipt, ShieldCheck, Download } from "lucide-react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { NoteLog } from "./note-log"
 import { ChatSection } from "./chat-section"
 import { ActivityLog } from "./activity-log"
@@ -37,8 +37,12 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
     const [lazyActivities, setLazyActivities] = useState<any[] | null>(null)
     const [isLoadingDetails, setIsLoadingDetails] = useState(false)
 
+    const lastOrderIdRef = useRef<number | null>(null)
+
     useEffect(() => {
         if (order && isOpen) {
+            const isSameOrder = lastOrderIdRef.current === order.id;
+
             // Update formData ONLY if:
             // 1. It's a different order (ID change)
             // 2. User hasn't made any local modifications yet (safe to sync)
@@ -48,10 +52,13 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                 setIsActivityLogOpen(true)
             }
 
-            // Setup placeholder state until server fetch completes
-            setLazyComments([])
-            setLazyActivities([])
-            setIsLoadingDetails(true)
+            if (!isSameOrder) {
+                // Setup placeholder state until server fetch completes
+                setLazyComments([])
+                setLazyActivities([])
+                setIsLoadingDetails(true)
+                lastOrderIdRef.current = order.id
+            }
 
             // Background fetch FULL details via REST API
             fetch(`/api/order-details?orderId=${order.id}`)
@@ -81,7 +88,9 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                 })
                 .catch(e => console.error("Lazy fetch err:", e))
                 .finally(() => {
-                    setIsLoadingDetails(false)
+                    if (!isSameOrder) {
+                        setIsLoadingDetails(false)
+                    }
                 })
         } else if (!isOpen) {
             // Reset for next time
@@ -89,6 +98,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
             setIsModified(false)
             setLazyComments(null)
             setLazyActivities(null)
+            lastOrderIdRef.current = null
         }
     }, [order, isOpen])
 
