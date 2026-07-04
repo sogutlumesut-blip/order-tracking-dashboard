@@ -124,6 +124,30 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
         }
     }
 
+    const handleInternalDeleteComment = async (commentId: string) => {
+        if (!confirm("Bu yorumu/notu silmek istediğinize emin misiniz?")) return
+
+        const previousComments = lazyComments ? [...lazyComments] : null
+        setLazyComments(prev => prev ? prev.filter(c => c.id !== commentId) : null)
+
+        try {
+            const response = await fetch(`/api/delete-comment?commentId=${commentId}`, {
+                method: 'DELETE'
+            })
+            const result = await response.json()
+            if (result && result.error) {
+                toast.error(`Silme hatası: ${result.error}`)
+                setLazyComments(previousComments)
+            } else {
+                toast.success("Silindi")
+                router.refresh()
+            }
+        } catch (e: any) {
+            toast.error("Silme işlemi sırasında bir hata oluştu.")
+            setLazyComments(previousComments)
+        }
+    }
+
     const handleSave = () => {
         if (formData) {
             const finalOrderData = {
@@ -875,7 +899,8 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     onAddNote={(msg, att) => handleInternalAddComment(msg, att, 'note')}
                                     currentUser={currentUser}
                                     onImageClick={setPreviewImage}
-                                    className="h-[300px]"
+                                    onDeleteNote={handleInternalDeleteComment}
+                                    className="h-[550px]"
                                     isLoading={isLoadingDetails}
                                 />
                             </div>
@@ -889,6 +914,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     onAddComment={(msg, att) => handleInternalAddComment(msg, att, 'message')}
                                     currentUser={currentUser}
                                     onImageClick={setPreviewImage}
+                                    onDeleteComment={handleInternalDeleteComment}
                                     isLoading={isLoadingDetails}
                                 />
                             </div>

@@ -2,17 +2,24 @@
 
 import { Comment } from "../data/mock-orders" // Ensure this type matches generic Comment structure
 import { useState, useRef } from "react"
-import { Send, Paperclip, File as FileIcon, Image as ImageIcon } from "lucide-react"
+import { Send, Paperclip, File as FileIcon, Image as ImageIcon, Trash2 } from "lucide-react"
+
+interface ChatAttachment {
+    name: string
+    type: 'image' | 'file'
+    url: string
+}
 
 interface ChatSectionProps {
     comments?: Comment[]
-    onAddComment: (message: string, attachments: any[]) => void
+    onAddComment: (message: string, attachments: ChatAttachment[]) => void
     currentUser: { id: string; name: string; role: string }
     onImageClick?: (url: string) => void
     isLoading?: boolean
+    onDeleteComment?: (commentId: string) => void
 }
 
-export function ChatSection({ comments = [], onAddComment, currentUser, onImageClick, isLoading }: ChatSectionProps) {
+export function ChatSection({ comments = [], onAddComment, currentUser, onImageClick, isLoading, onDeleteComment }: ChatSectionProps) {
     const [message, setMessage] = useState("")
     const [attachment, setAttachment] = useState<{ name: string, type: 'image' | 'file', url: string } | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
@@ -69,7 +76,7 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
             if (isImg) {
                 try {
                     result = await compressImage(result)
-                } catch (err) {
+                } catch {
                     // Fallback to raw base64 if compression fails
                 }
             }
@@ -94,7 +101,7 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
                         let result = reader.result as string
                         try {
                             result = await compressImage(result)
-                        } catch (err) {}
+                        } catch {}
                         setAttachment({
                             name: `yapistirilan-gorsel-${Date.now()}.jpg`,
                             type: 'image',
@@ -137,6 +144,15 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
                             <div className="flex items-center gap-2 text-xs text-slate-500">
                                 <span className="font-bold text-slate-700">{comment.author}</span>
                                 <span>{comment.timestamp}</span>
+                                {currentUser?.role === 'admin' && (
+                                    <button
+                                        onClick={() => onDeleteComment?.(comment.id)}
+                                        className="text-slate-400 hover:text-red-500 ml-1 p-0.5 rounded transition-colors"
+                                        title="Mesajı Sil"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                )}
                             </div>
 
                             <div className={`max-w-[85%] p-3 rounded-2xl text-sm ${isMe
@@ -145,7 +161,7 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
                                 }`}>
                                 {comment.message && <p>{comment.message}</p>}
 
-                                {comment.attachments?.map((att: any, i: number) => (
+                                {comment.attachments?.map((att: ChatAttachment, i: number) => (
                                     <div key={i} className="mt-2 p-2 bg-black/10 rounded-lg flex items-center gap-2 overflow-hidden">
                                         {att.type === 'image' ? (
                                             // eslint-disable-next-line @next/next/no-img-element

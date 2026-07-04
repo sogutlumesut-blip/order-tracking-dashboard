@@ -2,7 +2,7 @@
 
 import { Comment } from "../data/mock-orders"
 import { useState, useRef } from "react"
-import { Send, FileText, Paperclip, File as FileIcon, Image as ImageIcon } from "lucide-react"
+import { Send, FileText, Paperclip, File as FileIcon, Image as ImageIcon, Trash2 } from "lucide-react"
 
 interface NoteAttachment {
     name: string
@@ -17,9 +17,10 @@ interface NoteLogProps {
     className?: string
     isLoading?: boolean
     onImageClick?: (url: string) => void
+    onDeleteNote?: (commentId: string) => void
 }
 
-export function NoteLog({ comments = [], onAddNote, className, isLoading, onImageClick }: NoteLogProps) {
+export function NoteLog({ comments = [], onAddNote, currentUser, className, isLoading, onImageClick, onDeleteNote }: NoteLogProps) {
     const [note, setNote] = useState("")
     const [attachment, setAttachment] = useState<NoteAttachment | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
@@ -136,7 +137,18 @@ export function NoteLog({ comments = [], onAddNote, className, isLoading, onImag
                 )}
 
                 {!isLoading && comments.map(comment => (
-                    <div key={comment.id} className="relative bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-lg p-3 shadow-sm group hover:shadow-md transition-shadow">
+                    <div key={comment.id} className="relative bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-lg p-3 shadow-sm group hover:shadow-md transition-shadow pr-8">
+                        {/* Admin Delete Button */}
+                        {currentUser?.role === 'admin' && (
+                            <button
+                                onClick={() => onDeleteNote?.(comment.id)}
+                                className="absolute top-2 right-2 p-1 text-slate-400 hover:text-red-500 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                title="Notu Sil"
+                            >
+                                <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                        )}
+
                         {/* Note Content */}
                         <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap font-medium mb-4">
                             {comment.message}
@@ -152,7 +164,7 @@ export function NoteLog({ comments = [], onAddNote, className, isLoading, onImag
                                             <img
                                                 src={att.url}
                                                 alt="attachment"
-                                                className="w-full h-auto rounded max-w-[240px] max-h-[160px] bg-slate-100 dark:bg-slate-700/50 object-cover cursor-zoom-in hover:opacity-90 transition-opacity"
+                                                className="w-full h-auto rounded-lg max-w-[450px] bg-slate-100 dark:bg-slate-700/50 object-contain cursor-zoom-in hover:opacity-90 transition-opacity"
                                                 onClick={() => onImageClick?.(att.url)}
                                             />
                                         ) : (
