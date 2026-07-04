@@ -872,8 +872,9 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                 </label>
                                 <NoteLog
                                     comments={(lazyComments || []).filter(c => c.type === 'note')}
-                                    onAddNote={(msg) => handleInternalAddComment(msg, [], 'note')}
+                                    onAddNote={(msg, att) => handleInternalAddComment(msg, att, 'note')}
                                     currentUser={currentUser}
+                                    onImageClick={setPreviewImage}
                                     className="h-[300px]"
                                     isLoading={isLoadingDetails}
                                 />
