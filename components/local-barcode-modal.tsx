@@ -22,6 +22,22 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
     const handlePrint = useReactToPrint({
         contentRef: printRef,
         documentTitle: `Kargo-Barkod-${order.cargoBarcode || order.barcode || order.id}`,
+        pageStyle: `
+            @page {
+                size: 100mm 150mm !important;
+                margin: 0 !important;
+            }
+            @media print {
+                html, body {
+                    width: 100mm !important;
+                    height: 150mm !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
+            }
+        `
     })
 
     const handleSync = async () => {
@@ -86,40 +102,57 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                 <div className="flex-1 overflow-auto p-8 bg-slate-100 flex justify-center">
                     <div
                         ref={printRef}
-                        className="bg-white p-6 rounded shadow-sm border border-slate-200 w-[10cm] min-h-[15cm] flex flex-col items-center text-center print:shadow-none print:border-none print:w-[10cm] print:h-[150mm] print:p-4 text-black dark:text-black"
+                        className="bg-white rounded text-black dark:text-black"
                         style={{ 
                             width: "100mm", 
                             height: "150mm", 
                             color: "#000000", 
                             backgroundColor: "#ffffff",
-                            boxSizing: "border-box"
+                            boxSizing: "border-box",
+                            padding: "16px",
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            fontFamily: "Arial, sans-serif"
                         }}
                     >
-                        <style dangerouslySetInnerHTML={{ __html: `
-                            @media print {
-                                @page {
-                                    size: 100mm 150mm;
-                                    margin: 0 !important;
-                                }
-                                html, body {
-                                    width: 100mm !important;
-                                    height: 150mm !important;
-                                    margin: 0 !important;
-                                    padding: 0 !important;
-                                    -webkit-print-color-adjust: exact;
-                                }
-                            }
-                        ` }} />
                         {/* Sender / Header */}
-                        <div className="w-full border-b-2 border-black pb-2 mb-4 relative" style={{ borderColor: "#000000" }}>
-                            <h1 className="text-xl font-bold uppercase tracking-wider" style={{ color: "#000000" }}>KARGO GÖNDERİSİ</h1>
-                            <p className="text-sm font-semibold" style={{ color: "#000000" }}>Duvar Kağıdı Marketi</p>
+                        <div style={{
+                            width: "100%",
+                            borderBottom: "2px solid #000000",
+                            paddingBottom: "8px",
+                            marginBottom: "12px",
+                            textAlign: "center",
+                            position: "relative"
+                        }}>
+                            <h1 style={{
+                                fontSize: "20px",
+                                fontWeight: "bold",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em",
+                                margin: "0 0 2px 0",
+                                color: "#000000"
+                            }}>KARGO GÖNDERİSİ</h1>
+                            <p style={{
+                                fontSize: "12px",
+                                fontWeight: "600",
+                                margin: "0",
+                                color: "#000000"
+                            }}>Duvar Kağıdı Marketi</p>
                             {isUSA && (
                                 <div 
-                                    className="absolute right-0 top-1 px-3 py-1 bg-black text-white font-black text-xs rounded uppercase tracking-widest border border-black"
                                     style={{
+                                        position: "absolute",
+                                        right: "0",
+                                        top: "4px",
+                                        padding: "4px 12px",
                                         backgroundColor: '#000000',
                                         color: '#ffffff',
+                                        fontWeight: "900",
+                                        fontSize: "12px",
+                                        borderRadius: "4px",
+                                        textTransform: "uppercase",
+                                        letterSpacing: "0.1em",
                                         WebkitPrintColorAdjust: 'exact',
                                         printColorAdjust: 'exact'
                                     }}
@@ -130,54 +163,189 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                         </div>
 
                         {/* Middle: Receiver Info */}
-                        <div className="w-full text-left mb-4 space-y-1">
-                            <p className="text-[10px] uppercase font-bold" style={{ color: "#475569" }}>ALICI:</p>
-                            <p className="font-bold text-base leading-tight" style={{ color: "#000000" }}>{order.customer}</p>
-                            <p className="text-[11px] leading-tight" style={{ color: "#1e293b" }}>{order.address}</p>
-                            <p className="text-[11px] font-bold" style={{ color: "#000000" }}>{order.city}</p>
-                            <p className="text-[11px] mt-1" style={{ color: "#000000" }}>{order.phone}</p>
+                        <div style={{
+                            width: "100%",
+                            textAlign: "left",
+                            marginBottom: "12px",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "2px"
+                        }}>
+                            <p style={{
+                                fontSize: "10px",
+                                textTransform: "uppercase",
+                                fontWeight: "bold",
+                                margin: "0 0 2px 0",
+                                color: "#475569"
+                            }}>ALICI:</p>
+                            <p style={{
+                                fontSize: "16px",
+                                fontWeight: "bold",
+                                lineHeight: "1.2",
+                                margin: "0 0 2px 0",
+                                color: "#000000"
+                            }}>{order.customer}</p>
+                            <p style={{
+                                fontSize: "11px",
+                                lineHeight: "1.3",
+                                margin: "0 0 2px 0",
+                                color: "#1e293b"
+                            }}>{order.address}</p>
+                            <p style={{
+                                fontSize: "11px",
+                                fontWeight: "bold",
+                                margin: "0 0 2px 0",
+                                color: "#000000"
+                            }}>{order.city}</p>
+                            <p style={{
+                                fontSize: "11px",
+                                margin: "0",
+                                color: "#000000"
+                            }}>{order.phone}</p>
                         </div>
 
-                        {/* Middle: Order Content (NEW) */}
-                        <div className="w-full text-left mb-4 flex-1 overflow-hidden border-t border-slate-200 pt-2" style={{ borderColor: "#e2e8f0" }}>
-                            <p className="text-[10px] uppercase font-bold mb-1" style={{ color: "#475569" }}>SİPARİŞ İÇERİĞİ:</p>
-                            <div className="space-y-2">
+                        {/* Middle: Order Content */}
+                        <div style={{
+                            width: "100%",
+                            textAlign: "left",
+                            marginBottom: "12px",
+                            flex: "1",
+                            overflow: "hidden",
+                            borderTop: "1px solid #e2e8f0",
+                            paddingTop: "8px",
+                            boxSizing: "border-box"
+                        }}>
+                            <p style={{
+                                fontSize: "10px",
+                                textTransform: "uppercase",
+                                fontWeight: "bold",
+                                margin: "0 0 6px 0",
+                                color: "#475569"
+                            }}>SİPARİŞ İÇERİĞİ:</p>
+                            <div style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "8px"
+                            }}>
                                 {order.items?.map((item: any, idx: number) => {
                                     const imgUrls = (item.image_src || "").split('|').filter(Boolean);
                                     const firstImg = imgUrls[0];
                                     return (
-                                        <div key={idx} className="flex gap-2 items-start border-b border-slate-100 last:border-0 pb-2 mb-2" style={{ borderColor: '#f1f5f9' }}>
+                                        <div key={idx} style={{
+                                            display: "flex",
+                                            flexDirection: "row",
+                                            gap: "8px",
+                                            alignItems: "flex-start",
+                                            borderBottom: idx === (order.items?.length - 1) ? "none" : "1px solid #f1f5f9",
+                                            paddingBottom: "8px",
+                                            boxSizing: "border-box"
+                                        }}>
                                             {firstImg && (
-                                                <div className="w-12 h-12 shrink-0 bg-slate-100 rounded border border-slate-200 overflow-hidden flex items-center justify-center" style={{ borderColor: "#e2e8f0" }}>
+                                                <div style={{
+                                                    width: "48px",
+                                                    height: "48px",
+                                                    flexShrink: 0,
+                                                    backgroundColor: "#f1f5f9",
+                                                    borderRadius: "4px",
+                                                    border: "1px solid #e2e8f0",
+                                                    overflow: "hidden",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
+                                                    boxSizing: "border-box"
+                                                }}>
                                                     <img
                                                         src={firstImg}
                                                         alt=""
-                                                        className="w-full h-full object-cover"
+                                                        style={{
+                                                            width: "48px",
+                                                            height: "48px",
+                                                            objectFit: "cover",
+                                                            display: "block"
+                                                        }}
+                                                        crossOrigin="anonymous"
                                                     />
                                                 </div>
                                             )}
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex justify-between items-start gap-2">
-                                                    <p className="text-[11px] font-bold leading-tight flex-1 uppercase" style={{ color: '#000000' }}>
+                                            <div style={{
+                                                flex: "1",
+                                                minWidth: "0",
+                                                display: "flex",
+                                                flexDirection: "column",
+                                                gap: "4px"
+                                            }}>
+                                                <div style={{
+                                                    display: "flex",
+                                                    flexDirection: "row",
+                                                    justifyContent: "space-between",
+                                                    alignItems: "flex-start",
+                                                    gap: "8px"
+                                                }}>
+                                                    <p style={{
+                                                        fontSize: "11px",
+                                                        fontWeight: "bold",
+                                                        lineHeight: "1.2",
+                                                        textTransform: "uppercase",
+                                                        margin: "0",
+                                                        color: "#000000",
+                                                        wordBreak: "break-word"
+                                                    }}>
                                                         {item.name}
                                                     </p>
-                                                    <p className="text-[12px] font-black px-1.5 py-0.5 rounded whitespace-nowrap" style={{ color: '#000000', backgroundColor: '#e2e8f0' }}>
+                                                    <p style={{
+                                                        fontSize: "11px",
+                                                        fontWeight: "900",
+                                                        color: "#000000",
+                                                        backgroundColor: "#e2e8f0",
+                                                        padding: "2px 6px",
+                                                        borderRadius: "4px",
+                                                        margin: "0",
+                                                        whiteSpace: "nowrap"
+                                                    }}>
                                                         x{item.quantity}
                                                     </p>
                                                 </div>
-                                                <div className="flex flex-wrap gap-x-2 gap-y-1 mt-1 text-[9px] font-semibold">
+                                                <div style={{
+                                                    display: "flex",
+                                                    flexDirection: "row",
+                                                    flexWrap: "wrap",
+                                                    gap: "4px"
+                                                }}>
                                                     {item.sku && (
-                                                        <span className="border px-1 rounded font-bold" style={{ color: '#1f2937', backgroundColor: '#f1f5f9', borderColor: '#e2e8f0' }}>
+                                                        <span style={{
+                                                            fontSize: "9px",
+                                                            fontWeight: "bold",
+                                                            color: "#1f2937",
+                                                            backgroundColor: "#f1f5f9",
+                                                            border: "1px solid #e2e8f0",
+                                                            padding: "1px 4px",
+                                                            borderRadius: "3px"
+                                                        }}>
                                                             KOD: {item.sku}
                                                         </span>
                                                     )}
                                                     {item.material && (
-                                                        <span className="px-1 rounded" style={{ color: '#4b5563', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                                                        <span style={{
+                                                            fontSize: "9px",
+                                                            color: "#4b5563",
+                                                            backgroundColor: "#f8fafc",
+                                                            border: "1px solid #e2e8f0",
+                                                            padding: "1px 4px",
+                                                            borderRadius: "3px"
+                                                        }}>
                                                             {item.material}
                                                         </span>
                                                     )}
                                                     {item.dimensions && (
-                                                        <span className="px-1 rounded font-bold" style={{ color: '#065f46', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0' }}>
+                                                        <span style={{
+                                                            fontSize: "9px",
+                                                            fontWeight: "bold",
+                                                            color: "#065f46",
+                                                            backgroundColor: "#ecfdf5",
+                                                            border: "1px solid #a7f3d0",
+                                                            padding: "1px 4px",
+                                                            borderRadius: "3px"
+                                                        }}>
                                                             📏 {item.dimensions}
                                                         </span>
                                                     )}
@@ -190,35 +358,100 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                         </div>
 
                         {/* Bottom: Barcode & QR Code */}
-                        <div className="mt-auto w-full flex flex-col items-center justify-end pt-4 border-t-2 border-black" style={{ borderColor: "#000000" }}>
-                            <div className="flex items-end justify-between gap-4 w-full">
+                        <div style={{
+                            marginTop: "auto",
+                            width: "100%",
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "flex-end",
+                            borderTop: "2px solid #000000",
+                            paddingTop: "12px",
+                            boxSizing: "border-box"
+                        }}>
+                            <div style={{
+                                display: "flex",
+                                flexDirection: "row",
+                                alignItems: "flex-end",
+                                justifyContent: "space-between",
+                                gap: "16px",
+                                width: "100%",
+                                boxSizing: "border-box"
+                            }}>
                                 {/* Left: Internal QR for Ready/Packed */}
-                                <div className="flex flex-col items-center flex-1">
-                                    <p className="text-[10px] font-bold mb-1" style={{ color: "#475569" }}>SİTEM (QR)</p>
-                                    <QRCode
-                                        value={order.barcode || order.id.toString()}
-                                        size={70}
-                                        style={{ height: "auto", maxWidth: "100%", width: "100%" }}
-                                        viewBox={`0 0 256 256`}
-                                        fgColor="#000000"
-                                        bgColor="#ffffff"
-                                    />
-                                    <p className="text-[10px] font-mono mt-1" style={{ color: "#000000" }}>{order.barcode || order.id}</p>
+                                <div style={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "center",
+                                    flex: "1",
+                                    minWidth: "0"
+                                }}>
+                                    <p style={{
+                                        fontSize: "10px",
+                                        fontWeight: "bold",
+                                        margin: "0 0 4px 0",
+                                        color: "#475569"
+                                    }}>SİTEM (QR)</p>
+                                    <div style={{
+                                        width: "70px",
+                                        height: "70px",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center"
+                                    }}>
+                                        <QRCode
+                                            value={order.barcode || order.id.toString()}
+                                            size={70}
+                                            style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                                            viewBox={`0 0 256 256`}
+                                            fgColor="#000000"
+                                            bgColor="#ffffff"
+                                        />
+                                    </div>
+                                    <p style={{
+                                        fontSize: "10px",
+                                        fontFamily: "monospace",
+                                        margin: "4px 0 0 0",
+                                        color: "#000000"
+                                    }}>{order.barcode || order.id}</p>
                                 </div>
 
                                 {/* Right: Cargo Barcode for Shipped */}
-                                <div className="flex flex-col items-center flex-[2]">
-                                    <p className="text-[10px] font-bold mb-1" style={{ color: "#475569" }}>KARGO (DHL/STANDART)</p>
-                                    <Barcode
-                                        value={order.cargoBarcode || order.cargoTrackingNumber || order.barcode || order.id.toString()}
-                                        width={1.4}
-                                        height={50}
-                                        fontSize={10}
-                                        margin={0}
-                                        lineColor="#000000"
-                                    />
+                                <div style={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "center",
+                                    flex: "2",
+                                    minWidth: "0"
+                                }}>
+                                    <p style={{
+                                        fontSize: "10px",
+                                        fontWeight: "bold",
+                                        margin: "0 0 4px 0",
+                                        color: "#475569"
+                                    }}>KARGO (DHL/STANDART)</p>
+                                    <div style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        width: "100%"
+                                    }}>
+                                        <Barcode
+                                            value={order.cargoBarcode || order.cargoTrackingNumber || order.barcode || order.id.toString()}
+                                            width={1.4}
+                                            height={50}
+                                            fontSize={10}
+                                            margin={0}
+                                            lineColor="#000000"
+                                        />
+                                    </div>
                                     {order.cargoTrackingNumber && (
-                                        <p className="text-[9px] font-mono mt-0.5" style={{ color: "#1f2937" }}>Takip: {order.cargoTrackingNumber}</p>
+                                        <p style={{
+                                            fontSize: "9px",
+                                            fontFamily: "monospace",
+                                            margin: "2px 0 0 0",
+                                            color: "#1f2937"
+                                        }}>Takip: {order.cargoTrackingNumber}</p>
                                     )}
                                 </div>
                             </div>
