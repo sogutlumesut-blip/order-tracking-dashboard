@@ -1338,7 +1338,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
                 {/* Board Area */}
                 <div className="flex-1 flex gap-3 md:gap-6 overflow-x-auto p-2 md:p-6 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent snap-x snap-mandatory">
-                    <Toaster position="top-center" />
+                    <Toaster position="top-center" closeButton />
                     <BarcodeScanner onScan={handleBarcodeScan} />
 
                     <ManualOrderModal

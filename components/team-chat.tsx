@@ -325,7 +325,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                         }, 400)
                                     }
                                 },
-                                duration: 10000
+                                duration: Infinity
                             })
                         }
                     }
@@ -374,7 +374,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                     }, 400)
                                 }
                             },
-                            duration: 10000
+                            duration: Infinity
                         })
 
                         if (!isOpenRef.current) {
