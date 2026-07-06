@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect, useRef } from "react"
 import { MessageCircle, X, Send, User as UserIcon, Paperclip, Download, CornerUpLeft, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
