@@ -22,7 +22,7 @@ export function ThemeToggle() {
             className="p-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100 transition-colors rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
             title={resolvedTheme === "light" ? "Karanlık moda geç" : "Aydınlık moda geç"}
         >
-            {resolvedTheme === "light" ? (
+            {resolvedTheme === "dark" ? (
                 <Moon className="h-[1.2rem] w-[1.2rem] transition-all" />
             ) : (
                 <Sun className="h-[1.2rem] w-[1.2rem] transition-all" />
