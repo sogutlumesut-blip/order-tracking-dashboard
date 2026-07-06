@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from "react"
 import { MessageCircle, X, Send, User as UserIcon, Paperclip, Download, CornerUpLeft, Trash2 } from "lucide-react"
+import { toast } from "sonner"
 
 interface User {
     id: string
@@ -88,33 +88,54 @@ const compressImage = (base64Str: string): Promise<string> => {
     })
 }
 
-// Helper function to render text with clickable links
+// Helper function to render text with clickable links and @mentions
 const renderMessageText = (text: string, isMe: boolean) => {
     if (!text) return null;
     
     // Match URLs starting with http:// or https://
     const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const parts = text.split(urlRegex);
+    const urlParts = text.split(urlRegex);
     
-    return parts.map((part, index) => {
-        if (part.match(urlRegex)) {
+    return urlParts.map((urlPart, urlIndex) => {
+        if (urlPart.match(urlRegex)) {
             const linkClass = isMe 
                 ? "text-emerald-200 hover:text-white underline break-all font-medium" 
                 : "text-emerald-600 dark:text-emerald-400 hover:underline break-all font-medium";
             return (
                 <a 
-                    key={index} 
-                    href={part} 
+                    key={`url-${urlIndex}`} 
+                    href={urlPart} 
                     target="_blank" 
                     rel="noopener noreferrer" 
                     className={linkClass}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    {part}
+                    {urlPart}
                 </a>
             );
         }
-        return part;
+        
+        // Match mentions starting with @ (e.g. @Yasemin Grafiker)
+        const mentionRegex = /(@[A-Za-z0-9ğüşöçıİĞÜŞÖÇ]+(?:\s[A-Za-z0-9ğüşöçıİĞÜŞÖÇ]+)?)/g;
+        const mentionParts = urlPart.split(mentionRegex);
+        
+        return mentionParts.map((mPart, mIndex) => {
+            if (mPart.match(mentionRegex)) {
+                return (
+                    <span 
+                        key={`mention-${urlIndex}-${mIndex}`} 
+                        className={`font-bold px-1.5 py-0.5 rounded text-xs select-none ${
+                            isMe 
+                                ? 'bg-emerald-700/50 text-emerald-100' 
+                                : 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-750 dark:text-emerald-400'
+                        }`}
+                    >
+                        {mPart}
+                    </span>
+                );
+            }
+            return mPart;
+        });
     });
 };
 
@@ -123,6 +144,26 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null)
     const [replyToMessage, setReplyToMessage] = useState<any | null>(null)
     const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
+    const [allUsers, setAllUsers] = useState<any[]>([])
+    const [showMentionList, setShowMentionList] = useState(false)
+    const [mentionSearch, setMentionSearch] = useState("")
+
+    useEffect(() => {
+        const loadUsers = async () => {
+            try {
+                const response = await fetch('/api/users')
+                const data = await response.json()
+                if (data.success && data.users) {
+                    setAllUsers(data.users.filter((u: any) => u.id !== currentUser.id))
+                }
+            } catch (err) {
+                console.error("Failed to load users for mentions:", err)
+            }
+        }
+        if (isOpen) {
+            loadUsers()
+        }
+    }, [isOpen, currentUser.id])
     const inputRef = useRef<HTMLInputElement>(null)
     
     // Initialize messages from localStorage cache if available for instant load
@@ -244,6 +285,26 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                         if (!isOpenRef.current) {
                             setHasUnread(true)
                         }
+                        
+                        // Check if the current user is mentioned in any of the new messages
+                        const mentionMsg = newOtherMessages.find((nm: any) => 
+                            nm.text && nm.text.includes(`@${currentUser.name}`)
+                        )
+                        if (mentionMsg) {
+                            toast(`Sohbette Etiketlendiniz! 🔔`, {
+                                description: `${mentionMsg.sender?.name || 'Bir çalışma arkadaşınız'}: "${mentionMsg.text}"`,
+                                action: {
+                                    label: "Sohbeti Aç",
+                                    onClick: () => {
+                                        setIsOpen(true)
+                                        setTimeout(() => {
+                                            jumpToMessage(mentionMsg.id)
+                                        }, 400)
+                                    }
+                                },
+                                duration: 10000
+                            })
+                        }
                     }
                 } else {
                     // Initial Load
@@ -319,6 +380,48 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                 behavior: force ? 'auto' : 'smooth'
             })
         }
+    }
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value
+        setNewMessage(val)
+        
+        const caretPos = e.target.selectionStart || 0
+        const textBeforeCaret = val.substring(0, caretPos)
+        const lastSpaceIdx = textBeforeCaret.lastIndexOf(" ")
+        const currentWord = lastSpaceIdx === -1 
+            ? textBeforeCaret 
+            : textBeforeCaret.substring(lastSpaceIdx + 1)
+
+        if (currentWord.startsWith("@")) {
+            setShowMentionList(true)
+            setMentionSearch(currentWord.slice(1))
+        } else {
+            setShowMentionList(false)
+        }
+    }
+
+    const selectMention = (userName: string) => {
+        const caretPos = inputRef.current?.selectionStart || 0
+        const textBeforeCaret = newMessage.substring(0, caretPos)
+        const textAfterCaret = newMessage.substring(caretPos)
+        
+        const lastSpaceIdx = textBeforeCaret.lastIndexOf(" ")
+        const prefix = lastSpaceIdx === -1 
+            ? "" 
+            : textBeforeCaret.substring(0, lastSpaceIdx + 1)
+            
+        const updatedPrefix = `${prefix}@${userName} `
+        setNewMessage(updatedPrefix + textAfterCaret)
+        setShowMentionList(false)
+        
+        setTimeout(() => {
+            if (inputRef.current) {
+                inputRef.current.focus()
+                const newCaretPos = updatedPrefix.length
+                inputRef.current.setSelectionRange(newCaretPos, newCaretPos)
+            }
+        }, 50)
     }
 
     const jumpToMessage = (msgId: string) => {
@@ -654,6 +757,32 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                             </div>
                                                         )}
                         <form onSubmit={handleSend} className="flex gap-2 items-center relative">
+                            {/* Mentions Autocomplete dropdown */}
+                            {showMentionList && allUsers.length > 0 && (() => {
+                                const filtered = allUsers.filter(u => 
+                                    u.name.toLowerCase().includes(mentionSearch.toLowerCase())
+                                )
+                                if (filtered.length === 0) return null
+                                return (
+                                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg max-h-40 overflow-y-auto flex flex-col divide-y divide-slate-100 dark:divide-slate-700/50 z-50 absolute bottom-12 left-0 right-0 animate-in slide-in-from-bottom-2 duration-150">
+                                        {filtered.map((u: any) => (
+                                            <button
+                                                key={u.id}
+                                                type="button"
+                                                onClick={() => selectMention(u.name)}
+                                                className="px-3 py-2 text-left text-xs hover:bg-slate-100 dark:hover:bg-slate-750 flex items-center gap-2 text-slate-700 dark:text-slate-200 transition-colors"
+                                            >
+                                                <div className="w-5 h-5 rounded-full bg-slate-250 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-650 dark:text-slate-300">
+                                                    {u.name.substring(0, 1)}
+                                                </div>
+                                                <span className="font-semibold">{u.name}</span>
+                                                <span className="text-[9px] text-slate-400">({u.role === 'admin' ? 'Yönetici' : 'Personel'})</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )
+                            })()}
+                            
                             <label className={`text-slate-400 hover:text-emerald-600 transition-colors p-2 ${isSending ? 'opacity-50 cursor-not-allowed pointer-events-none' : 'cursor-pointer'}`}>
                                 <input 
                                     type="file" 
@@ -701,7 +830,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                 type="text"
                                 disabled={isSending}
                                 value={newMessage}
-                                onChange={(e) => setNewMessage(e.target.value)}
+                                onChange={handleInputChange}
                                     onPaste={(e) => {
                                         const items = e.clipboardData.items
                                         for (let i = 0; i < items.length; i++) {
