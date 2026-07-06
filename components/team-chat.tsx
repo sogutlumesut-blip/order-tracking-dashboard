@@ -143,6 +143,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     const [newMessage, setNewMessage] = useState("")
     const [attachment, setAttachment] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(false)
+    const [isSending, setIsSending] = useState(false)
     const [hasUnread, setHasUnread] = useState(false)
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -333,8 +334,10 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
 
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault()
+        if (isSending) return
         if (!newMessage.trim() && !attachment) return
 
+        setIsSending(true)
         const optimisticId = 'temp-' + Date.now()
         
         // Truncate and format the reply text to store in DB
@@ -395,6 +398,8 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
             sendingMessageIdsRef.current.delete(optimisticId)
             setMessages(prev => prev.filter(m => m.id !== optimisticId))
             alert("Mesaj gönderilirken bir hata oluştu: " + (error.message || error))
+        } finally {
+            setIsSending(false)
         }
     }
     const handleDeleteMessage = async (messageId: string) => {
@@ -649,9 +654,10 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                             </div>
                                                         )}
                         <form onSubmit={handleSend} className="flex gap-2 items-center relative">
-                            <label className="cursor-pointer text-slate-400 hover:text-emerald-600 transition-colors p-2">
+                            <label className={`text-slate-400 hover:text-emerald-600 transition-colors p-2 ${isSending ? 'opacity-50 cursor-not-allowed pointer-events-none' : 'cursor-pointer'}`}>
                                 <input 
                                     type="file" 
+                                    disabled={isSending}
                                     accept="image/*,.pdf,application/pdf" 
                                     className="hidden" 
                                     onChange={(e) => {
@@ -693,6 +699,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                             <input
                                 ref={inputRef}
                                 type="text"
+                                disabled={isSending}
                                 value={newMessage}
                                 onChange={(e) => setNewMessage(e.target.value)}
                                     onPaste={(e) => {
@@ -741,7 +748,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                             />
                             <button 
                                 type="submit" 
-                                disabled={(!newMessage.trim() && !attachment)}
+                                disabled={isSending || (!newMessage.trim() && !attachment)}
                                 className="bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <Send className="w-4 h-4 ml-0.5" />

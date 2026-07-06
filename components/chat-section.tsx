@@ -22,16 +22,25 @@ interface ChatSectionProps {
 export function ChatSection({ comments = [], onAddComment, currentUser, onImageClick, isLoading, onDeleteComment }: ChatSectionProps) {
     const [message, setMessage] = useState("")
     const [attachment, setAttachment] = useState<{ name: string, type: 'image' | 'file', url: string } | null>(null)
+    const [isSending, setIsSending] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
-    const handleSend = () => {
+    const handleSend = async () => {
+        if (isSending) return
         if (!message.trim() && !attachment) return
 
+        setIsSending(true)
         const attachments = attachment ? [attachment] : []
-        onAddComment(message, attachments)
 
-        setMessage("")
-        setAttachment(null)
+        try {
+            await onAddComment(message, attachments)
+            setMessage("")
+            setAttachment(null)
+        } catch (err) {
+            console.error("Yorum gönderilirken hata oluştu:", err)
+        } finally {
+            setIsSending(false)
+        }
     }
 
     const compressImage = (base64Str: string, maxWidth = 2048, maxHeight = 2048): Promise<string> => {
@@ -214,7 +223,8 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
                 <div className="flex gap-2">
                     <button
                         onClick={() => fileInputRef.current?.click()}
-                        className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors"
+                        disabled={isSending}
+                        className={`p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors ${isSending ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                         <Paperclip className="w-5 h-5" />
                     </button>
@@ -228,6 +238,7 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
 
                     <input
                         type="text"
+                        disabled={isSending}
                         className="flex-1 bg-slate-50 dark:bg-slate-700 border-none rounded-full px-4 text-sm focus:ring-1 focus:ring-blue-500 outline-none text-slate-900 dark:text-slate-100 font-medium placeholder:text-slate-500 dark:placeholder:text-slate-400"
                         placeholder="Mesaj yazın veya görselleri yapıştırın..."
                         value={message}
@@ -238,11 +249,11 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
 
                     <button
                         onClick={handleSend}
-                        className={`p-2 rounded-full transition-colors ${message.trim() || attachment
+                        className={`p-2 rounded-full transition-colors ${isSending ? 'opacity-50 cursor-not-allowed' : ''} ${message.trim() || attachment
                             ? 'bg-blue-600 text-white hover:bg-blue-700'
                             : 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'
                             }`}
-                        disabled={!message.trim() && !attachment}
+                        disabled={isSending || (!message.trim() && !attachment)}
                     >
                         <Send className="w-4 h-4" />
                     </button>
