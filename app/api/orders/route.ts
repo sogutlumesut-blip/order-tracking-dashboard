@@ -88,6 +88,21 @@ export async function GET(req: NextRequest) {
             externalId: true,
             source: true,
             items: true,
+            comments: {
+                orderBy: { timestamp: "desc" as const },
+                take: 1,
+                select: {
+                    id: true,
+                    message: true,
+                    type: true,
+                    timestamp: true,
+                    author: {
+                        select: {
+                            name: true
+                        }
+                    }
+                }
+            },
             _count: {
                 select: { comments: true }
             }
@@ -138,6 +153,13 @@ export async function GET(req: NextRequest) {
                 material: item.material || null,
                 dimensions: item.dimensions || null,
             })),
+            comments: (order as any).comments ? (order as any).comments.map((c: any) => ({
+                id: c.id,
+                message: c.message,
+                type: c.type || "message",
+                timestamp: c.timestamp.toISOString(),
+                author: c.author?.name || "Unknown"
+            })) : [],
             commentCount: order._count?.comments || 0,
             labels: (() => {
                 if (!order.labels) return [];

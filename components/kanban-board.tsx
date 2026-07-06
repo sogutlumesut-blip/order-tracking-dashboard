@@ -1735,7 +1735,13 @@ function SortableColumn({
                             <OrderCard
                                 order={order}
                                 onClick={() => {
-                                    setSelectedOrder(order);
+                                    if (order.hasNotification) {
+                                        setOrders((prev: any) => prev.map((o: any) => o.id === order.id ? { ...o, hasNotification: false } : o));
+                                        markOrderAsRead(order.id);
+                                        setSelectedOrder({ ...order, hasNotification: false });
+                                    } else {
+                                        setSelectedOrder(order);
+                                    }
                                     setIsPanelOpen(true);
                                 }}
                                 tags={tags}
