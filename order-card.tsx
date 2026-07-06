@@ -5,6 +5,45 @@ import Image from "next/image"
 import { Calendar, Package, AlertCircle, User, Truck, Clock, AlertTriangle } from "lucide-react"
 import { getColorClasses } from "@/lib/colors"
 
+function getPersonnelColorClass(name: string): string {
+    const cleanName = (name || "Sistem").trim().toLocaleUpperCase('tr-TR');
+    
+    const staffColors: Record<string, string> = {
+        'YEŞİM': 'bg-pink-600 dark:bg-pink-500',
+        'YASEMİN': 'bg-teal-600 dark:bg-teal-500',
+        'DOGUKAN': 'bg-violet-600 dark:bg-violet-500',
+        'DOĞUKAN': 'bg-violet-600 dark:bg-violet-500',
+        'MESUT': 'bg-indigo-600 dark:bg-indigo-500',
+        'SİSTEM': 'bg-slate-600 dark:bg-slate-500',
+        'SYSTEM': 'bg-slate-600 dark:bg-slate-500',
+        'AHMET': 'bg-emerald-600 dark:bg-emerald-500',
+        'MEHMET': 'bg-amber-600 dark:bg-amber-500',
+    };
+    
+    const firstWord = cleanName.split(' ')[0];
+    if (staffColors[firstWord]) {
+        return staffColors[firstWord];
+    }
+    
+    // Fallback: simple deterministic hash based on name characters
+    const colors = [
+        'bg-purple-600 dark:bg-purple-500',
+        'bg-emerald-600 dark:bg-emerald-500',
+        'bg-amber-600 dark:bg-amber-500',
+        'bg-rose-600 dark:bg-rose-500',
+        'bg-indigo-600 dark:bg-indigo-500',
+        'bg-teal-600 dark:bg-teal-500',
+        'bg-fuchsia-600 dark:bg-fuchsia-500',
+        'bg-violet-600 dark:bg-violet-500'
+    ];
+    let hash = 0;
+    for (let i = 0; i < firstWord.length; i++) {
+        hash = firstWord.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % colors.length;
+    return colors[index];
+}
+
 interface OrderCardProps {
     order: Order
     onClick: () => void
@@ -107,13 +146,7 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                 const authorName = (latest.author || "Sistem").split(' ')[0].toLocaleUpperCase('tr-TR');
                                 badgeText = `YENİ ${typeLabel}: ${authorName}`;
                                 badgeEmoji = latest.type === 'note' ? '📝' : '💬';
-
-                                // Change color based on type
-                                if (latest.type === 'note') {
-                                    bgColorClass = 'bg-orange-600'; // Notes
-                                } else {
-                                    bgColorClass = 'bg-purple-600'; // Messages
-                                }
+                                bgColorClass = getPersonnelColorClass(latest.author);
                             }
                         }
 
