@@ -278,7 +278,6 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                                                             objectFit: "cover",
                                                             display: "block"
                                                         }}
-                                                        crossOrigin="anonymous"
                                                     />
                                                 </div>
                                             )}
