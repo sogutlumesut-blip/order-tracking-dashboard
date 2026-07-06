@@ -94,24 +94,33 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                     {order.hasNotification && !isPaymentFailed && (() => {
                         let badgeText = order.status === 'pending' || order.status.toLowerCase().includes('yeni') ? 'YENİ SİPARİŞ' : 'YENİ GÜNCELLEME';
                         let bgColorClass = 'bg-blue-600'; // Default Blue
+                        let badgeEmoji = '🔔';
 
                         if (order.comments && order.comments.length > 0) {
                             const latest = [...order.comments].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-                            const typeLabel = latest.type === 'note' ? 'NOT' : 'MESAJ';
-                            const authorName = (latest.author || "Sistem").split(' ')[0].toLocaleUpperCase('tr-TR');
-                            badgeText = `YENİ ${typeLabel}: ${authorName}`;
+                            const commentTime = new Date(latest.timestamp).getTime();
+                            const orderUpdateTime = new Date(order.updatedAt).getTime();
 
-                            // Change color based on type
-                            if (latest.type === 'note') {
-                                bgColorClass = 'bg-orange-600'; // Notes
-                            } else {
-                                bgColorClass = 'bg-purple-600'; // Messages
+                            // If the comment was added around the same time as the latest update (within 30 seconds)
+                            if (Math.abs(orderUpdateTime - commentTime) < 30000) {
+                                const typeLabel = latest.type === 'note' ? 'NOT' : 'MESAJ';
+                                const authorName = (latest.author || "Sistem").split(' ')[0].toLocaleUpperCase('tr-TR');
+                                badgeText = `YENİ ${typeLabel}: ${authorName}`;
+                                badgeEmoji = latest.type === 'note' ? '📝' : '💬';
+
+                                // Change color based on type
+                                if (latest.type === 'note') {
+                                    bgColorClass = 'bg-orange-600'; // Notes
+                                } else {
+                                    bgColorClass = 'bg-purple-600'; // Messages
+                                }
                             }
                         }
 
                         return (
-                            <div className={`${bgColorClass} text-white justify-self-start text-[10px] font-bold px-2 py-1 rounded-full shadow-lg animate-bounce`}>
-                                🔔 {badgeText}
+                            <div className={`${bgColorClass} text-white justify-self-start text-[10px] font-bold px-2 py-1 rounded-full shadow-lg animate-bounce flex items-center gap-1`}>
+                                <span>{badgeEmoji}</span>
+                                <span>{badgeText}</span>
                             </div>
                         );
                     })()}

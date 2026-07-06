@@ -53,6 +53,7 @@ export interface Order {
     comments?: Comment[];
     activities?: Activity[];
     hasNotification?: boolean;
+    hasCargoPdf?: boolean;
     updatedAt: string; // ISO String
     cargoBarcode?: string; // From kargo entegrator
     cargoTrackingNumber?: string;
