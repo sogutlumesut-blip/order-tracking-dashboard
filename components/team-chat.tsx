@@ -89,6 +89,19 @@ const compressImage = (base64Str: string): Promise<string> => {
     })
 }
 
+// Helper function to normalize text for comparison (case, space, and Turkish character insensitive)
+const normalizeText = (str: string) => {
+    return str
+        .toLowerCase()
+        .replace(/\s+/g, '')
+        .replace(/ı/g, 'i')
+        .replace(/ğ/g, 'g')
+        .replace(/ü/g, 'u')
+        .replace(/ş/g, 's')
+        .replace(/ö/g, 'o')
+        .replace(/ç/g, 'c')
+}
+
 // Helper function to render text with clickable links and @mentions
 const renderMessageText = (text: string, isMe: boolean) => {
     if (!text) return null;
@@ -287,10 +300,14 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                             setHasUnread(true)
                         }
                         
-                        // Check if the current user is mentioned in any of the new messages
-                        const mentionMsg = newOtherMessages.find((nm: any) => 
-                            nm.text && nm.text.includes(`@${currentUser.name}`)
-                        )
+                        // Check if the current user is mentioned in any of the new messages (Turkish character, space, and case insensitive)
+                        const mentionMsg = newOtherMessages.find((nm: any) => {
+                            if (!nm.text) return false
+                            const normText = normalizeText(nm.text)
+                            const normName = normalizeText(currentUser.name)
+                            return normText.includes(`@${normName}`) || normText.includes(normName)
+                        })
+                        
                         if (mentionMsg) {
                             toast(`Sohbette Etiketlendiniz! 🔔`, {
                                 description: `${mentionMsg.sender?.name || 'Bir çalışma arkadaşınız'}: "${mentionMsg.text}"`,
@@ -305,6 +322,14 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                 },
                                 duration: 10000
                             })
+
+                            // Automatically slide open the chat window if it's closed!
+                            if (!isOpenRef.current) {
+                                setIsOpen(true)
+                                setTimeout(() => {
+                                    jumpToMessage(mentionMsg.id)
+                                }, 500)
+                            }
                         }
                     }
                 } else {
@@ -326,6 +351,39 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
 
                     setMessages([...res.messages, ...temporaryOrRecent])
                     
+                    const recentMentions = newOtherMessages.filter((nm: any) => {
+                        if (!nm.text) return false
+                        const normText = normalizeText(nm.text)
+                        const normName = normalizeText(currentUser.name)
+                        const isMentioned = normText.includes(`@${normName}`) || normText.includes(normName)
+                        const isRecent = Date.now() - new Date(nm.createdAt).getTime() < 60000 // Sent within last 60 seconds
+                        return isMentioned && isRecent
+                    })
+
+                    if (recentMentions.length > 0) {
+                        const mentionMsg = recentMentions[recentMentions.length - 1]
+                        toast(`Sohbette Etiketlendiniz! 🔔`, {
+                            description: `${mentionMsg.sender?.name || 'Bir çalışma arkadaşınız'}: "${mentionMsg.text}"`,
+                            action: {
+                                label: "Sohbeti Aç",
+                                onClick: () => {
+                                    setIsOpen(true)
+                                    setTimeout(() => {
+                                        jumpToMessage(mentionMsg.id)
+                                    }, 400)
+                                }
+                            },
+                            duration: 10000
+                        })
+
+                        if (!isOpenRef.current) {
+                            setIsOpen(true)
+                            setTimeout(() => {
+                                jumpToMessage(mentionMsg.id)
+                            }, 500)
+                        }
+                    }
+
                     if (newOtherMessages.length > 0 && currentMessages.length > 0) {
                         playNotificationSound()
                     }
