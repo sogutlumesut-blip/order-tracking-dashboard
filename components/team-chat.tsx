@@ -266,6 +266,8 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
             const response = await fetch(url)
             const res = await response.json()
             if (res.success && res.messages) {
+                const latestMessages = messagesRef.current
+
                 if (url.includes('since=')) {
                     // Incremental Poll
                     if (res.messages.length === 0) {
@@ -273,9 +275,9 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                         return
                     }
                     
-                    // Filter out any messages from res.messages that already exist in currentMessages
+                    // Filter out any messages from res.messages that already exist in latestMessages
                     const newUniqueMessages = res.messages.filter((newMsg: any) => 
-                        !currentMessages.some(m => m.id === newMsg.id)
+                        !latestMessages.some(m => m.id === newMsg.id)
                     )
                     
                     if (newUniqueMessages.length === 0) {
@@ -289,7 +291,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                     )
                     
                     // Keep optimistic messages that are still sending or haven't arrived yet
-                    const filteredCurrent = currentMessages.filter(m => 
+                    const filteredCurrent = latestMessages.filter(m => 
                         m.isOptimistic || !res.messages.some((nm: any) => nm.id === m.id)
                     )
                     
@@ -332,7 +334,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                 } else {
                     // Initial Load
                     const now = Date.now()
-                    const temporaryOrRecent = currentMessages.filter(m => {
+                    const temporaryOrRecent = latestMessages.filter(m => {
                         const isOptimistic = m.isOptimistic && sendingMessageIdsRef.current.has(m.id)
                         const isRecentMe = m.senderId === currentUser.id && 
                                            (now - new Date(m.createdAt).getTime()) < 10000 &&
@@ -341,7 +343,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                     })
                     
                     const newOtherMessages = res.messages.filter((newMsg: any) => {
-                        const alreadyExists = currentMessages.some(m => m.id === newMsg.id)
+                        const alreadyExists = latestMessages.some(m => m.id === newMsg.id)
                         const isNotMe = newMsg.senderId !== currentUser.id
                         return !alreadyExists && isNotMe
                     })
@@ -385,11 +387,11 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                         }
                     }
 
-                    if (newOtherMessages.length > 0 && currentMessages.length > 0) {
+                    if (newOtherMessages.length > 0 && latestMessages.length > 0) {
                         playNotificationSound()
                     }
                     
-                    if (!isOpenRef.current && res.messages.length > currentMessages.length && currentMessages.length > 0) {
+                    if (!isOpenRef.current && res.messages.length > latestMessages.length && latestMessages.length > 0) {
                         setHasUnread(true)
                     }
                 }
