@@ -21,7 +21,6 @@ export async function GET(req: Request) {
 
         const messages = await db.chatMessage.findMany({
             where,
-            take: 100, // Enforce safety query limit of 100 messages
             orderBy: { createdAt: since ? 'asc' : 'desc' },
             include: {
                 sender: {
