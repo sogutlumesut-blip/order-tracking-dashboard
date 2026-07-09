@@ -554,8 +554,15 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                 alert("Mesaj gönderilemedi: " + res.error)
             } else {
                 sendingMessageIdsRef.current.delete(optimisticId)
-                // Replace the optimistic message directly with the server-saved message
-                setMessages(prev => prev.map(m => m.id === optimisticId ? res.message : m))
+                // Replace the optimistic message directly with the server-saved message,
+                // but ensure we don't introduce duplicates if it was already added by a background poll.
+                setMessages(prev => {
+                    const alreadyHasServerMsg = prev.some(m => m.id === res.message.id)
+                    if (alreadyHasServerMsg) {
+                        return prev.filter(m => m.id !== optimisticId)
+                    }
+                    return prev.map(m => m.id === optimisticId ? res.message : m)
+                })
             }
         } catch (error: any) {
             sendingMessageIdsRef.current.delete(optimisticId)
