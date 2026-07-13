@@ -580,6 +580,15 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         const previousMessages = [...messages]
         setMessages(prev => prev.filter(m => m.id !== messageId))
 
+        // Update local cache immediately
+        const updatedCache = previousMessages.filter(m => m.id !== messageId)
+        localStorage.setItem('team_chat_messages', JSON.stringify(updatedCache))
+
+        // If it's a temporary local message (not written to DB yet or cached locally with a temp ID), skip the API call
+        if (messageId.startsWith('temp-')) {
+            return
+        }
+
         try {
             const response = await fetch(`/api/chat?messageId=${messageId}`, {
                 method: 'DELETE'
@@ -587,13 +596,12 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
             const res = await response.json()
             if (!res.success) {
                 setMessages(previousMessages)
+                localStorage.setItem('team_chat_messages', JSON.stringify(previousMessages))
                 alert("Mesaj silinemedi: " + res.error)
-            } else {
-                const updatedCache = previousMessages.filter(m => m.id !== messageId)
-                localStorage.setItem('team_chat_messages', JSON.stringify(updatedCache))
             }
         } catch (error: any) {
             setMessages(previousMessages)
+            localStorage.setItem('team_chat_messages', JSON.stringify(previousMessages))
             alert("Mesaj silinirken bir hata oluştu: " + (error.message || error))
         }
     }
