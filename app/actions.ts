@@ -2131,15 +2131,15 @@ export async function syncCargoKargoEntegrator(force: boolean = false) {
 }
 
 // PRINTMARKT SYNC ACTION
-export async function syncPrintMarktOrders(force: boolean = false) {
+export async function syncPrintMarktOrders(force: boolean = false, targetOrderId?: string | number) {
     const settings = (await getSystemSettings()) as Record<string, string>
 
     if (!settings['pm_url'] || !settings['pm_key']) {
         return { error: "PrintMarkt ayarları eksik. Lütfen Ayarlar sayfasından tamamlayınız." }
     }
 
-    // RATE LIMIT CHECK
-    if (!force) {
+    // RATE LIMIT CHECK (Bypass rate limit for forced or targeted syncs)
+    if (!force && !targetOrderId) {
         const lastSyncStr = settings['last_pm_sync_time']
         if (lastSyncStr) {
             const lastSync = parseInt(lastSyncStr)
@@ -2152,16 +2152,22 @@ export async function syncPrintMarktOrders(force: boolean = false) {
     }
 
     try {
-        // UPDATE TIMESTAMP
-        await db.systemSetting.upsert({
-            where: { key: 'last_pm_sync_time' },
-            update: { value: Date.now().toString() },
-            create: { key: 'last_pm_sync_time', value: Date.now().toString() }
-        })
+        // UPDATE TIMESTAMP (Only for non-targeted background syncs)
+        if (!targetOrderId) {
+            await db.systemSetting.upsert({
+                where: { key: 'last_pm_sync_time' },
+                update: { value: Date.now().toString() },
+                create: { key: 'last_pm_sync_time', value: Date.now().toString() }
+            })
+        }
+        
         let cleanUrl = settings['pm_url'].trim().replace(/\/+$/, '');
         let pmKey = settings['pm_key'].trim();
-        const limit = force ? 100 : 40;
-        let fetchUrl = `${cleanUrl}/api/orders?limit=${limit}&_t=${Date.now()}`;
+        const limit = force ? 120 : 60; // Limit raised from 40/100 to 60/120 to catch older drafts that got submitted
+        let fetchUrl = targetOrderId 
+            ? `${cleanUrl}/api/orders?id=${targetOrderId}&_t=${Date.now()}`
+            : `${cleanUrl}/api/orders?limit=${limit}&_t=${Date.now()}`;
+            
         let response = await fetch(fetchUrl, {
             headers: { "X-API-Key": pmKey },
             cache: 'no-store'
