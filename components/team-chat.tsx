@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from "react"
-import { MessageCircle, X, Send, User as UserIcon, Paperclip, Download, CornerUpLeft, Trash2 } from "lucide-react"
+import { MessageCircle, X, Send, User as UserIcon, Paperclip, Download, CornerUpLeft, Trash2, Smile } from "lucide-react"
 import { toast } from "sonner"
 
 interface User {
@@ -162,6 +162,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     const [showMentionList, setShowMentionList] = useState(false)
     const [mentionSearch, setMentionSearch] = useState("")
     const [activeMentionAlert, setActiveMentionAlert] = useState<any | null>(null)
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false)
 
     useEffect(() => {
         const loadUsers = async () => {
@@ -486,6 +487,23 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         }, 50)
     }
 
+    const insertEmoji = (emoji: string) => {
+        const caretPos = inputRef.current?.selectionStart || 0
+        const textBeforeCaret = newMessage.substring(0, caretPos)
+        const textAfterCaret = newMessage.substring(caretPos)
+        
+        const updatedText = textBeforeCaret + emoji + textAfterCaret
+        setNewMessage(updatedText)
+        
+        setTimeout(() => {
+            if (inputRef.current) {
+                inputRef.current.focus()
+                const newCaretPos = caretPos + emoji.length
+                inputRef.current.setSelectionRange(newCaretPos, newCaretPos)
+            }
+        }, 50)
+    }
+
     const jumpToMessage = (msgId: string) => {
         const element = document.getElementById(`msg-${msgId}`)
         if (element) {
@@ -503,6 +521,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         if (!newMessage.trim() && !attachment) return
 
         setIsSending(true)
+        setShowEmojiPicker(false)
         const optimisticId = 'temp-' + Date.now()
         
         // Truncate and format the reply text to store in DB
@@ -834,6 +853,22 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                             </div>
                                                         )}
                         <form onSubmit={handleSend} className="flex gap-2 items-center relative">
+                            {/* Emoji Picker Dropdown */}
+                            {showEmojiPicker && (
+                                <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl p-3 z-50 absolute bottom-12 left-0 right-0 grid grid-cols-10 gap-1.5 animate-in slide-in-from-bottom-2 duration-150">
+                                    {['😀', '😂', '😊', '😍', '👍', '👏', '❤️', '🔥', '🎉', '🙌', '🤔', '👀', '🚀', '⚠️', '✅', '❌', '📦', '📷', '📄', '💬'].map((emoji) => (
+                                        <button
+                                            key={emoji}
+                                            type="button"
+                                            onClick={() => insertEmoji(emoji)}
+                                            className="text-xl hover:scale-120 active:scale-95 transition-transform p-1 hover:bg-slate-100 dark:hover:bg-slate-700/50 rounded-lg cursor-pointer flex items-center justify-center"
+                                        >
+                                            {emoji}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
                             {/* Mentions Autocomplete dropdown */}
                             {showMentionList && allUsers.length > 0 && (() => {
                                 const filtered = allUsers.filter(u => 
@@ -902,6 +937,16 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                 />
                                 <Paperclip className="w-5 h-5" />
                             </label>
+
+                            <button
+                                type="button"
+                                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                                className={`text-slate-400 hover:text-emerald-600 transition-colors p-2 cursor-pointer ${isSending ? 'opacity-50 pointer-events-none' : ''}`}
+                                title="Emoji Ekle"
+                            >
+                                <Smile className="w-5 h-5" />
+                            </button>
+
                             <input
                                 ref={inputRef}
                                 type="text"
