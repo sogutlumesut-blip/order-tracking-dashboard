@@ -23,12 +23,12 @@ export async function POST(req: Request) {
         // 1. PrintMarkt API veri eşitleme gecikmesini (replica lag) aşmak için 3 saniye bekliyoruz
         await new Promise(resolve => setTimeout(resolve, 3000));
         
-        // 2. İlk senkronizasyon denemesi (hedef sipariş ID'si varsa onu çeker, yoksa son siparişleri çeker)
-        let res = await syncPrintMarktOrders(false, targetOrderId);
+                // 2. İlk senkronizasyon denemesi (hedef sipariş ID'si varsa onu çeker, yoksa son siparişleri çeker. Webhook çağrısı olduğu için hız limitini aşar)
+        let res = await syncPrintMarktOrders(false, targetOrderId, true);
         
-        // 3. Çift sigorta: Eğer ilk denemede yeni sipariş bulunamadıysa (lag devam ediyorsa), 5 saniye daha bekleyip genel eşitleme yapılıyor
-        if (res && res.success && res.count === 0) {
-            console.log("PrintMarkt Webhook: İlk denemede yeni sipariş bulunamadı, 5s bekleniyor ve genel eşitleme yapılıyor...");
+        // 3. Çift sigorta: Eğer ilk denemede yeni sipariş bulunamadıysa veya atlandıysa, 5 saniye daha bekleyip genel eşitleme yapılıyor
+        if ((res && res.success && res.count === 0) || (res && res.skipped)) {
+            console.log("PrintMarkt Webhook: İlk denemede yeni sipariş bulunamadı veya atlandı, 5s bekleniyor ve genel eşitleme yapılıyor...");
             await new Promise(resolve => setTimeout(resolve, 5000));
             res = await syncPrintMarktOrders(true); // Force sync to pull a larger window (120 orders)
         }

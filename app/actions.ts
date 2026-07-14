@@ -1386,8 +1386,8 @@ export async function syncWooCommerceOrders(force: boolean = false) {
         if (lastSyncStr) {
             const lastSync = parseInt(lastSyncStr)
             const now = Date.now()
-            // 5 minutes rate limit for background auto-sync to prevent resource exhaustion
-            if (now - lastSync < 300000) {
+            // 2 minutes rate limit for background auto-sync to prevent resource exhaustion
+            if (now - lastSync < 120000) {
                 // Too early, skip
                 return { skipped: true, message: "Sync skipped (Rate Limit)" }
             }
@@ -2131,21 +2131,21 @@ export async function syncCargoKargoEntegrator(force: boolean = false) {
 }
 
 // PRINTMARKT SYNC ACTION
-export async function syncPrintMarktOrders(force: boolean = false, targetOrderId?: string | number) {
+export async function syncPrintMarktOrders(force: boolean = false, targetOrderId?: string | number, bypassRateLimit: boolean = false) {
     const settings = (await getSystemSettings()) as Record<string, string>
 
     if (!settings['pm_url'] || !settings['pm_key']) {
         return { error: "PrintMarkt ayarları eksik. Lütfen Ayarlar sayfasından tamamlayınız." }
     }
 
-    // RATE LIMIT CHECK (Bypass rate limit for forced or targeted syncs)
-    if (!force && !targetOrderId) {
+    // RATE LIMIT CHECK (Bypass rate limit for forced, targeted or bypassed syncs)
+    if (!force && !targetOrderId && !bypassRateLimit) {
         const lastSyncStr = settings['last_pm_sync_time']
         if (lastSyncStr) {
             const lastSync = parseInt(lastSyncStr)
             const now = Date.now()
-            // 5 minutes rate limit for background auto-sync to prevent resource exhaustion
-            if (now - lastSync < 300000) {
+            // 2 minutes rate limit for background auto-sync to prevent resource exhaustion
+            if (now - lastSync < 120000) {
                 return { skipped: true, message: "Sync skipped (Rate Limit)" }
             }
         }
@@ -2153,7 +2153,7 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
 
     try {
         // UPDATE TIMESTAMP (Only for non-targeted background syncs)
-        if (!targetOrderId) {
+        if (!targetOrderId && !bypassRateLimit) {
             await db.systemSetting.upsert({
                 where: { key: 'last_pm_sync_time' },
                 update: { value: Date.now().toString() },
@@ -2733,7 +2733,7 @@ export async function syncWayfairOrders(force: boolean = false) {
 
 // Background periodic sync for persistent Node.js servers (DigitalOcean App Platform, VPS, etc.)
 if (typeof window === 'undefined' && process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE !== 'phase-production-build') {
-    const GLOBAL_SYNC_INTERVAL = 10 * 60 * 1000; // 10 minutes
+    const GLOBAL_SYNC_INTERVAL = 3 * 60 * 1000; // 3 minutes
     
     // Start interval
     setInterval(async () => {
@@ -2750,5 +2750,5 @@ if (typeof window === 'undefined' && process.env.NODE_ENV === 'production' && pr
         }
     }, GLOBAL_SYNC_INTERVAL);
     
-    console.log("[BACKGROUND_SYNC] Registered server-side background interval (10m).");
+    console.log("[BACKGROUND_SYNC] Registered server-side background interval (3m).");
 }
