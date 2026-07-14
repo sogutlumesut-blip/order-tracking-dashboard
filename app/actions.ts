@@ -2486,6 +2486,251 @@ export async function wipePrintMarktOrders() {
     }
 }
 
+// WAYFAIR SETTINGS SAVE ACTION
+export async function saveWayfairSettings(formData: FormData) {
+    const clientId = (formData.get("wf_client_id") as string)?.trim()
+    const clientSecret = (formData.get("wf_client_secret") as string)?.trim()
+    const mode = (formData.get("wf_mode") as string)?.trim() || "sandbox"
+
+    if (!clientId || !clientSecret) return { error: "Lütfen Client ID ve Client Secret alanlarını doldurunuz." }
+
+    try {
+        await db.systemSetting.upsert({ where: { key: 'wf_client_id' }, update: { value: clientId }, create: { key: 'wf_client_id', value: clientId } })
+        await db.systemSetting.upsert({ where: { key: 'wf_client_secret' }, update: { value: clientSecret }, create: { key: 'wf_client_secret', value: clientSecret } })
+        await db.systemSetting.upsert({ where: { key: 'wf_mode' }, update: { value: mode }, create: { key: 'wf_mode', value: mode } })
+        return { success: true, message: "Wayfair ayarları başarıyla kaydedildi." }
+    } catch (e: any) {
+        return { error: e.message }
+    }
+}
+
+// WAYFAIR WIPE ACTION
+export async function wipeWayfairOrders() {
+    try {
+        const session = await getSession();
+        if (!session || session.user.role !== "admin") {
+            return { error: "Yetkisiz işlem: Sadece yöneticiler silebilir." };
+        }
+
+        const result = await db.order.deleteMany({
+            where: { source: 'wayfair' }
+        });
+
+        return { success: true, message: `${result.count} adet Wayfair siparişi başarıyla silindi.` };
+    } catch (e: any) {
+        console.error("Wayfair Wipe Error:", e);
+        return { error: "Silme hatası: " + e.message };
+    }
+}
+
+// WAYFAIR SYNC ACTION
+export async function syncWayfairOrders(force: boolean = false) {
+    const settings = (await getSystemSettings()) as Record<string, string>
+
+    if (!settings['wf_client_id'] || !settings['wf_client_secret']) {
+        return { error: "Wayfair ayarları eksik. Lütfen Ayarlar sayfasından tamamlayınız." }
+    }
+
+    const mode = settings['wf_mode'] || "sandbox"
+    const isSandbox = mode === "sandbox"
+
+    // RATE LIMIT CHECK
+    if (!force) {
+        const lastSyncStr = settings['last_wf_sync_time']
+        if (lastSyncStr) {
+            const lastSync = parseInt(lastSyncStr)
+            const now = Date.now()
+            // 5 minutes rate limit for background auto-sync to prevent resource exhaustion
+            if (now - lastSync < 300000) {
+                return { skipped: true, message: "Sync skipped (Rate Limit)" }
+            }
+        }
+    }
+
+    try {
+        // UPDATE TIMESTAMP
+        await db.systemSetting.upsert({
+            where: { key: 'last_wf_sync_time' },
+            update: { value: Date.now().toString() },
+            create: { key: 'last_wf_sync_time', value: Date.now().toString() }
+        })
+
+        const tokenUrl = "https://sso.auth.wayfair.com/oauth/token"
+
+        const graphqlUrl = isSandbox
+            ? "https://sandbox.api.wayfair.com/v1/graphql"
+            : "https://api.wayfair.com/v1/graphql"
+
+        // Fetch OAuth Token
+        const tokenRes = await fetch(tokenUrl, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                grant_type: "client_credentials",
+                client_id: settings['wf_client_id'].trim(),
+                client_secret: settings['wf_client_secret'].trim(),
+                audience: "https://api.wayfair.com"
+            }),
+            cache: 'no-store'
+        })
+
+        if (!tokenRes.ok) {
+            const errText = await tokenRes.text().catch(() => "")
+            return { error: `Wayfair token alınamadı (HTTP ${tokenRes.status}). Detay: ${errText.substring(0, 100)}` }
+        }
+
+        const tokenData = await tokenRes.json()
+        const accessToken = tokenData.access_token
+
+        if (!accessToken) {
+            return { error: "Wayfair API yanıtında access_token bulunamadı." }
+        }
+
+        // GraphQL Query for open purchase orders (status and customerEmail are not supported by the schema)
+        const query = `
+        query getOpenOrders {
+          purchaseOrders(limit: 50) {
+            poNumber
+            poDate
+            customerName
+            customerAddress1
+            customerAddress2
+            customerCity
+            customerState
+            customerPostalCode
+            customerCountry
+            products {
+              partNumber
+              sku
+              name
+              quantity
+              price
+            }
+          }
+        }`;
+
+        const gqlRes = await fetch(graphqlUrl, {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${accessToken}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ query }),
+            cache: 'no-store'
+        })
+
+        if (!gqlRes.ok) {
+            const errText = await gqlRes.text().catch(() => "")
+            return { error: `Wayfair API GraphQL sorgusu başarısız (HTTP ${gqlRes.status}). Detay: ${errText.substring(0, 100)}` }
+        }
+
+        const gqlResult = await gqlRes.json()
+        console.log("[DEBUG] Wayfair GraphQL Response:", JSON.stringify(gqlResult, null, 2).substring(0, 500))
+
+        if (gqlResult.errors && gqlResult.errors.length > 0) {
+            return { error: `Wayfair GraphQL Hatası: ${gqlResult.errors[0].message}` }
+        }
+
+        const wfOrders = gqlResult.data?.purchaseOrders || []
+
+        if (!Array.isArray(wfOrders)) {
+            return { error: "Wayfair API'si beklenen listeyi (purchaseOrders) döndürmedi." }
+        }
+
+        if (wfOrders.length === 0) {
+            return { success: true, message: "Bağlantı başarılı! Ancak aktarılacak yeni Wayfair siparişi bulunamadı.", count: 0 }
+        }
+
+        // PREFETCH STATUSES to find correct default status
+        const statuses = await db.statusColumn.findMany({ orderBy: { order: 'asc' } })
+        let defaultStatus = statuses.length > 0 ? statuses[0].id : "pending"
+        const incoming = statuses.find(s =>
+            s.title.toLowerCase().includes("gelen") ||
+            s.title.toLowerCase().includes("yeni") ||
+            s.title.toLowerCase().includes("sipariş") ||
+            s.id === "pending"
+        )
+        if (incoming) defaultStatus = incoming.id
+
+        let importedCount = 0
+
+        for (const wfOrder of wfOrders) {
+            try {
+                const poNumber = wfOrder.poNumber?.toString()
+                if (!poNumber) continue
+
+                // Check composite unique key
+                const existingOrder = await db.order.findUnique({
+                    where: {
+                        source_externalId: {
+                            source: 'wayfair',
+                            externalId: poNumber
+                        }
+                    }
+                })
+
+                if (existingOrder) {
+                    continue
+                }
+
+                // Map Address
+                const name = wfOrder.customerName || "Wayfair Customer"
+                const address = `${wfOrder.customerAddress1 || ""} ${wfOrder.customerAddress2 || ""}`.trim() || "Address not provided"
+                const city = `${wfOrder.customerCity || ""} / ${wfOrder.customerState || ""} ${wfOrder.customerPostalCode || ""}`.trim()
+                const phone = null
+                const email = wfOrder.customerEmail || null
+
+                // Map items
+                const products = wfOrder.products || []
+                const items = products.map((item: any) => ({
+                    name: item.name || item.partNumber || "Wayfair Product",
+                    quantity: parseInt(item.quantity) || 1,
+                    sku: item.sku || item.partNumber || null,
+                    image_src: "https://placehold.co/600x400?text=Wayfair+Product"
+                }))
+
+                // Calculate total
+                const totalVal = products.reduce((sum: number, item: any) => sum + ((item.price || 0) * (parseInt(item.quantity) || 1)), 0)
+                const total = `${totalVal.toFixed(2)} USD`
+
+                // Create order
+                await db.order.create({
+                    data: {
+                        customer: name,
+                        phone,
+                        email,
+                        address,
+                        city,
+                        total,
+                        status: defaultStatus,
+                        source: 'wayfair',
+                        externalId: poNumber,
+                        barcode: `WF-${poNumber}`,
+                        date: wfOrder.poDate ? new Date(wfOrder.poDate) : new Date(),
+                        labels: JSON.stringify(['Wayfair', 'Yeni']),
+                        hasNotification: true,
+                        items: {
+                            create: items
+                        }
+                    }
+                })
+
+                importedCount++
+            } catch (err: any) {
+                console.error(`Error mapping Wayfair order:`, err)
+            }
+        }
+
+        return { success: true, message: `Wayfair eşitlemesi başarılı. ${importedCount} yeni sipariş eklendi.`, count: importedCount }
+
+    } catch (e: any) {
+        console.error("Wayfair Sync Error:", e)
+        return { error: "Senkronizasyon hatası: " + e.message }
+    }
+}
+
 // Background periodic sync for persistent Node.js servers (DigitalOcean App Platform, VPS, etc.)
 if (typeof window === 'undefined' && process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE !== 'phase-production-build') {
     const GLOBAL_SYNC_INTERVAL = 10 * 60 * 1000; // 10 minutes
@@ -2498,7 +2743,8 @@ if (typeof window === 'undefined' && process.env.NODE_ENV === 'production' && pr
             const pm = await syncPrintMarktOrders(false).catch(e => ({ error: e.message }));
             const etsy = await syncEtsyOrders().catch(e => ({ error: e.message }));
             const cargo = await syncCargoKargoEntegrator().catch(e => ({ error: e.message }));
-            console.log("[BACKGROUND_SYNC] Scheduled sync completed:", { wc, pm, etsy, cargo });
+            const wf = await syncWayfairOrders(false).catch(e => ({ error: e.message }));
+            console.log("[BACKGROUND_SYNC] Scheduled sync completed:", { wc, pm, etsy, cargo, wf });
         } catch (error) {
             console.error("[BACKGROUND_SYNC] Fatal error in scheduled sync:", error);
         }

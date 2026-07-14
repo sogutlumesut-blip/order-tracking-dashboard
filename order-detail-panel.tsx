@@ -179,12 +179,12 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                 <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950 print:hidden">
                     <div>
                         <h2 className="text-lg font-bold dark:text-slate-100">
-                            Sipariş {formData.source === 'woo' && formData.externalId ? `#${formData.externalId}` : `#${formData.id}`}
+                            Sipariş {(formData.source === 'woo' || formData.source === 'wayfair') && formData.externalId ? `#${formData.externalId}` : `#${formData.id}`}
                         </h2>
                         {/* Compact user info for header */}
                         <p className="font-medium text-slate-900 dark:text-slate-300">
                             {formData.customer}
-                            {formData.source === 'woo' && formData.externalId && (
+                            {(formData.source === 'woo' || formData.source === 'wayfair') && formData.externalId && (
                                 <span className="ml-2 text-xs text-slate-400 font-mono">(Sistem ID: #{formData.id})</span>
                             )}
                         </p>
@@ -225,7 +225,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                     </div>
 
                     <h1 className="text-2xl font-bold mb-2">
-                        Sipariş {formData.source === 'woo' && formData.externalId ? `#${formData.externalId}` : `#${formData.id}`}
+                        Sipariş {(formData.source === 'woo' || formData.source === 'wayfair') && formData.externalId ? `#${formData.externalId}` : `#${formData.id}`}
                     </h1>
                     <div className="grid grid-cols-2 gap-4">
                         <div>

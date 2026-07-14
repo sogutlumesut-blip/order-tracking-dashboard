@@ -16,6 +16,8 @@ import { FaturaEntegraSettingsForm } from "@/components/settings/fatura-entegra-
 import { PrintMarktSettingsForm } from "@/components/settings/printmarkt-settings-form"
 import { CronTrigger } from "@/components/settings/cron-trigger"
 import { DHLSettingsForm } from "@/components/settings/dhl-settings-form"
+import { WayfairSettingsForm } from "@/components/settings/wayfair-settings-form"
+
 
 export const dynamic = 'force-dynamic'
 
@@ -141,6 +143,25 @@ export default async function SettingsPage() {
 
                     return <EtsyMultiStoreSettings initialStores={etsyStores} initialGlobalKey={systemSettings.etsy_global_api_key || ''} />
                 })()}
+
+
+                {/* WAYFAIR INTEGRATION */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-purple-100">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-900">
+                        <span className="bg-purple-600 text-white p-1 px-2 rounded text-sm">WF</span>
+                        Wayfair Entegrasyonu
+                    </h2>
+                    <p className="text-sm text-slate-600 mb-6">
+                        Wayfair siparişlerinizi otomatik çekmek için API bilgilerinizi giriniz.
+                    </p>
+
+                    <WayfairSettingsForm initialSettings={{
+                        wf_client_id: systemSettings.wf_client_id,
+                        wf_client_secret: systemSettings.wf_client_secret,
+                        wf_mode: systemSettings.wf_mode
+                    }} />
+                </div>
+
 
 
                 {/* DEBUG TOOL */}

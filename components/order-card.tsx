@@ -186,17 +186,22 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
             <div className="p-4 space-y-3">
                 <div className="flex justify-between items-start">
                     <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 flex items-center gap-1">
                                 {order.barcode}
                             </span>
                             <h3 className="font-bold text-slate-900 dark:text-slate-100">
-                                {order.source === 'woo' && order.externalId ? `#${order.externalId}` : (order.id > 0 ? `#${order.id}` : null)}
+                                {(order.source === 'woo' || order.source === 'wayfair') && order.externalId ? `#${order.externalId}` : (order.id > 0 ? `#${order.id}` : null)}
                             </h3>
                             {order.source === 'etsy' && (
                                 <span className="bg-[#F1641E] text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm">
                                     <span className="font-serif italic lowercase font-extrabold translate-y-[1px]">E</span>
                                     ETSY
+                                </span>
+                            )}
+                            {order.source === 'wayfair' && (
+                                <span className="bg-purple-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm">
+                                    WAYFAIR
                                 </span>
                             )}
                             {(order.source === 'woo' || (!order.source && order.barcode?.startsWith('WC-'))) && (
@@ -226,7 +231,7 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                     </div>
                     <div className="flex flex-col items-end gap-1">
                         <span className={`text-sm font-semibold px-2 py-1 rounded-md ${isPaymentFailed ? 'text-red-700 bg-red-100 line-through' : 'text-green-600 bg-green-50'}`}>
-                            {order.source === 'PrintMarkt'
+                            {order.source === 'PrintMarkt' || order.source === 'wayfair'
                                 ? `$${order.total.replace('$', '').replace('USD', '').trim()}`
                                 : `${order.total.replace('₺', '').replace('TL', '').replace('$', '').replace('USD', '').trim()} ₺`}
                         </span>
