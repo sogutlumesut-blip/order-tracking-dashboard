@@ -131,7 +131,25 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     useEffect(() => { selectedOrderRef.current = selectedOrder }, [selectedOrder])
 
     useEffect(() => {
-        setOrders(initialOrders)
+        setOrders(currentOrders => {
+            return initialOrders.map(initialOrder => {
+                const lockKey = String(initialOrder.id);
+                const lockTime = interactionLocks.current[lockKey];
+                const isLocked = lockTime && (Date.now() - lockTime < 8000);
+                if (isLocked) {
+                    const localOrder = currentOrders.find(o => o.id === initialOrder.id);
+                    if (localOrder && localOrder.status !== initialOrder.status) {
+                        return {
+                            ...initialOrder,
+                            status: localOrder.status,
+                            assignedTo: localOrder.assignedTo,
+                            updatedAt: localOrder.updatedAt
+                        };
+                    }
+                }
+                return initialOrder;
+            }) as any;
+        });
         // Sync the detail panel if it's open
         if (isPanelOpen && selectedOrder) {
             const updated = initialOrders.find(o => o.id === (selectedOrder as any).id)
@@ -306,12 +324,13 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         }
 
                         // Check if this order is currently locked by a client interaction
-                        const lockTime = interactionLocks.current[serverOrder.id];
+                        const lockKey = String(serverOrder.id);
+                        const lockTime = interactionLocks.current[lockKey];
                         const isLocked = lockTime && (Date.now() - lockTime < 8000);
 
                         if (isLocked) {
                             if (serverOrder.status === localOrder.status) {
-                                delete interactionLocks.current[serverOrder.id];
+                                delete interactionLocks.current[lockKey];
                             } else {
                                 // Server hasn't updated yet. Preserve the local status.
                                 const otherFieldsChanged = 
@@ -545,7 +564,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             }
             return o
         })
-        interactionLocks.current[activeId] = Date.now() // Lock immediately to prevent polling bounce
+        interactionLocks.current[String(activeId)] = Date.now() // Lock immediately to prevent polling bounce
         setOrders(newOrders)
         setActiveId(null)
 
@@ -574,7 +593,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
             // Mark last successful interaction
             if (activeId !== null) {
-                interactionLocks.current[activeId] = Date.now()
+                interactionLocks.current[String(activeId)] = Date.now()
             }
         } catch (error: any) {
             console.error("Status update failed:", error)
@@ -726,7 +745,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 }
             }
 
-            interactionLocks.current[targetOrder.id] = Date.now() // Lock immediately to prevent polling bounce
+            interactionLocks.current[String(targetOrder.id)] = Date.now() // Lock immediately to prevent polling bounce
 
             // Optimistic Update: Also update 'assignedTo' to 'Siz' (or current user name if we had it, but 'Siz' is clear)
             // The server will overwrite with actual name, but this gives immediate feedback.
