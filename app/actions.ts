@@ -2107,26 +2107,148 @@ export async function syncCargoKargoEntegrator(force: boolean = false) {
                 let order = ordersMap.get(`WC-${platformId}`) || ordersMap.get(platformId);
 
                 if (order) {
-                    if (order.cargoTrackingNumber !== trackingNum || order.cargoBarcode !== barcode || order.cargoLabelPdf !== printUrl) {
+                    let statusChanged = false;
+                    let targetStatus = order.status;
+                    let activityDetails = "";
+
+                    const statusLower = (ship.status || "").toLowerCase();
+                    const isDelivered = 
+                        statusLower === 'delivered' || 
+                        statusLower === 'teslim_edildi' || 
+                        statusLower === 'teslim edildi' || 
+                        statusLower === 'teslim' ||
+                        !!ship.delivered_at || 
+                        !!ship.real_delivered_date;
+
+                    const isShipped = 
+                        statusLower === 'shipped' ||
+                        statusLower === 'yola_cikti' ||
+                        statusLower === 'yola çıktı' ||
+                        statusLower === 'kargolandi' ||
+                        statusLower === 'kargolandı' ||
+                        statusLower === 'in_transit' ||
+                        !!ship.shipped_at;
+
+                    if (isDelivered) {
+                        if (order.status !== 'completed' && order.status !== 'cancelled') {
+                            targetStatus = 'completed';
+                            statusChanged = true;
+                            activityDetails = `Kargo teslim edildi olarak tespit edildi (Senkronizasyon, Durum: ${ship.status || 'delivered'}). Sipariş durumu otomatik olarak Tamamlandı yapıldı.`;
+                        }
+                    } else if (isShipped) {
+                        if (order.status !== 'shipped' && order.status !== 'completed' && order.status !== 'cancelled') {
+                            targetStatus = 'shipped';
+                            statusChanged = true;
+                            activityDetails = `Kargo yola çıktı olarak tespit edildi (Senkronizasyon, Durum: ${ship.status || 'shipped'}). Sipariş durumu otomatik olarak Kargolandı yapıldı.`;
+                        }
+                    }
+
+                    const needsTrackingUpdate = order.cargoTrackingNumber !== trackingNum || order.cargoBarcode !== barcode || order.cargoLabelPdf !== printUrl;
+
+                    if (needsTrackingUpdate || statusChanged) {
                         await db.order.update({
                             where: { id: order.id },
                             data: {
                                 cargoTrackingNumber: trackingNum || undefined,
                                 cargoBarcode: barcode || undefined,
-                                cargoLabelPdf: printUrl
+                                cargoLabelPdf: printUrl,
+                                ...(statusChanged ? { status: targetStatus, updatedAt: new Date() } : {})
                             }
                         });
+
+                        if (statusChanged) {
+                            await db.orderActivity.create({
+                                data: {
+                                    orderId: order.id,
+                                    author: 'Kargo Entegratör (Oto)',
+                                    action: 'STATUS_CHANGE',
+                                    details: activityDetails
+                                }
+                            });
+                        }
+
                         updatedCount++;
                     }
                 }
             }
         }
 
+        // Run auto-complete for old shipped orders as part of the sync process
+        await autoCompleteOldOrders().catch(err => {
+            console.error("Auto-complete old orders failed during cargo sync:", err);
+        });
         return { success: true, message: `${updatedCount} siparişin kargo bilgisi güncellendi.` };
 
     } catch (error: any) {
         console.error("Kargo Sync Error:", error);
         return { error: "Kargo Entegrasyonu Hatası: " + error.message };
+    }
+}
+
+export async function autoCompleteOldOrders() {
+    try {
+        const threeDaysAgo = new Date();
+        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+
+        const shippedOrders = await db.order.findMany({
+            where: {
+                status: 'shipped'
+            },
+            include: {
+                activities: {
+                    where: {
+                        action: 'STATUS_CHANGE'
+                    },
+                    orderBy: {
+                        timestamp: 'desc'
+                    }
+                }
+            }
+        });
+
+        const ordersToComplete = shippedOrders.filter(order => {
+            const shippedActivity = order.activities.find((act: any) => {
+                const detailsLower = (act.details || "").toLowerCase();
+                return detailsLower.includes('shipped') || detailsLower.includes('kargolandı') || detailsLower.includes('kargolandi');
+            });
+
+            if (shippedActivity) {
+                return new Date(shippedActivity.timestamp) < threeDaysAgo;
+            }
+
+            return new Date(order.updatedAt) < threeDaysAgo;
+        });
+
+        if (ordersToComplete.length > 0) {
+            const updates = ordersToComplete.map(order =>
+                db.order.update({
+                    where: { id: order.id },
+                    data: {
+                        status: 'completed',
+                        updatedAt: new Date()
+                    }
+                })
+            );
+
+            const activities = ordersToComplete.map(order =>
+                db.orderActivity.create({
+                    data: {
+                        orderId: order.id,
+                        author: 'Sistem (Oto)',
+                        action: 'AUTO_COMPLETE',
+                        details: 'Sipariş kargolandıktan 3 gün sonra otomatik tamamlandı.'
+                    }
+                })
+            );
+
+            await db.$transaction([...updates, ...activities]);
+            return { success: true, count: ordersToComplete.length };
+        }
+
+        return { success: true, count: 0 };
+    } catch (e: any) {
+        console.error("Error in autoCompleteOldOrders:", e);
+        return { error: e.message };
     }
 }
 
@@ -2387,7 +2509,7 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
 
                 if (existingOrder) {
                     const dbStatus = existingOrder.status;
-                    const incomingStatus = mappedStatus;
+                    const incomingStatus: string = mappedStatus;
 
                     const isTerminalIncoming = incomingStatus === "shipped" || incomingStatus === "completed" || incomingStatus === "cancelled";
                     const isLocalTerminal = dbStatus === "shipped" || dbStatus === "completed" || dbStatus === "cancelled";
