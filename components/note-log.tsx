@@ -12,7 +12,7 @@ interface NoteAttachment {
 
 interface NoteLogProps {
     comments?: Comment[]
-    onAddNote: (message: string, attachments: NoteAttachment[]) => void
+    onAddNote: (message: string, attachments: NoteAttachment[]) => Promise<void>
     currentUser: { id: string; name: string; role: string }
     className?: string
     isLoading?: boolean
@@ -23,17 +23,27 @@ interface NoteLogProps {
 export function NoteLog({ comments = [], onAddNote, currentUser, className, isLoading, onImageClick, onDeleteNote }: NoteLogProps) {
     const [note, setNote] = useState("")
     const [attachment, setAttachment] = useState<NoteAttachment | null>(null)
+    const [isSending, setIsSending] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
-    const handleSend = () => {
+    const handleSend = async () => {
         if (!note.trim() && !attachment) return
+        if (isSending) return
+
+        setIsSending(true)
         const attachments = attachment ? [attachment] : []
-        onAddNote(note, attachments)
-        setNote("")
-        setAttachment(null)
+        try {
+            await onAddNote(note, attachments)
+            setNote("")
+            setAttachment(null)
+        } catch (err) {
+            console.error("Not eklenirken hata oluştu:", err)
+        } finally {
+            setIsSending(false)
+        }
     }
 
-    const compressImage = (base64Str: string, maxWidth = 2048, maxHeight = 2048): Promise<string> => {
+    const compressImage = (base64Str: string, maxWidth = 1024, maxHeight = 1024): Promise<string> => {
         return new Promise((resolve) => {
             const img = new Image()
             img.src = base64Str
@@ -58,7 +68,7 @@ export function NoteLog({ comments = [], onAddNote, currentUser, className, isLo
                 canvas.height = height
                 const ctx = canvas.getContext('2d')
                 ctx?.drawImage(img, 0, 0, width, height)
-                resolve(canvas.toDataURL('image/jpeg', 0.90))
+                resolve(canvas.toDataURL('image/jpeg', 0.75))
             }
         })
     }
@@ -220,10 +230,11 @@ export function NoteLog({ comments = [], onAddNote, currentUser, className, isLo
 
                 <div className="relative">
                     <textarea
-                        className="w-full p-3 pr-24 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[80px] resize-none font-medium text-slate-900 dark:text-slate-100 placeholder:font-normal placeholder:text-slate-500 dark:placeholder:text-slate-400 bg-white dark:bg-slate-900"
-                        placeholder="Yeni not ekle veya görselleri yapıştırın..."
+                        className="w-full p-3 pr-24 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[80px] resize-none font-medium text-slate-900 dark:text-slate-100 placeholder:font-normal placeholder:text-slate-500 dark:placeholder:text-slate-400 bg-white dark:bg-slate-900 disabled:opacity-60"
+                        placeholder={isSending ? "Gönderiliyor..." : "Yeni not ekle veya görselleri yapıştırın..."}
                         value={note}
                         onChange={(e) => setNote(e.target.value)}
+                        disabled={isSending}
                         onKeyDown={(e) => {
                             if (e.key === 'Enter' && !e.shiftKey) {
                                 e.preventDefault()
@@ -234,8 +245,9 @@ export function NoteLog({ comments = [], onAddNote, currentUser, className, isLo
                     <div className="absolute right-2 bottom-2 flex items-center gap-1.5">
                         <button
                             onClick={() => fileInputRef.current?.click()}
-                            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors"
+                            className={`p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors ${isSending ? 'opacity-50 cursor-not-allowed' : ''}`}
                             title="Dosya/Fotoğraf Ekle"
+                            disabled={isSending}
                         >
                             <Paperclip className="w-4 h-4" />
                         </button>
@@ -245,15 +257,20 @@ export function NoteLog({ comments = [], onAddNote, currentUser, className, isLo
                             className="hidden"
                             onChange={handleFileSelect}
                             accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                            disabled={isSending}
                         />
                         <button
                             onClick={handleSend}
-                            disabled={!note.trim() && !attachment}
-                            className={`p-2 rounded-full transition-colors ${note.trim() || attachment ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500'
+                            disabled={isSending || (!note.trim() && !attachment)}
+                            className={`p-2 rounded-full transition-colors ${isSending ? 'opacity-50 cursor-not-allowed' : ''} ${note.trim() || attachment ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500'
                                 }`}
                             title="Notu Kaydet"
                         >
-                            <Send className="w-4 h-4" />
+                            {isSending ? (
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                                <Send className="w-4 h-4" />
+                            )}
                         </button>
                     </div>
                 </div>

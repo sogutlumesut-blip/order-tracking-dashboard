@@ -131,6 +131,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
             toast.error(`Mesaj kaydedilemedi: ${e.message}`)
             // Rollback local state
             setLazyComments(prev => prev ? prev.filter(c => c.id !== newComment.id) : null)
+            throw e
         }
     }
 

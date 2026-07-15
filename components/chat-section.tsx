@@ -43,7 +43,7 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
         }
     }
 
-    const compressImage = (base64Str: string, maxWidth = 2048, maxHeight = 2048): Promise<string> => {
+    const compressImage = (base64Str: string, maxWidth = 1024, maxHeight = 1024): Promise<string> => {
         return new Promise((resolve) => {
             const img = new Image()
             img.src = base64Str
@@ -68,7 +68,7 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
                 canvas.height = height
                 const ctx = canvas.getContext('2d')
                 ctx?.drawImage(img, 0, 0, width, height)
-                resolve(canvas.toDataURL('image/jpeg', 0.90)) // Compress as JPEG at 90% quality (High-Res)
+                resolve(canvas.toDataURL('image/jpeg', 0.75))
             }
         })
     }
@@ -239,8 +239,8 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
                     <input
                         type="text"
                         disabled={isSending}
-                        className="flex-1 bg-slate-50 dark:bg-slate-700 border-none rounded-full px-4 text-sm focus:ring-1 focus:ring-blue-500 outline-none text-slate-900 dark:text-slate-100 font-medium placeholder:text-slate-500 dark:placeholder:text-slate-400"
-                        placeholder="Mesaj yazın veya görselleri yapıştırın..."
+                        className="flex-1 bg-slate-50 dark:bg-slate-700 border-none rounded-full px-4 text-sm focus:ring-1 focus:ring-blue-500 outline-none text-slate-900 dark:text-slate-100 font-medium placeholder:text-slate-500 dark:placeholder:text-slate-400 disabled:opacity-60"
+                        placeholder={isSending ? "Gönderiliyor..." : "Mesaj yazın veya görselleri yapıştırın..."}
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSend()}
@@ -255,7 +255,11 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
                             }`}
                         disabled={isSending || (!message.trim() && !attachment)}
                     >
-                        <Send className="w-4 h-4" />
+                        {isSending ? (
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                            <Send className="w-4 h-4" />
+                        )}
                     </button>
                 </div>
             </div>
