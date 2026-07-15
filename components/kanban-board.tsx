@@ -14,7 +14,7 @@ import { toast } from "sonner"
 import { Toaster } from "sonner"
 // Removed duplicate import
 import { updateOrderStatusV3 } from '../app/actionsV2'
-import { getStatuses, getOrders, getLabels, updateOrderDetails, addCommentAction, getOrderDetails, logoutAction, syncWooCommerceOrders, syncEtsyOrders, syncPrintMarktOrders, syncCargoKargoEntegrator, createManualOrder, simulateWooCommerceOrder, markOrderAsRead, bulkUpdateOrderStatus, updateStatusOrder } from '../app/actions'
+import { getStatuses, getOrders, getLabels, updateOrderDetails, addCommentAction, getOrderDetails, logoutAction, syncWooCommerceOrders, syncEtsyOrders, syncPrintMarktOrders, syncCargoKargoEntegrator, createManualOrder, simulateWooCommerceOrder, markOrderAsRead, bulkUpdateOrderStatus, updateStatusOrder, createDHLShipmentAction } from '../app/actions'
 import Link from "next/link"
 import { ManualOrderModal } from "./manual-order-modal"
 import { useRouter } from "next/navigation"
@@ -65,6 +65,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     const [selectedOrders, setSelectedOrders] = useState<number[]>([])
     const [isBulkProcessing, setIsBulkProcessing] = useState(false)
     const isBulkProcessingRef = useRef(false)
+    const interactionLocks = useRef<Record<string, number>>({})
     const [isDragLocked, setIsDragLocked] = useState(true) // Locked by default for safety
 
     useEffect(() => {
@@ -304,6 +305,41 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                             return serverOrder;
                         }
 
+                        // Check if this order is currently locked by a client interaction
+                        const lockTime = interactionLocks.current[serverOrder.id];
+                        const isLocked = lockTime && (Date.now() - lockTime < 8000);
+
+                        if (isLocked) {
+                            if (serverOrder.status === localOrder.status) {
+                                delete interactionLocks.current[serverOrder.id];
+                            } else {
+                                // Server hasn't updated yet. Preserve the local status.
+                                const otherFieldsChanged = 
+                                    localOrder.commentCount !== serverOrder.commentCount ||
+                                    localOrder.hasNotification !== serverOrder.hasNotification ||
+                                    localOrder.customer !== serverOrder.customer ||
+                                    localOrder.phone !== serverOrder.phone ||
+                                    localOrder.address !== serverOrder.address ||
+                                    localOrder.total !== serverOrder.total ||
+                                    localOrder.printNotes !== serverOrder.printNotes ||
+                                    localOrder.note !== serverOrder.note ||
+                                    localOrder.cargoTrackingNumber !== serverOrder.cargoTrackingNumber ||
+                                    localOrder.cargoBarcode !== serverOrder.cargoBarcode ||
+                                    JSON.stringify(localOrder.labels) !== JSON.stringify(serverOrder.labels);
+
+                                if (otherFieldsChanged) {
+                                    hasChanges = true;
+                                    return {
+                                        ...serverOrder,
+                                        status: localOrder.status,
+                                        assignedTo: localOrder.assignedTo,
+                                        updatedAt: localOrder.updatedAt
+                                    };
+                                }
+                                return localOrder;
+                            }
+                        }
+
                         // Safety check for newer local data vs server
                         const serverTime = new Date(serverOrder.updatedAt).getTime();
                         const localTime = new Date(localOrder.updatedAt).getTime();
@@ -509,7 +545,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             }
             return o
         })
-        // interactionLocks.current[activeId] = Date.now() // Removed lock
+        interactionLocks.current[activeId] = Date.now() // Lock immediately to prevent polling bounce
         setOrders(newOrders)
         setActiveId(null)
 
@@ -546,8 +582,6 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             setOrders(orders) // Revert
         }
     }
-
-    const interactionLocks = useRef<Record<string, number>>({})
 
     const handlePrintCargoLabel = (order: Order) => {
         if (order.cargoBarcode || order.cargoLabelPdf) {
@@ -692,7 +726,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 }
             }
 
-            // interactionLocks.current[targetOrder.id] = Date.now() // Removed lock
+            interactionLocks.current[targetOrder.id] = Date.now() // Lock immediately to prevent polling bounce
 
             // Optimistic Update: Also update 'assignedTo' to 'Siz' (or current user name if we had it, but 'Siz' is clear)
             // The server will overwrite with actual name, but this gives immediate feedback.
