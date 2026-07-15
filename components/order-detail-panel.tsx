@@ -82,7 +82,17 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                             } catch (e) {}
                             return { ...c, timestamp: displayTime };
                         });
-                        setLazyComments(formattedComments)
+                        setLazyComments((prev) => {
+                            const now = Date.now();
+                            const pendingOptimistic = (prev || []).filter((c: any) => 
+                                c.isOptimistic && 
+                                (now - (c.createdAt || 0) < 15000) &&
+                                !formattedComments.some((fc: any) => 
+                                    fc.message === c.message && fc.type === c.type
+                                )
+                            );
+                            return [...formattedComments, ...pendingOptimistic];
+                        });
                         setLazyActivities(details.activities)
                     }
                 })
@@ -106,7 +116,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
     const handleInternalAddComment = async (msg: string, att: any[], type: string = "message") => {
         const newComment: any = {
-            id: Date.now().toString(),
+            id: 'opt-' + Date.now(),
             author: currentUser.name,
             message: msg,
             timestamp: new Date().toLocaleString('tr-TR', {
@@ -118,7 +128,9 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                 minute: '2-digit'
             }),
             attachments: att,
-            type: type
+            type: type,
+            isOptimistic: true,
+            createdAt: Date.now()
         }
 
         // Update local lazy state for immediate feedback
