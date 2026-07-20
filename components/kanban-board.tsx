@@ -281,6 +281,45 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         return () => clearInterval(timer)
     }, [])
 
+    const searchTermRef = useRef(searchTerm)
+    useEffect(() => {
+        searchTermRef.current = searchTerm
+    }, [searchTerm])
+
+    // Fetch searched orders immediately on search changes (debounced)
+    useEffect(() => {
+        if (!searchTerm) {
+            // If search is cleared, fetch default list immediately to restore columns
+            const restoreList = async () => {
+                try {
+                    const response = await fetch('/api/orders');
+                    if (response.ok) {
+                        const latestOrders = await response.json();
+                        setOrders(latestOrders);
+                    }
+                } catch (e) {
+                    console.error("Failed to restore list:", e);
+                }
+            };
+            restoreList();
+            return;
+        }
+
+        const delayDebounce = setTimeout(async () => {
+            try {
+                const response = await fetch(`/api/orders?search=${encodeURIComponent(searchTerm)}`);
+                if (response.ok) {
+                    const searchedOrders = await response.json();
+                    setOrders(searchedOrders);
+                }
+            } catch (e) {
+                console.error("Failed to fetch searched orders:", e);
+            }
+        }, 400); // 400ms debounce
+
+        return () => clearTimeout(delayDebounce);
+    }, [searchTerm]);
+
     // Unified Polling & Sync Logic (v43 REALTIME_SYNC)
     useEffect(() => {
         // 2. High-frequency Polling for DB changes (Chat/Status/Internal)
@@ -288,7 +327,9 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             if (activeId || isBulkProcessingRef.current) return;
 
             try {
-                const response = await fetch('/api/orders');
+                const currentSearch = searchTermRef.current;
+                const url = currentSearch ? `/api/orders?search=${encodeURIComponent(currentSearch)}` : '/api/orders';
+                const response = await fetch(url);
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 const latestOrders = await response.json();
                 

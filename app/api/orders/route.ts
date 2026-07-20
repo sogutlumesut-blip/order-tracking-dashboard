@@ -107,17 +107,59 @@ export async function GET(req: NextRequest) {
                 select: { comments: true }
             }
         };
+        const { searchParams } = new URL(req.url);
+        const search = searchParams.get("search") || "";
 
-        const activeOrdersPromise = targetActive.length > 0 ? db.order.findMany({
-            where: { status: { in: targetActive } },
-            orderBy: { date: "desc" },
-            select: orderSelect
-        }) : Promise.resolve([]);
-        const terminalOrdersPromise = targetTerminal.length > 0 ? db.order.findMany({
-            where: { status: { in: targetTerminal } },
-            orderBy: { date: "desc" },
-            select: orderSelect
-        }) : Promise.resolve([]);
+        let activeOrdersPromise;
+        let terminalOrdersPromise;
+
+        if (search) {
+            const searchFilter = {
+                OR: [
+                    { customer: { contains: search, mode: 'insensitive' as const } },
+                    { phone: { contains: search } },
+                    { email: { contains: search, mode: 'insensitive' as const } },
+                    { barcode: { contains: search, mode: 'insensitive' as const } },
+                    { trackingNumber: { contains: search, mode: 'insensitive' as const } },
+                    { cargoTrackingNumber: { contains: search, mode: 'insensitive' as const } },
+                ]
+            };
+
+            if (!isNaN(Number(search))) {
+                (searchFilter.OR as any).push({ id: Number(search) });
+            }
+
+            activeOrdersPromise = targetActive.length > 0 ? db.order.findMany({
+                where: {
+                    status: { in: targetActive },
+                    ...searchFilter
+                },
+                orderBy: { date: "desc" },
+                select: orderSelect
+            }) : Promise.resolve([]);
+
+            terminalOrdersPromise = targetTerminal.length > 0 ? db.order.findMany({
+                where: {
+                    status: { in: targetTerminal },
+                    ...searchFilter
+                },
+                orderBy: { date: "desc" },
+                select: orderSelect
+            }) : Promise.resolve([]);
+        } else {
+            activeOrdersPromise = targetActive.length > 0 ? db.order.findMany({
+                where: { status: { in: targetActive } },
+                orderBy: { date: "desc" },
+                select: orderSelect
+            }) : Promise.resolve([]);
+
+            terminalOrdersPromise = targetTerminal.length > 0 ? db.order.findMany({
+                where: { status: { in: targetTerminal } },
+                orderBy: { date: "desc" },
+                take: 400,
+                select: orderSelect
+            }) : Promise.resolve([]);
+        }
 
         const [activeOrders, terminalOrders] = await Promise.all([activeOrdersPromise, terminalOrdersPromise]);
         const orders = [...activeOrders, ...terminalOrders];
