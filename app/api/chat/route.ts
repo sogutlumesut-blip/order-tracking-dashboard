@@ -138,3 +138,82 @@ export async function DELETE(req: Request) {
         return NextResponse.json({ success: false, error: e.message }, { status: 500 })
     }
 }
+
+export async function PUT(req: Request) {
+    const session = await getSession()
+    if (!session) {
+        return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+    }
+
+    try {
+        const body = await req.json()
+        const { messageId, emoji } = body
+
+        if (!messageId || !emoji) {
+            return NextResponse.json({ success: false, error: "Message ID and emoji are required" }, { status: 400 })
+        }
+
+        const message = await db.chatMessage.findUnique({
+            where: { id: messageId }
+        })
+
+        if (!message) {
+            return NextResponse.json({ success: false, error: "Message not found" }, { status: 404 })
+        }
+
+        let reactions: any[] = []
+        if (message.reactions) {
+            try {
+                reactions = JSON.parse(message.reactions)
+            } catch (e) {
+                reactions = []
+            }
+        }
+
+        const existingIndex = reactions.findIndex((r: any) => r.userId === session.user.id)
+        if (existingIndex > -1) {
+            const existing = reactions[existingIndex]
+            if (existing.emoji === emoji) {
+                // Toggle off: remove reaction
+                reactions.splice(existingIndex, 1)
+            } else {
+                // Update to new emoji
+                reactions[existingIndex].emoji = emoji
+            }
+        } else {
+            // Add new reaction
+            reactions.push({
+                emoji,
+                userId: session.user.id,
+                userName: session.user.name
+            })
+        }
+
+        const updatedMessage = await db.chatMessage.update({
+            where: { id: messageId },
+            data: {
+                reactions: JSON.stringify(reactions)
+            },
+            include: {
+                sender: {
+                    select: { id: true, name: true, role: true }
+                }
+            }
+        })
+
+        // Serialize attachment for response consistency
+        const serializedMessage = {
+            ...updatedMessage,
+            attachment: updatedMessage.attachment 
+                ? (updatedMessage.attachment.startsWith('http://') || updatedMessage.attachment.startsWith('https://')
+                    ? updatedMessage.attachment
+                    : `/api/chat/attachment?id=${updatedMessage.id}&ext=${(updatedMessage.attachment.startsWith('data:application/pdf') || (updatedMessage.text && updatedMessage.text.toLowerCase().endsWith('.pdf'))) ? '.pdf' : '.jpg'}`)
+                : null
+        }
+
+        return NextResponse.json({ success: true, message: serializedMessage })
+    } catch (e: any) {
+        console.error("Error updating reaction:", e)
+        return NextResponse.json({ success: false, error: e.message }, { status: 500 })
+    }
+}

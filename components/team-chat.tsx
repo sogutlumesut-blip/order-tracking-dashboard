@@ -163,6 +163,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     const [mentionSearch, setMentionSearch] = useState("")
     const [activeMentionAlert, setActiveMentionAlert] = useState<any | null>(null)
     const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+    const [activeReactionPickerId, setActiveReactionPickerId] = useState<string | null>(null)
 
     useEffect(() => {
         const loadUsers = async () => {
@@ -504,6 +505,60 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         }, 50)
     }
 
+    const handleReact = async (messageId: string, emoji: string) => {
+        setActiveReactionPickerId(null)
+
+        // Optimistic update of local messages reactions list
+        setMessages(prev => prev.map(m => {
+            if (m.id !== messageId) return m
+
+            let currentReactions = []
+            try {
+                currentReactions = m.reactions ? JSON.parse(m.reactions) : []
+            } catch (e) {}
+
+            const existingIndex = currentReactions.findIndex((r: any) => r.userId === currentUser.id)
+            if (existingIndex > -1) {
+                const existing = currentReactions[existingIndex]
+                if (existing.emoji === emoji) {
+                    currentReactions.splice(existingIndex, 1)
+                } else {
+                    currentReactions[existingIndex].emoji = emoji
+                }
+            } else {
+                currentReactions.push({
+                    emoji,
+                    userId: currentUser.id,
+                    userName: currentUser.name
+                })
+            }
+
+            return {
+                ...m,
+                reactions: JSON.stringify(currentReactions)
+            }
+        }))
+
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    messageId,
+                    emoji
+                })
+            })
+            const res = await response.json()
+            if (!res.success) {
+                console.error("Failed to save reaction:", res.error)
+            }
+        } catch (err) {
+            console.error("Error reacting to message:", err)
+        }
+    }
+
     const jumpToMessage = (msgId: string) => {
         const element = document.getElementById(`msg-${msgId}`)
         if (element) {
@@ -640,7 +695,11 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                     </div>
 
                     {/* Messages */}
-                    <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 dark:bg-slate-950/50">
+                    <div 
+                        ref={scrollContainerRef} 
+                        onClick={() => setActiveReactionPickerId(null)}
+                        className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 dark:bg-slate-950/50"
+                    >
                         {isLoading && messages.length === 0 ? (
                             <div className="flex justify-center items-center h-full">
                                 <span className="animate-pulse text-slate-400">Yükleniyor...</span>
@@ -659,7 +718,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                 <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
                                                     <UserIcon className="w-3.5 h-3.5 text-slate-500" />
                                                 </div>
-                                                <div className={`px-3 py-2 rounded-2xl max-w-[240px] text-sm break-words transition-all duration-300 ${
+                                                <div className={`relative px-3 py-2 rounded-2xl max-w-[240px] text-sm break-words transition-all duration-300 ${
                                                     highlightedMessageId === msg.id 
                                                         ? 'ring-4 ring-amber-400 dark:ring-amber-500 scale-[1.03] shadow-md z-10' 
                                                         : ''
@@ -777,16 +836,89 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                         )
                                                     )}
                                                     {!msg.attachment && renderMessageText(msg.text, isMe)}
+
+                                                    {/* Reactions Picker Dropdown */}
+                                                    {activeReactionPickerId === msg.id && (
+                                                        <div className={`absolute z-30 -top-10 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full shadow-lg px-2 py-1 flex items-center gap-1 animate-in zoom-in-95 duration-100 ${isMe ? 'right-0' : 'left-0'}`}>
+                                                            {['👍', '❤️', '😂', '😮', '😢', '🙏'].map((emoji) => (
+                                                                <button
+                                                                    key={emoji}
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation()
+                                                                        handleReact(msg.id, emoji)
+                                                                    }}
+                                                                    className="text-base hover:scale-130 active:scale-95 transition-transform p-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full cursor-pointer w-6.5 h-6.5 flex items-center justify-center"
+                                                                >
+                                                                    {emoji}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Render Reactions Pill */}
+                                                    {msg.reactions && (() => {
+                                                        let parsedReactions: any[] = []
+                                                        try {
+                                                            parsedReactions = JSON.parse(msg.reactions)
+                                                        } catch (e) {}
+                                                        if (parsedReactions.length === 0) return null
+
+                                                        const emojiCounts = parsedReactions.reduce((acc: any, cur: any) => {
+                                                            acc[cur.emoji] = (acc[cur.emoji] || 0) + 1
+                                                            return acc
+                                                        }, {})
+
+                                                        const userReaction = parsedReactions.find((r: any) => r.userId === currentUser.id)
+
+                                                        return (
+                                                            <div className={`absolute -bottom-3 flex gap-1 items-center z-20 ${isMe ? 'right-2' : 'left-2'}`}>
+                                                                <div 
+                                                                    className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full py-0.5 px-1.5 shadow-sm flex items-center gap-1 text-[9px] font-semibold text-slate-650 dark:text-slate-300 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-750 transition-colors select-none"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation()
+                                                                        if (userReaction) {
+                                                                            handleReact(msg.id, userReaction.emoji)
+                                                                        } else {
+                                                                            handleReact(msg.id, '👍')
+                                                                        }
+                                                                    }}
+                                                                    title={parsedReactions.map((r: any) => `${r.userName}: ${r.emoji}`).join('\n')}
+                                                                >
+                                                                    <span className="flex items-center gap-0.5">
+                                                                        {Object.keys(emojiCounts).map(emoji => (
+                                                                            <span key={emoji}>{emoji}</span>
+                                                                        ))}
+                                                                    </span>
+                                                                    {parsedReactions.length > 1 && (
+                                                                        <span className="text-[7.5px] text-slate-400 dark:text-slate-500 font-bold ml-0.5">
+                                                                            {parsedReactions.length}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        )
+                                                    })()}
                                                 </div>
                                                 {/* Action Buttons on Hover */}
                                                 {!msg.isOptimistic && (
                                                     <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5 flex-shrink-0">
                                                         <button 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                setActiveReactionPickerId(activeReactionPickerId === msg.id ? null : msg.id)
+                                                            }}
+                                                            className="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-850 text-slate-400 hover:text-slate-650 dark:hover:text-slate-300 cursor-pointer"
+                                                            title="Tepki Ver"
+                                                        >
+                                                            <Smile className="w-3.5 h-3.5" />
+                                                        </button>
+                                                        <button 
                                                             onClick={() => {
                                                                 setReplyToMessage(msg)
                                                                 inputRef.current?.focus()
                                                             }}
-                                                            className="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-850 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
+                                                            className="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-850 text-slate-400 hover:text-slate-650 dark:hover:text-slate-300 cursor-pointer"
                                                             title="Yanıtla"
                                                         >
                                                             <CornerUpLeft className="w-3.5 h-3.5" />
@@ -794,7 +926,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                         {isMe && (
                                                             <button 
                                                                 onClick={() => handleDeleteMessage(msg.id)}
-                                                                className="p-1 rounded-full hover:bg-red-50 dark:hover:bg-red-950/20 text-slate-400 hover:text-red-600 dark:hover:text-red-400 cursor-pointer"
+                                                                className="p-1 rounded-full hover:bg-red-50 dark:hover:bg-red-950/20 text-slate-400 hover:text-red-650 dark:hover:text-red-400 cursor-pointer"
                                                                 title="Sil"
                                                             >
                                                                 <Trash2 className="w-3.5 h-3.5" />
