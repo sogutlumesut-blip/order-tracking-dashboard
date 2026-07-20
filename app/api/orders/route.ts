@@ -113,11 +113,9 @@ export async function GET(req: NextRequest) {
             orderBy: { date: "desc" },
             select: orderSelect
         }) : Promise.resolve([]);
-
         const terminalOrdersPromise = targetTerminal.length > 0 ? db.order.findMany({
             where: { status: { in: targetTerminal } },
             orderBy: { date: "desc" },
-            take: 200,
             select: orderSelect
         }) : Promise.resolve([]);
 
