@@ -2487,6 +2487,22 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                     totalAmount = parseFloat(pmOrder.total_price);
                 }
 
+                // Map general fields
+                const status = (pmOrder.status || pmOrder.order_status || "pending").toLowerCase();
+                let mappedStatus = "pending_pm";
+                if (status.includes("ship") || status === "completed") {
+                    mappedStatus = "shipped";
+                } else if (status === "cancelled" || status === "deleted") {
+                    mappedStatus = "cancelled";
+                }
+
+                // Add cancellation labels if order is cancelled or deleted in PrintMarkt
+                if (status === "cancelled") {
+                    labels.push("İPTAL EDİLDİ");
+                } else if (status === "deleted") {
+                    labels.push("SİLİNDİ");
+                }
+
                 // Sanitize and deduplicate labels
                 labels = labels.map((l: string) => l.toUpperCase());
                 // Remove obsolete/duplicate tags
@@ -2494,10 +2510,6 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                 // Correct Turkish character encoding issues
                 labels = labels.map((l: string) => l.replace('ÖZEL ETIKET', 'ÖZEL ETİKET'));
                 labels = [...new Set(labels)];
-
-                // Map general fields
-                const status = (pmOrder.status || pmOrder.order_status || "pending").toLowerCase();
-                const mappedStatus = (status.includes("ship") || status === "completed") ? "shipped" : "pending_pm";
 
                 let paymentMethod = pmOrder.payment_method || pmOrder.gateway || "API";
                 if (paymentMethod.toUpperCase() === 'ON_ACCOUNT') paymentMethod = 'CARI';

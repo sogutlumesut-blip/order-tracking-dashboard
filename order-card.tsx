@@ -65,6 +65,8 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
     const [daysSinceUpdate, setDaysSinceUpdate] = useState(0)
 
     const isPaymentFailed = order.labels.includes('Ödeme Başarısız')
+    const isCancelled = order.labels.includes('İPTAL EDİLDİ') || order.labels.includes('İptal Edildi')
+    const isDeleted = order.labels.includes('SİLİNDİ') || order.labels.includes('Silindi')
 
     useEffect(() => {
         const isPrintingStatus = ['processing', 'baski', 'printing', 'printed'].includes(order.status.toLowerCase()) || order.status.toLowerCase().includes('print')
@@ -79,8 +81,10 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
             onMouseEnter={() => onPrefetch?.()}
             className={`bg-white dark:bg-slate-900 rounded-xl shadow-sm cursor-pointer hover:shadow-md transition-all relative group overflow-hidden border-2 ${selected ? 'border-blue-600 ring-2 ring-blue-300 transform scale-[1.02]' :
                 isPaymentFailed ? 'border-red-600 bg-red-50 dark:bg-red-900/20' :
-                    order.hasNotification ? 'border-blue-500 bg-blue-50/30 dark:bg-blue-900/20' :
-                        isStuck ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200 dark:border-slate-800'
+                    isCancelled ? 'border-rose-500 bg-rose-50/10 dark:bg-rose-950/20' :
+                        isDeleted ? 'border-slate-500 bg-slate-50/10 dark:bg-slate-950/20' :
+                            order.hasNotification ? 'border-blue-500 bg-blue-50/30 dark:bg-blue-900/20' :
+                                isStuck ? 'border-amber-400 bg-amber-50/30' : 'border-slate-200 dark:border-slate-800'
                 }`}
         >
             {/* SELECTION CHECKBOX (Visible on hover or if selected or if selectionMode is active) */}
@@ -109,7 +113,7 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                         alt="Sipariş Görseli"
                         fill
                         unoptimized
-                        className={`object-cover group-hover:scale-105 transition-transform duration-500 ${isPaymentFailed ? 'grayscale' : ''}`}
+                        className={`object-cover group-hover:scale-105 transition-transform duration-500 ${(isPaymentFailed || isCancelled || isDeleted) ? 'grayscale' : ''}`}
                     />
                 ) : (
                     <div className="flex items-center justify-center h-full text-slate-400">
@@ -127,10 +131,30 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                     </div>
                 )}
 
+                {/* Cancelled Badge */}
+                {isCancelled && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-30">
+                        <div className="bg-rose-600 text-white font-bold px-3 py-1.5 rounded-lg shadow-2xl flex items-center gap-2 transform -rotate-6 border-2 border-white">
+                            <AlertTriangle className="w-5 h-5 text-white" />
+                            İPTAL EDİLDİ
+                        </div>
+                    </div>
+                )}
+
+                {/* Deleted Badge */}
+                {isDeleted && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 z-30">
+                        <div className="bg-slate-700 text-white font-bold px-3 py-1.5 rounded-lg shadow-2xl flex items-center gap-2 transform -rotate-6 border-2 border-white">
+                            <AlertTriangle className="w-5 h-5 text-white" />
+                            SİLİNDİ
+                        </div>
+                    </div>
+                )}
+
                 {/* Badges Container */}
                 <div className="absolute top-2 left-2 flex flex-col gap-1 z-20 items-start">
                     {/* Notification Badge */}
-                    {order.hasNotification && !isPaymentFailed && (() => {
+                    {order.hasNotification && !isPaymentFailed && !isCancelled && !isDeleted && (() => {
                         let badgeText = order.status === 'pending' || order.status.toLowerCase().includes('yeni') ? 'YENİ SİPARİŞ' : 'YENİ GÜNCELLEME';
                         let bgColorClass = 'bg-blue-600'; // Default Blue
                         let badgeEmoji = '🔔';
