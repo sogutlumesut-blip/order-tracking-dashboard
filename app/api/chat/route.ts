@@ -50,7 +50,11 @@ export async function GET(req: Request) {
         // If we fetched using 'since', the order is already 'asc' (chronological).
         // Otherwise, it was 'desc' and we need to reverse it to display oldest first.
         const resultMessages = since ? serializedMessages : serializedMessages.reverse()
-        return NextResponse.json({ success: true, messages: resultMessages })
+        const response = NextResponse.json({ success: true, messages: resultMessages })
+        response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+        response.headers.set('Pragma', 'no-cache')
+        response.headers.set('Expires', '0')
+        return response
     } catch (e: any) {
         console.error("Error fetching chat messages:", e)
         return NextResponse.json({ success: false, error: e.message }, { status: 500 })

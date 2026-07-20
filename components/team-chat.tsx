@@ -293,18 +293,13 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                         newMsg.senderId !== currentUser.id
                     )
                     
-                    // Keep optimistic messages that are still sending or haven't arrived yet
-                    const filteredCurrent = updatedMessages.filter(m => 
-                        m.isOptimistic || !res.messages.some((nm: any) => nm.id === m.id)
-                    )
-                    
                     // Only update state if something actually changed (to prevent unnecessary re-renders)
                     const hasNewOrUpdates = newUniqueMessages.length > 0 || res.messages.some((nm: any) => 
                         latestMessages.some(m => m.id === nm.id && m.reactions !== nm.reactions)
                     )
 
                     if (hasNewOrUpdates) {
-                        setMessages([...filteredCurrent, ...newUniqueMessages])
+                        setMessages([...updatedMessages, ...newUniqueMessages])
                     }
                     
                     if (newOtherMessages.length > 0) {
