@@ -256,11 +256,11 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
             const nonOptimisticMessages = currentMessages.filter(m => !m.isOptimistic)
             const lastMessage = nonOptimisticMessages[nonOptimisticMessages.length - 1]
             
-            let url = '/api/chat'
+            let url = `/api/chat?t=${Date.now()}`
             // Use incremental fetch on subsequent polls if we have a last message timestamp
             if (!isFirstFetchRef.current && lastMessage && lastMessage.createdAt) {
                 const timestamp = new Date(lastMessage.createdAt).getTime()
-                url = `/api/chat?since=${timestamp}`
+                url = `/api/chat?since=${timestamp}&t=${Date.now()}`
             }
             
             isFirstFetchRef.current = false
