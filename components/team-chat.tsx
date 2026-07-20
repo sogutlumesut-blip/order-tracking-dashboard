@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from "react"
-import { MessageCircle, X, Send, User as UserIcon, Paperclip, Download, CornerUpLeft, Trash2, Smile } from "lucide-react"
+import { useState, useEffect, useRef, useMemo } from "react"
+import { MessageCircle, X, Send, User as UserIcon, Paperclip, Download, CornerUpLeft, Trash2, Smile, FolderOpen, ChevronLeft, Image as ImageIcon, Link, FileText, Calendar } from "lucide-react"
 import { toast } from "sonner"
 
 interface User {
@@ -203,6 +203,8 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     const [isLoading, setIsLoading] = useState(false)
     const [isSending, setIsSending] = useState(false)
     const [hasUnread, setHasUnread] = useState(false)
+    const [showMediaGallery, setShowMediaGallery] = useState(false)
+    const [activeGalleryTab, setActiveGalleryTab] = useState<'media' | 'links' | 'docs'>('media')
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const scrollContainerRef = useRef<HTMLDivElement>(null)
     
@@ -679,9 +681,62 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         } catch (error: any) {
             setMessages(previousMessages)
             localStorage.setItem('team_chat_messages', JSON.stringify(previousMessages))
-            alert("Mesaj silinirken bir hata oluştu: " + (error.message || error))
         }
     }
+    // Media, Links and Docs Extraction
+    const galleryItems = useMemo(() => {
+        const media: any[] = []
+        const links: any[] = []
+        const docs: any[] = []
+
+        const urlRegex = /(https?:\/\/[^\s]+)/g
+
+        messages.forEach(msg => {
+            if (msg.attachment) {
+                const isPdf = msg.attachment.startsWith('data:application/pdf') || 
+                              (msg.text && msg.text.toLowerCase().endsWith('.pdf')) || 
+                              msg.attachment.includes('ext=.pdf')
+                if (isPdf) {
+                    docs.push({
+                        id: msg.id,
+                        name: msg.text || 'Belge.pdf',
+                        url: msg.attachment,
+                        createdAt: msg.createdAt,
+                        senderName: msg.sender?.name || 'Bilinmeyen'
+                    })
+                } else {
+                    media.push({
+                        id: msg.id,
+                        url: msg.attachment,
+                        createdAt: msg.createdAt,
+                        senderName: msg.sender?.name || 'Bilinmeyen'
+                    })
+                }
+            }
+
+            if (msg.text) {
+                const foundUrls = msg.text.match(urlRegex)
+                if (foundUrls) {
+                    foundUrls.forEach(url => {
+                        links.push({
+                            id: msg.id,
+                            url: url,
+                            text: msg.text,
+                            createdAt: msg.createdAt,
+                            senderName: msg.sender?.name || 'Bilinmeyen'
+                        })
+                    })
+                }
+            }
+        })
+
+        return {
+            media: [...media].reverse(),
+            links: [...links].reverse(),
+            docs: [...docs].reverse()
+        }
+    }, [messages])
+
     return (
         <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end">
             {isOpen && (
@@ -689,15 +744,190 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                     {/* Header */}
                     <div className="bg-slate-900 text-white px-4 py-3 flex justify-between items-center">
                         <div className="flex items-center gap-2">
-                            <MessageCircle className="w-5 h-5 text-emerald-400" />
-                            <h3 className="font-bold">Takım Sohbeti</h3>
+                            {showMediaGallery ? (
+                                <button 
+                                    onClick={() => setShowMediaGallery(false)} 
+                                    className="hover:bg-slate-800 p-1 rounded-full transition-colors mr-1 cursor-pointer flex items-center justify-center"
+                                    title="Sohbete Geri Dön"
+                                >
+                                    <ChevronLeft className="w-5 h-5 text-emerald-400" />
+                                </button>
+                            ) : (
+                                <MessageCircle className="w-5 h-5 text-emerald-400" />
+                            )}
+                            <h3 className="font-bold">
+                                {showMediaGallery ? 'Medya, Bağlantı ve Belgeler' : 'Takım Sohbeti'}
+                            </h3>
                         </div>
-                        <button onClick={() => setIsOpen(false)} className="hover:bg-slate-800 p-1 rounded-full transition-colors">
-                            <X className="w-5 h-5" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                            {!showMediaGallery && (
+                                <button 
+                                    onClick={() => {
+                                        setShowMediaGallery(true)
+                                        setActiveReactionPickerId(null)
+                                    }} 
+                                    className="hover:bg-slate-800 p-1.5 rounded-full transition-colors cursor-pointer flex items-center justify-center"
+                                    title="Medya, Bağlantılar ve Belgeler"
+                                >
+                                    <FolderOpen className="w-5 h-5 text-slate-300 hover:text-emerald-400" />
+                                </button>
+                            )}
+                            <button onClick={() => setIsOpen(false)} className="hover:bg-slate-800 p-1 rounded-full transition-colors cursor-pointer flex items-center justify-center">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
                     </div>
 
-                    {/* Messages */}
+                    {showMediaGallery ? (
+                        <div className="flex-1 flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950/50">
+                            {/* Tab Selectors */}
+                            <div className="flex border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                                <button 
+                                    onClick={() => setActiveGalleryTab('media')}
+                                    className={`flex-1 py-3 text-xs font-bold transition-all border-b-2 flex items-center justify-center gap-1.5 cursor-pointer ${
+                                        activeGalleryTab === 'media' 
+                                            ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400' 
+                                            : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                                    }`}
+                                >
+                                    <ImageIcon className="w-3.5 h-3.5" /> Medya ({galleryItems.media.length})
+                                </button>
+                                <button 
+                                    onClick={() => setActiveGalleryTab('links')}
+                                    className={`flex-1 py-3 text-xs font-bold transition-all border-b-2 flex items-center justify-center gap-1.5 cursor-pointer ${
+                                        activeGalleryTab === 'links' 
+                                            ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400' 
+                                            : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                                    }`}
+                                >
+                                    <Link className="w-3.5 h-3.5" /> Bağlantılar ({galleryItems.links.length})
+                                </button>
+                                <button 
+                                    onClick={() => setActiveGalleryTab('docs')}
+                                    className={`flex-1 py-3 text-xs font-bold transition-all border-b-2 flex items-center justify-center gap-1.5 cursor-pointer ${
+                                        activeGalleryTab === 'docs' 
+                                            ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400' 
+                                            : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                                    }`}
+                                >
+                                    <FileText className="w-3.5 h-3.5" /> Belgeler ({galleryItems.docs.length})
+                                </button>
+                            </div>
+
+                            {/* Content */}
+                            <div className="flex-1 overflow-y-auto p-4">
+                                {activeGalleryTab === 'media' && (
+                                    galleryItems.media.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center h-full text-slate-450 dark:text-slate-500 text-sm py-12">
+                                            <ImageIcon className="w-8 h-8 mb-2 opacity-50" />
+                                            <span>Henüz yüklü görsel yok.</span>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-3 gap-2.5">
+                                            {galleryItems.media.map(item => (
+                                                <div 
+                                                    key={item.id}
+                                                    onClick={() => setActiveLightboxImage(item.url)}
+                                                    className="relative aspect-square rounded-xl overflow-hidden border border-slate-100 dark:border-slate-800/80 bg-slate-200 dark:bg-slate-850 cursor-pointer group hover:scale-[1.03] transition-all duration-200 shadow-sm hover:shadow"
+                                                >
+                                                    <img 
+                                                        src={item.url} 
+                                                        alt="Galeri Görseli" 
+                                                        className="w-full h-full object-cover group-hover:brightness-95 transition-all"
+                                                    />
+                                                    <div className="absolute inset-x-0 bottom-0 bg-black/45 p-1 text-[8px] text-white text-center font-medium truncate opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        {item.senderName}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )
+                                )}
+
+                                {activeGalleryTab === 'links' && (
+                                    galleryItems.links.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center h-full text-slate-450 dark:text-slate-500 text-sm py-12">
+                                            <Link className="w-8 h-8 mb-2 opacity-50" />
+                                            <span>Henüz paylaşılan bağlantı yok.</span>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {galleryItems.links.map((item, idx) => (
+                                                <div key={`${item.id}-${idx}`} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/60 p-3 rounded-xl flex gap-3 shadow-sm hover:shadow-md transition-shadow">
+                                                    <div className="w-8 h-8 rounded-full bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center flex-shrink-0 text-emerald-600 dark:text-emerald-400">
+                                                        <Link className="w-4 h-4" />
+                                                    </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <a 
+                                                            href={item.url} 
+                                                            target="_blank" 
+                                                            rel="noopener noreferrer" 
+                                                            className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline break-all block text-left"
+                                                        >
+                                                            {item.url}
+                                                        </a>
+                                                        <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 mt-1 italic text-left">
+                                                            "{item.text}"
+                                                        </p>
+                                                        <div className="flex justify-between items-center mt-2 text-[9px] text-slate-400">
+                                                            <span className="font-semibold">{item.senderName}</span>
+                                                            <div className="flex items-center gap-1">
+                                                                <Calendar className="w-3 h-3" />
+                                                                {new Date(item.createdAt).toLocaleDateString('tr-TR')}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )
+                                )}
+
+                                {activeGalleryTab === 'docs' && (
+                                    galleryItems.docs.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center h-full text-slate-450 dark:text-slate-500 text-sm py-12">
+                                            <FileText className="w-8 h-8 mb-2 opacity-50" />
+                                            <span>Henüz paylaşılan belge yok.</span>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {galleryItems.docs.map(item => (
+                                                <div key={item.id} className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/60 p-3 rounded-xl flex items-center justify-between gap-3 shadow-sm">
+                                                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                                                        <div className="w-8 h-8 rounded-full bg-red-50 dark:bg-red-950/30 flex items-center justify-center flex-shrink-0 text-red-600 dark:text-red-400">
+                                                            <FileText className="w-4 h-4" />
+                                                        </div>
+                                                        <div className="min-w-0 flex-1 text-left">
+                                                            <h4 className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate" title={item.name}>
+                                                                {item.name}
+                                                            </h4>
+                                                            <div className="flex gap-2 items-center mt-1 text-[9px] text-slate-400">
+                                                                <span className="font-semibold">{item.senderName}</span>
+                                                                <span>•</span>
+                                                                <span>{new Date(item.createdAt).toLocaleDateString('tr-TR')}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <a 
+                                                        href={item.url} 
+                                                        download={item.name} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer" 
+                                                        className="p-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 rounded-lg transition-colors cursor-pointer flex items-center justify-center"
+                                                        title="İndir"
+                                                    >
+                                                        <Download className="w-4 h-4" />
+                                                    </a>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Messages */}
                     <div 
                         ref={scrollContainerRef} 
                         onClick={() => setActiveReactionPickerId(null)}
@@ -1141,8 +1371,10 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                             </button>
                         </form>
                     </div>
-                </div>
+                </>
             )}
+        </div>
+    )}
 
             {!isOpen && (
                 <button 
