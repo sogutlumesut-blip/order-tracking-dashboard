@@ -277,15 +277,16 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                         return
                     }
                     
-                    // Filter out any messages from res.messages that already exist in latestMessages
+                    // 1. Update any existing messages that got updated (e.g. reactions added/removed)
+                    const updatedMessages = latestMessages.map(m => {
+                        const updated = res.messages.find((nm: any) => nm.id === m.id)
+                        return updated ? updated : m
+                    })
+
+                    // 2. Filter out new messages that are not yet in our local list
                     const newUniqueMessages = res.messages.filter((newMsg: any) => 
                         !latestMessages.some(m => m.id === newMsg.id)
                     )
-                    
-                    if (newUniqueMessages.length === 0) {
-                        if (showLoading) setIsLoading(false)
-                        return
-                    }
                     
                     // Identify new incoming messages from other users (for sound/unread notification)
                     const newOtherMessages = newUniqueMessages.filter((newMsg: any) => 
@@ -293,11 +294,18 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                     )
                     
                     // Keep optimistic messages that are still sending or haven't arrived yet
-                    const filteredCurrent = latestMessages.filter(m => 
+                    const filteredCurrent = updatedMessages.filter(m => 
                         m.isOptimistic || !res.messages.some((nm: any) => nm.id === m.id)
                     )
                     
-                    setMessages([...filteredCurrent, ...newUniqueMessages])
+                    // Only update state if something actually changed (to prevent unnecessary re-renders)
+                    const hasNewOrUpdates = newUniqueMessages.length > 0 || res.messages.some((nm: any) => 
+                        latestMessages.some(m => m.id === nm.id && m.reactions !== nm.reactions)
+                    )
+
+                    if (hasNewOrUpdates) {
+                        setMessages([...filteredCurrent, ...newUniqueMessages])
+                    }
                     
                     if (newOtherMessages.length > 0) {
                         playNotificationSound()

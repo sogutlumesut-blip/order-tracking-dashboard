@@ -14,9 +14,11 @@ export async function GET(req: Request) {
 
         const where: any = {}
         if (since) {
-            where.createdAt = {
-                gt: new Date(Number(since))
-            }
+            const sinceDate = new Date(Number(since))
+            where.OR = [
+                { createdAt: { gt: sinceDate } },
+                { updatedAt: { gt: sinceDate } }
+            ]
         }
 
         const messages = await db.chatMessage.findMany({
