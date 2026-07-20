@@ -141,6 +141,7 @@ model ChatMessage {
   replyToId   String?
   replyToText String?
   replyToName String?
+  reactions   String?
   createdAt   DateTime @default(now())
   sender      User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
 
