@@ -2088,7 +2088,8 @@ export async function syncCargoKargoEntegrator(force: boolean = false) {
                     barcode: true,
                     cargoTrackingNumber: true,
                     cargoBarcode: true,
-                    cargoLabelPdf: true
+                    cargoLabelPdf: true,
+                    status: true
                 }
             });
 
@@ -2130,7 +2131,7 @@ export async function syncCargoKargoEntegrator(force: boolean = false) {
                         !!ship.shipped_at;
 
                     if (isDelivered) {
-                        if (order.status !== 'completed' && order.status !== 'cancelled') {
+                        if (order.status === 'shipped') {
                             targetStatus = 'completed';
                             statusChanged = true;
                             activityDetails = `Kargo teslim edildi olarak tespit edildi (Senkronizasyon, Durum: ${ship.status || 'delivered'}). Sipariş durumu otomatik olarak Tamamlandı yapıldı.`;

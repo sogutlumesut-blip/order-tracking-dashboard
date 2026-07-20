@@ -58,7 +58,7 @@ export async function POST(req: Request) {
             let activityDetails = `Kargo entegrasyonu güncellendi.`;
 
             if (isDelivered) {
-                if (order.status !== 'completed' && order.status !== 'cancelled') {
+                if (order.status === 'shipped') {
                     updateData.status = 'completed';
                     updateData.updatedAt = new Date();
                     statusChanged = true;
