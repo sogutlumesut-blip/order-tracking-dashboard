@@ -685,7 +685,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     return (
         <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end">
             {isOpen && (
-                <div className="bg-white dark:bg-slate-900 w-80 sm:w-96 h-[680px] max-h-[85vh] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden mb-4 animate-in slide-in-from-bottom-5">
+                <div className="bg-white dark:bg-slate-900 w-[92vw] sm:w-[480px] h-[760px] max-h-[90vh] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden mb-4 animate-in slide-in-from-bottom-5">
                     {/* Header */}
                     <div className="bg-slate-900 text-white px-4 py-3 flex justify-between items-center">
                         <div className="flex items-center gap-2">
@@ -721,7 +721,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                 <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
                                                     <UserIcon className="w-3.5 h-3.5 text-slate-500" />
                                                 </div>
-                                                <div className={`relative px-3 py-2 rounded-2xl max-w-[240px] text-sm break-words transition-all duration-300 ${
+                                                <div className={`relative px-3 py-2 rounded-2xl max-w-[340px] text-sm break-words transition-all duration-300 ${
                                                     highlightedMessageId === msg.id 
                                                         ? 'ring-4 ring-amber-400 dark:ring-amber-500 scale-[1.03] shadow-md z-10' 
                                                         : ''
@@ -957,7 +957,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                     <div className="font-bold text-[9px] text-emerald-600 dark:text-emerald-400">
                                         {replyToMessage.sender?.name || 'Bilinmeyen'} kullanıcısına yanıt veriliyor
                                     </div>
-                                    <div className="text-slate-500 dark:text-slate-400 truncate max-w-[240px]">
+                                    <div className="text-slate-500 dark:text-slate-400 truncate max-w-[340px]">
                                         {replyToMessage.attachment && (replyToMessage.attachment.startsWith('data:application/pdf') || replyToMessage.attachment.endsWith('.pdf')) 
                                             ? "📄 PDF Belgesi" 
                                             : replyToMessage.attachment 
