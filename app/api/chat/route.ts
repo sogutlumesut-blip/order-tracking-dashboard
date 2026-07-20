@@ -24,6 +24,7 @@ export async function GET(req: Request) {
         const messages = await db.chatMessage.findMany({
             where,
             orderBy: { createdAt: since ? 'asc' : 'desc' },
+            take: 150,
             include: {
                 sender: {
                     select: { id: true, name: true, role: true }
