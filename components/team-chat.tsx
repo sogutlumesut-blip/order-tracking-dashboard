@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from "react"
-import { MessageCircle, X, Send, User as UserIcon, Paperclip, Download, CornerUpLeft, Trash2, Smile, FolderOpen, ChevronLeft, Image as ImageIcon, Link, FileText, Calendar } from "lucide-react"
+import { MessageCircle, X, Send, User as UserIcon, Paperclip, Download, CornerUpLeft, Trash2, Smile, FolderOpen, ChevronLeft, Image as ImageIcon, Link, FileText, Calendar, Pin } from "lucide-react"
 import { toast } from "sonner"
 
 interface User {
@@ -199,7 +199,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     })
     
     const [newMessage, setNewMessage] = useState("")
-    const [attachment, setAttachment] = useState<string | null>(null)
+    const [attachments, setAttachments] = useState<string[]>([])
     const [isLoading, setIsLoading] = useState(false)
     const [isSending, setIsSending] = useState(false)
     const [hasUnread, setHasUnread] = useState(false)
@@ -578,28 +578,52 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault()
         if (isSending) return
-        if (!newMessage.trim() && !attachment) return
+        if (!newMessage.trim() && attachments.length === 0) return
 
         setIsSending(true)
         setShowEmojiPicker(false)
-        const optimisticId = 'temp-' + Date.now()
+
+        const textToSend = newMessage
+        const attachmentsToSend = [...attachments]
+        const replyToSend = replyToMessage
+
+        setNewMessage("")
+        setAttachments([])
+        setReplyToMessage(null)
+
+        try {
+            if (attachmentsToSend.length === 0) {
+                await sendMessageItem(textToSend, null, replyToSend)
+            } else {
+                for (let i = 0; i < attachmentsToSend.length; i++) {
+                    const text = i === 0 ? textToSend : ""
+                    const reply = i === 0 ? replyToSend : null
+                    await sendMessageItem(text, attachmentsToSend[i], reply)
+                }
+            }
+        } finally {
+            setIsSending(false)
+        }
+    }
+
+    const sendMessageItem = async (text: string, att: string | null, reply: any) => {
+        const optimisticId = 'temp-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7)
         
-        // Truncate and format the reply text to store in DB
-        const replyText = replyToMessage 
-            ? (replyToMessage.attachment && (replyToMessage.attachment.startsWith('data:application/pdf') || replyToMessage.attachment.endsWith('.pdf'))
+        const replyText = reply 
+            ? (reply.attachment && (reply.attachment.startsWith('data:application/pdf') || reply.attachment.endsWith('.pdf'))
                 ? "📄 PDF Belgesi" 
-                : replyToMessage.attachment 
+                : reply.attachment 
                     ? "📷 Görsel" 
-                    : replyToMessage.text)
+                    : reply.text)
             : null
 
         const optimisticMessage = {
             id: optimisticId,
-            text: newMessage,
-            attachment: attachment,
-            replyToId: replyToMessage ? replyToMessage.id : null,
+            text: text,
+            attachment: att,
+            replyToId: reply ? reply.id : null,
             replyToText: replyText,
-            replyToName: replyToMessage ? (replyToMessage.sender?.name || 'Bilinmeyen') : null,
+            replyToName: reply ? (reply.sender?.name || 'Bilinmeyen') : null,
             senderId: currentUser.id,
             createdAt: new Date(),
             sender: currentUser,
@@ -608,9 +632,6 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         
         sendingMessageIdsRef.current.add(optimisticId)
         setMessages(prev => [...prev, optimisticMessage])
-        setNewMessage("")
-        setAttachment(null)
-        setReplyToMessage(null) // Reset reply preview bar
         setTimeout(() => scrollToBottom(true), 50)
 
         try {
@@ -630,13 +651,10 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
             const res = await response.json()
             if (!res.success) {
                 sendingMessageIdsRef.current.delete(optimisticId)
-                // Revert on error
                 setMessages(prev => prev.filter(m => m.id !== optimisticId))
                 alert("Mesaj gönderilemedi: " + res.error)
             } else {
                 sendingMessageIdsRef.current.delete(optimisticId)
-                // Replace the optimistic message directly with the server-saved message,
-                // but ensure we don't introduce duplicates if it was already added by a background poll.
                 setMessages(prev => {
                     const alreadyHasServerMsg = prev.some(m => m.id === res.message.id)
                     if (alreadyHasServerMsg) {
@@ -649,8 +667,6 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
             sendingMessageIdsRef.current.delete(optimisticId)
             setMessages(prev => prev.filter(m => m.id !== optimisticId))
             alert("Mesaj gönderilirken bir hata oluştu: " + (error.message || error))
-        } finally {
-            setIsSending(false)
         }
     }
     const handleDeleteMessage = async (messageId: string) => {
@@ -679,8 +695,25 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                 alert("Mesaj silinemedi: " + res.error)
             }
         } catch (error: any) {
-            setMessages(previousMessages)
-            localStorage.setItem('team_chat_messages', JSON.stringify(previousMessages))
+        }
+    }
+
+    const handleTogglePin = async (messageId: string) => {
+        // Optimistic update
+        setMessages(prev => prev.map(m => m.id === messageId ? { ...m, isPinned: !m.isPinned } : m))
+
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messageId, action: 'pin' })
+            })
+            const res = await response.json()
+            if (res.success && res.message) {
+                setMessages(prev => prev.map(m => m.id === messageId ? res.message : m))
+            }
+        } catch (error: any) {
+            console.error("Failed to toggle pin:", error)
         }
     }
     // Media, Links and Docs Extraction
@@ -737,6 +770,19 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         }
     }, [messages])
 
+    const pinnedMessage = useMemo(() => {
+        return [...messages].reverse().find(m => m.isPinned)
+    }, [messages])
+
+    const scrollToMessage = (messageId: string) => {
+        const el = document.getElementById(`msg-${messageId}`)
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            setHighlightedMessageId(messageId)
+            setTimeout(() => setHighlightedMessageId(null), 3000)
+        }
+    }
+
     return (
         <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end">
             {isOpen && (
@@ -777,6 +823,33 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                             </button>
                         </div>
                     </div>
+
+                    {!showMediaGallery && pinnedMessage && (
+                        <div 
+                            onClick={() => scrollToMessage(pinnedMessage.id)}
+                            className="bg-amber-50 dark:bg-slate-800/90 border-b border-amber-200/80 dark:border-slate-700/60 px-3 py-2 flex items-center justify-between text-xs cursor-pointer group hover:bg-amber-100/70 dark:hover:bg-slate-750 transition-colors z-20 shadow-sm"
+                        >
+                            <div className="flex items-center gap-2 min-w-0 text-left">
+                                <Pin className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0 fill-amber-500/30 rotate-45" />
+                                <span className="font-bold text-amber-700 dark:text-amber-300 flex-shrink-0">Sabitlenen:</span>
+                                <span className="text-slate-700 dark:text-slate-200 truncate font-medium">
+                                    {pinnedMessage.attachment 
+                                        ? (pinnedMessage.attachment.includes('.pdf') ? "📄 PDF Belgesi" : "📷 Görsel") 
+                                        : pinnedMessage.text}
+                                </span>
+                            </div>
+                            <button 
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleTogglePin(pinnedMessage.id)
+                                }}
+                                className="text-slate-400 hover:text-red-500 p-1 rounded-full hover:bg-amber-200/50 dark:hover:bg-slate-700 transition-colors ml-2 flex-shrink-0"
+                                title="Sabitlemeyi Kaldır"
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                    )}
 
                     {showMediaGallery ? (
                         <div className="flex-1 flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950/50">
@@ -1156,6 +1229,13 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                         >
                                                             <CornerUpLeft className="w-3.5 h-3.5" />
                                                         </button>
+                                                        <button 
+                                                            onClick={() => handleTogglePin(msg.id)} 
+                                                            className={`p-1 rounded-full transition-colors cursor-pointer ${msg.isPinned ? 'text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30' : 'text-slate-400 hover:text-slate-650 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-850'}`}
+                                                            title={msg.isPinned ? "Sabitlemeyi Kaldır" : "Mesajı Sabitle"}
+                                                        >
+                                                            <Pin className={`w-3.5 h-3.5 ${msg.isPinned ? 'fill-amber-500 rotate-45' : ''}`} />
+                                                        </button>
                                                         {isMe && (
                                                             <button 
                                                                 onClick={() => handleDeleteMessage(msg.id)}
@@ -1169,9 +1249,16 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                 )}
                                             </div>
                                         </div>
-                                        <span className="text-[9px] text-slate-400 mt-1 mx-8">
-                                            {new Date(msg.createdAt).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                                        </span>
+                                        <div className="flex items-center gap-1 mt-1 mx-8">
+                                            <span className="text-[9px] text-slate-400">
+                                                {new Date(msg.createdAt).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                            {msg.isPinned && (
+                                                <span className="text-[9px] font-bold text-amber-500 flex items-center gap-0.5 ml-1" title="Sabitlenmiş Mesaj">
+                                                    <Pin className="w-2.5 h-2.5 fill-amber-500 rotate-45" /> Sabitlendi
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                 )
                             })
@@ -1203,20 +1290,34 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                 </button>
                             </div>
                         )}
-                        {attachment && (
-                                                            <div className="relative inline-block self-start">
-                                                                {attachment.startsWith('data:application/pdf') ? (
-                                                                    <div className="h-16 px-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-lg flex items-center gap-2 text-xs text-red-600 dark:text-red-400 font-bold">
-                                                                        📄 PDF Belgesi
-                                                                    </div>
-                                                                ) : (
-                                                                    <img src={attachment} alt="Preview" className="h-16 w-16 object-cover rounded-lg border border-slate-200" />
-                                                                )}
-                                                                <button onClick={() => setAttachment(null)} className="absolute -top-2 -right-2 bg-slate-800 text-white rounded-full p-0.5 hover:bg-slate-700">
-                                                                    <X className="w-3 h-3" />
-                                                                </button>
-                                                            </div>
-                                                        )}
+                        {attachments.length > 0 && (
+                            <div className="flex gap-2 overflow-x-auto pb-1 max-w-full items-center">
+                                {attachments.map((att, idx) => (
+                                    <div key={idx} className="relative inline-block flex-shrink-0 group">
+                                        {att.startsWith('data:application/pdf') ? (
+                                            <div className="h-16 px-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-lg flex items-center gap-2 text-xs text-red-600 dark:text-red-400 font-bold">
+                                                📄 PDF Belgesi
+                                            </div>
+                                        ) : (
+                                            <img src={att} alt="Preview" className="h-16 w-16 object-cover rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm" />
+                                        )}
+                                        <button 
+                                            type="button"
+                                            onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))} 
+                                            className="absolute -top-1.5 -right-1.5 bg-slate-800 text-white rounded-full p-0.5 hover:bg-red-600 transition-colors shadow cursor-pointer flex items-center justify-center"
+                                            title="Kaldır"
+                                        >
+                                            <X className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                ))}
+                                {attachments.length > 1 && (
+                                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 whitespace-nowrap px-1">
+                                        ({attachments.length} dosya)
+                                    </span>
+                                )}
+                            </div>
+                        )}
                         <form onSubmit={handleSend} className="flex gap-2 items-center relative">
                             {/* Emoji Picker Dropdown */}
                             {showEmojiPicker && (
@@ -1263,35 +1364,34 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                             <label className={`text-slate-400 hover:text-emerald-600 transition-colors p-2 ${isSending ? 'opacity-50 cursor-not-allowed pointer-events-none' : 'cursor-pointer'}`}>
                                 <input 
                                     type="file" 
+                                    multiple
                                     disabled={isSending}
                                     accept="image/*,.pdf,application/pdf" 
                                     className="hidden" 
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0]
-                                        if (file) {
+                                    onChange={async (e) => {
+                                        const files = Array.from(e.target.files || [])
+                                        if (files.length === 0) return
+                                        for (const file of files) {
                                             if (file.type.includes('tiff') || file.name.endsWith('.tiff') || file.name.endsWith('.tif')) {
-                                                alert("TIFF formatındaki görseller tarayıcılar tarafından doğrudan gösterilemez. Lütfen görseli PNG veya JPG formatına dönüştürüp tekrar yükleyin.")
-                                                e.target.value = ''
-                                                return
+                                                alert("TIFF formatındaki görseller tarayıcılar tarafından doğrudan gösterilemez. Lütfen PNG/JPG formatında yükleyin.")
+                                                continue
                                             }
                                             if (file.size > 200 * 1024 * 1024) {
-                                                alert("Dosya boyutu 200MB'dan büyük olamaz.")
-                                                e.target.value = ''
-                                                return
+                                                alert(`"${file.name}" dosya boyutu 200MB'dan büyük olamaz.`)
+                                                continue
                                             }
                                             const reader = new FileReader()
                                             reader.onload = async () => {
+                                                const rawResult = reader.result as string
                                                 if (file.type === 'application/pdf') {
-                                                    setAttachment(reader.result as string)
-                                                    if (!newMessage.trim()) {
-                                                        setNewMessage(file.name)
-                                                    }
+                                                    setAttachments(prev => [...prev, rawResult])
+                                                    if (!newMessage.trim()) setNewMessage(file.name)
                                                 } else {
                                                     try {
-                                                        const compressed = await compressImage(reader.result as string)
-                                                        setAttachment(compressed)
+                                                        const compressed = await compressImage(rawResult)
+                                                        setAttachments(prev => [...prev, compressed])
                                                     } catch (err: any) {
-                                                        setAttachment(reader.result as string)
+                                                        setAttachments(prev => [...prev, rawResult])
                                                     }
                                                 }
                                             }
@@ -1321,7 +1421,6 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                     onPaste={(e) => {
                                         const items = e.clipboardData.items
                                         for (let i = 0; i < items.length; i++) {
-                                            // Ignore TIFF format from clipboard (macOS clipboards copy TIFF alongside PNG/JPEG)
                                             if (items[i].type.indexOf('image') !== -1 && !items[i].type.includes('tiff')) {
                                                 const file = items[i].getAsFile()
                                                 if (file) {
@@ -1333,9 +1432,9 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                     reader.onload = async () => {
                                                         try {
                                                             const compressed = await compressImage(reader.result as string)
-                                                            setAttachment(compressed)
+                                                            setAttachments(prev => [...prev, compressed])
                                                         } catch (err: any) {
-                                                            setAttachment(reader.result as string)
+                                                            setAttachments(prev => [...prev, reader.result as string])
                                                         }
                                                     }
                                                     reader.readAsDataURL(file)
@@ -1343,13 +1442,9 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                             } else if (items[i].type === 'application/pdf') {
                                                 const file = items[i].getAsFile()
                                                 if (file) {
-                                                    if (file.size > 200 * 1024 * 1024) {
-                                                        alert("Dosya boyutu 200MB'dan büyük olamaz.")
-                                                        return
-                                                    }
                                                     const reader = new FileReader()
                                                     reader.onload = () => {
-                                                        setAttachment(reader.result as string)
+                                                        setAttachments(prev => [...prev, reader.result as string])
                                                         if (!newMessage.trim()) {
                                                             setNewMessage(file.name)
                                                         }
@@ -1359,13 +1454,13 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                             }
                                         }
                                     }}
-                                placeholder="Mesaj yazın... (Görsel yapıştırabilirsiniz)"
+                                placeholder="Mesaj yazın... (Birden fazla görsel yapıştırabilirsiniz)"
                                 className="flex-1 bg-slate-100 dark:bg-slate-800 border-0 rounded-full px-4 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
                             />
                             <button 
                                 type="submit" 
-                                disabled={isSending || (!newMessage.trim() && !attachment)}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={isSending || (!newMessage.trim() && attachments.length === 0)}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                             >
                                 <Send className="w-4 h-4 ml-0.5" />
                             </button>

@@ -153,7 +153,39 @@ export async function PUT(req: Request) {
 
     try {
         const body = await req.json()
-        const { messageId, emoji } = body
+        const { messageId, emoji, action } = body
+
+        if (action === 'pin') {
+            if (!messageId) {
+                return NextResponse.json({ success: false, error: "Message ID is required" }, { status: 400 })
+            }
+            const message = await db.chatMessage.findUnique({
+                where: { id: messageId }
+            })
+            if (!message) {
+                return NextResponse.json({ success: false, error: "Message not found" }, { status: 404 })
+            }
+            const updatedMessage = await db.chatMessage.update({
+                where: { id: messageId },
+                data: {
+                    isPinned: !message.isPinned
+                },
+                include: {
+                    sender: {
+                        select: { id: true, name: true, role: true }
+                    }
+                }
+            })
+            const serializedMessage = {
+                ...updatedMessage,
+                attachment: updatedMessage.attachment 
+                    ? (updatedMessage.attachment.startsWith('http://') || updatedMessage.attachment.startsWith('https://')
+                        ? updatedMessage.attachment
+                        : `/api/chat/attachment?id=${updatedMessage.id}&ext=${(updatedMessage.attachment.startsWith('data:application/pdf') || (updatedMessage.text && updatedMessage.text.toLowerCase().endsWith('.pdf'))) ? '.pdf' : '.jpg'}`)
+                    : null
+            }
+            return NextResponse.json({ success: true, message: serializedMessage })
+        }
 
         if (!messageId || !emoji) {
             return NextResponse.json({ success: false, error: "Message ID and emoji are required" }, { status: 400 })
