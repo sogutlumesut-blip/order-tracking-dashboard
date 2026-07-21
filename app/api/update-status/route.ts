@@ -118,17 +118,27 @@ export async function POST(request: Request) {
                         data: { orderId: id, author: user, action: "NOTE_ADDED", details: "İşlem notu güncellendi." }
                     });
                 }
-
                 // 6. Labels Change
                 const oldLabels = oldOrder.labels;
                 const newLabels = typeof order.labels === 'string' ? order.labels : JSON.stringify(order.labels);
                 if (oldLabels !== newLabels) {
+                    let labelList: string[] = [];
+                    if (order.labels) {
+                        try {
+                            const parsed = typeof order.labels === 'string' ? JSON.parse(order.labels) : order.labels;
+                            if (Array.isArray(parsed)) labelList = parsed.filter(Boolean);
+                            else if (typeof order.labels === 'string' && order.labels.trim()) labelList = [order.labels.trim()];
+                        } catch (e) {
+                            if (typeof order.labels === 'string' && order.labels.trim()) labelList = [order.labels.trim()];
+                        }
+                    }
+                    const labelDetails = labelList.length > 0 
+                        ? `Etiketler güncellendi: [${labelList.join(', ')}]` 
+                        : "Etiketler temizlendi.";
                     await db.orderActivity.create({
-                        data: { orderId: id, author: user, action: "LABEL_UPDATE", details: "Etiketler güncellendi." }
+                        data: { orderId: id, author: user, action: "LABEL_UPDATE", details: labelDetails }
                     });
                 }
-
-                // 7. Item Updates
                 if (order.items && Array.isArray(order.items)) {
                     const itemsChanged = JSON.stringify(oldOrder.items.map(i => ({ sku: i.sku, material: i.material, dimensions: i.dimensions }))) !==
                         JSON.stringify(order.items.map((i: any) => ({ sku: i.sku, material: i.material, dimensions: i.dimensions })));

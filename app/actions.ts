@@ -580,13 +580,23 @@ export async function updateOrderDetails(rawOrder: any) {
             if (oldOrder.printNotes !== order.printNotes) {
                 await logActivity(order.id, user, "NOTE_ADDED", "Yeni işlem notu ekledi.")
             }
-
             // 6. Labels Change
             if (oldOrder.labels !== order.labels) {
-                await logActivity(order.id, user, "LABEL_UPDATE", "Etiketler güncellendi.")
+                let labelList: string[] = [];
+                if (order.labels) {
+                    try {
+                        const parsed = typeof order.labels === 'string' ? JSON.parse(order.labels) : order.labels;
+                        if (Array.isArray(parsed)) labelList = parsed.filter(Boolean);
+                        else if (typeof order.labels === 'string' && order.labels.trim()) labelList = [order.labels.trim()];
+                    } catch (e) {
+                        if (typeof order.labels === 'string' && order.labels.trim()) labelList = [order.labels.trim()];
+                    }
+                }
+                const labelDetails = labelList.length > 0 
+                    ? `Etiketler güncellendi: [${labelList.join(', ')}]` 
+                    : "Etiketler temizlendi.";
+                await logActivity(order.id, user, "LABEL_UPDATE", labelDetails);
             }
-
-            // 7. Item Updates
             if (order.items && Array.isArray(order.items)) {
                 const itemsChanged = JSON.stringify(oldOrder.items.map(i => ({ sku: i.sku, material: i.material, dimensions: i.dimensions }))) !==
                     JSON.stringify(order.items.map((i: any) => ({ sku: i.sku, material: i.material, dimensions: i.dimensions })));
