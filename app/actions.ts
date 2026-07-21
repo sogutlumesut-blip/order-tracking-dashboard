@@ -1713,15 +1713,25 @@ export async function syncWooCommerceOrders(force: boolean = false) {
 
                     // PRESERVE LABELS: Don't overwrite locally added labels
                     let finalLabels = labels;
+                    let hadPaymentFailedLabel = false;
                     try {
                         const localLabels = typeof existingOrder.labels === 'string' ? JSON.parse(existingOrder.labels) : existingOrder.labels;
                         if (Array.isArray(localLabels) && localLabels.length > 0) {
                             // Merge labels, keeping uniques
-                            const combined = Array.from(new Set([...localLabels, ...labels]));
+                            let combined = Array.from(new Set([...localLabels, ...labels]));
+                            const isWcFailed = (wcOrder.status === 'failed' || wcOrder.status === 'cancelled' || wcOrder.status === 'refunded');
+                            if (!isWcFailed && combined.includes('Ödeme Başarısız')) {
+                                combined = combined.filter((l: string) => l !== 'Ödeme Başarısız');
+                                hadPaymentFailedLabel = true;
+                            }
                             finalLabels = combined;
                         }
                     } catch (e) {
                         console.error("Label merge error:", e);
+                    }
+
+                    if (hadPaymentFailedLabel) {
+                        await logActivity(existingOrder.id, syncUser, "PAYMENT_SUCCESS", "WooCommerce ödemesi tamamlandığı için 'Ödeme Başarısız' etiketi otomatik kaldırıldı.");
                     }
 
                     // DETECT ACTUAL CHANGES to avoid unnecessary updatedAt updates
@@ -1729,12 +1739,17 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                     const newCustomer = `${wcOrder.billing.first_name || ''} ${wcOrder.billing.last_name || ''}`.trim() || 'Misafir';
 
                     const hasStatusChange = existingOrder.status !== finalStatus;
+                    const localLabelsStr = typeof existingOrder.labels === 'string' ? existingOrder.labels : JSON.stringify(existingOrder.labels || []);
+                    const finalLabelsStr = JSON.stringify(finalLabels);
+                    const hasLabelChange = localLabelsStr !== finalLabelsStr;
+
                     const hasDataChange =
                         oldCustomer !== newCustomer ||
                         existingOrder.city !== city ||
                         existingOrder.email !== wcOrder.billing.email ||
                         existingOrder.phone !== wcOrder.billing.phone ||
-                        existingOrder.address !== `${wcOrder.billing.address_1 || ''} ${wcOrder.billing.address_2 || ''}`.trim();
+                        existingOrder.address !== `${wcOrder.billing.address_1 || ''} ${wcOrder.billing.address_2 || ''}`.trim() ||
+                        hasLabelChange;
 
                     await db.order.update({
                         where: { id: existingOrder.id },
@@ -2137,7 +2152,8 @@ export async function syncCargoKargoEntegrator(force: boolean = false) {
                             activityDetails = `Kargo teslim edildi olarak tespit edildi (Senkronizasyon, Durum: ${ship.status || 'delivered'}). Sipariş durumu otomatik olarak Tamamlandı yapıldı.`;
                         }
                     } else if (isShipped) {
-                        if (order.status !== 'shipped' && order.status !== 'completed' && order.status !== 'cancelled') {
+                        const allowAutoShipped = ['pending_woo', 'pending_pm', 'draft', 'ready', 'packed'].includes(order.status);
+                        if (allowAutoShipped) {
                             targetStatus = 'shipped';
                             statusChanged = true;
                             activityDetails = `Kargo yola çıktı olarak tespit edildi (Senkronizasyon, Durum: ${ship.status || 'shipped'}). Sipariş durumu otomatik olarak Kargolandı yapıldı.`;
@@ -2527,9 +2543,7 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                     const isTerminalIncoming = incomingStatus === "shipped" || incomingStatus === "completed" || incomingStatus === "cancelled";
                     const isLocalTerminal = dbStatus === "shipped" || dbStatus === "completed" || dbStatus === "cancelled";
                     const isLocalModified = dbStatus !== "pending_pm";
-
-                    let keepLocalStatus = (isLocalModified && !isTerminalIncoming) || isLocalTerminal;
-                    
+                    let keepLocalStatus = isLocalModified || isLocalTerminal;                    
                     let finalStatus = incomingStatus;
                     if (keepLocalStatus) {
                         finalStatus = dbStatus;
