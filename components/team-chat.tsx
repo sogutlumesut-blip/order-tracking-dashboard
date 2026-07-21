@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from "react"
-import { MessageCircle, X, Send, User as UserIcon, Paperclip, Download, CornerUpLeft, Trash2, Smile, FolderOpen, ChevronLeft, Image as ImageIcon, Link, FileText, Calendar, Pin } from "lucide-react"
+import { MessageCircle, X, Send, User as UserIcon, Paperclip, Download, CornerUpLeft, Trash2, Smile, FolderOpen, ChevronLeft, ChevronRight, Image as ImageIcon, Link, FileText, Calendar, Pin } from "lucide-react"
 import { toast } from "sonner"
 
 interface User {
@@ -205,6 +205,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     const [hasUnread, setHasUnread] = useState(false)
     const [showMediaGallery, setShowMediaGallery] = useState(false)
     const [activeGalleryTab, setActiveGalleryTab] = useState<'media' | 'links' | 'docs'>('media')
+    const [activePinIndex, setActivePinIndex] = useState(0)
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const scrollContainerRef = useRef<HTMLDivElement>(null)
     
@@ -770,9 +771,37 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         }
     }, [messages])
 
-    const pinnedMessage = useMemo(() => {
-        return [...messages].reverse().find(m => m.isPinned)
+    const pinnedMessages = useMemo(() => {
+        return messages.filter(m => m.isPinned)
     }, [messages])
+
+    const currentPinnedMessage = useMemo(() => {
+        if (pinnedMessages.length === 0) return null
+        const safeIndex = activePinIndex % pinnedMessages.length
+        return pinnedMessages[safeIndex] || pinnedMessages[0]
+    }, [pinnedMessages, activePinIndex])
+
+    const handleNextPin = (e?: React.MouseEvent) => {
+        if (e) e.stopPropagation()
+        if (pinnedMessages.length <= 1) return
+        const nextIndex = (activePinIndex + 1) % pinnedMessages.length
+        setActivePinIndex(nextIndex)
+        const nextMsg = pinnedMessages[nextIndex]
+        if (nextMsg) {
+            scrollToMessage(nextMsg.id)
+        }
+    }
+
+    const handlePrevPin = (e?: React.MouseEvent) => {
+        if (e) e.stopPropagation()
+        if (pinnedMessages.length <= 1) return
+        const prevIndex = (activePinIndex - 1 + pinnedMessages.length) % pinnedMessages.length
+        setActivePinIndex(prevIndex)
+        const prevMsg = pinnedMessages[prevIndex]
+        if (prevMsg) {
+            scrollToMessage(prevMsg.id)
+        }
+    }
 
     const scrollToMessage = (messageId: string) => {
         const el = document.getElementById(`msg-${messageId}`)
@@ -824,30 +853,60 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                         </div>
                     </div>
 
-                    {!showMediaGallery && pinnedMessage && (
+                    {!showMediaGallery && pinnedMessages.length > 0 && currentPinnedMessage && (
                         <div 
-                            onClick={() => scrollToMessage(pinnedMessage.id)}
+                            onClick={() => {
+                                scrollToMessage(currentPinnedMessage.id)
+                                if (pinnedMessages.length > 1) {
+                                    setActivePinIndex(prev => (prev + 1) % pinnedMessages.length)
+                                }
+                            }}
                             className="bg-amber-50 dark:bg-slate-800/90 border-b border-amber-200/80 dark:border-slate-700/60 px-3 py-2 flex items-center justify-between text-xs cursor-pointer group hover:bg-amber-100/70 dark:hover:bg-slate-750 transition-colors z-20 shadow-sm"
                         >
                             <div className="flex items-center gap-2 min-w-0 text-left">
                                 <Pin className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0 fill-amber-500/30 rotate-45" />
-                                <span className="font-bold text-amber-700 dark:text-amber-300 flex-shrink-0">Sabitlenen:</span>
+                                <span className="font-bold text-amber-700 dark:text-amber-300 flex-shrink-0">
+                                    Sabitlenen {pinnedMessages.length > 1 ? `(${activePinIndex + 1}/${pinnedMessages.length})` : ''}:
+                                </span>
                                 <span className="text-slate-700 dark:text-slate-200 truncate font-medium">
-                                    {pinnedMessage.attachment 
-                                        ? (pinnedMessage.attachment.includes('.pdf') ? "📄 PDF Belgesi" : "📷 Görsel") 
-                                        : pinnedMessage.text}
+                                    {currentPinnedMessage.attachment 
+                                        ? (currentPinnedMessage.attachment.includes('.pdf') ? "📄 PDF Belgesi" : "📷 Görsel") 
+                                        : currentPinnedMessage.text}
                                 </span>
                             </div>
-                            <button 
-                                onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleTogglePin(pinnedMessage.id)
-                                }}
-                                className="text-slate-400 hover:text-red-500 p-1 rounded-full hover:bg-amber-200/50 dark:hover:bg-slate-700 transition-colors ml-2 flex-shrink-0"
-                                title="Sabitlemeyi Kaldır"
-                            >
-                                <X className="w-3.5 h-3.5" />
-                            </button>
+                            <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                                {pinnedMessages.length > 1 && (
+                                    <div className="flex items-center gap-0.5 mr-1 bg-amber-100/80 dark:bg-slate-700/80 rounded-md p-0.5 text-amber-800 dark:text-amber-200">
+                                        <button 
+                                            type="button"
+                                            onClick={handlePrevPin} 
+                                            className="p-0.5 hover:bg-amber-200/80 dark:hover:bg-slate-600 rounded transition-colors"
+                                            title="Önceki Sabitlenen"
+                                        >
+                                            <ChevronLeft className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button 
+                                            type="button"
+                                            onClick={handleNextPin} 
+                                            className="p-0.5 hover:bg-amber-200/80 dark:hover:bg-slate-600 rounded transition-colors"
+                                            title="Sonraki Sabitlenen"
+                                        >
+                                            <ChevronRight className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
+                                )}
+                                <button 
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleTogglePin(currentPinnedMessage.id)
+                                    }}
+                                    className="text-slate-400 hover:text-red-500 p-1 rounded-full hover:bg-amber-200/50 dark:hover:bg-slate-700 transition-colors"
+                                    title="Sabitlemeyi Kaldır"
+                                >
+                                    <X className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
                         </div>
                     )}
 
