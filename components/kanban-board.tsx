@@ -23,7 +23,17 @@ import { ThemeToggle } from "@/components/theme-toggle"
 
 interface KanbanBoardProps {
     initialOrders: Order[]
-    currentUser: { id: string; name: string; role: string; allowedStatuses?: string[] }
+    currentUser: { 
+        id: string; 
+        name: string; 
+        role: string; 
+        allowedStatuses?: string[];
+        permissions?: {
+            view: string[];
+            move: string[];
+            flags: string[];
+        }
+    }
     cols: { id: string; title: string; color: string }[]
     tags: { id: string; name: string; color: string | null }[]
 }
@@ -79,6 +89,17 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             setIsDragLocked(saved === "true")
         }
     }, [])
+
+    const hasMovePermission = (statusId: string) => {
+        if (currentUser.role === 'admin') return true
+        if (currentUser.permissions) {
+            return currentUser.permissions.move.includes(statusId)
+        }
+        if (currentUser.allowedStatuses) {
+            return currentUser.allowedStatuses.includes(statusId)
+        }
+        return true
+    }
 
     const toggleDragLock = () => {
         const newState = !isDragLocked
@@ -592,6 +613,13 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         const order = orders.find(o => o.id === activeId)
         if (!order) return
 
+        // Check if user has move permission for target status
+        if (!hasMovePermission(overId)) {
+            setActiveId(null)
+            toast.error("Bu kolona sipariş taşıma yetkiniz yok!")
+            return
+        }
+
         // Optimistic Update
         const oldStatus = order.status
         if (oldStatus === overId) {
@@ -871,6 +899,11 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     const handleBulkMove = async (targetStatusId: string) => {
         if (selectedOrders.length === 0) return
         if (isBulkProcessing) return
+
+        if (!hasMovePermission(targetStatusId)) {
+            toast.error("Bu kolona sipariş taşıma yetkiniz yok!")
+            return
+        }
 
         setIsBulkProcessing(true)
         const toastId = toast.loading(`Toplu taşıma başlatılıyor (${selectedOrders.length} sipariş)...`)
@@ -1531,6 +1564,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 column={column}
                                 columnOrders={getOrdersByStatus(column.id, column.title)}
                                 isDragDisabled={isDragDisabled}
+                                hasMovePermission={hasMovePermission}
                                 orders={orders}
                                 setOrders={setOrders}
                                 tags={tags}
@@ -1633,16 +1667,24 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                             </div>
 
                             <div className="flex items-center bg-white rounded-lg border border-slate-200 shadow-sm p-1">
-                                {orderedCols.map(col => (
-                                    <button
-                                        key={col.id}
-                                        disabled={isBulkProcessing}
-                                        onClick={() => handleBulkMove(col.id)}
-                                        className={`px-3 py-2 rounded-md text-xs font-bold transition-transform active:scale-95 border shadow-sm whitespace-nowrap ${col.color || 'bg-slate-100 border-slate-200'} text-slate-900 border-black/5 hover:brightness-95`}
-                                    >
-                                        {col.title}
-                                    </button>
-                                ))}
+                                {orderedCols.map(col => {
+                                    const allowed = hasMovePermission(col.id);
+                                    return (
+                                        <button
+                                            key={col.id}
+                                            disabled={isBulkProcessing || !allowed}
+                                            onClick={() => handleBulkMove(col.id)}
+                                            className={`px-3 py-2 rounded-md text-xs font-bold transition-transform whitespace-nowrap border shadow-sm ${
+                                                allowed 
+                                                    ? `active:scale-95 hover:brightness-95 text-slate-900 border-black/5 ${col.color || 'bg-slate-100 border-slate-200'}` 
+                                                    : 'bg-slate-100 border-slate-200 text-slate-400 opacity-50 cursor-not-allowed'
+                                            }`}
+                                            title={allowed ? undefined : "Bu kolona sipariş taşıma yetkiniz yok!"}
+                                        >
+                                            {col.title}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
@@ -1695,7 +1737,8 @@ function SortableColumn({
     setSelectedOrder,
     setIsPanelOpen,
     setOrders,
-    onSelectAll
+    onSelectAll,
+    hasMovePermission
 }: any) {
     const {
         attributes,
@@ -1850,7 +1893,7 @@ function SortableColumn({
             <div className="flex-1 min-h-0 overflow-hidden relative">
                 <DroppableId id={column.id} className="h-full overflow-y-auto p-3 space-y-3 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-slate-700 hover:scrollbar-thumb-gray-300 dark:hover:scrollbar-thumb-slate-600">
                     {columnOrders.map((order: any) => (
-                        <DraggableItem key={order.id} id={order.id} disabled={isDragDisabled || order.id < 0}>
+                        <DraggableItem key={order.id} id={order.id} disabled={isDragDisabled || order.id < 0 || !hasMovePermission(column.id)}>
                             <OrderCard
                                 order={order}
                                 onClick={() => {

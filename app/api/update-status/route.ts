@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
 import fs from "fs"
 import path from "path"
+import { parseUserPermissions } from "@/lib/permissions"
 
 const LOG_PATH = "/tmp/oms_debug.log";
 
@@ -29,8 +30,36 @@ export async function POST(request: Request) {
         // Fetch all statuses to map status IDs to titles
         const statusesList = await db.statusColumn.findMany();
         const statusMap = new Map(statusesList.map(s => [s.id, s.title]));
+        const allStatusIds = statusesList.map(s => s.id);
+
+        // Fetch fresh user data to get allowedStatuses for security
+        const isAdmin = session?.user?.role === 'admin';
+        let userAllowedStatusesStr: string | null = null;
+        if (!isAdmin && session?.user?.id) {
+            try {
+                const userDb = await db.user.findUnique({
+                    where: { id: session.user.id },
+                    select: { allowedStatuses: true }
+                });
+                userAllowedStatusesStr = userDb?.allowedStatuses || null;
+            } catch (e) {
+                console.error("Failed to fetch user permissions in update-status API:", e);
+            }
+        }
+
+        const permissions = parseUserPermissions(userAllowedStatusesStr, allStatusIds);
+
+        const hasMovePermission = (targetStatus: string) => {
+            if (isAdmin) return true;
+            if (!session?.user?.id) return true; // Allow system / webhooks API calls
+            return permissions.move.includes(targetStatus);
+        };
 
         if (mode === 'single_status') {
+            if (!hasMovePermission(status)) {
+                logToFile(`Blocked single_status: User lacks permission to move to ${status}`);
+                return NextResponse.json({ error: "Bu kolona sipariş taşıma yetkiniz yok!" }, { status: 403 });
+            }
             logToFile(`Updating #${orderId} to ${status}`);
             
             const oldOrder = await db.order.findUnique({ where: { id: Number(orderId) } });
@@ -48,6 +77,10 @@ export async function POST(request: Request) {
             await db.order.update({ where: { id: Number(orderId) }, data: { status, updatedAt: new Date(), hasNotification: true } });
         }
         else if (mode === 'bulk_status') {
+            if (!hasMovePermission(status)) {
+                logToFile(`Blocked bulk_status: User lacks permission to move to ${status}`);
+                return NextResponse.json({ error: "Bu kolona sipariş taşıma yetkiniz yok!" }, { status: 403 });
+            }
             logToFile(`Bulk Update [${orderIds?.join(',')}] to ${status}`);
             const newStatusTitle = statusMap.get(status) || status;
             for (const id of orderIds) {
@@ -74,6 +107,13 @@ export async function POST(request: Request) {
                 where: { id },
                 include: { items: true }
             });
+
+            if (oldOrder && oldOrder.status !== order.status) {
+                if (!hasMovePermission(order.status)) {
+                    logToFile(`Blocked full_update: User lacks permission to move to ${order.status}`);
+                    return NextResponse.json({ error: "Bu kolona sipariş taşıma yetkiniz yok!" }, { status: 403 });
+                }
+            }
 
             if (oldOrder) {
                 // 1. Assignee Change

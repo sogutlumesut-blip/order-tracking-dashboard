@@ -5,6 +5,7 @@ import { TeamChat } from "@/components/team-chat"
 import { getSession } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { db } from "@/lib/prisma"
+import { parseUserPermissions } from "@/lib/permissions"
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -34,30 +35,27 @@ export default async function Dashboard() {
     ]
   }
 
-  // PERMISSION CHECK: Filter statuses if user has restrictions
-  let userPermissions: string[] = []
+  // PERMISSION CHECK
+  let userAllowedStatusesStr: string | null = null;
+  const allStatusIds = statuses.map(s => s.id);
 
   if (session.user.role !== 'admin' && !dbError) {
     try {
       const user = await db.user.findUnique({
         where: { id: session.user.id },
         select: { allowedStatuses: true }
-      })
-
-      if (user?.allowedStatuses) {
-        userPermissions = JSON.parse(user.allowedStatuses) as string[]
-
-        // Filter Statuses (ignore MANUAL_SYNC flag for column filtering)
-        if (Array.isArray(userPermissions) && userPermissions.length > 0) {
-          const visibleStatusIds = userPermissions.filter(id => id !== "MANUAL_SYNC")
-          if (visibleStatusIds.length > 0) {
-            statuses = statuses.filter(s => visibleStatusIds.includes(s.id))
-          }
-        }
-      }
+      });
+      userAllowedStatusesStr = user?.allowedStatuses || null;
     } catch (e) {
-      console.error("Permission filter error:", e)
+      console.error("Permission fetch error:", e);
     }
+  }
+
+  const permissions = parseUserPermissions(userAllowedStatusesStr, allStatusIds);
+
+  // Filter columns based on view permissions
+  if (session.user.role !== 'admin' && !dbError) {
+    statuses = statuses.filter(s => permissions.view.includes(s.id));
   }
 
   const formattedOrders = orders || []
@@ -76,7 +74,8 @@ export default async function Dashboard() {
             id: session.user.id,
             name: session.user.name,
             role: session.user.role,
-            allowedStatuses: userPermissions
+            allowedStatuses: permissions.flags, // Keep flags (like MANUAL_SYNC) here
+            permissions: permissions // Pass new full permissions object
           }}
           cols={statuses}
           tags={labels}

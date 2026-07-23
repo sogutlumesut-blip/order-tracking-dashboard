@@ -2,6 +2,7 @@
 
 import { db } from "@/lib/prisma"
 import { login, getSession, logout as authLogout } from "@/lib/auth"
+import { parseUserPermissions } from "@/lib/permissions"
 import { redirect } from "next/navigation"
 import { revalidatePath, unstable_noStore as noStore } from "next/cache"
 import bcrypt from "bcryptjs"
@@ -69,55 +70,42 @@ export async function getOrders(timestamp?: number) {
     const session = await getSession()
     if (!session) return []
 
-    // Fetch fresh user data to get allowedStatuses - Defensive check
-    let allowedStatuses = null
-    const isAdmin = session.user.role === 'admin'
-
-    try {
-        const user = await db.user.findUnique({
-            where: { id: session.user.id },
-            select: { allowedStatuses: true } as any
-        }) as any
-
-        if (user?.allowedStatuses) {
-            try {
-                allowedStatuses = JSON.parse(user.allowedStatuses)
-            } catch (e) {
-                console.error("JSON parse error for allowedStatuses:", e)
-            }
-        }
-    } catch (e) {
-        console.error("Failed to fetch user permissions:", e)
-    }
-
-    // Filter active and terminal statuses based on user permissions
-    let visibleStatuses: string[] | null = null;
-    if (!isAdmin && allowedStatuses && Array.isArray(allowedStatuses)) {
-        const filtered = allowedStatuses.filter((s: string) => s !== "MANUAL_SYNC");
-        if (filtered.length > 0) {
-            visibleStatuses = filtered;
-        }
-    }
-
     const terminalStatuses = ["shipped", "completed", "cancelled"];
     let activeStatuses = ["pending_woo", "pending_pm", "draft", "Awaiting Approval", "Approved", "In print", "Ready/Packaged"];
+    let allStatusIds = [...activeStatuses, ...terminalStatuses];
 
     try {
         const dbColumns = await db.statusColumn.findMany({ select: { id: true } });
         if (dbColumns.length > 0) {
-            const allStatusIds = dbColumns.map(c => c.id);
+            allStatusIds = dbColumns.map(c => c.id);
             activeStatuses = allStatusIds.filter(id => !terminalStatuses.includes(id));
         }
     } catch (e) {
         console.error("Failed to fetch dynamic statuses, using fallback activeStatuses", e);
     }
 
+    // Fetch fresh user data to get allowedStatuses - Defensive check
+    let userAllowedStatusesStr: string | null = null;
+    const isAdmin = session.user.role === 'admin';
+
+    try {
+        const user = await db.user.findUnique({
+            where: { id: session.user.id },
+            select: { allowedStatuses: true } as any
+        }) as any;
+        userAllowedStatusesStr = user?.allowedStatuses || null;
+    } catch (e) {
+        console.error("Failed to fetch user permissions:", e);
+    }
+
+    const permissions = parseUserPermissions(userAllowedStatusesStr, allStatusIds);
+
     let targetActive = activeStatuses;
     let targetTerminal = terminalStatuses;
 
-    if (visibleStatuses) {
-        targetActive = activeStatuses.filter(s => visibleStatuses!.includes(s));
-        targetTerminal = terminalStatuses.filter(s => visibleStatuses!.includes(s));
+    if (!isAdmin) {
+        targetActive = activeStatuses.filter(s => permissions.view.includes(s));
+        targetTerminal = terminalStatuses.filter(s => permissions.view.includes(s));
     }
 
     // Common select object to avoid duplication
@@ -1108,7 +1096,7 @@ export async function updateUserRole(userId: string, newRole: string) {
     // revalidatePath("/admin/settings")
 }
 
-export async function updateUserPermissions(userId: string, allowedStatuses: string[]) {
+export async function updateUserPermissions(userId: string, allowedStatuses: any) {
     await db.user.update({
         where: { id: userId },
         data: { allowedStatuses: JSON.stringify(allowedStatuses) }

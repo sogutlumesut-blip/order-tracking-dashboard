@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/prisma";
+import { parseUserPermissions } from "@/lib/permissions";
 
 export const dynamic = 'force-dynamic';
 
@@ -11,8 +12,22 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: "Oturum kapalı" }, { status: 401 });
         }
 
+        const terminalStatuses = ["shipped", "completed", "cancelled"];
+        let activeStatuses = ["pending_woo", "pending_pm", "draft", "Awaiting Approval", "Approved", "In print", "Ready/Packaged"];
+        let allStatusIds = [...activeStatuses, ...terminalStatuses];
+
+        try {
+            const dbColumns = await db.statusColumn.findMany({ select: { id: true } });
+            if (dbColumns.length > 0) {
+                allStatusIds = dbColumns.map(c => c.id);
+                activeStatuses = allStatusIds.filter(id => !terminalStatuses.includes(id));
+            }
+        } catch (e) {
+            console.error("Failed to fetch dynamic statuses", e);
+        }
+
         // Fetch fresh user data to get allowedStatuses
-        let allowedStatuses = null;
+        let userAllowedStatusesStr: string | null = null;
         const isAdmin = session.user.role === 'admin';
 
         try {
@@ -20,41 +35,19 @@ export async function GET(req: NextRequest) {
                 where: { id: session.user.id },
                 select: { allowedStatuses: true } as any
             }) as any;
-
-            if (user?.allowedStatuses) {
-                allowedStatuses = JSON.parse(user.allowedStatuses);
-            }
+            userAllowedStatusesStr = user?.allowedStatuses || null;
         } catch (e) {
             console.error("Failed to fetch user permissions:", e);
         }
 
-        let visibleStatuses: string[] | null = null;
-        if (!isAdmin && allowedStatuses && Array.isArray(allowedStatuses)) {
-            const filtered = allowedStatuses.filter((s: string) => s !== "MANUAL_SYNC");
-            if (filtered.length > 0) {
-                visibleStatuses = filtered;
-            }
-        }
-
-        const terminalStatuses = ["shipped", "completed", "cancelled"];
-        let activeStatuses = ["pending_woo", "pending_pm", "draft", "Awaiting Approval", "Approved", "In print", "Ready/Packaged"];
-
-        try {
-            const dbColumns = await db.statusColumn.findMany({ select: { id: true } });
-            if (dbColumns.length > 0) {
-                const allStatusIds = dbColumns.map(c => c.id);
-                activeStatuses = allStatusIds.filter(id => !terminalStatuses.includes(id));
-            }
-        } catch (e) {
-            console.error("Failed to fetch dynamic statuses", e);
-        }
+        const permissions = parseUserPermissions(userAllowedStatusesStr, allStatusIds);
 
         let targetActive = activeStatuses;
         let targetTerminal = terminalStatuses;
 
-        if (visibleStatuses) {
-            targetActive = activeStatuses.filter(s => visibleStatuses!.includes(s));
-            targetTerminal = terminalStatuses.filter(s => visibleStatuses!.includes(s));
+        if (!isAdmin) {
+            targetActive = activeStatuses.filter(s => permissions.view.includes(s));
+            targetTerminal = terminalStatuses.filter(s => permissions.view.includes(s));
         }
 
         const orderSelect = {

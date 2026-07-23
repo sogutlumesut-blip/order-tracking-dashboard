@@ -19,7 +19,17 @@ interface OrderDetailPanelProps {
     onClose: () => void
     onUpdate: (updatedOrder: Order) => void
     onAddComment: (orderId: number, message: string, attachments: any[], type: string) => void
-    currentUser: { id: string; name: string; role: string }
+    currentUser: { 
+        id: string; 
+        name: string; 
+        role: string; 
+        allowedStatuses?: string[];
+        permissions?: {
+            view: string[];
+            move: string[];
+            flags: string[];
+        }
+    }
     statuses: { id: string; title: string; color: string }[]
     tags: { id: string; name: string; color: string | null }[]
 }
@@ -827,9 +837,30 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                             setIsModified(true)
                                         }}
                                     >
-                                        {statuses.map(status => (
-                                            <option key={status.id} value={status.id} className="text-black dark:text-white font-bold">{status.title}</option>
-                                        ))}
+                                        {statuses.map(status => {
+                                            const isCurrent = status.id === formData.status;
+                                            const hasMovePermission = () => {
+                                                if (currentUser.role === 'admin') return true;
+                                                if (currentUser.permissions) {
+                                                    return currentUser.permissions.move.includes(status.id);
+                                                }
+                                                if (currentUser.allowedStatuses) {
+                                                    return currentUser.allowedStatuses.includes(status.id);
+                                                }
+                                                return true;
+                                            };
+                                            const canSelect = isCurrent || hasMovePermission();
+                                            return (
+                                                <option 
+                                                    key={status.id} 
+                                                    value={status.id} 
+                                                    disabled={!canSelect}
+                                                    className="text-black dark:text-white font-bold disabled:text-slate-400"
+                                                >
+                                                    {status.title} {!canSelect ? " (Yetki Yok)" : ""}
+                                                </option>
+                                            );
+                                        })}
                                     </select>
                                 </div>
 
