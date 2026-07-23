@@ -971,7 +971,9 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                         onClick={(e) => {
                                                             e.stopPropagation()
                                                             setShowMediaGallery(false)
-                                                            scrollToMessage(item.id)
+                                                            setTimeout(() => {
+                                                                scrollToMessage(item.id)
+                                                            }, 100)
                                                         }}
                                                         className="absolute top-1.5 right-1.5 p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 shadow-md cursor-pointer flex items-center justify-center z-10"
                                                         title="Sohbetteki Mesaja Git"
@@ -1019,7 +1021,9 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                                     type="button"
                                                                     onClick={() => {
                                                                         setShowMediaGallery(false)
-                                                                        scrollToMessage(item.id)
+                                                                        setTimeout(() => {
+                                                                            scrollToMessage(item.id)
+                                                                        }, 100)
                                                                     }}
                                                                     className="text-emerald-600 dark:text-emerald-400 hover:underline font-bold cursor-pointer"
                                                                 >
@@ -1069,7 +1073,9 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                             type="button"
                                                             onClick={() => {
                                                                 setShowMediaGallery(false)
-                                                                scrollToMessage(item.id)
+                                                                setTimeout(() => {
+                                                                    scrollToMessage(item.id)
+                                                                }, 100)
                                                             }}
                                                             className="p-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 rounded-lg transition-colors cursor-pointer flex items-center justify-center"
                                                             title="Sohbetteki Mesaja Git"
@@ -1593,7 +1599,9 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                 if (relatedMsg) {
                                     setActiveLightboxImage(null)
                                     setShowMediaGallery(false)
-                                    scrollToMessage(relatedMsg.id)
+                                    setTimeout(() => {
+                                        scrollToMessage(relatedMsg.id)
+                                    }, 100)
                                 }
                             }}
                             className="text-white hover:text-slate-200 bg-slate-900/50 px-3.5 py-2.5 rounded-full backdrop-blur-md transition-colors flex items-center justify-center gap-1.5 cursor-pointer text-xs font-semibold"
