@@ -116,12 +116,15 @@ export async function POST(req: Request) {
         })
 
         if (existingOrder) {
-            // Update cargo data if Kargo Entegrator generated it later
-            if (Array.isArray(body.meta_data)) {
-                const cargoBarcodeMeta = body.meta_data.find((m: any) => m.key === '_gcargo_barcode_exposed')
-                const cargoTrackingMeta = body.meta_data.find((m: any) => m.key === '_gcargo_tracking_exposed')
+            const isWcFailed = (body.status === 'failed' || body.status === 'cancelled' || body.status === 'refunded');
 
-                let updateData: any = {};
+            let updateData: any = {};
+
+            // Check cargo metadata
+            if (Array.isArray(body.meta_data)) {
+                const cargoBarcodeMeta = body.meta_data.find((m: any) => m.key === '_gcargo_barcode_exposed');
+                const cargoTrackingMeta = body.meta_data.find((m: any) => m.key === '_gcargo_tracking_exposed');
+
                 if (cargoBarcodeMeta && cargoBarcodeMeta.value && cargoBarcodeMeta.value !== existingOrder.cargoBarcode) {
                     if (!existingOrder.cargoBarcode || !existingOrder.cargoBarcode.startsWith('^XA')) {
                         updateData.cargoBarcode = cargoBarcodeMeta.value;
@@ -130,18 +133,62 @@ export async function POST(req: Request) {
                 if (cargoTrackingMeta && cargoTrackingMeta.value && cargoTrackingMeta.value !== existingOrder.cargoTrackingNumber) {
                     updateData.cargoTrackingNumber = cargoTrackingMeta.value;
                 }
+            }
 
-                if (Object.keys(updateData).length > 0) {
-                    await db.order.update({
-                        where: { id: existingOrder.id },
-                        data: updateData
-                    });
-                    return NextResponse.json({ message: "Order updated with cargo data" }, { status: 200 })
+            // Check label updates (Remove "Ödeme Başarısız" if WooCommerce status became successful)
+            let localLabels: string[] = [];
+            try {
+                const parsed = typeof existingOrder.labels === 'string' ? JSON.parse(existingOrder.labels) : existingOrder.labels;
+                localLabels = Array.isArray(parsed) ? parsed : [];
+            } catch (e) {
+                localLabels = [];
+            }
+
+            let finalLabels = localLabels;
+            let hadPaymentFailedLabel = false;
+
+            if (isWcFailed) {
+                if (!finalLabels.includes('Ödeme Başarısız')) {
+                    finalLabels = [...finalLabels, 'Ödeme Başarısız'];
+                }
+            } else {
+                if (finalLabels.includes('Ödeme Başarısız')) {
+                    finalLabels = finalLabels.filter(l => l !== 'Ödeme Başarısız');
+                    hadPaymentFailedLabel = true;
                 }
             }
 
+            if (JSON.stringify(localLabels) !== JSON.stringify(finalLabels)) {
+                updateData.labels = JSON.stringify(finalLabels);
+            }
+
+            if (paymentMethod && paymentMethod !== existingOrder.paymentMethod) {
+                updateData.paymentMethod = paymentMethod;
+            }
+
+            if (Object.keys(updateData).length > 0) {
+                updateData.updatedAt = new Date();
+                await db.order.update({
+                    where: { id: existingOrder.id },
+                    data: updateData
+                });
+
+                if (hadPaymentFailedLabel) {
+                    await db.orderActivity.create({
+                        data: {
+                            orderId: existingOrder.id,
+                            author: 'Sistem',
+                            action: 'PAYMENT_SUCCESS',
+                            details: 'WooCommerce ödemesi yapıldığı için \'Ödeme Başarısız\' etiketi otomatik kaldırıldı. (Webhook)',
+                        }
+                    });
+                }
+
+                return NextResponse.json({ message: "Order updated via webhook" }, { status: 200 });
+            }
+
             // For now, adhere to idempotency and just return success to stop retries
-            return NextResponse.json({ message: "Order already exists" }, { status: 200 })
+            return NextResponse.json({ message: "Order already exists" }, { status: 200 });
         }
 
         // Process Items

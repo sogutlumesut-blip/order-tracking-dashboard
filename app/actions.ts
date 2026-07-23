@@ -2645,6 +2645,16 @@ export async function saveWayfairSettings(formData: FormData) {
         await db.systemSetting.upsert({ where: { key: 'wf_client_id' }, update: { value: clientId }, create: { key: 'wf_client_id', value: clientId } })
         await db.systemSetting.upsert({ where: { key: 'wf_client_secret' }, update: { value: clientSecret }, create: { key: 'wf_client_secret', value: clientSecret } })
         await db.systemSetting.upsert({ where: { key: 'wf_mode' }, update: { value: mode }, create: { key: 'wf_mode', value: mode } })
+        
+        if (mode === "production") {
+            const existingStart = await db.systemSetting.findUnique({ where: { key: 'wf_prod_start_time' } })
+            if (!existingStart) {
+                const nowStr = Date.now().toString()
+                await db.systemSetting.create({ data: { key: 'wf_prod_start_time', value: nowStr } })
+            }
+        } else {
+            await db.systemSetting.deleteMany({ where: { key: 'wf_prod_start_time' } })
+        }
         return { success: true, message: "Wayfair ayarları başarıyla kaydedildi." }
     } catch (e: any) {
         return { error: e.message }
@@ -2668,6 +2678,70 @@ export async function wipeWayfairOrders() {
         console.error("Wayfair Wipe Error:", e);
         return { error: "Silme hatası: " + e.message };
     }
+}
+
+async function resolveWfProductImage(sku: string | null, settings: Record<string, string>): Promise<string | null> {
+    const placeholder = "https://placehold.co/600x400?text=Wayfair+Product";
+    if (!sku) return null;
+
+    // 1. Try to find exact SKU in database
+    const exactMatch = await db.orderItem.findFirst({
+        where: {
+            sku: sku,
+            image_src: {
+                not: "",
+                notIn: [placeholder],
+                startsWith: "http"
+            }
+        },
+        orderBy: { id: "desc" }
+    });
+    if (exactMatch) return exactMatch.image_src;
+
+    // 2. Try to find base SKU in database
+    const baseSku = sku.split("-")[0];
+    if (baseSku && baseSku.length > 2) {
+        const baseMatch = await db.orderItem.findFirst({
+            where: {
+                sku: {
+                    startsWith: baseSku
+                },
+                image_src: {
+                    not: "",
+                    notIn: [placeholder],
+                    startsWith: "http"
+                }
+            },
+            orderBy: { id: "desc" }
+        });
+        if (baseMatch) return baseMatch.image_src;
+    }
+
+    // 3. Try to query WooCommerce API
+    try {
+        if (settings.wc_url && settings.wc_key && settings.wc_secret) {
+            const WooCommerce = new WooCommerceRestApi({
+                url: settings.wc_url,
+                consumerKey: settings.wc_key,
+                consumerSecret: settings.wc_secret,
+                version: "wc/v3"
+            });
+            let response = await WooCommerce.get("products", { sku: sku });
+            if (response.data && response.data.length > 0 && response.data[0].images?.[0]?.src) {
+                return response.data[0].images[0].src;
+            }
+            if (baseSku && baseSku !== sku) {
+                response = await WooCommerce.get("products", { sku: baseSku });
+                if (response.data && response.data.length > 0 && response.data[0].images?.[0]?.src) {
+                    return response.data[0].images[0].src;
+                }
+            }
+        }
+    } catch (e: any) {
+        // ignore
+    }
+
+    return null;
 }
 
 // WAYFAIR SYNC ACTION
@@ -2737,8 +2811,8 @@ export async function syncWayfairOrders(force: boolean = false) {
 
         // GraphQL Query for open purchase orders (status and customerEmail are not supported by the schema)
         const query = `
-        query getOpenOrders {
-          purchaseOrders(limit: 50) {
+        query getDropshipPurchaseOrders($limit: Int) {
+          purchaseOrders(limit: $limit) {
             poNumber
             poDate
             customerName
@@ -2764,7 +2838,7 @@ export async function syncWayfairOrders(force: boolean = false) {
                 "Authorization": `Bearer ${accessToken}`,
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify({ query }),
+            body: JSON.stringify({ query, variables: { limit: 50 } }),
             cache: 'no-store'
         })
 
@@ -2822,6 +2896,18 @@ export async function syncWayfairOrders(force: boolean = false) {
                     continue
                 }
 
+                // Skip old orders in production if they are created before the prod_start_time
+                if (!isSandbox) {
+                    const prodStartStr = settings['wf_prod_start_time']
+                    if (prodStartStr) {
+                        const prodStart = parseInt(prodStartStr)
+                        const orderTime = wfOrder.poDate ? new Date(wfOrder.poDate).getTime() : Date.now()
+                        if (orderTime < prodStart) {
+                            continue
+                        }
+                    }
+                }
+
                 // Map Address
                 const name = wfOrder.customerName || "Wayfair Customer"
                 const address = `${wfOrder.customerAddress1 || ""} ${wfOrder.customerAddress2 || ""}`.trim() || "Address not provided"
@@ -2831,18 +2917,29 @@ export async function syncWayfairOrders(force: boolean = false) {
 
                 // Map items
                 const products = wfOrder.products || []
-                const items = products.map((item: any) => ({
-                    name: item.name || item.partNumber || "Wayfair Product",
-                    quantity: parseInt(item.quantity) || 1,
-                    sku: item.sku || item.partNumber || null,
-                    image_src: "https://placehold.co/600x400?text=Wayfair+Product"
-                }))
+                const items = []
+                for (const item of products) {
+                    const sku = item.sku || item.partNumber || null
+                    let img = "https://placehold.co/600x400?text=Wayfair+Product"
+                    if (sku) {
+                        const resolvedImg = await resolveWfProductImage(sku, settings)
+                        if (resolvedImg) {
+                            img = resolvedImg
+                        }
+                    }
+                    items.push({
+                        name: item.name || item.partNumber || "Wayfair Product",
+                        quantity: parseInt(item.quantity) || 1,
+                        sku: sku,
+                        image_src: img
+                    })
+                }
 
                 // Calculate total
                 const totalVal = products.reduce((sum: number, item: any) => sum + ((item.price || 0) * (parseInt(item.quantity) || 1)), 0)
                 const total = `${totalVal.toFixed(2)} USD`
 
-                // Create order
+                // Create order (Wayfair orders go directly to PrintMarkt pending)
                 await db.order.create({
                     data: {
                         customer: name,
@@ -2851,7 +2948,7 @@ export async function syncWayfairOrders(force: boolean = false) {
                         address,
                         city,
                         total,
-                        status: defaultStatus,
+                        status: 'pending_pm',
                         source: 'wayfair',
                         externalId: poNumber,
                         barcode: `WF-${poNumber}`,
