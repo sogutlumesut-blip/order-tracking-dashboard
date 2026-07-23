@@ -2698,8 +2698,20 @@ async function resolveWfProductImage(sku: string | null, settings: Record<string
     });
     if (exactMatch) return exactMatch.image_src;
 
-    // 2. Try to find base SKU in database
-    const baseSku = sku.split("-")[0];
+    // Helper to get variant-safe base SKU (e.g. MUR10011-S, IN0952, etc.)
+    const getBaseSku = (val: string) => {
+        const parts = val.split('-');
+        if (parts.length <= 1) return val;
+        const secondPart = parts[1].trim().toUpperCase();
+        const materialSet = new Set(['NW', 'PS', 'HP', 'P', 'K', 'C']);
+        if (secondPart.length === 1 && !materialSet.has(secondPart)) {
+            return `${parts[0]}-${parts[1]}`;
+        }
+        return parts[0];
+    };
+
+    // 2. Try to find variant-safe base SKU in database
+    const baseSku = getBaseSku(sku);
     if (baseSku && baseSku.length > 2) {
         const baseMatch = await db.orderItem.findFirst({
             where: {
@@ -2714,7 +2726,14 @@ async function resolveWfProductImage(sku: string | null, settings: Record<string
             },
             orderBy: { id: "desc" }
         });
-        if (baseMatch) return baseMatch.image_src;
+        if (baseMatch) {
+            // Verify that the matched SKU also matches the variant-safe base SKU
+            // to avoid matching a different color variant (e.g. matching B variant for S request)
+            const matchedBase = getBaseSku(baseMatch.sku || "");
+            if (matchedBase === baseSku) {
+                return baseMatch.image_src;
+            }
+        }
     }
 
     // 3. Try to query WooCommerce API
