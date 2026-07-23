@@ -336,6 +336,12 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                     ✨ NUMUNE: {order.items[0].sampleData}
                                 </span>
                             )}
+                            {/* Quantity Badge */}
+                            {order.items && order.items.length > 0 && order.items[0].quantity !== undefined && (
+                                <span className="bg-amber-100 dark:bg-amber-950/40 px-1.5 py-0.5 rounded text-amber-850 dark:text-amber-300 font-bold border border-amber-200 dark:border-amber-900/50">
+                                    ADET: {order.items[0].quantity}
+                                </span>
+                            )}
                         </div>
                     </div>
 
