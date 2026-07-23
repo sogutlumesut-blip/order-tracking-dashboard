@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from "react"
-import { MessageCircle, X, Send, User as UserIcon, Paperclip, Download, CornerUpLeft, Trash2, Smile, FolderOpen, ChevronLeft, ChevronRight, Image as ImageIcon, Link, FileText, Calendar, Pin } from "lucide-react"
+import { MessageCircle, X, Send, User as UserIcon, Paperclip, Download, CornerUpLeft, Trash2, Smile, FolderOpen, ChevronLeft, ChevronRight, Image as ImageIcon, Link, FileText, Calendar, Pin, MessageSquare } from "lucide-react"
 import { toast } from "sonner"
 
 interface User {
@@ -965,8 +965,19 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                     <img 
                                                         src={item.url} 
                                                         alt="Galeri Görseli" 
-                                                        className="w-full h-full object-cover group-hover:brightness-95 transition-all"
+                                                        className="w-full h-full object-cover group-hover:brightness-75 transition-all"
                                                     />
+                                                    <button 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            setShowMediaGallery(false)
+                                                            scrollToMessage(item.id)
+                                                        }}
+                                                        className="absolute top-1.5 right-1.5 p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 shadow-md cursor-pointer flex items-center justify-center z-10"
+                                                        title="Sohbetteki Mesaja Git"
+                                                    >
+                                                        <MessageSquare className="w-3.5 h-3.5" />
+                                                    </button>
                                                     <div className="absolute inset-x-0 bottom-0 bg-black/45 p-1 text-[8px] text-white text-center font-medium truncate opacity-0 group-hover:opacity-100 transition-opacity">
                                                         {item.senderName}
                                                     </div>
@@ -1003,9 +1014,22 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                         </p>
                                                         <div className="flex justify-between items-center mt-2 text-[9px] text-slate-400">
                                                             <span className="font-semibold">{item.senderName}</span>
-                                                            <div className="flex items-center gap-1">
-                                                                <Calendar className="w-3 h-3" />
-                                                                {new Date(item.createdAt).toLocaleDateString('tr-TR')}
+                                                            <div className="flex items-center gap-2">
+                                                                <button 
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setShowMediaGallery(false)
+                                                                        scrollToMessage(item.id)
+                                                                    }}
+                                                                    className="text-emerald-600 dark:text-emerald-400 hover:underline font-bold cursor-pointer"
+                                                                >
+                                                                    Mesaja Git
+                                                                </button>
+                                                                <span>•</span>
+                                                                <div className="flex items-center gap-1">
+                                                                    <Calendar className="w-3 h-3" />
+                                                                    {new Date(item.createdAt).toLocaleDateString('tr-TR')}
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1040,16 +1064,29 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <a 
-                                                        href={item.url} 
-                                                        download={item.name} 
-                                                        target="_blank" 
-                                                        rel="noopener noreferrer" 
-                                                        className="p-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 rounded-lg transition-colors cursor-pointer flex items-center justify-center"
-                                                        title="İndir"
-                                                    >
-                                                        <Download className="w-4 h-4" />
-                                                    </a>
+                                                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                                                        <button 
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setShowMediaGallery(false)
+                                                                scrollToMessage(item.id)
+                                                            }}
+                                                            className="p-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 rounded-lg transition-colors cursor-pointer flex items-center justify-center"
+                                                            title="Sohbetteki Mesaja Git"
+                                                        >
+                                                            <MessageSquare className="w-4 h-4" />
+                                                        </button>
+                                                        <a 
+                                                            href={item.url} 
+                                                            download={item.name} 
+                                                            target="_blank" 
+                                                            rel="noopener noreferrer" 
+                                                            className="p-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 rounded-lg transition-colors cursor-pointer flex items-center justify-center"
+                                                            title="İndir"
+                                                        >
+                                                            <Download className="w-4 h-4" />
+                                                        </a>
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>
@@ -1548,6 +1585,23 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                     onClick={() => setActiveLightboxImage(null)}
                 >
                     <div className="absolute top-4 right-4 flex gap-2">
+                        <button 
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                const relatedMsg = messages.find(m => m.attachment === activeLightboxImage)
+                                if (relatedMsg) {
+                                    setActiveLightboxImage(null)
+                                    setShowMediaGallery(false)
+                                    scrollToMessage(relatedMsg.id)
+                                }
+                            }}
+                            className="text-white hover:text-slate-200 bg-slate-900/50 px-3.5 py-2.5 rounded-full backdrop-blur-md transition-colors flex items-center justify-center gap-1.5 cursor-pointer text-xs font-semibold"
+                            title="Sohbetteki Mesaja Git"
+                        >
+                            <MessageSquare className="w-4 h-4 text-emerald-400" />
+                            <span>Mesaja Git</span>
+                        </button>
                         <a 
                             href={activeLightboxImage} 
                             download="gorsel.png"
