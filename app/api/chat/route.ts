@@ -11,6 +11,7 @@ export async function GET(req: Request) {
     try {
         const { searchParams } = new URL(req.url)
         const since = searchParams.get('since')
+        const before = searchParams.get('before')
 
         const where: any = {}
         if (since) {
@@ -18,12 +19,17 @@ export async function GET(req: Request) {
             where.updatedAt = {
                 gt: sinceDate
             }
+        } else if (before) {
+            const beforeDate = new Date(Number(before))
+            where.createdAt = {
+                lt: beforeDate
+            }
         }
 
         const messages = await db.chatMessage.findMany({
             where,
             orderBy: { createdAt: since ? 'asc' : 'desc' },
-            take: 150,
+            take: before ? 100 : 150,
             include: {
                 sender: {
                     select: { id: true, name: true, role: true }

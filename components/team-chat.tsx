@@ -206,6 +206,8 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     const [showMediaGallery, setShowMediaGallery] = useState(false)
     const [activeGalleryTab, setActiveGalleryTab] = useState<'media' | 'links' | 'docs'>('media')
     const [activePinIndex, setActivePinIndex] = useState(0)
+    const [hasMoreOlder, setHasMoreOlder] = useState(true)
+    const [isLoadingOlder, setIsLoadingOlder] = useState(false)
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const scrollContainerRef = useRef<HTMLDivElement>(null)
     
@@ -357,6 +359,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                     })
 
                     setMessages([...res.messages, ...temporaryOrRecent])
+                    setHasMoreOlder(res.messages.length >= 150)
                     
                     const recentMentions = newOtherMessages.filter((nm: any) => {
                         if (!nm.text) return false
@@ -408,6 +411,48 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
             console.error("Failed to fetch messages:", e)
         }
         if (showLoading) setIsLoading(false)
+    }
+
+    const loadOlderMessages = async () => {
+        if (isLoadingOlder || !hasMoreOlder || messages.length === 0) return
+        setIsLoadingOlder(true)
+
+        const container = scrollContainerRef.current
+        const previousScrollHeight = container ? container.scrollHeight : 0
+        const previousScrollTop = container ? container.scrollTop : 0
+
+        try {
+            const oldestMessage = messages[0]
+            if (!oldestMessage || !oldestMessage.createdAt) return
+
+            const timestamp = new Date(oldestMessage.createdAt).getTime()
+            const response = await fetch(`/api/chat?before=${timestamp}&t=${Date.now()}`)
+            const res = await response.json()
+
+            if (res.success && res.messages) {
+                if (res.messages.length === 0) {
+                    setHasMoreOlder(false)
+                } else {
+                    setMessages(prev => [...res.messages, ...prev])
+                    
+                    if (res.messages.length < 100) {
+                        setHasMoreOlder(false)
+                    }
+
+                    // Restore scroll position to prevent jump
+                    setTimeout(() => {
+                        if (container) {
+                            const newScrollHeight = container.scrollHeight
+                            container.scrollTop = previousScrollTop + (newScrollHeight - previousScrollHeight)
+                        }
+                    }, 50)
+                }
+            }
+        } catch (error) {
+            console.error("Error loading older messages:", error)
+        } finally {
+            setIsLoadingOlder(false)
+        }
     }
 
     useEffect(() => {
@@ -1117,7 +1162,23 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                 Henüz mesaj yok.<br/>İlk mesajı siz gönderin!
                             </div>
                         ) : (
-                            messages.map((msg, i) => {
+                            <>
+                                {hasMoreOlder && (
+                                    <div className="flex justify-center py-2">
+                                        <button
+                                            type="button"
+                                            onClick={loadOlderMessages}
+                                            disabled={isLoadingOlder}
+                                            className="px-4 py-1.5 bg-slate-150 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-650 dark:text-slate-350 rounded-full text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-sm border border-slate-200 dark:border-slate-800"
+                                        >
+                                            {isLoadingOlder ? (
+                                                <span className="w-3.5 h-3.5 border-2 border-slate-500 border-t-transparent rounded-full animate-spin"></span>
+                                            ) : null}
+                                            Daha Eski Mesajları Yükle
+                                        </button>
+                                    </div>
+                                )}
+                                {messages.map((msg, i) => {
                                 const isMe = msg.senderId === currentUser.id
                                 return (
                                     <div key={msg.id || i} id={`msg-${msg.id}`} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
@@ -1364,6 +1425,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                     </div>
                                 )
                             })
+                            </>
                         )}
                         <div ref={messagesEndRef} />
                     </div>
