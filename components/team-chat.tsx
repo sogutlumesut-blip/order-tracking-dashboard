@@ -1424,7 +1424,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                         </div>
                                     </div>
                                 )
-                            })
+                            })}
                             </>
                         )}
                         <div ref={messagesEndRef} />
