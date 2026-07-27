@@ -2830,8 +2830,20 @@ export async function syncWayfairOrders(force: boolean = false) {
 
         // GraphQL Query for open purchase orders (status and customerEmail are not supported by the schema)
         const query = `
-        query getDropshipPurchaseOrders($limit: Int) {
-          purchaseOrders(limit: $limit) {
+        query getDropshipPurchaseOrders(
+          $limit: Int32,
+          $hasResponse: Boolean,
+          $fromDate: IsoDateTime,
+          $poNumbers: [String],
+          $sortOrder: SortOrder
+        ) {
+          getDropshipPurchaseOrders(
+            limit: $limit,
+            hasResponse: $hasResponse,
+            fromDate: $fromDate,
+            poNumbers: $poNumbers,
+            sortOrder: $sortOrder
+          ) {
             poNumber
             poDate
             customerName
@@ -2857,7 +2869,13 @@ export async function syncWayfairOrders(force: boolean = false) {
                 "Authorization": `Bearer ${accessToken}`,
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify({ query, variables: { limit: 50 } }),
+            body: JSON.stringify({
+                query,
+                variables: {
+                    limit: 50,
+                    hasResponse: false
+                }
+            }),
             cache: 'no-store'
         })
 
@@ -2873,10 +2891,10 @@ export async function syncWayfairOrders(force: boolean = false) {
             return { error: `Wayfair GraphQL Hatası: ${gqlResult.errors[0].message}` }
         }
 
-        const wfOrders = gqlResult.data?.purchaseOrders || []
+        const wfOrders = gqlResult.data?.getDropshipPurchaseOrders || []
 
         if (!Array.isArray(wfOrders)) {
-            return { error: "Wayfair API'si beklenen listeyi (purchaseOrders) döndürmedi." }
+            return { error: "Wayfair API'si beklenen listeyi (getDropshipPurchaseOrders) döndürmedi." }
         }
 
         if (wfOrders.length === 0) {
