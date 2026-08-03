@@ -459,11 +459,21 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                 </div>
 
                                                 <div className="flex flex-wrap gap-2 mb-2">
-                                                    {item.sku && (
-                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 uppercase">
-                                                            Kod: {item.sku}
-                                                        </span>
-                                                    )}
+                                                    {item.sku && (() => {
+                                                        let displaySku = item.sku;
+                                                        if (item.sampleData && (displaySku.startsWith('NU-') || displaySku.startsWith('nu-'))) {
+                                                            const parts = item.sampleData.split(' - ');
+                                                            const actualSku = parts[0]?.trim();
+                                                            if (actualSku && actualSku.length < 15) {
+                                                                displaySku = `${displaySku} (${actualSku})`;
+                                                            }
+                                                        }
+                                                        return (
+                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 uppercase">
+                                                                Kod: {displaySku}
+                                                            </span>
+                                                        );
+                                                    })()}
                                                     {item.material && (
                                                         <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100">
                                                             {item.material}

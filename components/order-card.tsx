@@ -307,11 +307,21 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                             {order.items && order.items.length > 0 ? order.items[0].name : "Ürün detayı yok"}
                         </p>
                         <div className="flex flex-wrap gap-2 text-xs text-slate-500 dark:text-slate-400">
-                            {order.items && order.items.length > 0 && order.items[0].sku && (
-                                <span className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300 font-medium">
-                                    Kod: {order.items[0].sku}
-                                </span>
-                            )}
+                            {order.items && order.items.length > 0 && order.items[0].sku && (() => {
+                                let displaySku = order.items[0].sku;
+                                if (order.items[0].sampleData && (displaySku.startsWith('NU-') || displaySku.startsWith('nu-'))) {
+                                    const parts = order.items[0].sampleData.split(' - ');
+                                    const actualSku = parts[0]?.trim();
+                                    if (actualSku && actualSku.length < 15) {
+                                        displaySku = `${displaySku} (${actualSku})`;
+                                    }
+                                }
+                                return (
+                                    <span className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300 font-medium">
+                                        Kod: {displaySku}
+                                    </span>
+                                );
+                            })()}
                             {order.items && order.items.length > 0 && order.items[0].dimensions && (
                                 <span className={order.items[0].dimensions === 'SAMPLE' ? "bg-pink-50 dark:bg-pink-900/30 px-1.5 py-0.5 rounded text-pink-700 dark:text-pink-400 font-bold border border-pink-100 dark:border-pink-800 animate-pulse flex items-center gap-1" : "bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300 font-medium flex items-center gap-1"}>
                                     <span>{order.items[0].dimensions === 'SAMPLE' ? '✨ SAMPLE' : `📏 ${order.items[0].dimensions}`}</span>

@@ -203,7 +203,15 @@ export async function GET(
 
             // Details Line: SKU | Material | Dimensions
             let details = [];
-            if (item.sku) details.push(`KOD: ${item.sku}`);
+            let displaySku = item.sku || '';
+            if (item.sampleData && (displaySku.startsWith('NU-') || displaySku.startsWith('nu-'))) {
+                const parts = item.sampleData.split(' - ');
+                const actualSku = parts[0]?.trim();
+                if (actualSku && actualSku.length < 15) {
+                    displaySku = `${displaySku} (${actualSku})`;
+                }
+            }
+            if (displaySku) details.push(`KOD: ${displaySku}`);
             if (item.material) details.push(cleanTR(item.material).substring(0, 30));
             if (item.dimensions) details.push(cleanTR(item.dimensions));
             

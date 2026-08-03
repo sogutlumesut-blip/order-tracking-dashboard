@@ -325,19 +325,29 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                                                     flexWrap: "wrap",
                                                     gap: "4px"
                                                 }}>
-                                                    {item.sku && (
-                                                        <span style={{
-                                                            fontSize: "9px",
-                                                            fontWeight: "bold",
-                                                            color: "#1f2937",
-                                                            backgroundColor: "#f1f5f9",
-                                                            border: "1px solid #e2e8f0",
-                                                            padding: "1px 4px",
-                                                            borderRadius: "3px"
-                                                        }}>
-                                                            KOD: {item.sku}
-                                                        </span>
-                                                    )}
+                                                    {item.sku && (() => {
+                                                        let displaySku = item.sku;
+                                                        if (item.sampleData && (displaySku.startsWith('NU-') || displaySku.startsWith('nu-'))) {
+                                                            const parts = item.sampleData.split(' - ');
+                                                            const actualSku = parts[0]?.trim();
+                                                            if (actualSku && actualSku.length < 15) {
+                                                                displaySku = `${displaySku} (${actualSku})`;
+                                                            }
+                                                        }
+                                                        return (
+                                                            <span style={{
+                                                                fontSize: "9px",
+                                                                fontWeight: "bold",
+                                                                color: "#1f2937",
+                                                                backgroundColor: "#f1f5f9",
+                                                                border: "1px solid #e2e8f0",
+                                                                padding: "1px 4px",
+                                                                borderRadius: "3px"
+                                                            }}>
+                                                                KOD: {displaySku}
+                                                            </span>
+                                                        );
+                                                    })()}
                                                     {item.material && (
                                                         <span style={{
                                                             fontSize: "9px",

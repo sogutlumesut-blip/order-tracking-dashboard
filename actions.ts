@@ -1557,6 +1557,18 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                         }
                     }
 
+                    const mainSample = getMeta(['Numune İsteği', 'Numune Istegi', 'Numune', 'Sample', '_numune']);
+                    const numuneProduct = getMeta(['Numune Alınan Ürün', 'Numune Alinan Urun']);
+                    const numuneSku = getMeta(['Numune Alınan Ürün SKU', 'Numune Alinan Urun SKU', 'numune_alinan_urun_sku']);
+                    let finalSampleData = mainSample || null;
+                    if (numuneSku || numuneProduct) {
+                        const parts = [];
+                        if (numuneSku) parts.push(numuneSku);
+                        if (numuneProduct) parts.push(numuneProduct);
+                        const numuneInfo = parts.join(' - ');
+                        finalSampleData = mainSample ? `${mainSample} (${numuneInfo})` : numuneInfo;
+                    }
+
                     return {
                         name: item.name || 'Ürün',
                         quantity: item.quantity || 1,
@@ -1566,7 +1578,7 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                         dimensions: dimensions,
                         material: material,
                         productNote: getMeta(['Ürün Notu', 'Urun Notu', 'Not', 'Note', '_urun_notu']) || null,
-                        sampleData: getMeta(['Numune İsteği', 'Numune Istegi', 'Numune', 'Sample', '_numune']) || null
+                        sampleData: finalSampleData
                     };
                 })
 

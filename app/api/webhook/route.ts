@@ -312,18 +312,30 @@ export async function POST(req: Request) {
                 return null;
             }
 
-            return {
-                name: item.name || 'Ürün',
-                quantity: item.quantity || 1,
-                image_src: imageSrc,
-                sku: item.sku || getMeta(['Stok Kodu', 'SKU', '_stok_kodu', 'Urun Kodu', 'Kod', 'Product Code', '_sku']) || null,
-                url: getMeta(['_ozel_url', 'ozel_url', 'Özel Url', 'Ozel Url', 'Dosya Linki', 'File Link', 'Drive Link', 'Link', 'Url', 'Siparis Dosyasi']) || null,
-                dimensions: dimensions,
-                material: material,
-                productNote: getMeta(['Ürün Notu', 'Urun Notu', 'Not', 'Note', '_urun_notu']) || null,
-                sampleData: getMeta(['Numune İsteği', 'Numune Istegi', 'Numune', 'Sample', '_numune']) || null,
-                croppedImage: getCroppedImage()
-            };
+                    const mainSample = getMeta(['Numune İsteği', 'Numune Istegi', 'Numune', 'Sample', '_numune']);
+                    const numuneProduct = getMeta(['Numune Alınan Ürün', 'Numune Alinan Urun']);
+                    const numuneSku = getMeta(['Numune Alınan Ürün SKU', 'Numune Alinan Urun SKU', 'numune_alinan_urun_sku']);
+                    let finalSampleData = mainSample || null;
+                    if (numuneSku || numuneProduct) {
+                        const parts = [];
+                        if (numuneSku) parts.push(numuneSku);
+                        if (numuneProduct) parts.push(numuneProduct);
+                        const numuneInfo = parts.join(' - ');
+                        finalSampleData = mainSample ? `${mainSample} (${numuneInfo})` : numuneInfo;
+                    }
+
+                    return {
+                        name: item.name || 'Ürün',
+                        quantity: item.quantity || 1,
+                        image_src: imageSrc,
+                        sku: item.sku || getMeta(['Stok Kodu', 'SKU', '_stok_kodu', 'Urun Kodu', 'Kod', 'Product Code', '_sku']) || null,
+                        url: getMeta(['_ozel_url', 'ozel_url', 'Özel Url', 'Ozel Url', 'Dosya Linki', 'File Link', 'Drive Link', 'Link', 'Url', 'Siparis Dosyasi']) || null,
+                        dimensions: dimensions,
+                        material: material,
+                        productNote: getMeta(['Ürün Notu', 'Urun Notu', 'Not', 'Note', '_urun_notu']) || null,
+                        sampleData: finalSampleData,
+                        croppedImage: getCroppedImage()
+                    };
         })
 
         // Cargo Integrator Data
