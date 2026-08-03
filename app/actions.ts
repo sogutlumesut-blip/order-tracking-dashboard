@@ -2692,6 +2692,105 @@ export async function wipeWayfairOrders() {
     }
 }
 
+async function resolveWfCatalogImage(
+    sku: string | null,
+    supplierId: number | string | null,
+    accessToken: string,
+    isSandbox: boolean
+): Promise<string | null> {
+    if (!sku) return null;
+    const supplierIdStr = supplierId ? supplierId.toString() : "476700";
+    const catalogUrl = isSandbox
+        ? "https://api.wayfair.io/sandbox/v1/product-catalog-api/graphql"
+        : "https://api.wayfair.io/v1/product-catalog-api/graphql";
+
+    // Helper to get variant-safe base SKU (e.g. MUR10011-S, IN0952, etc.)
+    const getBaseSku = (val: string) => {
+        const parts = val.split('-');
+        if (parts.length <= 1) return val;
+        const secondPart = parts[1].trim().toUpperCase();
+        const materialSet = new Set(['NW', 'PS', 'HP', 'P', 'K', 'C']);
+        if (secondPart.length === 1 && !materialSet.has(secondPart)) {
+            return `${parts[0]}-${parts[1]}`;
+        }
+        return parts[0];
+    };
+
+    const tryQuery = async (targetSku: string): Promise<string | null> => {
+        try {
+            const query = `
+            query GetCatalogItem($input: SupplierCatalogItemsInput!) {
+              supplierCatalogItems(input: $input) {
+                ... on SupplierCatalogItems {
+                  catalogItems {
+                    attributes {
+                      attribute {
+                        title
+                      }
+                      chosenAttributeValues {
+                        value
+                      }
+                    }
+                  }
+                }
+              }
+            }`;
+
+            const variables = {
+                input: {
+                    filter: {
+                        supplierPartNumbers: [targetSku]
+                    },
+                    paginationOptions: {
+                        page: 1,
+                        pageSize: 10
+                    }
+                }
+            };
+
+            const res = await fetch(catalogUrl, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${accessToken}`,
+                    "Content-Type": "application/json",
+                    "X-SELECTED-SUPPLIER-ID": supplierIdStr
+                },
+                body: JSON.stringify({ query, variables }),
+                cache: "no-store"
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                const items = data.data?.supplierCatalogItems?.catalogItems || [];
+                if (items.length > 0 && items[0].attributes) {
+                    const imgAttr = items[0].attributes.find(
+                        (attr: any) => attr.attribute?.title === "IMAGE" && attr.chosenAttributeValues?.[0]?.value?.[0]
+                    );
+                    if (imgAttr) {
+                        return imgAttr.chosenAttributeValues[0].value[0];
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Error fetching Wayfair Catalog Image:", e);
+        }
+        return null;
+    };
+
+    // 1. Try exact SKU
+    let img = await tryQuery(sku);
+    if (img) return img;
+
+    // 2. Try variant-safe base SKU (e.g. MUR10011-S)
+    const baseSku = getBaseSku(sku);
+    if (baseSku && baseSku !== sku) {
+        img = await tryQuery(baseSku);
+        if (img) return img;
+    }
+
+    return null;
+}
+
 async function resolveWfProductImage(sku: string | null, settings: Record<string, string>): Promise<string | null> {
     const placeholder = "https://placehold.co/600x400?text=Wayfair+Product";
     if (!sku) return null;
@@ -2746,30 +2845,6 @@ async function resolveWfProductImage(sku: string | null, settings: Record<string
                 return baseMatch.image_src;
             }
         }
-    }
-
-    // 3. Try to query WooCommerce API
-    try {
-        if (settings.wc_url && settings.wc_key && settings.wc_secret) {
-            const WooCommerce = new WooCommerceRestApi({
-                url: settings.wc_url,
-                consumerKey: settings.wc_key,
-                consumerSecret: settings.wc_secret,
-                version: "wc/v3"
-            });
-            let response = await WooCommerce.get("products", { sku: sku });
-            if (response.data && response.data.length > 0 && response.data[0].images?.[0]?.src) {
-                return response.data[0].images[0].src;
-            }
-            if (baseSku && baseSku !== sku) {
-                response = await WooCommerce.get("products", { sku: baseSku });
-                if (response.data && response.data.length > 0 && response.data[0].images?.[0]?.src) {
-                    return response.data[0].images[0].src;
-                }
-            }
-        }
-    } catch (e: any) {
-        // ignore
     }
 
     return null;
@@ -2858,6 +2933,7 @@ export async function syncWayfairOrders(force: boolean = false) {
           ) {
             poNumber
             poDate
+            supplierId
             customerName
             customerAddress1
             customerAddress2
@@ -2967,13 +3043,21 @@ export async function syncWayfairOrders(force: boolean = false) {
                 // Map items
                 const products = wfOrder.products || []
                 const items = []
+                const supplierId = wfOrder.supplierId || "476700"
                 for (const item of products) {
                     const sku = item.sku || item.partNumber || null
                     let img = "https://placehold.co/600x400?text=Wayfair+Product"
                     if (sku) {
-                        const resolvedImg = await resolveWfProductImage(sku, settings)
-                        if (resolvedImg) {
-                            img = resolvedImg
+                        // 1. Try to fetch directly from Wayfair Catalog API (first choice, accurate)
+                        const catalogImg = await resolveWfCatalogImage(sku, supplierId, accessToken, isSandbox)
+                        if (catalogImg) {
+                            img = catalogImg
+                        } else {
+                            // 2. Try to find in local DB cache (previously synced Wayfair orders)
+                            const resolvedImg = await resolveWfProductImage(sku, settings)
+                            if (resolvedImg) {
+                                img = resolvedImg
+                            }
                         }
                     }
                     items.push({
