@@ -2961,7 +2961,7 @@ export async function syncWayfairOrders(force: boolean = false) {
                 query,
                 variables: {
                     limit: 50,
-                    hasResponse: false
+                    ...(isSandbox ? { hasResponse: false } : {})
                 }
             }),
             cache: 'no-store'
