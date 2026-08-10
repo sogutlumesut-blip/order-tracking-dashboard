@@ -2847,6 +2847,9 @@ async function resolveWfProductImage(sku: string | null, settings: Record<string
         }
     }
 
+    return null;
+}
+
 function parseWfProperties(name: string) {
     let material: string | null = null;
     let dimensions: string | null = null;
