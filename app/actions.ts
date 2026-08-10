@@ -2847,6 +2847,25 @@ async function resolveWfProductImage(sku: string | null, settings: Record<string
         }
     }
 
+    // 3. Fallback to absolute base SKU (first part before any dash)
+    const pureBase = sku.split('-')[0];
+    if (pureBase && pureBase.length > 2) {
+        const pureMatch = await db.orderItem.findFirst({
+            where: {
+                sku: {
+                    startsWith: pureBase
+                },
+                image_src: {
+                    not: "",
+                    notIn: [placeholder],
+                    startsWith: "http"
+                }
+            },
+            orderBy: { id: "desc" }
+        });
+        if (pureMatch) return pureMatch.image_src;
+    }
+
     return null;
 }
 
