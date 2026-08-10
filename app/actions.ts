@@ -2847,7 +2847,25 @@ async function resolveWfProductImage(sku: string | null, settings: Record<string
         }
     }
 
-    return null;
+function parseWfProperties(name: string) {
+    let material: string | null = null;
+    let dimensions: string | null = null;
+
+    if (!name) return { material, dimensions };
+
+    // Try to extract material
+    const matMatch = name.match(/Material\s*:\s*(.+?)(?:\s{2,}|Size:|$)/i);
+    if (matMatch) {
+        material = matMatch[1].trim();
+    }
+
+    // Try to extract dimensions
+    const dimMatch = name.match(/Size\s*:\s*(.+)$/i);
+    if (dimMatch) {
+        dimensions = dimMatch[1].trim().replace(/\s+/g, " "); // collapse multiple spaces
+    }
+
+    return { material, dimensions };
 }
 
 // WAYFAIR SYNC ACTION
@@ -3045,7 +3063,7 @@ export async function syncWayfairOrders(force: boolean = false) {
                 const items = []
                 const supplierId = wfOrder.supplierId || "476700"
                 for (const item of products) {
-                    const sku = item.sku || item.partNumber || null
+                    const sku = item.partNumber || item.sku || null
                     let img = "https://placehold.co/600x400?text=Wayfair+Product"
                     if (sku) {
                         // 1. Try to fetch directly from Wayfair Catalog API (first choice, accurate)
@@ -3060,11 +3078,14 @@ export async function syncWayfairOrders(force: boolean = false) {
                             }
                         }
                     }
+                    const props = parseWfProperties(item.name || "");
                     items.push({
                         name: item.name || item.partNumber || "Wayfair Product",
                         quantity: parseInt(item.quantity) || 1,
                         sku: sku,
-                        image_src: img
+                        image_src: img,
+                        material: props.material,
+                        dimensions: props.dimensions
                     })
                 }
 
