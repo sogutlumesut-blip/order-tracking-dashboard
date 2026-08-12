@@ -2901,6 +2901,54 @@ function parseSizeFromSku(sku: string): string | null {
     return null;
 }
 
+function isSizeOnlyName(name: string): boolean {
+    if (!name) return false;
+    return /^size:\s*\d+/i.test(name.trim()) || /^\d+\s*x\s*\d+/i.test(name.trim());
+}
+
+async function resolveWfProductName(sku: string | null): Promise<string | null> {
+    if (!sku) return null;
+    const placeholder = "Wayfair Product";
+
+    // 1. Try exact SKU match
+    const exactMatch = await db.orderItem.findFirst({
+        where: {
+            sku: sku,
+            name: {
+                not: "",
+                not: placeholder
+            }
+        },
+        orderBy: { id: "desc" }
+    });
+    if (exactMatch && !isSizeOnlyName(exactMatch.name) && !exactMatch.name.toLowerCase().startsWith("size:")) {
+        return exactMatch.name;
+    }
+
+    // 2. Try base SKU match
+    const pureBase = sku.split('-')[0];
+    if (pureBase && pureBase.length > 2) {
+        const baseMatch = await db.orderItem.findFirst({
+            where: {
+                sku: {
+                    startsWith: pureBase
+                },
+                name: {
+                    not: "",
+                    not: placeholder
+                }
+            },
+            orderBy: { id: "desc" }
+        });
+        if (baseMatch && !isSizeOnlyName(baseMatch.name) && !baseMatch.name.toLowerCase().startsWith("size:")) {
+            return baseMatch.name;
+        }
+    }
+
+    return null;
+}
+
+
 // WAYFAIR SYNC ACTION
 export async function syncWayfairOrders(force: boolean = false) {
     const settings = (await getSystemSettings()) as Record<string, string>
@@ -3115,8 +3163,18 @@ export async function syncWayfairOrders(force: boolean = false) {
                     const skuSize = parseSizeFromSku(sku || "");
                     const finalDimensions = skuSize || props.dimensions;
 
+                    let finalName = item.name || item.partNumber || "Wayfair Product";
+                    if (isSizeOnlyName(finalName)) {
+                        const dbName = await resolveWfProductName(sku);
+                        if (dbName) {
+                            finalName = dbName;
+                        } else {
+                            finalName = item.partNumber || finalName;
+                        }
+                    }
+
                     items.push({
-                        name: item.name || item.partNumber || "Wayfair Product",
+                        name: finalName,
                         quantity: parseInt(item.quantity) || 1,
                         sku: sku,
                         image_src: img,
