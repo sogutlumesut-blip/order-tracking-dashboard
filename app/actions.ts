@@ -2890,6 +2890,17 @@ function parseWfProperties(name: string) {
     return { material, dimensions };
 }
 
+function parseSizeFromSku(sku: string): string | null {
+    if (!sku) return null;
+    const parts = sku.split('-');
+    for (const part of parts) {
+        if (/^\d+x\d+$/i.test(part.trim())) {
+            return part.trim();
+        }
+    }
+    return null;
+}
+
 // WAYFAIR SYNC ACTION
 export async function syncWayfairOrders(force: boolean = false) {
     const settings = (await getSystemSettings()) as Record<string, string>
@@ -3101,13 +3112,16 @@ export async function syncWayfairOrders(force: boolean = false) {
                         }
                     }
                     const props = parseWfProperties(item.name || "");
+                    const skuSize = parseSizeFromSku(sku || "");
+                    const finalDimensions = skuSize || props.dimensions;
+
                     items.push({
                         name: item.name || item.partNumber || "Wayfair Product",
                         quantity: parseInt(item.quantity) || 1,
                         sku: sku,
                         image_src: img,
                         material: props.material,
-                        dimensions: props.dimensions
+                        dimensions: finalDimensions
                     })
                 }
 
