@@ -24,9 +24,9 @@ export default async function Dashboard() {
     orders = await getOrders()
     statuses = await getStatuses()
     labels = await getLabels()
-  } catch (e) {
+  } catch (e: any) {
     console.error("Dashboard Data Fetch Error:", e)
-    dbError = "Veritabanı bağlantısı kurulamadı. Lütfen 5-10 dakika sonra tekrar deneyiniz."
+    dbError = "Veritabanı bağlantısı kurulamadı. Detay: " + (e?.message || String(e))
     // Provide fallback statuses so UI doesn't crash completely
     statuses = [
       { id: "pending_woo", title: "Bekliyor (DKM)", color: "bg-slate-100", order: 0 },

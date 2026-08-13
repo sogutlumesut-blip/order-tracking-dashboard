@@ -3195,7 +3195,7 @@ const globalForSync = globalThis as unknown as {
     syncInProgress: boolean | undefined;
 }
 
-if (typeof window === 'undefined' && process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE !== 'phase-production-build') {
+if (typeof window === 'undefined' && process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE !== 'phase-production-build' && process.env.DISABLE_BG_SYNC !== 'true') {
     if (!globalForSync.syncIntervalStarted) {
         globalForSync.syncIntervalStarted = true;
         globalForSync.syncInProgress = false;

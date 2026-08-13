@@ -3,6 +3,13 @@ import type { NextRequest } from 'next/server'
 import { updateSession } from './lib/auth'
 
 export async function middleware(request: NextRequest) {
+    // 0. Detect Health Check requests from DigitalOcean or Go-http-client health check daemons
+    const userAgent = request.headers.get('user-agent') || ''
+    const isHealthCheck = userAgent.toLowerCase().includes('go-http-client') || userAgent.toLowerCase().includes('digitalocean')
+    if (isHealthCheck || request.nextUrl.pathname === '/api/health') {
+        return NextResponse.json({ status: 'ok', source: 'healthcheck' })
+    }
+
     // 0. Check Maintenance Mode
     if (process.env.MAINTENANCE_MODE === 'true') {
         if (!request.nextUrl.pathname.startsWith('/maintenance')) {

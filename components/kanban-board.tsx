@@ -490,7 +490,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     window.location.reload();
                 }
             }
-        }, 3000); // FIXED 3S POLLING
+        }, 10000); // FIXED 10S POLLING (Optimized to reduce DB load)
 
         return () => {
             clearInterval(pollInterval);
