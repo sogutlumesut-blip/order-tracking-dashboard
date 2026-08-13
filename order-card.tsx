@@ -365,27 +365,11 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                 </a>
                             )}
                             {/* CARGO LABEL PDF LINK */}
-                            {order.cargoLabelPdf && (
+                            {order.hasCargoPdf && (
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        const pdfData = order.cargoLabelPdf as string;
-                                        if (pdfData.startsWith('http') || pdfData.startsWith('blob:')) {
-                                            window.open(pdfData, '_blank');
-                                        } else {
-                                            try {
-                                                const byteCharacters = atob(pdfData);
-                                                const byteNumbers = new Array(byteCharacters.length);
-                                                for (let i = 0; i < byteCharacters.length; i++) {
-                                                    byteNumbers[i] = byteCharacters.charCodeAt(i);
-                                                }
-                                                const byteArray = new Uint8Array(byteNumbers);
-                                                const blob = new Blob([byteArray], { type: 'application/pdf' });
-                                                window.open(URL.createObjectURL(blob), '_blank');
-                                            } catch (err) {
-                                                console.error('PDF view error', err);
-                                            }
-                                        }
+                                        window.open(`/api/cargo-label/${order.id}`, '_blank');
                                     }}
                                     className="flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-1.5 py-0.5 rounded transition-colors shadow-sm z-50 relative"
                                     title="Kargo Etiketi"

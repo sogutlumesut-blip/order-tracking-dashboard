@@ -672,7 +672,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     }
 
     const handlePrintCargoLabel = (order: Order) => {
-        if (order.cargoBarcode || order.cargoLabelPdf) {
+        if (order.cargoBarcode || order.cargoLabelPdf || order.hasCargoPdf) {
             const url = `/api/cargo-label/${order.id}`;
 
             // DIRECT PRINT IMPLEMENTATION (Mobile Friendly)
@@ -803,13 +803,13 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 }
 
                 // AUTO-PRINT PDF LOGIC
-                if (targetOrder.cargoBarcode || targetOrder.cargoLabelPdf) {
+                if (targetOrder.cargoBarcode || targetOrder.cargoLabelPdf || targetOrder.hasCargoPdf) {
                     handlePrintCargoLabel(targetOrder);
                     successMessage += " (Etiket Açılıyor...)";
                 }
 
                 if (targetOrder.status === nextStatus) {
-                    if (!targetOrder.cargoBarcode && !targetOrder.cargoLabelPdf) toast.info(`Sipariş #${targetOrder.id} zaten bu aşamada.`)
+                    if (!targetOrder.cargoBarcode && !targetOrder.cargoLabelPdf && !targetOrder.hasCargoPdf) toast.info(`Sipariş #${targetOrder.id} zaten bu aşamada.`)
                     return
                 }
             }

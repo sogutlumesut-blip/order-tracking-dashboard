@@ -26,31 +26,57 @@ export async function GET(req: Request) {
             }
         }
 
+        const selectFields = {
+            id: true,
+            text: true,
+            senderId: true,
+            hasAttachment: true,
+            attachmentType: true,
+            attachmentUrl: true,
+            replyToId: true,
+            replyToText: true,
+            replyToName: true,
+            reactions: true,
+            isPinned: true,
+            createdAt: true,
+            updatedAt: true,
+            sender: {
+                select: { id: true, name: true, role: true }
+            }
+        };
+
         const messages = await db.chatMessage.findMany({
             where,
             orderBy: { createdAt: since ? 'asc' : 'desc' },
             take: before ? 100 : 150,
-            include: {
-                sender: {
-                    select: { id: true, name: true, role: true }
-                }
-            }
+            select: selectFields
         })
 
         // Transform the messages to return lightweight URLs instead of raw base64 data
         const serializedMessages = messages.map(m => {
-            if (m.attachment) {
-                if (m.attachment.startsWith('http://') || m.attachment.startsWith('https://')) {
-                    return m
-                }
-                const isPdf = m.attachment.startsWith('data:application/pdf') || (m.text && m.text.toLowerCase().endsWith('.pdf'))
-                const ext = isPdf ? '.pdf' : '.jpg'
-                return {
-                    ...m,
-                    attachment: `/api/chat/attachment?id=${m.id}&ext=${ext}`
+            let attachmentLink = null;
+            if (m.hasAttachment) {
+                if (m.attachmentType === 'url') {
+                    attachmentLink = m.attachmentUrl;
+                } else {
+                    const ext = m.attachmentType === 'pdf' ? '.pdf' : '.jpg';
+                    attachmentLink = `/api/chat/attachment?id=${m.id}&ext=${ext}`;
                 }
             }
-            return m
+            return {
+                id: m.id,
+                text: m.text,
+                senderId: m.senderId,
+                attachment: attachmentLink,
+                replyToId: m.replyToId,
+                replyToText: m.replyToText,
+                replyToName: m.replyToName,
+                reactions: m.reactions,
+                isPinned: m.isPinned,
+                createdAt: m.createdAt,
+                updatedAt: m.updatedAt,
+                sender: m.sender
+            };
         })
         
         // If we fetched using 'since', the order is already 'asc' (chronological).
@@ -81,30 +107,72 @@ export async function POST(req: Request) {
             return NextResponse.json({ success: false, error: "Message cannot be empty" }, { status: 400 })
         }
 
+        const hasAttach = !!attachment
+        let typeAttach = null
+        let urlAttach = null
+        if (attachment) {
+            if (attachment.startsWith('http://') || attachment.startsWith('https://')) {
+                typeAttach = 'url'
+                urlAttach = attachment
+            } else if (attachment.startsWith('data:application/pdf')) {
+                typeAttach = 'pdf'
+            } else {
+                typeAttach = 'image'
+            }
+        }
+
+        const selectFields = {
+            id: true,
+            text: true,
+            senderId: true,
+            hasAttachment: true,
+            attachmentType: true,
+            attachmentUrl: true,
+            replyToId: true,
+            replyToText: true,
+            replyToName: true,
+            reactions: true,
+            isPinned: true,
+            createdAt: true,
+            updatedAt: true,
+            sender: {
+                select: { id: true, name: true, role: true }
+            }
+        };
+
         const message = await db.chatMessage.create({
             data: {
                 text: text.trim(),
                 attachment: attachment || null,
+                hasAttachment: hasAttach,
+                attachmentType: typeAttach,
+                attachmentUrl: urlAttach,
                 replyToId: replyToId || null,
                 replyToText: replyToText || null,
                 replyToName: replyToName || null,
                 senderId: session.user.id
             },
-            include: {
-                sender: {
-                    select: { id: true, name: true, role: true }
-                }
-            }
+            select: selectFields
         })
 
         // Serialize the attachment URL for the newly created message
         const serializedMessage = {
-            ...message,
-            attachment: message.attachment 
-                ? (message.attachment.startsWith('http://') || message.attachment.startsWith('https://')
-                    ? message.attachment
-                    : `/api/chat/attachment?id=${message.id}&ext=${(message.attachment.startsWith('data:application/pdf') || (message.text && message.text.toLowerCase().endsWith('.pdf'))) ? '.pdf' : '.jpg'}`)
-                : null
+            id: message.id,
+            text: message.text,
+            senderId: message.senderId,
+            attachment: message.hasAttachment
+                ? (message.attachmentType === 'url'
+                    ? message.attachmentUrl
+                    : `/api/chat/attachment?id=${message.id}&ext=${message.attachmentType === 'pdf' ? '.pdf' : '.jpg'}`)
+                : null,
+            replyToId: message.replyToId,
+            replyToText: message.replyToText,
+            replyToName: message.replyToName,
+            reactions: message.reactions,
+            isPinned: message.isPinned,
+            createdAt: message.createdAt,
+            updatedAt: message.updatedAt,
+            sender: message.sender
         }
 
         return NextResponse.json({ success: true, message: serializedMessage })
@@ -171,24 +239,49 @@ export async function PUT(req: Request) {
             if (!message) {
                 return NextResponse.json({ success: false, error: "Message not found" }, { status: 404 })
             }
+            const selectFields = {
+                id: true,
+                text: true,
+                senderId: true,
+                hasAttachment: true,
+                attachmentType: true,
+                attachmentUrl: true,
+                replyToId: true,
+                replyToText: true,
+                replyToName: true,
+                reactions: true,
+                isPinned: true,
+                createdAt: true,
+                updatedAt: true,
+                sender: {
+                    select: { id: true, name: true, role: true }
+                }
+            };
+
             const updatedMessage = await db.chatMessage.update({
                 where: { id: messageId },
                 data: {
                     isPinned: !message.isPinned
                 },
-                include: {
-                    sender: {
-                        select: { id: true, name: true, role: true }
-                    }
-                }
+                select: selectFields
             })
             const serializedMessage = {
-                ...updatedMessage,
-                attachment: updatedMessage.attachment 
-                    ? (updatedMessage.attachment.startsWith('http://') || updatedMessage.attachment.startsWith('https://')
-                        ? updatedMessage.attachment
-                        : `/api/chat/attachment?id=${updatedMessage.id}&ext=${(updatedMessage.attachment.startsWith('data:application/pdf') || (updatedMessage.text && updatedMessage.text.toLowerCase().endsWith('.pdf'))) ? '.pdf' : '.jpg'}`)
-                    : null
+                id: updatedMessage.id,
+                text: updatedMessage.text,
+                senderId: updatedMessage.senderId,
+                attachment: updatedMessage.hasAttachment
+                    ? (updatedMessage.attachmentType === 'url'
+                        ? updatedMessage.attachmentUrl
+                        : `/api/chat/attachment?id=${updatedMessage.id}&ext=${updatedMessage.attachmentType === 'pdf' ? '.pdf' : '.jpg'}`)
+                    : null,
+                replyToId: updatedMessage.replyToId,
+                replyToText: updatedMessage.replyToText,
+                replyToName: updatedMessage.replyToName,
+                reactions: updatedMessage.reactions,
+                isPinned: updatedMessage.isPinned,
+                createdAt: updatedMessage.createdAt,
+                updatedAt: updatedMessage.updatedAt,
+                sender: updatedMessage.sender
             }
             return NextResponse.json({ success: true, message: serializedMessage })
         }
@@ -233,26 +326,51 @@ export async function PUT(req: Request) {
             })
         }
 
+        const selectFields = {
+            id: true,
+            text: true,
+            senderId: true,
+            hasAttachment: true,
+            attachmentType: true,
+            attachmentUrl: true,
+            replyToId: true,
+            replyToText: true,
+            replyToName: true,
+            reactions: true,
+            isPinned: true,
+            createdAt: true,
+            updatedAt: true,
+            sender: {
+                select: { id: true, name: true, role: true }
+            }
+        };
+
         const updatedMessage = await db.chatMessage.update({
             where: { id: messageId },
             data: {
                 reactions: JSON.stringify(reactions)
             },
-            include: {
-                sender: {
-                    select: { id: true, name: true, role: true }
-                }
-            }
+            select: selectFields
         })
 
         // Serialize attachment for response consistency
         const serializedMessage = {
-            ...updatedMessage,
-            attachment: updatedMessage.attachment 
-                ? (updatedMessage.attachment.startsWith('http://') || updatedMessage.attachment.startsWith('https://')
-                    ? updatedMessage.attachment
-                    : `/api/chat/attachment?id=${updatedMessage.id}&ext=${(updatedMessage.attachment.startsWith('data:application/pdf') || (updatedMessage.text && updatedMessage.text.toLowerCase().endsWith('.pdf'))) ? '.pdf' : '.jpg'}`)
-                : null
+            id: updatedMessage.id,
+            text: updatedMessage.text,
+            senderId: updatedMessage.senderId,
+            attachment: updatedMessage.hasAttachment
+                ? (updatedMessage.attachmentType === 'url'
+                    ? updatedMessage.attachmentUrl
+                    : `/api/chat/attachment?id=${updatedMessage.id}&ext=${updatedMessage.attachmentType === 'pdf' ? '.pdf' : '.jpg'}`)
+                : null,
+            replyToId: updatedMessage.replyToId,
+            replyToText: updatedMessage.replyToText,
+            replyToName: updatedMessage.replyToName,
+            reactions: updatedMessage.reactions,
+            isPinned: updatedMessage.isPinned,
+            createdAt: updatedMessage.createdAt,
+            updatedAt: updatedMessage.updatedAt,
+            sender: updatedMessage.sender
         }
 
         return NextResponse.json({ success: true, message: serializedMessage })

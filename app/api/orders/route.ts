@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
             createdAt: true,
             updatedAt: true,
             hasNotification: true,
-            cargoLabelPdf: true,
+            hasCargoPdf: true,
             externalId: true,
             source: true,
             items: true,
@@ -159,7 +159,6 @@ export async function GET(req: NextRequest) {
         const orders = [...activeOrders, ...terminalOrders];
 
         const serialized = orders.map(order => ({
-            hasCargoPdf: !!order.cargoLabelPdf,
             ...order,
             date: order.date.toISOString(),
             createdAt: order.createdAt.toISOString(),

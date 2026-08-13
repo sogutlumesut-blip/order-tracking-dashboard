@@ -40,6 +40,7 @@ model Order {
   cargoBarcode        String?
   cargoTrackingNumber String?
   cargoLabelPdf       String?
+  hasCargoPdf         Boolean         @default(false)
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
   hasNotification     Boolean         @default(false)
@@ -136,18 +137,21 @@ model SystemSetting {
 }
 
 model ChatMessage {
-  id          String   @id @default(uuid())
-  text        String
-  senderId    String
-  attachment  String?
-  replyToId   String?
-  replyToText String?
-  replyToName String?
-  reactions   String?
-  isPinned    Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @default(now()) @updatedAt
-  sender      User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  id             String   @id @default(uuid())
+  text           String
+  senderId       String
+  attachment     String?
+  hasAttachment  Boolean  @default(false)
+  attachmentType String?
+  attachmentUrl  String?
+  replyToId      String?
+  replyToText    String?
+  replyToName    String?
+  reactions      String?
+  isPinned       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
+  sender         User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
 
   @@index([createdAt])
   @@index([updatedAt])

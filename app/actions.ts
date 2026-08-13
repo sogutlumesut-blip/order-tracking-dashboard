@@ -2020,7 +2020,7 @@ export async function uploadCargoLabel(orderId: number, base64Data: string) {
     try {
         await db.order.update({
             where: { id: orderId },
-            data: { cargoLabelPdf: base64Data } as any
+            data: { cargoLabelPdf: base64Data, hasCargoPdf: true } as any
         })
         // revalidatePath("/")
         return { success: true, message: "Kargo etiketi yüklendi" }
@@ -2034,7 +2034,7 @@ export async function deleteCargoLabel(orderId: number) {
     try {
         await db.order.update({
             where: { id: orderId },
-            data: { cargoLabelPdf: null }
+            data: { cargoLabelPdf: null, hasCargoPdf: false }
         })
         // revalidatePath("/")
         return { success: true, message: "Kargo etiketi silindi" }
@@ -2179,6 +2179,7 @@ export async function syncCargoKargoEntegrator(force: boolean = false) {
                                 cargoTrackingNumber: trackingNum || undefined,
                                 cargoBarcode: barcode || undefined,
                                 cargoLabelPdf: printUrl,
+                                hasCargoPdf: printUrl ? true : false,
                                 ...(statusChanged ? { status: targetStatus, updatedAt: new Date() } : {})
                             }
                         });
@@ -2524,6 +2525,7 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                                 status: finalStatus,
                                 updatedAt: new Date(),
                                 cargoLabelPdf: trackingPdf || existingOrder.cargoLabelPdf,
+                                hasCargoPdf: (trackingPdf || existingOrder.cargoLabelPdf) ? true : false,
                                 labels: JSON.stringify(finalLabels),
                                 note: existingOrder.note || customerNote,
                                 paymentMethod: paymentMethod,
@@ -2546,6 +2548,7 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                             date: pmOrder.created_at ? new Date(pmOrder.created_at) : undefined,
                             note: customerNote,
                             cargoLabelPdf: trackingPdf,
+                            hasCargoPdf: trackingPdf ? true : false,
                             labels: JSON.stringify(labels),
                             items: {
                                 create: items

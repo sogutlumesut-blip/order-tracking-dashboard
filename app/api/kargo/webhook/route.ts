@@ -76,6 +76,7 @@ export async function POST(req: Request) {
             // Generate print URL (Standardizing on what we think works or will work)
             if (shipmentId) {
                 updateData.cargoLabelPdf = `kargoentegrator:${shipmentId}`;
+                updateData.hasCargoPdf = true;
             }
 
             await db.order.update({
