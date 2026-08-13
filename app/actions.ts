@@ -1,6 +1,6 @@
 "use server"
-
 import { db } from "@/lib/prisma"
+import { autoCompleteOldOrders } from "@/lib/auto-complete"
 import { login, getSession, logout as authLogout } from "@/lib/auth"
 import { parseUserPermissions } from "@/lib/permissions"
 import { redirect } from "next/navigation"
@@ -2212,9 +2212,6 @@ export async function syncCargoKargoEntegrator(force: boolean = false) {
     }
 }
 
-export { autoCompleteOldOrders } from "@/lib/auto-complete";
-
-// PRINTMARKT SYNC ACTION
 export async function syncPrintMarktOrders(force: boolean = false, targetOrderId?: string | number, bypassRateLimit: boolean = false) {
     const settings = (await getSystemSettings()) as Record<string, string>
 
