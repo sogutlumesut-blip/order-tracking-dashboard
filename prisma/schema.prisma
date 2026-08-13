@@ -56,6 +56,8 @@ model Order {
   items               OrderItem[]
 
   @@unique([source, externalId])
+  @@index([status])
+  @@index([date])
 }
 
 model EtsyShop {
