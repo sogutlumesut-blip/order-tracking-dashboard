@@ -2903,10 +2903,35 @@ function parseSizeFromSku(sku: string): string | null {
 
 function isSizeOnlyName(name: string): boolean {
     if (!name) return false;
-    return /^size:\s*\d+/i.test(name.trim()) || /^\d+\s*x\s*\d+/i.test(name.trim());
+    return /^size:\s*\d+/i.test(name.trim()) || /^\d+\s*x\s*\d+/i.test(name.trim()) || /^[a-z0-9]+-[a-z0-9]+-\d+x\d+$/i.test(name.trim());
 }
 
-async function resolveWfProductName(sku: string | null): Promise<string | null> {
+function isValidDescriptiveName(name: string, skuSize: string | null): boolean {
+    if (!name) return false;
+    const lowerName = name.toLowerCase().trim();
+    
+    // Skip placeholders/generic terms
+    const genericTerms = new Set(['sample order', 'sample', 'custom print order', 'custom', 'wayfair product', 'test product']);
+    if (genericTerms.has(lowerName)) return false;
+
+    // Skip size-only/SKU-only formats
+    if (isSizeOnlyName(name) || lowerName.startsWith("size:")) return false;
+
+    // Skip if name contains a different size than skuSize
+    if (skuSize) {
+        const sizeMatch = name.match(/(\d+)\s*[xX]\s*(\d+)/);
+        if (sizeMatch) {
+            const nameSize = `${sizeMatch[1]}x${sizeMatch[2]}`;
+            if (nameSize !== skuSize) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+async function resolveWfProductName(sku: string | null, skuSize: string | null): Promise<string | null> {
     if (!sku) return null;
     const placeholder = "Wayfair Product";
 
@@ -2921,7 +2946,7 @@ async function resolveWfProductName(sku: string | null): Promise<string | null> 
         },
         orderBy: { id: "desc" }
     });
-    if (exactMatch && !isSizeOnlyName(exactMatch.name) && !exactMatch.name.toLowerCase().startsWith("size:")) {
+    if (exactMatch && isValidDescriptiveName(exactMatch.name, skuSize)) {
         return exactMatch.name;
     }
 
@@ -2940,7 +2965,7 @@ async function resolveWfProductName(sku: string | null): Promise<string | null> 
             },
             orderBy: { id: "desc" }
         });
-        if (baseMatch && !isSizeOnlyName(baseMatch.name) && !baseMatch.name.toLowerCase().startsWith("size:")) {
+        if (baseMatch && isValidDescriptiveName(baseMatch.name, skuSize)) {
             return baseMatch.name;
         }
     }
@@ -3165,7 +3190,7 @@ export async function syncWayfairOrders(force: boolean = false) {
 
                     let finalName = item.name || item.partNumber || "Wayfair Product";
                     if (isSizeOnlyName(finalName)) {
-                        const dbName = await resolveWfProductName(sku);
+                        const dbName = await resolveWfProductName(sku, skuSize);
                         if (dbName) {
                             finalName = dbName;
                         } else {
