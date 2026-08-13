@@ -4,7 +4,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "npx prisma generate && next build",
-    "start": "node --max-old-space-size=384 ./node_modules/.bin/next start",
+    "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate"
   },
