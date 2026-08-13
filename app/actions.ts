@@ -1774,7 +1774,7 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                             phone: wcOrder.billing.phone,
                             address: `${wcOrder.billing.address_1 || ''} ${wcOrder.billing.address_2 || ''}`.trim(),
                             city: city,
-                            note: wcOrder.customer_note,
+                            note: existingOrder.note || wcOrder.customer_note,
                             cargoBarcode: cargoBarcodeMeta ? cargoBarcodeMeta.value : (existingOrder.cargoBarcode || null),
                             cargoTrackingNumber: cargoTrackingMeta ? cargoTrackingMeta.value : (existingOrder.cargoTrackingNumber || null),
                             paymentMethod: paymentMethod,
@@ -2566,12 +2566,21 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                         existingOrder.phone !== shippingPhone ||
                         existingOrder.total !== totalAmount.toFixed(2) ||
                         (trackingPdf && existingOrder.cargoLabelPdf !== trackingPdf);
-
                     if (hasStatusChange || hasDataChange) {
                         if (hasStatusChange) {
                             await logActivity(existingOrder.id, "PrintMarkt Senkronizasyon", "STATUS_CHANGE", `Durum PrintMarkt tarafından '${finalStatus}' olarak güncellendi.`);
                         }
-                        
+
+                        let finalLabels = labels;
+                        try {
+                            const localLabels = typeof existingOrder.labels === 'string' ? JSON.parse(existingOrder.labels) : existingOrder.labels;
+                            if (Array.isArray(localLabels) && localLabels.length > 0) {
+                                finalLabels = Array.from(new Set([...localLabels, ...labels]));
+                            }
+                        } catch (e) {
+                            console.error("PrintMarkt label merge error:", e);
+                        }
+
                         await db.order.update({
                             where: { id: existingOrder.id },
                             data: {
@@ -2583,8 +2592,8 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                                 status: finalStatus,
                                 updatedAt: new Date(),
                                 cargoLabelPdf: trackingPdf || existingOrder.cargoLabelPdf,
-                                labels: JSON.stringify(labels),
-                                note: customerNote,
+                                labels: JSON.stringify(finalLabels),
+                                note: existingOrder.note || customerNote,
                                 paymentMethod: paymentMethod,
                             }
                         });
