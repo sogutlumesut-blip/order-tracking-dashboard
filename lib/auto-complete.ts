@@ -1,4 +1,5 @@
 import { db } from "./prisma";
+import crypto from "crypto";
 
 export async function autoCompleteOldOrders() {
     try {
@@ -39,28 +40,27 @@ export async function autoCompleteOldOrders() {
         });
 
         if (ordersToComplete.length > 0) {
-            const updates = ordersToComplete.map(order =>
-                db.order.update({
-                    where: { id: order.id },
-                    data: {
-                        status: 'completed',
-                        updatedAt: new Date()
-                    }
-                })
-            );
+            const orderIds = ordersToComplete.map(o => o.id);
+            
+            const updates = db.order.updateMany({
+                where: { id: { in: orderIds } },
+                data: {
+                    status: 'completed',
+                    updatedAt: new Date()
+                }
+            });
 
-            const activities = ordersToComplete.map(order =>
-                db.orderActivity.create({
-                    data: {
-                        orderId: order.id,
-                        author: 'Sistem (Oto)',
-                        action: 'AUTO_COMPLETE',
-                        details: 'Sipariş Kargolandı kolonunda 3 günü doldurduğu için otomatik olarak Tamamlandı yapıldı.'
-                    }
-                })
-            );
+            const activities = db.orderActivity.createMany({
+                data: ordersToComplete.map(order => ({
+                    id: crypto.randomUUID(),
+                    orderId: order.id,
+                    author: 'Sistem (Oto)',
+                    action: 'AUTO_COMPLETE',
+                    details: 'Sipariş Kargolandı kolonunda 3 günü doldurduğu için otomatik olarak Tamamlandı yapıldı.'
+                }))
+            });
 
-            await db.$transaction([...updates, ...activities]);
+            await db.$transaction([updates, activities]);
             return { success: true, count: ordersToComplete.length };
         }
 

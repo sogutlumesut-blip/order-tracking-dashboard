@@ -2,26 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/prisma";
 import { parseUserPermissions } from "@/lib/permissions";
-import { autoCompleteOldOrders } from "@/lib/auto-complete";
 
 export const dynamic = 'force-dynamic';
-
-let lastAutoCompleteRun = 0;
 
 export async function GET(req: NextRequest) {
     try {
         const session = await getSession();
         if (!session) {
             return NextResponse.json({ error: "Oturum kapalı" }, { status: 401 });
-        }
-
-        // Auto-complete any shipped orders that have completed their 3-day window (debounced, non-blocking)
-        const now = Date.now();
-        if (now - lastAutoCompleteRun > 5 * 60 * 1000) {
-            lastAutoCompleteRun = now;
-            autoCompleteOldOrders().catch(err => {
-                console.error("Auto-complete old orders failed during GET /api/orders background task:", err);
-            });
         }
 
         const terminalStatuses = ["shipped", "completed", "cancelled"];
