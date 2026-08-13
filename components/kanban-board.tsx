@@ -1148,9 +1148,11 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 {/* Header moved from page.tsx */}
                 <header className="bg-white dark:bg-[#020617] border-b border-slate-200 dark:border-slate-800 h-16 flex items-center justify-between px-4 md:px-6 shrink-0 z-20 relative transition-colors duration-300">
                     <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
-                        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold shrink-0">
-                            OMS
-                        </div>
+                        <img 
+                            src="/logo.png" 
+                            alt="Logo" 
+                            className="w-10 h-10 rounded-lg object-contain shrink-0 bg-white" 
+                        />
                         <h1 className="font-bold text-sm md:text-lg text-slate-800 dark:text-slate-100 truncate">Sipariş Takip <span className="hidden md:inline text-xs text-slate-400 font-normal">v3.6.6.76 - CHAT_PAGINATION_FIX</span></h1>
                         {/* Status Check Indicator */}
                         <div className="flex items-center gap-2">
