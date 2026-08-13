@@ -12,6 +12,14 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: "Oturum kapalı" }, { status: 401 });
         }
 
+        // Auto-complete any shipped orders that have completed their 3-day window
+        try {
+            const { autoCompleteOldOrders } = await import("@/app/actions");
+            await autoCompleteOldOrders();
+        } catch (err) {
+            console.error("Auto-complete old orders failed during GET /api/orders:", err);
+        }
+
         const terminalStatuses = ["shipped", "completed", "cancelled"];
         let activeStatuses = ["pending_woo", "pending_pm", "draft", "Awaiting Approval", "Approved", "In print", "Ready/Packaged"];
         let allStatusIds = [...activeStatuses, ...terminalStatuses];
