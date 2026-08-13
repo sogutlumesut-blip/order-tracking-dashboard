@@ -5,6 +5,8 @@ import { parseUserPermissions } from "@/lib/permissions";
 
 export const dynamic = 'force-dynamic';
 
+let lastAutoCompleteRun = 0;
+
 export async function GET(req: NextRequest) {
     try {
         const session = await getSession();
@@ -12,12 +14,15 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: "Oturum kapalı" }, { status: 401 });
         }
 
-        // Auto-complete any shipped orders that have completed their 3-day window
-        try {
-            const { autoCompleteOldOrders } = await import("@/app/actions");
-            await autoCompleteOldOrders();
-        } catch (err) {
-            console.error("Auto-complete old orders failed during GET /api/orders:", err);
+        // Auto-complete any shipped orders that have completed their 3-day window (debounced, non-blocking)
+        const now = Date.now();
+        if (now - lastAutoCompleteRun > 5 * 60 * 1000) {
+            lastAutoCompleteRun = now;
+            import("@/app/actions").then(({ autoCompleteOldOrders }) => {
+                autoCompleteOldOrders().catch(err => {
+                    console.error("Auto-complete old orders failed during GET /api/orders background task:", err);
+                });
+            });
         }
 
         const terminalStatuses = ["shipped", "completed", "cancelled"];
@@ -86,6 +91,7 @@ export async function GET(req: NextRequest) {
             createdAt: true,
             updatedAt: true,
             hasNotification: true,
+            cargoLabelPdf: true,
             externalId: true,
             source: true,
             items: true,
@@ -165,18 +171,8 @@ export async function GET(req: NextRequest) {
         const [activeOrders, terminalOrders] = await Promise.all([activeOrdersPromise, terminalOrdersPromise]);
         const orders = [...activeOrders, ...terminalOrders];
 
-        const returnedOrderIds = orders.map(o => o.id);
-        const ordersWithPdf = returnedOrderIds.length > 0 ? await db.order.findMany({
-            where: {
-                id: { in: returnedOrderIds },
-                cargoLabelPdf: { not: null }
-            },
-            select: { id: true }
-        }) : [];
-        const pdfIds = new Set(ordersWithPdf.map(o => o.id));
-
         const serialized = orders.map(order => ({
-            hasCargoPdf: pdfIds.has(order.id),
+            hasCargoPdf: !!order.cargoLabelPdf,
             ...order,
             date: order.date.toISOString(),
             createdAt: order.createdAt.toISOString(),
