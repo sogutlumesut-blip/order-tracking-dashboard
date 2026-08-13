@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/prisma";
 import { parseUserPermissions } from "@/lib/permissions";
+import { autoCompleteOldOrders } from "@/lib/auto-complete";
 
 export const dynamic = 'force-dynamic';
 
@@ -18,10 +19,8 @@ export async function GET(req: NextRequest) {
         const now = Date.now();
         if (now - lastAutoCompleteRun > 5 * 60 * 1000) {
             lastAutoCompleteRun = now;
-            import("@/app/actions").then(({ autoCompleteOldOrders }) => {
-                autoCompleteOldOrders().catch(err => {
-                    console.error("Auto-complete old orders failed during GET /api/orders background task:", err);
-                });
+            autoCompleteOldOrders().catch(err => {
+                console.error("Auto-complete old orders failed during GET /api/orders background task:", err);
             });
         }
 

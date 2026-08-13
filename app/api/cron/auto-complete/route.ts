@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { autoCompleteOldOrders } from "@/app/actions";
+import { autoCompleteOldOrders } from "@/lib/auto-complete";
 import { revalidatePath } from "next/cache";
 
 export const dynamic = 'force-dynamic'; // Ensure it's not cached

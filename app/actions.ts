@@ -2212,72 +2212,7 @@ export async function syncCargoKargoEntegrator(force: boolean = false) {
     }
 }
 
-export async function autoCompleteOldOrders() {
-    try {
-        const threeDaysAgo = new Date();
-        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-
-        const shippedOrders = await db.order.findMany({
-            where: {
-                status: 'shipped'
-            },
-            include: {
-                activities: {
-                    where: {
-                        action: 'STATUS_CHANGE'
-                    },
-                    orderBy: {
-                        timestamp: 'desc'
-                    }
-                }
-            }
-        });
-
-        const ordersToComplete = shippedOrders.filter(order => {
-            const shippedActivity = order.activities.find((act: any) => {
-                const detailsLower = (act.details || "").toLowerCase();
-                return detailsLower.includes('shipped') || detailsLower.includes('kargolandı') || detailsLower.includes('kargolandi');
-            });
-
-            if (shippedActivity) {
-                return new Date(shippedActivity.timestamp) < threeDaysAgo;
-            }
-
-            return new Date(order.updatedAt) < threeDaysAgo;
-        });
-
-        if (ordersToComplete.length > 0) {
-            const updates = ordersToComplete.map(order =>
-                db.order.update({
-                    where: { id: order.id },
-                    data: {
-                        status: 'completed',
-                        updatedAt: new Date()
-                    }
-                })
-            );
-
-            const activities = ordersToComplete.map(order =>
-                db.orderActivity.create({
-                    data: {
-                        orderId: order.id,
-                        author: 'Sistem (Oto)',
-                        action: 'AUTO_COMPLETE',
-                        details: 'Sipariş kargolandıktan 3 gün sonra otomatik tamamlandı.'
-                    }
-                })
-            );
-
-            await db.$transaction([...updates, ...activities]);
-            return { success: true, count: ordersToComplete.length };
-        }
-
-        return { success: true, count: 0 };
-    } catch (e: any) {
-        console.error("Error in autoCompleteOldOrders:", e);
-        return { error: e.message };
-    }
-}
+export { autoCompleteOldOrders } from "@/lib/auto-complete";
 
 // PRINTMARKT SYNC ACTION
 export async function syncPrintMarktOrders(force: boolean = false, targetOrderId?: string | number, bypassRateLimit: boolean = false) {
