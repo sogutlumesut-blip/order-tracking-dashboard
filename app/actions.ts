@@ -3190,23 +3190,39 @@ export async function syncWayfairOrders(force: boolean = false) {
 }
 
 // Background periodic sync for persistent Node.js servers (DigitalOcean App Platform, VPS, etc.)
+const globalForSync = globalThis as unknown as {
+    syncIntervalStarted: boolean | undefined;
+    syncInProgress: boolean | undefined;
+}
+
 if (typeof window === 'undefined' && process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE !== 'phase-production-build') {
-    const GLOBAL_SYNC_INTERVAL = 3 * 60 * 1000; // 3 minutes
-    
-    // Start interval
-    setInterval(async () => {
-        console.log("[BACKGROUND_SYNC] Starting scheduled order sync on server...");
-        try {
-            const wc = await syncWooCommerceOrders(false).catch(e => ({ error: e.message }));
-            const pm = await syncPrintMarktOrders(false).catch(e => ({ error: e.message }));
-            const etsy = await syncEtsyOrders().catch(e => ({ error: e.message }));
-            const cargo = await syncCargoKargoEntegrator().catch(e => ({ error: e.message }));
-            const wf = await syncWayfairOrders(false).catch(e => ({ error: e.message }));
-            console.log("[BACKGROUND_SYNC] Scheduled sync completed:", { wc, pm, etsy, cargo, wf });
-        } catch (error) {
-            console.error("[BACKGROUND_SYNC] Fatal error in scheduled sync:", error);
-        }
-    }, GLOBAL_SYNC_INTERVAL);
-    
-    console.log("[BACKGROUND_SYNC] Registered server-side background interval (3m).");
+    if (!globalForSync.syncIntervalStarted) {
+        globalForSync.syncIntervalStarted = true;
+        globalForSync.syncInProgress = false;
+        
+        const GLOBAL_SYNC_INTERVAL = 3 * 60 * 1000; // 3 minutes
+        
+        setInterval(async () => {
+            if (globalForSync.syncInProgress) {
+                console.log("[BACKGROUND_SYNC] Skip scheduled sync - another sync is already in progress.");
+                return;
+            }
+            globalForSync.syncInProgress = true;
+            console.log("[BACKGROUND_SYNC] Starting scheduled order sync on server...");
+            try {
+                const wc = await syncWooCommerceOrders(false).catch(e => ({ error: e.message }));
+                const pm = await syncPrintMarktOrders(false).catch(e => ({ error: e.message }));
+                const etsy = await syncEtsyOrders().catch(e => ({ error: e.message }));
+                const cargo = await syncCargoKargoEntegrator().catch(e => ({ error: e.message }));
+                const wf = await syncWayfairOrders(false).catch(e => ({ error: e.message }));
+                console.log("[BACKGROUND_SYNC] Scheduled sync completed:", { wc, pm, etsy, cargo, wf });
+            } catch (error) {
+                console.error("[BACKGROUND_SYNC] Fatal error in scheduled sync:", error);
+            } finally {
+                globalForSync.syncInProgress = false;
+            }
+        }, GLOBAL_SYNC_INTERVAL);
+        
+        console.log("[BACKGROUND_SYNC] Registered server-side background interval (3m) with concurrency locks.");
+    }
 }
