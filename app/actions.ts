@@ -3019,6 +3019,10 @@ export async function syncWayfairOrders(force: boolean = false) {
           }
         }`;
 
+        const fromDateVal = settings['wf_prod_start_time']
+            ? new Date(parseInt(settings['wf_prod_start_time'])).toISOString()
+            : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
         const gqlRes = await fetch(graphqlUrl, {
             method: "POST",
             headers: {
@@ -3029,7 +3033,8 @@ export async function syncWayfairOrders(force: boolean = false) {
                 query,
                 variables: {
                     limit: 50,
-                    ...(isSandbox ? { hasResponse: false } : {})
+                    sortOrder: "DESC",
+                    ...(!isSandbox ? { fromDate: fromDateVal } : { hasResponse: false })
                 }
             }),
             cache: 'no-store'
