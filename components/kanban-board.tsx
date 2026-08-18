@@ -90,6 +90,11 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         }
     }, [])
 
+    // Sync initialOrders to orders state when initialOrders changes from Server Component
+    useEffect(() => {
+        setOrders(initialOrders)
+    }, [initialOrders])
+
     // Background polling sync for WooCommerce, PrintMarkt, and Wayfair
     useEffect(() => {
         const interval = setInterval(async () => {
@@ -99,6 +104,12 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 await syncWooCommerceOrders(false);
                 await syncPrintMarktOrders(false);
                 await syncWayfairOrders(false);
+                
+                // Fetch fresh local state and update orders directly
+                const latest = await getOrders(Date.now());
+                setOrders(latest as any);
+                setLastSynced(new Date());
+                
                 router.refresh();
                 console.log("[BACKGROUND_POLL] Background sync completed successfully.");
             } catch (error) {

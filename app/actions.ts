@@ -2245,7 +2245,7 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
         
         let cleanUrl = settings['pm_url'].trim().replace(/\/+$/, '');
         let pmKey = settings['pm_key'].trim();
-        const limit = force ? 300 : 200; // Limit raised to 200/300 to catch older drafts that got submitted (PrintMarkt API ignores id param and sorts by ID desc)
+        const limit = force ? 1200 : 500; // Limit raised to 500/1200 to catch older drafts that got submitted (PrintMarkt API ignores id param and sorts by ID desc)
         let fetchUrl = targetOrderId 
             ? `${cleanUrl}/api/orders?id=${targetOrderId}&_t=${Date.now()}`
             : `${cleanUrl}/api/orders?limit=${limit}&_t=${Date.now()}`;
