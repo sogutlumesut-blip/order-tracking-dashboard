@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from "react"
-import { MessageCircle, X, Send, User as UserIcon, Paperclip, Download, CornerUpLeft, Trash2, Smile, FolderOpen, ChevronLeft, ChevronRight, Image as ImageIcon, Link, FileText, Calendar, Pin, MessageSquare } from "lucide-react"
+import { MessageCircle, X, Send, User as UserIcon, Paperclip, Download, CornerUpLeft, Trash2, Smile, FolderOpen, ChevronLeft, ChevronRight, Image as ImageIcon, Link, FileText, Calendar, Pin, MessageSquare, Pencil } from "lucide-react"
 import { toast } from "sonner"
 
 interface User {
@@ -157,6 +157,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     const [isOpen, setIsOpen] = useState(false)
     const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null)
     const [replyToMessage, setReplyToMessage] = useState<any | null>(null)
+    const [editingMessage, setEditingMessage] = useState<any | null>(null)
     const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
     const [allUsers, setAllUsers] = useState<any[]>([])
     const [showMentionList, setShowMentionList] = useState(false)
@@ -214,6 +215,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     const messagesRef = useRef(messages)
     const isOpenRef = useRef(isOpen)
     const sendingMessageIdsRef = useRef<Set<string>>(new Set())
+    const deletedMessageIdsRef = useRef<Set<string>>(new Set())
     const isFirstFetchRef = useRef(true)
 
     // Keep refs up-to-date to avoid stale closures in polling callbacks
@@ -274,22 +276,23 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
             const res = await response.json()
             if (res.success && res.messages) {
                 const latestMessages = messagesRef.current
+                const activeServerMessages = res.messages.filter((m: any) => !deletedMessageIdsRef.current.has(m.id))
 
                 if (url.includes('since=')) {
                     // Incremental Poll
-                    if (res.messages.length === 0) {
+                    if (activeServerMessages.length === 0) {
                         if (showLoading) setIsLoading(false)
                         return
                     }
                     
                     // 1. Update any existing messages that got updated (e.g. reactions added/removed)
                     const updatedMessages = latestMessages.map(m => {
-                        const updated = res.messages.find((nm: any) => nm.id === m.id)
+                        const updated = activeServerMessages.find((nm: any) => nm.id === m.id)
                         return updated ? updated : m
                     })
 
                     // 2. Filter out new messages that are not yet in our local list
-                    const newUniqueMessages = res.messages.filter((newMsg: any) => 
+                    const newUniqueMessages = activeServerMessages.filter((newMsg: any) => 
                         !latestMessages.some(m => m.id === newMsg.id)
                     )
                     
@@ -299,7 +302,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                     )
                     
                     // Only update state if something actually changed (to prevent unnecessary re-renders)
-                    const hasNewOrUpdates = newUniqueMessages.length > 0 || res.messages.some((nm: any) => 
+                    const hasNewOrUpdates = newUniqueMessages.length > 0 || activeServerMessages.some((nm: any) => 
                         latestMessages.some(m => m.id === nm.id && m.reactions !== nm.reactions)
                     )
 
@@ -348,18 +351,18 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                         const isOptimistic = m.isOptimistic && sendingMessageIdsRef.current.has(m.id)
                         const isRecentMe = m.senderId === currentUser.id && 
                                            (now - new Date(m.createdAt).getTime()) < 10000 &&
-                                           !res.messages.some((serverMsg: any) => serverMsg.id === m.id)
+                                           !activeServerMessages.some((serverMsg: any) => serverMsg.id === m.id)
                         return isOptimistic || isRecentMe
                     })
                     
-                    const newOtherMessages = res.messages.filter((newMsg: any) => {
+                    const newOtherMessages = activeServerMessages.filter((newMsg: any) => {
                         const alreadyExists = latestMessages.some(m => m.id === newMsg.id)
                         const isNotMe = newMsg.senderId !== currentUser.id
                         return !alreadyExists && isNotMe
                     })
 
-                    setMessages([...res.messages, ...temporaryOrRecent])
-                    setHasMoreOlder(res.messages.length >= 150)
+                    setMessages([...activeServerMessages, ...temporaryOrRecent])
+                    setHasMoreOlder(activeServerMessages.length >= 150)
                     
                     const recentMentions = newOtherMessages.filter((nm: any) => {
                         if (!nm.text) return false
@@ -402,7 +405,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                         playNotificationSound()
                     }
                     
-                    if (!isOpenRef.current && res.messages.length > latestMessages.length && latestMessages.length > 0) {
+                    if (!isOpenRef.current && activeServerMessages.length > latestMessages.length && latestMessages.length > 0) {
                         setHasUnread(true)
                     }
                 }
@@ -637,6 +640,39 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         setAttachments([])
         setReplyToMessage(null)
 
+        if (editingMessage) {
+            const msgToEdit = editingMessage
+            setEditingMessage(null)
+            try {
+                setMessages(prev => prev.map(m => m.id === msgToEdit.id ? { ...m, text: textToSend } : m))
+
+                const response = await fetch('/api/chat', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: 'edit',
+                        messageId: msgToEdit.id,
+                        text: textToSend
+                    })
+                })
+                const res = await response.json()
+                if (!res.success) {
+                    setMessages(prev => prev.map(m => m.id === msgToEdit.id ? msgToEdit : m))
+                    alert("Mesaj düzenlenemedi: " + res.error)
+                } else {
+                    setMessages(prev => prev.map(m => m.id === res.message.id ? res.message : m))
+                }
+            } catch (error: any) {
+                setMessages(prev => prev.map(m => m.id === msgToEdit.id ? msgToEdit : m))
+                alert("Bağlantı hatası: Mesaj düzenlenemedi")
+            } finally {
+                setIsSending(false)
+            }
+            return
+        }
+
         try {
             if (attachmentsToSend.length === 0) {
                 await sendMessageItem(textToSend, null, replyToSend)
@@ -719,6 +755,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         if (!confirm("Bu mesajı silmek istediğinize emin misiniz?")) return
 
         const previousMessages = [...messages]
+        deletedMessageIdsRef.current.add(messageId)
         setMessages(prev => prev.filter(m => m.id !== messageId))
 
         // Update local cache immediately
@@ -736,11 +773,13 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
             })
             const res = await response.json()
             if (!res.success) {
+                deletedMessageIdsRef.current.delete(messageId)
                 setMessages(previousMessages)
                 localStorage.setItem('team_chat_messages', JSON.stringify(previousMessages))
                 alert("Mesaj silinemedi: " + res.error)
             }
         } catch (error: any) {
+            deletedMessageIdsRef.current.delete(messageId)
             setMessages(previousMessages)
             localStorage.setItem('team_chat_messages', JSON.stringify(previousMessages))
             alert("Bağlantı hatası: Mesaj silinemedi")
@@ -1403,13 +1442,27 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                             <Pin className={`w-3.5 h-3.5 ${msg.isPinned ? 'fill-amber-500 rotate-45' : ''}`} />
                                                         </button>
                                                         {isMe && (
-                                                            <button 
-                                                                onClick={() => handleDeleteMessage(msg.id)}
-                                                                className="p-1 rounded-full hover:bg-red-50 dark:hover:bg-red-950/20 text-slate-400 hover:text-red-650 dark:hover:text-red-400 cursor-pointer"
-                                                                title="Sil"
-                                                            >
-                                                                <Trash2 className="w-3.5 h-3.5" />
-                                                            </button>
+                                                            <>
+                                                                <button 
+                                                                    onClick={() => {
+                                                                        setReplyToMessage(null)
+                                                                        setEditingMessage(msg)
+                                                                        setNewMessage(msg.text || "")
+                                                                        setTimeout(() => inputRef.current?.focus(), 50)
+                                                                    }}
+                                                                    className="p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-850 text-slate-400 hover:text-slate-650 dark:hover:text-slate-350 cursor-pointer"
+                                                                    title="Düzenle"
+                                                                >
+                                                                    <Pencil className="w-3.5 h-3.5" />
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => handleDeleteMessage(msg.id)}
+                                                                    className="p-1 rounded-full hover:bg-red-50 dark:hover:bg-red-950/20 text-slate-400 hover:text-red-650 dark:hover:text-red-400 cursor-pointer"
+                                                                    title="Sil"
+                                                                >
+                                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            </>
                                                         )}
                                                     </div>
                                                 )}
@@ -1419,6 +1472,11 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                             <span className="text-[9px] text-slate-400">
                                                 {new Date(msg.createdAt).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                                             </span>
+                                            {msg.updatedAt && msg.createdAt && (new Date(msg.updatedAt).getTime() - new Date(msg.createdAt).getTime() > 2000) && (
+                                                <span className="text-[8.5px] text-slate-400 dark:text-slate-500 italic ml-0.5 select-none" title="Düzenlenme Tarihi: Lütfen yenileyip bakın">
+                                                    (düzenlendi)
+                                                </span>
+                                            )}
                                             {msg.isPinned && (
                                                 <span className="text-[9px] font-bold text-amber-500 flex items-center gap-0.5 ml-1" title="Sabitlenmiş Mesaj">
                                                     <Pin className="w-2.5 h-2.5 fill-amber-500 rotate-45" /> Sabitlendi
@@ -1452,6 +1510,27 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                 <button 
                                     onClick={() => setReplyToMessage(null)}
                                     className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-0.5 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
+                                >
+                                    <X className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                        )}
+                        {editingMessage && (
+                            <div className="flex items-center justify-between bg-amber-50/70 dark:bg-amber-950/20 px-3 py-1.5 rounded-lg border-l-4 border-amber-500 text-xs animate-in slide-in-from-top-2 duration-100">
+                                <div className="text-left min-w-0">
+                                    <div className="font-bold text-[9px] text-amber-600 dark:text-amber-400">
+                                        Mesajı Düzenliyorsunuz
+                                    </div>
+                                    <div className="text-slate-500 dark:text-slate-400 truncate max-w-[340px]">
+                                        {editingMessage.text}
+                                    </div>
+                                </div>
+                                <button 
+                                    onClick={() => {
+                                        setEditingMessage(null)
+                                        setNewMessage("")
+                                    }}
+                                    className="text-slate-400 hover:text-slate-650 dark:hover:text-slate-200 transition-colors p-0.5 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
                                 >
                                     <X className="w-3.5 h-3.5" />
                                 </button>
