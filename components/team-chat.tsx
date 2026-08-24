@@ -741,6 +741,9 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                 alert("Mesaj silinemedi: " + res.error)
             }
         } catch (error: any) {
+            setMessages(previousMessages)
+            localStorage.setItem('team_chat_messages', JSON.stringify(previousMessages))
+            alert("Bağlantı hatası: Mesaj silinemedi")
         }
     }
 

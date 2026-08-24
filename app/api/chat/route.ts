@@ -203,8 +203,9 @@ export async function DELETE(req: Request) {
             return NextResponse.json({ success: false, error: "Message not found" }, { status: 404 })
         }
 
-        // Check ownership: only sender can delete their own message
-        if (message.senderId !== session.user.id) {
+        // Check ownership: only sender can delete their own message (or admin)
+        console.log(`[DELETE_CHAT] User: ${session.user.id} (Role: ${session.user.role}) trying to delete message: ${messageId} (Sender: ${message.senderId})`)
+        if (message.senderId !== session.user.id && session.user.role !== "admin") {
             return NextResponse.json({ success: false, error: "You can only delete your own messages" }, { status: 403 })
         }
 
@@ -212,6 +213,7 @@ export async function DELETE(req: Request) {
             where: { id: messageId }
         })
 
+        console.log(`[DELETE_CHAT] Message ${messageId} deleted successfully`)
         return NextResponse.json({ success: true })
     } catch (e: any) {
         console.error("Error deleting chat message:", e)
