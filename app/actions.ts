@@ -2492,13 +2492,18 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                         finalStatus = dbStatus;
                     }
 
+                    const isManualPdf = !!(existingOrder.cargoLabelPdf && (
+                        existingOrder.cargoLabelPdf.startsWith('JVBERi') ||
+                        existingOrder.cargoLabelPdf.startsWith('data:')
+                    ));
+
                     const hasStatusChange = dbStatus !== finalStatus;
                     const hasDataChange = 
                         existingOrder.customer !== shippingName ||
                         existingOrder.address !== shippingAddress ||
                         existingOrder.phone !== shippingPhone ||
                         existingOrder.total !== totalAmount.toFixed(2) ||
-                        (trackingPdf && existingOrder.cargoLabelPdf !== trackingPdf);
+                        (!isManualPdf && trackingPdf && existingOrder.cargoLabelPdf !== trackingPdf);
                     if (hasStatusChange || hasDataChange) {
                         if (hasStatusChange) {
                             await logActivity(existingOrder.id, "PrintMarkt Senkronizasyon", "STATUS_CHANGE", `Durum PrintMarkt tarafından '${finalStatus}' olarak güncellendi.`);
@@ -2514,6 +2519,8 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                             console.error("PrintMarkt label merge error:", e);
                         }
 
+                        const finalCargoLabel = isManualPdf ? existingOrder.cargoLabelPdf : (trackingPdf || existingOrder.cargoLabelPdf);
+
                         await db.order.update({
                             where: { id: existingOrder.id },
                             data: {
@@ -2524,8 +2531,8 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                                 total: totalAmount.toFixed(2),
                                 status: finalStatus,
                                 updatedAt: new Date(),
-                                cargoLabelPdf: trackingPdf || existingOrder.cargoLabelPdf,
-                                hasCargoPdf: (trackingPdf || existingOrder.cargoLabelPdf) ? true : false,
+                                cargoLabelPdf: finalCargoLabel,
+                                hasCargoPdf: !!finalCargoLabel,
                                 labels: JSON.stringify(finalLabels),
                                 note: existingOrder.note || customerNote,
                                 paymentMethod: paymentMethod,
