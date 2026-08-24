@@ -52,6 +52,43 @@ export async function GET(
     let zpl = order.cargoBarcode || "";
 
     if (!zpl.startsWith('^XA')) {
+        if (order.cargoLabelPdf && (order.cargoLabelPdf.startsWith('easyship:') || order.cargoLabelPdf.includes('/easyship:'))) {
+            const labelId = order.cargoLabelPdf.split(':').pop()?.replace('/', '') || '';
+            return new NextResponse(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Easyship Etiketi</title>
+                    <meta charset="utf-8">
+                    <style>
+                        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #f8fafc; color: #334155; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+                        .card { background: white; padding: 2.5rem; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); max-width: 480px; text-align: center; border: 1px solid #e2e8f0; }
+                        h1 { color: #0284c7; margin-top: 0; font-size: 1.6rem; font-weight: 700; }
+                        p { line-height: 1.6; margin-bottom: 1.5rem; font-size: 0.95rem; }
+                        .badge-container { margin: 1.5rem 0; }
+                        .badge { background: #f0f9ff; color: #0369a1; border: 1px solid #bae6fd; padding: 0.5rem 1rem; border-radius: 9999px; font-weight: 700; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 1.1rem; }
+                        .btn { background: #0284c7; color: white; padding: 0.8rem 1.8rem; border-radius: 10px; text-decoration: none; font-weight: 600; display: inline-block; transition: all 0.2s; box-shadow: 0 4px 6px -1px rgba(2, 132, 199, 0.4); }
+                        .btn:hover { background: #0369a1; transform: translateY(-1px); }
+                    </style>
+                </head>
+                <body>
+                    <div class="card">
+                        <h1>Easyship Kargo Etiketi</h1>
+                        <p>Bu sipariş için PrintMarkt üzerinde Easyship kargo etiketi tanımlanmıştır:</p>
+                        <div class="badge-container">
+                            <span class="badge">${labelId}</span>
+                        </div>
+                        <p>Easyship etiketleri güvenlik nedeniyle harici olarak doğrudan indirilememektedir. Lütfen PrintMarkt paneline giriş yapıp bu siparişin etiketini indirdikten sonra, kargo takip sistemindeki sipariş panelinden manuel olarak yükleyiniz.</p>
+                        <a href="https://printmarkt.co" target="_blank" class="btn">PrintMarkt Panelini Aç</a>
+                    </div>
+                </body>
+                </html>
+            `, {
+                status: 200,
+                headers: { "Content-Type": "text/html; charset=utf-8" }
+            });
+        }
+
         let shipmentId = null;
         if (order.cargoLabelPdf && order.cargoLabelPdf.includes('app.kargoentegrator.com/print-pdf')) {
             try {

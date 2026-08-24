@@ -743,75 +743,104 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     </div>
                                 )}
 
-                                {(formData.cargoBarcode || formData.cargoLabelPdf || formData.hasCargoPdf) ? (
-                                    <div className="space-y-2">
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => {
-                                                    window.open(`/api/cargo-label/${formData.id}?t=${Date.now()}`, '_blank');
-                                                }}
-                                                className="flex-1 py-3 border-2 border-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-xl flex items-center justify-center gap-2 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all text-blue-700 dark:text-blue-400 font-bold"
-                                            >
-                                                <FileDown className="w-5 h-5" />
-                                                Etiketi Görüntüle
-                                            </button>
-                                            <button
-                                                onClick={async () => {
-                                                    if (!confirm("Etiketi silmek istediğinize emin misiniz?")) return;
-                                                    const res = await deleteCargoLabel(formData.id);
-                                                    if (res.success) {
-                                                        toast.success(res.message);
-                                                        setFormData({ ...formData, cargoLabelPdf: undefined, cargoBarcode: undefined });
-                                                        onUpdate({ ...formData, cargoLabelPdf: undefined, cargoBarcode: undefined });
-                                                    } else {
-                                                        toast.error(res.error);
-                                                    }
-                                                }}
-                                                className="w-12 border-2 border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20 rounded-xl flex items-center justify-center hover:bg-red-100 dark:hover:bg-red-900/40 transition-all text-red-600 dark:text-red-400"
-                                                title="Etiketi Sil"
+                                {(() => {
+                                    const isEasyshipLabel = !!(formData.cargoLabelPdf && (formData.cargoLabelPdf.startsWith('easyship:') || formData.cargoLabelPdf.includes('/easyship:')));
+                                    const hasValidLabel = !!((formData.cargoBarcode || formData.cargoLabelPdf || formData.hasCargoPdf) && !isEasyshipLabel);
 
-                                            >
-                                                <X className="w-5 h-5" />
-                                            </button>
+                                    if (hasValidLabel) {
+                                        return (
+                                            <div className="space-y-2">
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => {
+                                                            window.open(`/api/cargo-label/${formData.id}?t=${Date.now()}`, '_blank');
+                                                        }}
+                                                        className="flex-1 py-3 border-2 border-blue-500 bg-blue-50 dark:bg-blue-900/30 rounded-xl flex items-center justify-center gap-2 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all text-blue-700 dark:text-blue-400 font-bold"
+                                                    >
+                                                        <FileDown className="w-5 h-5" />
+                                                        Etiketi Görüntüle
+                                                    </button>
+                                                    <button
+                                                        onClick={async () => {
+                                                            if (!confirm("Etiketi silmek istediğinize emin misiniz?")) return;
+                                                            const res = await deleteCargoLabel(formData.id);
+                                                            if (res.success) {
+                                                                toast.success(res.message);
+                                                                setFormData({ ...formData, cargoLabelPdf: undefined, cargoBarcode: undefined });
+                                                                onUpdate({ ...formData, cargoLabelPdf: undefined, cargoBarcode: undefined });
+                                                            } else {
+                                                                toast.error(res.error);
+                                                            }
+                                                        }}
+                                                        className="w-12 border-2 border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20 rounded-xl flex items-center justify-center hover:bg-red-100 dark:hover:bg-red-900/40 transition-all text-red-600 dark:text-red-400"
+                                                        title="Etiketi Sil"
+                                                    >
+                                                        <X className="w-5 h-5" />
+                                                    </button>
+                                                </div>
+                                                <p className="text-[10px] text-center text-slate-400">Yüklü Belge Var</p>
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <div className="space-y-3">
+                                            {isEasyshipLabel && (
+                                                <div className="p-3.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-xl text-xs text-amber-800 dark:text-amber-300 flex flex-col gap-2">
+                                                    <div>
+                                                        <p className="font-bold flex items-center gap-1">
+                                                            <span>⚠️</span> Easyship Kargo Etiketi Hazır
+                                                        </p>
+                                                        <p className="mt-1 text-slate-600 dark:text-slate-400 leading-relaxed">
+                                                            Bu siparişin kargo barkodu PrintMarkt üzerinde Easyship ile oluşturulmuştur. Güvenlik nedeniyle doğrudan indirilemez. PrintMarkt panelinden indirdiğiniz PDF kargo etiketini aşağıdaki alandan yükleyebilirsiniz.
+                                                        </p>
+                                                    </div>
+                                                    <button
+                                                        onClick={() => window.open(`/api/cargo-label/${formData.id}?t=${Date.now()}`, '_blank')}
+                                                        className="w-full py-1.5 border border-amber-300 dark:border-amber-800 bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-900/50 rounded-lg text-amber-900 dark:text-amber-300 font-bold transition-all flex items-center justify-center gap-1.5"
+                                                    >
+                                                        <FileDown className="w-3.5 h-3.5" />
+                                                        Easyship Bilgilerini Göster
+                                                    </button>
+                                                </div>
+                                            )}
+                                            <div className="relative">
+                                                 <input
+                                                     type="file"
+                                                     accept="application/pdf"
+                                                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                                     onChange={async (e) => {
+                                                         const file = e.target.files?.[0];
+                                                         if (!file) return;
+
+                                                         if (file.size > 2 * 1024 * 1024) {
+                                                             alert("Dosya boyutu 2MB'dan büyük olamaz.");
+                                                             return;
+                                                         }
+
+                                                         const reader = new FileReader();
+                                                         reader.onload = async () => {
+                                                             const base64 = (reader.result as string).split(',')[1];
+                                                             const res = await uploadCargoLabel(formData.id, base64);
+                                                             if (res.success) {
+                                                                 toast.success(res.message);
+                                                                 setFormData({ ...formData, cargoLabelPdf: base64, hasCargoPdf: true });
+                                                                 onUpdate({ ...formData, cargoLabelPdf: base64, hasCargoPdf: true });
+                                                             } else {
+                                                                 toast.error(res.error);
+                                                             }
+                                                         };
+                                                         reader.readAsDataURL(file);
+                                                     }}
+                                                 />
+                                                 <div className="w-full py-3 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-blue-400 hover:text-blue-600 transition-all text-slate-500 dark:text-slate-400 font-bold">
+                                                     <Upload className="w-5 h-5" />
+                                                     Kargo Etiketi Yükle (PDF)
+                                                 </div>
+                                            </div>
                                         </div>
-                                        <p className="text-[10px] text-center text-slate-400">Yüklü Belge Var</p>
-                                    </div>
-                                ) : (
-                                    <div className="relative">
-                                        <input
-                                            type="file"
-                                            accept="application/pdf"
-                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                            onChange={async (e) => {
-                                                const file = e.target.files?.[0];
-                                                if (!file) return;
-
-                                                if (file.size > 2 * 1024 * 1024) {
-                                                    alert("Dosya boyutu 2MB'dan büyük olamaz.");
-                                                    return;
-                                                }
-
-                                                const reader = new FileReader();
-                                                reader.onload = async () => {
-                                                    const base64 = (reader.result as string).split(',')[1];
-                                                    const res = await uploadCargoLabel(formData.id, base64);
-                                                    if (res.success) {
-                                                        toast.success(res.message);
-                                                        setFormData({ ...formData, cargoLabelPdf: base64 });
-                                                        onUpdate({ ...formData, cargoLabelPdf: base64 });
-                                                    } else {
-                                                        toast.error(res.error);
-                                                    }
-                                                };
-                                                reader.readAsDataURL(file);
-                                            }}
-                                        />
-                                        <div className="w-full py-3 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl flex items-center justify-center gap-2 hover:bg-slate-50 dark:hover:bg-slate-800 hover:border-blue-400 hover:text-blue-600 transition-all text-slate-500 dark:text-slate-400 font-bold">
-                                            <Upload className="w-5 h-5" />
-                                            Kargo Etiketi Yükle (PDF)
-                                        </div>
-                                    </div>
-                                )}
+                                    );
+                                })()}
 
                                 <hr className="border-slate-200 dark:border-slate-700 my-4" />
 
