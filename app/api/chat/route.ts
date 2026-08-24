@@ -209,8 +209,14 @@ export async function DELETE(req: Request) {
             return NextResponse.json({ success: false, error: "You can only delete your own messages" }, { status: 403 })
         }
 
-        await db.chatMessage.delete({
-            where: { id: messageId }
+        await db.chatMessage.update({
+            where: { id: messageId },
+            data: {
+                text: "__deleted__",
+                attachment: null,
+                reactions: null,
+                isPinned: false
+            }
         })
 
         console.log(`[DELETE_CHAT] Message ${messageId} deleted successfully`)

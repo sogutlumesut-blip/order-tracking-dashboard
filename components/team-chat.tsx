@@ -276,20 +276,36 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
             const res = await response.json()
             if (res.success && res.messages) {
                 const latestMessages = messagesRef.current
-                const activeServerMessages = res.messages.filter((m: any) => !deletedMessageIdsRef.current.has(m.id))
+                
+                // Identify newly deleted messages from server response
+                const newlyDeletedIds = new Set<string>()
+                res.messages.forEach((m: any) => {
+                    if (m.text === "__deleted__") {
+                        newlyDeletedIds.add(m.id)
+                        deletedMessageIdsRef.current.add(m.id)
+                    }
+                })
+
+                // Active server messages: neither in deletedMessageIdsRef nor marked as '__deleted__'
+                const activeServerMessages = res.messages.filter((m: any) => 
+                    m.text !== "__deleted__" && !deletedMessageIdsRef.current.has(m.id)
+                )
 
                 if (url.includes('since=')) {
                     // Incremental Poll
-                    if (activeServerMessages.length === 0) {
+                    const hasDeletedOnScreen = latestMessages.some(m => newlyDeletedIds.has(m.id))
+                    if (activeServerMessages.length === 0 && !hasDeletedOnScreen) {
                         if (showLoading) setIsLoading(false)
                         return
                     }
                     
-                    // 1. Update any existing messages that got updated (e.g. reactions added/removed)
-                    const updatedMessages = latestMessages.map(m => {
-                        const updated = activeServerMessages.find((nm: any) => nm.id === m.id)
-                        return updated ? updated : m
-                    })
+                    // 1. Update any existing messages that got updated (e.g. reactions, edits), and filter out newly deleted ones
+                    const updatedMessages = latestMessages
+                        .filter(m => !newlyDeletedIds.has(m.id))
+                        .map(m => {
+                            const updated = activeServerMessages.find((nm: any) => nm.id === m.id)
+                            return updated ? updated : m
+                        })
 
                     // 2. Filter out new messages that are not yet in our local list
                     const newUniqueMessages = activeServerMessages.filter((newMsg: any) => 
@@ -301,9 +317,14 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                         newMsg.senderId !== currentUser.id
                     )
                     
-                    // Only update state if something actually changed (to prevent unnecessary re-renders)
-                    const hasNewOrUpdates = newUniqueMessages.length > 0 || activeServerMessages.some((nm: any) => 
-                        latestMessages.some(m => m.id === nm.id && m.reactions !== nm.reactions)
+                    // Only update state if something actually changed (text, reactions, pins, timestamp, or a deletion occurred)
+                    const hasNewOrUpdates = newUniqueMessages.length > 0 || hasDeletedOnScreen || activeServerMessages.some((nm: any) => 
+                        latestMessages.some(m => m.id === nm.id && (
+                            m.text !== nm.text || 
+                            m.reactions !== nm.reactions ||
+                            m.isPinned !== nm.isPinned ||
+                            new Date(m.updatedAt).getTime() !== new Date(nm.updatedAt).getTime()
+                        ))
                     )
 
                     if (hasNewOrUpdates) {
@@ -433,10 +454,13 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
             const res = await response.json()
 
             if (res.success && res.messages) {
+                const activeOlder = res.messages.filter((m: any) => 
+                    m.text !== "__deleted__" && !deletedMessageIdsRef.current.has(m.id)
+                )
                 if (res.messages.length === 0) {
                     setHasMoreOlder(false)
                 } else {
-                    setMessages(prev => [...res.messages, ...prev])
+                    setMessages(prev => [...activeOlder, ...prev])
                     
                     if (res.messages.length < 100) {
                         setHasMoreOlder(false)
