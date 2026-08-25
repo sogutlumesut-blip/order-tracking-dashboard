@@ -2312,7 +2312,17 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                 cargoTrackingNumber: true,
                 cargoLabelPdf: true,
                 paymentMethod: true,
-                updatedAt: true
+                updatedAt: true,
+                items: {
+                    select: {
+                        name: true,
+                        sku: true,
+                        quantity: true,
+                        dimensions: true,
+                        material: true,
+                        productNote: true
+                    }
+                }
             }
         });
 
@@ -2497,13 +2507,26 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                         existingOrder.cargoLabelPdf.startsWith('data:')
                     ));
 
+                    const itemsChanged = !existingOrder.items || existingOrder.items.length !== items.length ||
+                        items.some((item: any, index: number) => {
+                            const dbItem = (existingOrder as any).items[index];
+                            return !dbItem ||
+                                dbItem.sku !== item.sku ||
+                                dbItem.quantity !== item.quantity ||
+                                dbItem.dimensions !== item.dimensions ||
+                                dbItem.material !== item.material ||
+                                dbItem.name !== item.name ||
+                                dbItem.productNote !== item.productNote;
+                        });
+
                     const hasStatusChange = dbStatus !== finalStatus;
                     const hasDataChange = 
                         existingOrder.customer !== shippingName ||
                         existingOrder.address !== shippingAddress ||
                         existingOrder.phone !== shippingPhone ||
                         existingOrder.total !== totalAmount.toFixed(2) ||
-                        (!isManualPdf && trackingPdf && existingOrder.cargoLabelPdf !== trackingPdf);
+                        (!isManualPdf && trackingPdf && existingOrder.cargoLabelPdf !== trackingPdf) ||
+                        itemsChanged;
                     if (hasStatusChange || hasDataChange) {
                         if (hasStatusChange) {
                             await logActivity(existingOrder.id, "PrintMarkt Senkronizasyon", "STATUS_CHANGE", `Durum PrintMarkt tarafından '${finalStatus}' olarak güncellendi.`);
@@ -2536,6 +2559,10 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                                 labels: JSON.stringify(finalLabels),
                                 note: existingOrder.note || customerNote,
                                 paymentMethod: paymentMethod,
+                                items: {
+                                    deleteMany: {},
+                                    create: items
+                                }
                             }
                         });
                         importedCount++;
