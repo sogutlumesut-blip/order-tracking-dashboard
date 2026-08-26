@@ -383,7 +383,8 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                         if (match && !hasM2) {
                                                             const w = parseFloat(match[1])
                                                             const h = parseFloat(match[2])
-                                                            const isInch = dimStr.includes('"') || 
+                                                            const isInch = formData.source === 'wayfair' || 
+                                                                           dimStr.includes('"') || 
                                                                            /(?:^|\d|\s)(in|inch|inches|inc|inç)(?:\b|$)/i.test(dimStr);
                                                             let m2 = 0
                                                             if (isInch) {

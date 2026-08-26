@@ -307,7 +307,8 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                             const h = parseFloat(match[2])
                                             
                                             // Detect if it is in inches
-                                            const isInch = dimStr.includes('"') || 
+                                            const isInch = order.source === 'wayfair' || 
+                                                           dimStr.includes('"') || 
                                                            /(?:^|\d|\s)(in|inch|inches|inc|inç)(?:\b|$)/i.test(dimStr);
                                             
                                             let m2 = 0
