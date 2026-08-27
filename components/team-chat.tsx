@@ -155,7 +155,7 @@ const renderMessageText = (text: string, isMe: boolean) => {
 
 export function TeamChat({ currentUser }: { currentUser: User }) {
     const [isOpen, setIsOpen] = useState(false)
-    const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null)
+    const [activeLightboxImage, setActiveLightboxImage] = useState<{ url: string, messageId: string } | null>(null)
     const [replyToMessage, setReplyToMessage] = useState<any | null>(null)
     const [editingMessage, setEditingMessage] = useState<any | null>(null)
     const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null)
@@ -915,12 +915,19 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     }
 
     const scrollToMessage = (messageId: string) => {
-        const el = document.getElementById(`msg-${messageId}`)
-        if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-            setHighlightedMessageId(messageId)
-            setTimeout(() => setHighlightedMessageId(null), 3000)
+        let attempts = 0
+        const tryScroll = () => {
+            const el = document.getElementById(`msg-${messageId}`)
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                setHighlightedMessageId(messageId)
+                setTimeout(() => setHighlightedMessageId(null), 3000)
+            } else if (attempts < 15) {
+                attempts++
+                setTimeout(tryScroll, 100)
+            }
         }
+        tryScroll()
     }
 
     return (
@@ -1070,7 +1077,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                             {galleryItems.media.map(item => (
                                                 <div 
                                                     key={item.id}
-                                                    onClick={() => setActiveLightboxImage(item.url)}
+                                                    onClick={() => setActiveLightboxImage({ url: item.url, messageId: item.id })}
                                                     className="relative aspect-square rounded-xl overflow-hidden border border-slate-100 dark:border-slate-800/80 bg-slate-200 dark:bg-slate-850 cursor-pointer group hover:scale-[1.03] transition-all duration-200 shadow-sm hover:shadow"
                                                 >
                                                     <img 
@@ -1363,7 +1370,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                                         src={msg.attachment} 
                                                                         alt="Attachment" 
                                                                         className="max-w-full rounded-lg mb-2 max-h-48 min-h-[120px] min-w-[150px] object-cover cursor-pointer hover:opacity-90 transition-opacity bg-slate-100 dark:bg-slate-700/50" 
-                                                                        onClick={() => setActiveLightboxImage(msg.attachment)} 
+                                                                        onClick={() => setActiveLightboxImage({ url: msg.attachment, messageId: msg.id })} 
                                                                     />
                                                                 )}
                                                                 {renderMessageText(msg.text, isMe)}
@@ -1763,14 +1770,10 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                             type="button"
                             onClick={(e) => {
                                 e.stopPropagation()
-                                const relatedMsg = messages.find(m => m.attachment === activeLightboxImage)
-                                if (relatedMsg) {
-                                    setActiveLightboxImage(null)
-                                    setShowMediaGallery(false)
-                                    setTimeout(() => {
-                                        scrollToMessage(relatedMsg.id)
-                                    }, 100)
-                                }
+                                const targetId = activeLightboxImage.messageId
+                                setActiveLightboxImage(null)
+                                setShowMediaGallery(false)
+                                scrollToMessage(targetId)
                             }}
                             className="text-white hover:text-slate-200 bg-slate-900/50 px-3.5 py-2.5 rounded-full backdrop-blur-md transition-colors flex items-center justify-center gap-1.5 cursor-pointer text-xs font-semibold"
                             title="Sohbetteki Mesaja Git"
@@ -1779,7 +1782,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                             <span>Mesaja Git</span>
                         </button>
                         <a 
-                            href={activeLightboxImage} 
+                            href={activeLightboxImage.url} 
                             download="gorsel.png"
                             className="text-white hover:text-slate-200 bg-slate-900/50 p-2.5 rounded-full backdrop-blur-md transition-colors flex items-center justify-center cursor-pointer"
                             title="Görseli İndir"
@@ -1795,7 +1798,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                         </button>
                     </div>
                     <img 
-                        src={activeLightboxImage} 
+                        src={activeLightboxImage.url} 
                         alt="Görsel Detayı" 
                         className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-200 cursor-default"
                         onClick={(e) => e.stopPropagation()}
