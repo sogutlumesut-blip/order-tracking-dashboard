@@ -383,7 +383,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                     })
 
                     setMessages([...activeServerMessages, ...temporaryOrRecent])
-                    setHasMoreOlder(activeServerMessages.length >= 150)
+                    setHasMoreOlder(res.messages.length >= 150)
                     
                     const recentMentions = newOtherMessages.filter((nm: any) => {
                         if (!nm.text) return false
