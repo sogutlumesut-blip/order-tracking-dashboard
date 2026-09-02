@@ -234,7 +234,37 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         }
     }
 
-    const handleSendWhatsAppDirect = (imageUrl: string, phone?: string, caption?: string) => {
+    const handleNativeFileShare = async (imageUrl: string, caption?: string) => {
+        try {
+            let blob: Blob
+            if (imageUrl.startsWith('data:')) {
+                const res = await fetch(imageUrl)
+                blob = await res.blob()
+            } else {
+                const absoluteUrl = imageUrl.startsWith('http') ? imageUrl : `${window.location.origin}${imageUrl}`
+                const res = await fetch(absoluteUrl)
+                blob = await res.blob()
+            }
+
+            const file = new File([blob], 'tasarim-gorseli.png', { type: blob.type || 'image/png' })
+            if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    files: [file],
+                    title: 'Tasarım Görseli',
+                    text: caption ? caption.trim() : undefined
+                })
+                return true
+            }
+        } catch (e) {
+            console.log("Native share cancelled or failed", e)
+        }
+        return false
+    }
+
+    const handleSendWhatsAppDirect = async (imageUrl: string, phone?: string, caption?: string) => {
+        // Automatically copy the real image file to clipboard first
+        await handleCopyImageOnly(imageUrl)
+
         let cleanPhone = phone ? phone.replace(/\D/g, "") : ""
         if (cleanPhone) {
             if (cleanPhone.startsWith("00")) cleanPhone = cleanPhone.substring(2)
@@ -242,17 +272,26 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
             else if (cleanPhone.length === 10 && cleanPhone.startsWith("5")) cleanPhone = "90" + cleanPhone
         }
 
-        const fullImageUrl = imageUrl.startsWith("http") ? imageUrl : `${window.location.origin}${imageUrl}`
-        const textToSend = caption ? `${caption}\n${fullImageUrl}` : fullImageUrl
+        // Only send the custom note text (NEVER send the image link URL)
+        const textToSend = caption ? caption.trim() : ""
 
         let waUrl = ""
         if (cleanPhone) {
-            waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(textToSend)}`
+            waUrl = textToSend 
+                ? `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(textToSend)}` 
+                : `https://web.whatsapp.com/send?phone=${cleanPhone}`
         } else {
-            waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(textToSend)}`
+            waUrl = textToSend 
+                ? `https://web.whatsapp.com/send?text=${encodeURIComponent(textToSend)}` 
+                : `https://web.whatsapp.com`
         }
 
         window.open(waUrl, "_blank", "noopener,noreferrer")
+
+        toast.success("WhatsApp Açılıyor & Görsel Kopyalandı! 🖼️", {
+            description: "Açılan sohbete gidip Ctrl+V (veya Cmd+V) yapmanız yeterlidir, resim doğrudan yapışacaktır.",
+            duration: 7000
+        })
     }
 
     useEffect(() => {
@@ -2045,9 +2084,14 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
 
                             {/* Option 2: Send directly to a Phone Number */}
                             <div className="p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl space-y-2.5">
-                                <p className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                                    <Phone className="w-3.5 h-3.5 text-emerald-600" /> 2. Yöntem: Numaraya Doğrudan Gönder
-                                </p>
+                                <div>
+                                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                                        <Phone className="w-3.5 h-3.5 text-emerald-600" /> 2. Yöntem: Numaraya Doğrudan Gönder
+                                    </p>
+                                    <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
+                                        Görsel otomatik olarak kopyalanır ve numaranın sohbeti açılır. Sohbette <kbd className="px-1 py-0.2 bg-white dark:bg-slate-800 rounded border border-slate-300 dark:border-slate-600 font-mono text-[10px]">Ctrl+V</kbd> ile resmi anında gönderebilirsiniz (link gitmez).
+                                    </p>
+                                </div>
                                 <div className="space-y-2">
                                     <div>
                                         <label className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Telefon Numarası</label>
@@ -2071,30 +2115,46 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                     </div>
                                     <button
                                         type="button"
-                                        onClick={() => {
-                                            handleSendWhatsAppDirect(whatsAppShareData.url, whatsAppPhone, whatsAppCustomText)
+                                        onClick={async () => {
+                                            await handleSendWhatsAppDirect(whatsAppShareData.url, whatsAppPhone, whatsAppCustomText)
                                             setWhatsAppShareData(null)
                                         }}
                                         className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm mt-1"
                                     >
                                         <WhatsAppIcon className="w-4 h-4 fill-white" />
-                                        <span>WhatsApp'ta Sohbet Başlat & Gönder</span>
+                                        <span>Görseli Kopyala & WhatsApp Sohbetini Aç</span>
                                     </button>
                                 </div>
                             </div>
 
-                            {/* Option 3: General WhatsApp Contact Picker */}
-                            <div>
+                            {/* Option 3: General WhatsApp Contact Picker & Native Share */}
+                            <div className="space-y-2">
                                 <button
                                     type="button"
-                                    onClick={() => {
-                                        handleSendWhatsAppDirect(whatsAppShareData.url, "", whatsAppCustomText)
+                                    onClick={async () => {
+                                        const shared = await handleNativeFileShare(whatsAppShareData.url, whatsAppCustomText)
+                                        if (shared) {
+                                            setWhatsAppShareData(null)
+                                        } else {
+                                            await handleSendWhatsAppDirect(whatsAppShareData.url, "", whatsAppCustomText)
+                                            setWhatsAppShareData(null)
+                                        }
+                                    }}
+                                    className="w-full py-2 px-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-slate-200 dark:border-slate-700"
+                                >
+                                    <Share2 className="w-3.5 h-3.5 text-emerald-600" />
+                                    <span>📲 Cihaz Paylaş Menüsü ile Gönder (WhatsApp Seçin)</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        await handleSendWhatsAppDirect(whatsAppShareData.url, "", whatsAppCustomText)
                                         setWhatsAppShareData(null)
                                     }}
                                     className="w-full py-2 px-3 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                                 >
-                                    <Share2 className="w-3.5 h-3.5 text-emerald-600" />
-                                    <span>WhatsApp Kişi/Grup Listesinden Seçerek Gönder</span>
+                                    <WhatsAppIcon className="w-3.5 h-3.5 fill-emerald-600" />
+                                    <span>WhatsApp Web'i Aç (Kişi Seç)</span>
                                 </button>
                             </div>
                         </div>
