@@ -862,7 +862,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
             if (msg.text) {
                 const foundUrls = msg.text.match(urlRegex)
                 if (foundUrls) {
-                    foundUrls.forEach(url => {
+                    foundUrls.forEach((url: string) => {
                         links.push({
                             id: msg.id,
                             url: url,
