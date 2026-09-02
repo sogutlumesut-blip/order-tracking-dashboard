@@ -1,8 +1,16 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from "react"
-import { MessageCircle, X, Send, User as UserIcon, Paperclip, Download, CornerUpLeft, Trash2, Smile, FolderOpen, ChevronLeft, ChevronRight, Image as ImageIcon, Link, FileText, Calendar, Pin, MessageSquare, Pencil } from "lucide-react"
+import { MessageCircle, X, Send, User as UserIcon, Paperclip, Download, CornerUpLeft, Trash2, Smile, FolderOpen, ChevronLeft, ChevronRight, Image as ImageIcon, Link, FileText, Calendar, Pin, MessageSquare, Pencil, Copy, Share2, ExternalLink, Phone, Check } from "lucide-react"
 import { toast } from "sonner"
+
+function WhatsAppIcon({ className = "w-4 h-4" }: { className?: string }) {
+    return (
+        <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+            <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+        </svg>
+    )
+}
 
 interface User {
     id: string
@@ -165,6 +173,87 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     const [activeMentionAlert, setActiveMentionAlert] = useState<any | null>(null)
     const [showEmojiPicker, setShowEmojiPicker] = useState(false)
     const [activeReactionPickerId, setActiveReactionPickerId] = useState<string | null>(null)
+    const [whatsAppShareData, setWhatsAppShareData] = useState<{ url: string, messageText?: string } | null>(null)
+    const [whatsAppPhone, setWhatsAppPhone] = useState("")
+    const [whatsAppCustomText, setWhatsAppCustomText] = useState("")
+    const [isCopyingImage, setIsCopyingImage] = useState(false)
+    const [copiedSuccess, setCopiedSuccess] = useState(false)
+
+    const handleCopyImageOnly = async (imageUrl: string) => {
+        try {
+            let blob: Blob
+            if (imageUrl.startsWith('data:')) {
+                const res = await fetch(imageUrl)
+                blob = await res.blob()
+            } else {
+                const absoluteUrl = imageUrl.startsWith('http') ? imageUrl : `${window.location.origin}${imageUrl}`
+                const res = await fetch(absoluteUrl)
+                blob = await res.blob()
+            }
+
+            let pngBlob: Blob
+            if (blob.type === 'image/png') {
+                pngBlob = blob
+            } else {
+                pngBlob = await new Promise<Blob>((resolve, reject) => {
+                    const img = new window.Image()
+                    img.crossOrigin = 'anonymous'
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas')
+                        canvas.width = img.naturalWidth || img.width
+                        canvas.height = img.naturalHeight || img.height
+                        const ctx = canvas.getContext('2d')
+                        if (!ctx) return reject(new Error('Canvas context not available'))
+                        ctx.drawImage(img, 0, 0)
+                        canvas.toBlob((b) => {
+                            if (b) resolve(b)
+                            else reject(new Error('Canvas toBlob failed'))
+                        }, 'image/png')
+                    }
+                    img.onerror = () => reject(new Error('Image failed to load for conversion'))
+                    img.src = imageUrl
+                })
+            }
+
+            await navigator.clipboard.write([
+                new ClipboardItem({ 'image/png': pngBlob })
+            ])
+
+            setCopiedSuccess(true)
+            setTimeout(() => setCopiedSuccess(false), 3000)
+            toast.success("Görsel panoya kopyalandı! 📋", {
+                description: "WhatsApp Web veya uygulamasında sohbete gidip Ctrl+V (veya Cmd+V) ile doğrudan resmi yapıştırabilirsiniz."
+            })
+            return true
+        } catch (err) {
+            console.error("Görsel panoya kopyalanamadı:", err)
+            toast.error("Görsel kopyalanamadı", {
+                description: "Lütfen 'WhatsApp'ta Aç' butonunu veya 'İndir' seçeneğini kullanın."
+            })
+            return false
+        }
+    }
+
+    const handleSendWhatsAppDirect = (imageUrl: string, phone?: string, caption?: string) => {
+        let cleanPhone = phone ? phone.replace(/\D/g, "") : ""
+        if (cleanPhone) {
+            if (cleanPhone.startsWith("00")) cleanPhone = cleanPhone.substring(2)
+            else if (cleanPhone.startsWith("0") && cleanPhone.length === 11) cleanPhone = "90" + cleanPhone.substring(1)
+            else if (cleanPhone.length === 10 && cleanPhone.startsWith("5")) cleanPhone = "90" + cleanPhone
+        }
+
+        const fullImageUrl = imageUrl.startsWith("http") ? imageUrl : `${window.location.origin}${imageUrl}`
+        const textToSend = caption ? `${caption}\n${fullImageUrl}` : fullImageUrl
+
+        let waUrl = ""
+        if (cleanPhone) {
+            waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(textToSend)}`
+        } else {
+            waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(textToSend)}`
+        }
+
+        window.open(waUrl, "_blank", "noopener,noreferrer")
+    }
 
     useEffect(() => {
         const loadUsers = async () => {
@@ -1085,19 +1174,33 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                         alt="Galeri Görseli" 
                                                         className="w-full h-full object-cover group-hover:brightness-75 transition-all"
                                                     />
-                                                    <button 
-                                                        onClick={(e) => {
-                                                            e.stopPropagation()
-                                                            setShowMediaGallery(false)
-                                                            setTimeout(() => {
-                                                                scrollToMessage(item.id)
-                                                            }, 100)
-                                                        }}
-                                                        className="absolute top-1.5 right-1.5 p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-150 shadow-md cursor-pointer flex items-center justify-center z-10"
-                                                        title="Sohbetteki Mesaja Git"
-                                                    >
-                                                        <MessageSquare className="w-3.5 h-3.5" />
-                                                    </button>
+                                                    <div className="absolute top-1.5 right-1.5 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-10">
+                                                        <button 
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                setWhatsAppShareData({ url: item.url })
+                                                            }}
+                                                            className="p-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-md cursor-pointer flex items-center justify-center"
+                                                            title="WhatsApp ile İlet"
+                                                        >
+                                                            <WhatsAppIcon className="w-3.5 h-3.5 fill-current" />
+                                                        </button>
+                                                        <button 
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                setShowMediaGallery(false)
+                                                                setTimeout(() => {
+                                                                    scrollToMessage(item.id)
+                                                                }, 100)
+                                                            }}
+                                                            className="p-1.5 bg-slate-800/80 hover:bg-slate-700 text-white rounded-lg shadow-md cursor-pointer flex items-center justify-center"
+                                                            title="Sohbetteki Mesaja Git"
+                                                        >
+                                                            <MessageSquare className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
                                                     <div className="absolute inset-x-0 bottom-0 bg-black/45 p-1 text-[8px] text-white text-center font-medium truncate opacity-0 group-hover:opacity-100 transition-opacity">
                                                         {item.senderName}
                                                     </div>
@@ -1366,12 +1469,40 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                                         Görsel yükleniyor...
                                                                     </div>
                                                                 ) : (
-                                                                    <img 
-                                                                        src={msg.attachment} 
-                                                                        alt="Attachment" 
-                                                                        className="max-w-full rounded-lg mb-2 max-h-48 min-h-[120px] min-w-[150px] object-cover cursor-pointer hover:opacity-90 transition-opacity bg-slate-100 dark:bg-slate-700/50" 
-                                                                        onClick={() => setActiveLightboxImage({ url: msg.attachment, messageId: msg.id })} 
-                                                                    />
+                                                                    <div className="relative group/chatimg mb-2 inline-block max-w-full">
+                                                                        <img 
+                                                                            src={msg.attachment} 
+                                                                            alt="Attachment" 
+                                                                            className="max-w-full rounded-lg max-h-48 min-h-[120px] min-w-[150px] object-cover cursor-pointer hover:opacity-95 transition-opacity bg-slate-100 dark:bg-slate-700/50 block" 
+                                                                            onClick={() => setActiveLightboxImage({ url: msg.attachment, messageId: msg.id })} 
+                                                                        />
+                                                                        {/* WhatsApp & Copy Action Overlay on Hover */}
+                                                                        <div className="absolute top-2 right-2 opacity-0 group-hover/chatimg:opacity-100 transition-opacity duration-150 flex items-center gap-1 bg-black/65 backdrop-blur-sm p-1 rounded-lg z-10 shadow-lg">
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation()
+                                                                                    setWhatsAppShareData({ url: msg.attachment, messageText: msg.text || "" })
+                                                                                }}
+                                                                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-md transition-all flex items-center gap-1 text-[11px] font-medium cursor-pointer shadow-xs"
+                                                                                title="WhatsApp ile İlet"
+                                                                            >
+                                                                                <WhatsAppIcon className="w-3.5 h-3.5 fill-current" />
+                                                                                <span>WhatsApp</span>
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation()
+                                                                                    handleCopyImageOnly(msg.attachment)
+                                                                                }}
+                                                                                className="p-1 bg-slate-700/90 hover:bg-slate-600 active:scale-95 text-white rounded-md transition-all text-[11px] cursor-pointer"
+                                                                                title="Görseli Kopyala (WhatsApp'a Yapıştır)"
+                                                                            >
+                                                                                <Copy className="w-3.5 h-3.5" />
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
                                                                 )}
                                                                 {renderMessageText(msg.text, isMe)}
                                                             </>
@@ -1781,6 +1912,18 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                             <MessageSquare className="w-4 h-4 text-emerald-400" />
                             <span>Mesaja Git</span>
                         </button>
+                        <button 
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                setWhatsAppShareData({ url: activeLightboxImage.url })
+                            }}
+                            className="text-white hover:text-emerald-100 bg-emerald-600 hover:bg-emerald-700 px-3.5 py-2.5 rounded-full backdrop-blur-md transition-all flex items-center justify-center gap-1.5 cursor-pointer text-xs font-semibold shadow-lg hover:scale-105 active:scale-95"
+                            title="WhatsApp ile İlet / Paylaş"
+                        >
+                            <WhatsAppIcon className="w-4 h-4 fill-white" />
+                            <span>WhatsApp ile İlet</span>
+                        </button>
                         <a 
                             href={activeLightboxImage.url} 
                             download="gorsel.png"
@@ -1803,6 +1946,159 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                         className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-200 cursor-default"
                         onClick={(e) => e.stopPropagation()}
                     />
+                </div>
+            )}
+
+            {/* WHATSAPP SHARE MODAL */}
+            {whatsAppShareData && (
+                <div 
+                    className="fixed inset-0 z-[100000] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
+                    onClick={() => setWhatsAppShareData(null)}
+                >
+                    <div 
+                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col text-slate-900 dark:text-slate-100"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Modal Header */}
+                        <div className="p-4 bg-emerald-600 dark:bg-emerald-700 text-white flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                                    <WhatsAppIcon className="w-5 h-5 fill-white" />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-sm leading-none">WhatsApp ile Görsel Paylaş</h3>
+                                    <p className="text-[11px] text-emerald-100 mt-0.5">Müşteri veya kişilere görsel iletin</p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setWhatsAppShareData(null)}
+                                className="p-1.5 hover:bg-white/20 rounded-full transition-colors cursor-pointer"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-4 space-y-4 max-h-[80vh] overflow-y-auto">
+                            {/* Image Thumbnail Preview */}
+                            <div className="flex items-center gap-3 p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800">
+                                <img 
+                                    src={whatsAppShareData.url} 
+                                    alt="Paylaşılacak Görsel" 
+                                    className="w-16 h-16 object-cover rounded-lg border border-slate-200 dark:border-slate-700 shadow-xs" 
+                                />
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">Görsel Seçildi</p>
+                                    <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                                        {whatsAppShareData.messageText || "Takım sohbetinden iletilen görsel"}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Option 1: Copy Image to Clipboard (Most Direct for WhatsApp Web/Desktop) */}
+                            <div className="p-3 bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/50 rounded-xl space-y-2">
+                                <div>
+                                    <p className="text-xs font-bold text-emerald-950 dark:text-emerald-300 flex items-center gap-1.5">
+                                        <span>⚡</span> 1. Yöntem: Panoya Kopyala (En Pratik)
+                                    </p>
+                                    <p className="text-[11px] text-emerald-800/80 dark:text-emerald-400/80 mt-0.5 leading-snug">
+                                        Görseli kopyalayıp WhatsApp sohbetine <kbd className="px-1 py-0.5 bg-white dark:bg-slate-800 rounded border border-emerald-300 dark:border-emerald-700 font-mono text-[10px]">Ctrl+V</kbd> veya <kbd className="px-1 py-0.5 bg-white dark:bg-slate-800 rounded border border-emerald-300 dark:border-emerald-700 font-mono text-[10px]">Cmd+V</kbd> ile doğrudan resim olarak yapıştırın.
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-2 pt-1">
+                                    <button
+                                        type="button"
+                                        disabled={isCopyingImage}
+                                        onClick={async () => {
+                                            setIsCopyingImage(true)
+                                            await handleCopyImageOnly(whatsAppShareData.url)
+                                            setIsCopyingImage(false)
+                                        }}
+                                        className={`flex-1 py-2 px-3 ${copiedSuccess ? 'bg-emerald-700' : 'bg-emerald-600 hover:bg-emerald-700'} active:scale-98 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm`}
+                                    >
+                                        {isCopyingImage ? (
+                                            <span>Kopyalanıyor...</span>
+                                        ) : copiedSuccess ? (
+                                            <>
+                                                <Check className="w-3.5 h-3.5" />
+                                                <span>✓ Kopyalandı!</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Copy className="w-3.5 h-3.5" />
+                                                <span>Görseli Kopyala</span>
+                                            </>
+                                        )}
+                                    </button>
+                                    <a
+                                        href="https://web.whatsapp.com"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="py-2 px-3 bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 dark:hover:bg-slate-700 text-emerald-800 dark:text-emerald-300 rounded-lg text-xs font-medium flex items-center gap-1 transition-all cursor-pointer"
+                                    >
+                                        <span>WhatsApp Web</span>
+                                        <ExternalLink className="w-3 h-3" />
+                                    </a>
+                                </div>
+                            </div>
+
+                            {/* Option 2: Send directly to a Phone Number */}
+                            <div className="p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl space-y-2.5">
+                                <p className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                                    <Phone className="w-3.5 h-3.5 text-emerald-600" /> 2. Yöntem: Numaraya Doğrudan Gönder
+                                </p>
+                                <div className="space-y-2">
+                                    <div>
+                                        <label className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Telefon Numarası</label>
+                                        <input
+                                            type="tel"
+                                            placeholder="05xx xxx xx xx"
+                                            value={whatsAppPhone}
+                                            onChange={(e) => setWhatsAppPhone(e.target.value)}
+                                            className="w-full text-xs p-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-1 focus:ring-emerald-500 outline-none mt-0.5 font-medium"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Açıklama / Mesaj Notu (Opsiyonel)</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Örn: Hazırlanan tasarım taslağı ektedir."
+                                            value={whatsAppCustomText}
+                                            onChange={(e) => setWhatsAppCustomText(e.target.value)}
+                                            className="w-full text-xs p-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-1 focus:ring-emerald-500 outline-none mt-0.5"
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            handleSendWhatsAppDirect(whatsAppShareData.url, whatsAppPhone, whatsAppCustomText)
+                                            setWhatsAppShareData(null)
+                                        }}
+                                        className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm mt-1"
+                                    >
+                                        <WhatsAppIcon className="w-4 h-4 fill-white" />
+                                        <span>WhatsApp'ta Sohbet Başlat & Gönder</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Option 3: General WhatsApp Contact Picker */}
+                            <div>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        handleSendWhatsAppDirect(whatsAppShareData.url, "", whatsAppCustomText)
+                                        setWhatsAppShareData(null)
+                                    }}
+                                    className="w-full py-2 px-3 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                                >
+                                    <Share2 className="w-3.5 h-3.5 text-emerald-600" />
+                                    <span>WhatsApp Kişi/Grup Listesinden Seçerek Gönder</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
 
