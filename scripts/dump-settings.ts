@@ -7,6 +7,11 @@ async function dumpSettings() {
     settings.forEach(s => {
         console.log(`[${s.key}]: ${s.value.substring(0, 50)}...`);
     });
+    await db.$disconnect();
+    process.exit(0);
 }
 
-dumpSettings();
+dumpSettings().catch(err => {
+    console.error(err);
+    process.exit(1);
+});
