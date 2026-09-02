@@ -278,18 +278,18 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         let waUrl = ""
         if (cleanPhone) {
             waUrl = textToSend 
-                ? `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(textToSend)}` 
-                : `https://web.whatsapp.com/send?phone=${cleanPhone}`
+                ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(textToSend)}` 
+                : `https://wa.me/${cleanPhone}`
         } else {
             waUrl = textToSend 
-                ? `https://web.whatsapp.com/send?text=${encodeURIComponent(textToSend)}` 
-                : `https://web.whatsapp.com`
+                ? `https://api.whatsapp.com/send?text=${encodeURIComponent(textToSend)}` 
+                : `https://api.whatsapp.com/send`
         }
 
         window.open(waUrl, "_blank", "noopener,noreferrer")
 
-        toast.success("WhatsApp Açılıyor & Görsel Kopyalandı! 🖼️", {
-            description: "Açılan sohbete gidip Ctrl+V (veya Cmd+V) yapmanız yeterlidir, resim doğrudan yapışacaktır.",
+        toast.success("WhatsApp Uygulaması Açılıyor & Görsel Kopyalandı! 🖼️", {
+            description: "Açılan sohbette sadece Cmd+V (veya Ctrl+V) yaparak resmi doğrudan gönderebilirsiniz.",
             duration: 7000
         })
     }
@@ -2071,12 +2071,12 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                         )}
                                     </button>
                                     <a
-                                        href="https://web.whatsapp.com"
+                                        href="https://wa.me"
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="py-2 px-3 bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 dark:hover:bg-slate-700 text-emerald-800 dark:text-emerald-300 rounded-lg text-xs font-medium flex items-center gap-1 transition-all cursor-pointer"
                                     >
-                                        <span>WhatsApp Web</span>
+                                        <span>WhatsApp'ı Aç</span>
                                         <ExternalLink className="w-3 h-3" />
                                     </a>
                                 </div>
@@ -2089,7 +2089,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                         <Phone className="w-3.5 h-3.5 text-emerald-600" /> 2. Yöntem: Numaraya Doğrudan Gönder
                                     </p>
                                     <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                                        Görsel otomatik olarak kopyalanır ve numaranın sohbeti açılır. Sohbette <kbd className="px-1 py-0.2 bg-white dark:bg-slate-800 rounded border border-slate-300 dark:border-slate-600 font-mono text-[10px]">Ctrl+V</kbd> ile resmi anında gönderebilirsiniz (link gitmez).
+                                        Görsel otomatik olarak kopyalanır ve numaranın sohbeti açılır. Sohbette <kbd className="px-1 py-0.2 bg-white dark:bg-slate-800 rounded border border-slate-300 dark:border-slate-600 font-mono text-[10px]">Cmd+V / Ctrl+V</kbd> ile resmi anında gönderebilirsiniz.
                                     </p>
                                 </div>
                                 <div className="space-y-2">
@@ -2122,7 +2122,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                         className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-sm mt-1"
                                     >
                                         <WhatsAppIcon className="w-4 h-4 fill-white" />
-                                        <span>Görseli Kopyala & WhatsApp Sohbetini Aç</span>
+                                        <span>Görseli Kopyala & WhatsApp Uygulamasını Aç</span>
                                     </button>
                                 </div>
                             </div>
@@ -2154,7 +2154,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                     className="w-full py-2 px-3 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                                 >
                                     <WhatsAppIcon className="w-3.5 h-3.5 fill-emerald-600" />
-                                    <span>WhatsApp Web'i Aç (Kişi Seç)</span>
+                                    <span>WhatsApp Uygulamasını Aç (Kişi Seç)</span>
                                 </button>
                             </div>
                         </div>
