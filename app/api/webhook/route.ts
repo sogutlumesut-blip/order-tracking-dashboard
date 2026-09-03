@@ -55,11 +55,6 @@ export async function POST(req: Request) {
             labels.push('Ödeme Başarısız');
         }
 
-        const customer = `${body.billing.first_name || ''} ${body.billing.last_name || ''}`.trim() || "Misafir"
-        const phone = body.billing.phone
-        const email = body.billing.email
-        const address = `${body.billing.address_1 || ''} ${body.billing.address_2 || ''}`.trim()
-
         // City Logic
         const getCityName = (code: string) => {
             const cities: Record<string, string> = {
@@ -84,13 +79,53 @@ export async function POST(req: Request) {
             return cities[code] || code;
         }
 
-        let city = body.billing.city
-        if (body.billing.state) {
-            const stateName = getCityName(body.billing.state).toLocaleUpperCase('tr-TR');
+        // Shipping Address Priority: If customer specified a separate delivery address, use it!
+        const hasShippingAddress = Boolean(
+            body.shipping && 
+            body.shipping.address_1 && 
+            body.shipping.address_1.trim().length > 0
+        );
+
+        const shippingCustomer = `${body.shipping?.first_name || ''} ${body.shipping?.last_name || ''}`.trim();
+        const billingCustomer = `${body.billing?.first_name || ''} ${body.billing?.last_name || ''}`.trim();
+        const customer = (hasShippingAddress && shippingCustomer) ? shippingCustomer : (billingCustomer || 'Misafir');
+
+        const shippingAddress = `${body.shipping?.address_1 || ''} ${body.shipping?.address_2 || ''}`.trim();
+        const billingAddress = `${body.billing?.address_1 || ''} ${body.billing?.address_2 || ''}`.trim();
+        const address = (hasShippingAddress && shippingAddress) ? shippingAddress : billingAddress;
+
+        const targetCity = (hasShippingAddress && body.shipping?.city) ? body.shipping.city : (body.billing?.city || '');
+        const targetState = (hasShippingAddress && body.shipping?.state) ? body.shipping.state : (body.billing?.state || '');
+
+        let city = targetCity;
+        if (targetState) {
+            const stateName = getCityName(targetState).toLocaleUpperCase('tr-TR');
             if (city && !city.toLocaleUpperCase('tr-TR').includes(stateName)) {
                 city = `${city} / ${stateName}`;
             } else if (!city) {
                 city = stateName;
+            }
+        }
+
+        const phone = (hasShippingAddress && body.shipping?.phone) ? body.shipping.phone : (body.billing?.phone || '');
+        const email = body.billing?.email || '';
+
+        // Extract Tax Info from meta_data
+        let taxNumber: string | null = null;
+        let taxOffice: string | null = null;
+        if (Array.isArray(body.meta_data)) {
+            const taxNumMeta = body.meta_data.find((m: any) =>
+                ['tcvergi_', 'tcvergi', '_billing_tc', 'billing_tc', '_billing_tax_number', 'billing_tax_number', '_tax_number', 'tc_kimlik', '_tc_kimlik', 'tckn', 'vkn', '_tckn', '_vkn'].includes(m.key)
+            );
+            if (taxNumMeta && taxNumMeta.value) {
+                taxNumber = String(taxNumMeta.value).trim();
+            }
+
+            const taxOffMeta = body.meta_data.find((m: any) =>
+                ['vergidaire_', 'vergidaire', '_billing_tax_office', 'billing_tax_office', '_tax_office', 'vergi_dairesi', '_vergi_dairesi'].includes(m.key)
+            );
+            if (taxOffMeta && taxOffMeta.value) {
+                taxOffice = String(taxOffMeta.value).trim();
             }
         }
 
@@ -164,6 +199,28 @@ export async function POST(req: Request) {
 
             if (paymentMethod && paymentMethod !== existingOrder.paymentMethod) {
                 updateData.paymentMethod = paymentMethod;
+            }
+
+            if (customer && customer !== existingOrder.customer) {
+                updateData.customer = customer;
+            }
+            if (address && address !== existingOrder.address) {
+                updateData.address = address;
+            }
+            if (city && city !== existingOrder.city) {
+                updateData.city = city;
+            }
+            if (phone && phone !== existingOrder.phone) {
+                updateData.phone = phone;
+            }
+            if (email && email !== existingOrder.email) {
+                updateData.email = email;
+            }
+            if (taxNumber && taxNumber !== existingOrder.taxNumber) {
+                updateData.taxNumber = taxNumber;
+            }
+            if (taxOffice && taxOffice !== existingOrder.taxOffice) {
+                updateData.taxOffice = taxOffice;
             }
 
             if (Object.keys(updateData).length > 0) {
@@ -360,6 +417,8 @@ export async function POST(req: Request) {
                 hasNotification: true, // CRITICAL FOR SOUND
                 cargoBarcode: cargoBarcodeMeta ? cargoBarcodeMeta.value : null,
                 cargoTrackingNumber: cargoTrackingMeta ? cargoTrackingMeta.value : null,
+                taxNumber,
+                taxOffice,
                 items: {
                     create: items
                 }

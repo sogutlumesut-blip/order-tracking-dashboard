@@ -1606,14 +1606,54 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                     return cities[code] || code;
                 }
 
-                let city = wcOrder.billing.city
-                if (wcOrder.billing.state) {
-                    const stateName = getCityName(wcOrder.billing.state).toLocaleUpperCase('tr-TR');
+                // Shipping Address Priority: If customer specified a separate delivery address, use it!
+                const hasShippingAddress = Boolean(
+                    wcOrder.shipping && 
+                    wcOrder.shipping.address_1 && 
+                    wcOrder.shipping.address_1.trim().length > 0
+                );
+
+                const shippingCustomer = `${wcOrder.shipping?.first_name || ''} ${wcOrder.shipping?.last_name || ''}`.trim();
+                const billingCustomer = `${wcOrder.billing?.first_name || ''} ${wcOrder.billing?.last_name || ''}`.trim();
+                const newCustomer = (hasShippingAddress && shippingCustomer) ? shippingCustomer : (billingCustomer || 'Misafir');
+
+                const shippingAddress = `${wcOrder.shipping?.address_1 || ''} ${wcOrder.shipping?.address_2 || ''}`.trim();
+                const billingAddress = `${wcOrder.billing?.address_1 || ''} ${wcOrder.billing?.address_2 || ''}`.trim();
+                const address = (hasShippingAddress && shippingAddress) ? shippingAddress : billingAddress;
+
+                const targetCity = (hasShippingAddress && wcOrder.shipping?.city) ? wcOrder.shipping.city : (wcOrder.billing?.city || '');
+                const targetState = (hasShippingAddress && wcOrder.shipping?.state) ? wcOrder.shipping.state : (wcOrder.billing?.state || '');
+
+                let city = targetCity;
+                if (targetState) {
+                    const stateName = getCityName(targetState).toLocaleUpperCase('tr-TR');
                     // Avoid duplication if user wrote "İzmir" in city field
                     if (city && !city.toLocaleUpperCase('tr-TR').includes(stateName)) {
                         city = `${city} / ${stateName}`;
                     } else if (!city) {
                         city = stateName;
+                    }
+                }
+
+                const phone = (hasShippingAddress && wcOrder.shipping?.phone) ? wcOrder.shipping.phone : (wcOrder.billing?.phone || '');
+                const email = wcOrder.billing?.email || '';
+
+                // Extract Tax Info from meta_data
+                let taxNumber: string | null = null;
+                let taxOffice: string | null = null;
+                if (Array.isArray(wcOrder.meta_data)) {
+                    const taxNumMeta = wcOrder.meta_data.find((m: any) =>
+                        ['tcvergi_', 'tcvergi', '_billing_tc', 'billing_tc', '_billing_tax_number', 'billing_tax_number', '_tax_number', 'tc_kimlik', '_tc_kimlik', 'tckn', 'vkn', '_tckn', '_vkn'].includes(m.key)
+                    );
+                    if (taxNumMeta && taxNumMeta.value) {
+                        taxNumber = String(taxNumMeta.value).trim();
+                    }
+
+                    const taxOffMeta = wcOrder.meta_data.find((m: any) =>
+                        ['vergidaire_', 'vergidaire', '_billing_tax_office', 'billing_tax_office', '_tax_office', 'vergi_dairesi', '_vergi_dairesi'].includes(m.key)
+                    );
+                    if (taxOffMeta && taxOffMeta.value) {
+                        taxOffice = String(taxOffMeta.value).trim();
                     }
                 }
 
@@ -1720,7 +1760,6 @@ export async function syncWooCommerceOrders(force: boolean = false) {
 
                     // DETECT ACTUAL CHANGES to avoid unnecessary updatedAt updates
                     const oldCustomer = existingOrder.customer;
-                    const newCustomer = `${wcOrder.billing.first_name || ''} ${wcOrder.billing.last_name || ''}`.trim() || 'Misafir';
 
                     const hasStatusChange = existingOrder.status !== finalStatus;
                     const localLabelsStr = typeof existingOrder.labels === 'string' ? existingOrder.labels : JSON.stringify(existingOrder.labels || []);
@@ -1730,9 +1769,11 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                     const hasDataChange =
                         oldCustomer !== newCustomer ||
                         existingOrder.city !== city ||
-                        existingOrder.email !== wcOrder.billing.email ||
-                        existingOrder.phone !== wcOrder.billing.phone ||
-                        existingOrder.address !== `${wcOrder.billing.address_1 || ''} ${wcOrder.billing.address_2 || ''}`.trim() ||
+                        existingOrder.email !== email ||
+                        existingOrder.phone !== phone ||
+                        existingOrder.address !== address ||
+                        (taxNumber && existingOrder.taxNumber !== taxNumber) ||
+                        (taxOffice && existingOrder.taxOffice !== taxOffice) ||
                         hasLabelChange;
 
                     await db.order.update({
@@ -1744,9 +1785,9 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                             status: keepLocalStatus ? undefined : finalStatus,
                             // Only update timestamp if status changed OR meaningful data changed
                             updatedAt: (hasStatusChange || hasDataChange) ? new Date() : existingOrder.updatedAt,
-                            email: wcOrder.billing.email,
-                            phone: wcOrder.billing.phone,
-                            address: `${wcOrder.billing.address_1 || ''} ${wcOrder.billing.address_2 || ''}`.trim(),
+                            email: email,
+                            phone: phone,
+                            address: address,
                             city: city,
                             note: wcOrder.customer_note,
                             cargoBarcode: cargoBarcodeMeta ? cargoBarcodeMeta.value : (existingOrder.cargoBarcode || null),
@@ -1755,6 +1796,8 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                             labels: JSON.stringify(finalLabels),
                             source: 'woo',
                             externalId: String(wcOrder.id),
+                            taxNumber: taxNumber || existingOrder.taxNumber,
+                            taxOffice: taxOffice || existingOrder.taxOffice,
                             items: {
                                 deleteMany: {}, // Items are still source-of-truth from WC
                                 create: items
@@ -1769,15 +1812,15 @@ export async function syncWooCommerceOrders(force: boolean = false) {
 
                     const newOrder = await db.order.create({
                         data: {
-                            customer: `${wcOrder.billing.first_name || ''} ${wcOrder.billing.last_name || ''}`.trim() || 'Misafir',
+                            customer: newCustomer,
                             total: `${wcOrder.total} ${wcOrder.currency_symbol}`,
                             status: status,
                             date: new Date(wcOrder.date_created),
                             updatedAt: new Date(wcOrder.date_modified),
                             barcode: `WC-${wcOrder.id}`,
-                            email: wcOrder.billing.email,
-                            phone: wcOrder.billing.phone,
-                            address: `${wcOrder.billing.address_1 || ''} ${wcOrder.billing.address_2 || ''}`.trim(),
+                            email: email,
+                            phone: phone,
+                            address: address,
                             city: city,
                             note: wcOrder.customer_note,
                             labels: JSON.stringify(['WooCommerce']),
@@ -1787,6 +1830,8 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                             paymentMethod: paymentMethod,
                             source: 'woo',
                             externalId: String(wcOrder.id),
+                            taxNumber: taxNumber,
+                            taxOffice: taxOffice,
                             items: {
                                 create: items
                             }
