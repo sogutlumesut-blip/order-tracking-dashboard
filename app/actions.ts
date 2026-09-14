@@ -2715,99 +2715,152 @@ export async function wipeWayfairOrders() {
     }
 }
 
+let cachedCatalogApiToken: { token: string; exp: number } | null = null;
+async function getCatalogApiToken(): Promise<string | null> {
+    if (cachedCatalogApiToken && Date.now() < cachedCatalogApiToken.exp - 60000) {
+        return cachedCatalogApiToken.token;
+    }
+    try {
+        const res = await fetch("https://sso.auth.wayfair.com/oauth/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                grant_type: "client_credentials",
+                client_id: "ZvBpSI61v56PL0XpL-iwXg",
+                client_secret: "_H49FF9rESPSgzgvLg4p6RdPJ1ZVxIu6w67bxN2ksTloGhDqLr6ub-ol608Wto50MJsr9yn0TZL9OmgOHAniPw",
+                audience: "https://api.wayfair.com"
+            }),
+            cache: "no-store"
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data.access_token) {
+                cachedCatalogApiToken = {
+                    token: data.access_token,
+                    exp: Date.now() + (data.expires_in || 3600) * 1000
+                };
+                return data.access_token;
+            }
+        }
+    } catch (e) {
+        console.error("Error fetching Wayfair Catalog token:", e);
+    }
+    return null;
+}
+
+function extractWfBaseSku(sku: string | null | undefined): string {
+    if (!sku) return "";
+    let clean = sku.trim();
+    clean = clean.replace(/-(?:SAMPLE|CST|CUSTOM|\d+\s*[x*]\s*\d+)(?:-.*)?$/i, '');
+    clean = clean.replace(/-(?:NW|PS|HP|P|K|C|PEEL|VINYL)$/i, '');
+    return clean.trim();
+}
+
 async function resolveWfCatalogImage(
     sku: string | null,
-    supplierId: number | string | null,
-    accessToken: string,
-    isSandbox: boolean
+    wfRetailSku: string | null = null,
+    supplierId: number | string | null = "476700",
+    primaryAccessToken?: string,
+    isSandbox: boolean = false
 ): Promise<string | null> {
-    if (!sku) return null;
+    if (!sku && !wfRetailSku) return null;
     const supplierIdStr = supplierId ? supplierId.toString() : "476700";
-    const catalogUrl = isSandbox
-        ? "https://api.wayfair.io/sandbox/v1/product-catalog-api/graphql"
-        : "https://api.wayfair.io/v1/product-catalog-api/graphql";
 
-    // Helper to get variant-safe base SKU (e.g. MUR10011-S, IN0952, etc.)
-    const getBaseSku = (val: string) => {
-        const parts = val.split('-');
-        if (parts.length <= 1) return val;
-        const secondPart = parts[1].trim().toUpperCase();
-        const materialSet = new Set(['NW', 'PS', 'HP', 'P', 'K', 'C']);
-        if (secondPart.length === 1 && !materialSet.has(secondPart)) {
-            return `${parts[0]}-${parts[1]}`;
+    const candidates: string[] = [];
+    if (sku) candidates.push(sku.trim());
+    if (wfRetailSku && !candidates.includes(wfRetailSku.trim())) candidates.push(wfRetailSku.trim());
+
+    const baseSku = extractWfBaseSku(sku || "");
+    if (baseSku) {
+        if (!candidates.includes(baseSku)) candidates.push(baseSku);
+        if (baseSku.includes('-')) {
+            const noDash = baseSku.replace(/-/g, '');
+            if (!candidates.includes(noDash)) candidates.push(noDash);
         }
-        return parts[0];
-    };
+        const withDash = baseSku.replace(/^([A-Za-z]+)(\d+)/, '$1-$2');
+        if (!candidates.includes(withDash)) candidates.push(withDash);
+    }
 
-    const tryQuery = async (targetSku: string): Promise<string | null> => {
-        try {
-            const query = `
-            query GetCatalogItem($input: SupplierCatalogItemsInput!) {
-              supplierCatalogItems(input: $input) {
-                ... on SupplierCatalogItems {
-                  catalogItems {
-                    attributes {
-                      attribute {
-                        title
-                      }
-                      chosenAttributeValues {
-                        value
-                      }
-                    }
-                  }
-                }
+    const query = `
+    query GetCatalogItem($input: SupplierCatalogItemsInput!) {
+      supplierCatalogItems(input: $input) {
+        ... on SupplierCatalogItems {
+          catalogItems {
+            supplierPartNumber
+            attributes {
+              attribute {
+                title
               }
-            }`;
+              chosenAttributeValues {
+                value
+              }
+            }
+          }
+        }
+      }
+    }`;
 
-            const variables = {
-                input: {
-                    filter: {
-                        supplierPartNumbers: [targetSku]
-                    },
-                    paginationOptions: {
-                        page: 1,
-                        pageSize: 10
-                    }
-                }
-            };
-
-            const res = await fetch(catalogUrl, {
+    const executeCatalogQuery = async (token: string, url: string): Promise<string | null> => {
+        try {
+            const res = await fetch(url, {
                 method: "POST",
                 headers: {
-                    "Authorization": `Bearer ${accessToken}`,
+                    "Authorization": `Bearer ${token}`,
                     "Content-Type": "application/json",
                     "X-SELECTED-SUPPLIER-ID": supplierIdStr
                 },
-                body: JSON.stringify({ query, variables }),
+                body: JSON.stringify({
+                    query,
+                    variables: {
+                        input: {
+                            filter: {
+                                supplierPartNumbers: candidates
+                            },
+                            paginationOptions: {
+                                page: 1,
+                                pageSize: 10
+                            }
+                        }
+                    }
+                }),
                 cache: "no-store"
             });
 
             if (res.ok) {
                 const data = await res.json();
                 const items = data.data?.supplierCatalogItems?.catalogItems || [];
-                if (items.length > 0 && items[0].attributes) {
-                    const imgAttr = items[0].attributes.find(
-                        (attr: any) => attr.attribute?.title === "IMAGE" && attr.chosenAttributeValues?.[0]?.value?.[0]
+                for (const item of items) {
+                    const imgAttr = item.attributes?.find((a: any) =>
+                        a.attribute?.title?.toUpperCase().includes("IMAGE")
                     );
-                    if (imgAttr) {
-                        return imgAttr.chosenAttributeValues[0].value[0];
+                    const val = imgAttr?.chosenAttributeValues?.[0]?.value?.[0];
+                    if (val && typeof val === "string" && val.startsWith("http")) {
+                        return val;
                     }
                 }
             }
         } catch (e) {
-            console.error("Error fetching Wayfair Catalog Image:", e);
+            console.error("Error in executeCatalogQuery:", e);
         }
         return null;
     };
 
-    // 1. Try exact SKU
-    let img = await tryQuery(sku);
-    if (img) return img;
+    // 1. Try with primary access token if available
+    if (primaryAccessToken) {
+        const primaryUrl = isSandbox
+            ? "https://api.wayfair.io/sandbox/v1/product-catalog-api/graphql"
+            : "https://api.wayfair.io/v1/product-catalog-api/graphql";
+        const img = await executeCatalogQuery(primaryAccessToken, primaryUrl);
+        if (img) return img;
+    }
 
-    // 2. Try variant-safe base SKU (e.g. MUR10011-S)
-    const baseSku = getBaseSku(sku);
-    if (baseSku && baseSku !== sku) {
-        img = await tryQuery(baseSku);
+    // 2. Query sandbox catalog endpoint with catalog credentials (contains all supplier products & images)
+    const catToken = await getCatalogApiToken();
+    if (catToken) {
+        const img = await executeCatalogQuery(
+            catToken,
+            "https://api.wayfair.io/sandbox/v1/product-catalog-api/graphql"
+        );
         if (img) return img;
     }
 
@@ -2832,61 +2885,35 @@ async function resolveWfProductImage(sku: string | null, settings: Record<string
     });
     if (exactMatch) return exactMatch.image_src;
 
-    // Helper to get variant-safe base SKU (e.g. MUR10011-S, IN0952, etc.)
-    const getBaseSku = (val: string) => {
-        const parts = val.split('-');
-        if (parts.length <= 1) return val;
-        const secondPart = parts[1].trim().toUpperCase();
-        const materialSet = new Set(['NW', 'PS', 'HP', 'P', 'K', 'C']);
-        if (secondPart.length === 1 && !materialSet.has(secondPart)) {
-            return `${parts[0]}-${parts[1]}`;
-        }
-        return parts[0];
-    };
+    // 2. Try to find base SKU in database (MUST contain numbers to avoid bare prefix matching like 'MUR')
+    const baseSku = extractWfBaseSku(sku);
+    if (baseSku && /\d/.test(baseSku)) {
+        const candidates = [baseSku];
+        if (baseSku.includes('-')) candidates.push(baseSku.replace(/-/g, ''));
+        const withDash = baseSku.replace(/^([A-Za-z]+)(\d+)/, '$1-$2');
+        if (!candidates.includes(withDash)) candidates.push(withDash);
 
-    // 2. Try to find variant-safe base SKU in database
-    const baseSku = getBaseSku(sku);
-    if (baseSku && baseSku.length > 2) {
-        const baseMatch = await db.orderItem.findFirst({
-            where: {
-                sku: {
-                    startsWith: baseSku
+        for (const target of candidates) {
+            const baseMatch = await db.orderItem.findFirst({
+                where: {
+                    sku: {
+                        startsWith: target
+                    },
+                    image_src: {
+                        not: "",
+                        notIn: [placeholder],
+                        startsWith: "http"
+                    }
                 },
-                image_src: {
-                    not: "",
-                    notIn: [placeholder],
-                    startsWith: "http"
+                orderBy: { id: "desc" }
+            });
+            if (baseMatch) {
+                const matchedBase = extractWfBaseSku(baseMatch.sku || "");
+                if (matchedBase === baseSku || matchedBase.replace(/-/g, '') === baseSku.replace(/-/g, '')) {
+                    return baseMatch.image_src;
                 }
-            },
-            orderBy: { id: "desc" }
-        });
-        if (baseMatch) {
-            // Verify that the matched SKU also matches the variant-safe base SKU
-            // to avoid matching a different color variant (e.g. matching B variant for S request)
-            const matchedBase = getBaseSku(baseMatch.sku || "");
-            if (matchedBase === baseSku) {
-                return baseMatch.image_src;
             }
         }
-    }
-
-    // 3. Fallback to absolute base SKU (first part before any dash)
-    const pureBase = sku.split('-')[0];
-    if (pureBase && pureBase.length > 2) {
-        const pureMatch = await db.orderItem.findFirst({
-            where: {
-                sku: {
-                    startsWith: pureBase
-                },
-                image_src: {
-                    not: "",
-                    notIn: [placeholder],
-                    startsWith: "http"
-                }
-            },
-            orderBy: { id: "desc" }
-        });
-        if (pureMatch) return pureMatch.image_src;
     }
 
     return null;
@@ -3199,7 +3226,7 @@ export async function syncWayfairOrders(force: boolean = false) {
                     let img = "https://placehold.co/600x400?text=Wayfair+Product"
                     if (sku) {
                         // 1. Try to fetch directly from Wayfair Catalog API (first choice, accurate)
-                        const catalogImg = await resolveWfCatalogImage(sku, supplierId, accessToken, isSandbox)
+                        const catalogImg = await resolveWfCatalogImage(sku, item.sku, supplierId, accessToken, isSandbox)
                         if (catalogImg) {
                             img = catalogImg
                         } else {
