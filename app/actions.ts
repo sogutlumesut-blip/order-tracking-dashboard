@@ -2800,47 +2800,54 @@ async function resolveWfCatalogImage(
       }
     }`;
 
+    const supplierIdsToTry = ["476700"];
+    if (supplierId && String(supplierId) !== "476700") {
+        supplierIdsToTry.push(String(supplierId));
+    }
+
     const executeCatalogQuery = async (token: string, url: string): Promise<string | null> => {
-        try {
-            const res = await fetch(url, {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${token}`,
-                    "Content-Type": "application/json",
-                    "X-SELECTED-SUPPLIER-ID": supplierIdStr
-                },
-                body: JSON.stringify({
-                    query,
-                    variables: {
-                        input: {
-                            filter: {
-                                supplierPartNumbers: candidates
-                            },
-                            paginationOptions: {
-                                page: 1,
-                                pageSize: 10
+        for (const sId of supplierIdsToTry) {
+            try {
+                const res = await fetch(url, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                        "X-SELECTED-SUPPLIER-ID": sId
+                    },
+                    body: JSON.stringify({
+                        query,
+                        variables: {
+                            input: {
+                                filter: {
+                                    supplierPartNumbers: candidates
+                                },
+                                paginationOptions: {
+                                    page: 1,
+                                    pageSize: 10
+                                }
                             }
                         }
-                    }
-                }),
-                cache: "no-store"
-            });
+                    }),
+                    cache: "no-store"
+                });
 
-            if (res.ok) {
-                const data = await res.json();
-                const items = data.data?.supplierCatalogItems?.catalogItems || [];
-                for (const item of items) {
-                    const imgAttr = item.attributes?.find((a: any) =>
-                        a.attribute?.title?.toUpperCase().includes("IMAGE")
-                    );
-                    const val = imgAttr?.chosenAttributeValues?.[0]?.value?.[0];
-                    if (val && typeof val === "string" && val.startsWith("http")) {
-                        return val;
+                if (res.ok) {
+                    const data = await res.json();
+                    const items = data.data?.supplierCatalogItems?.catalogItems || [];
+                    for (const item of items) {
+                        const imgAttr = item.attributes?.find((a: any) =>
+                            a.attribute?.title?.toUpperCase().includes("IMAGE")
+                        );
+                        const val = imgAttr?.chosenAttributeValues?.[0]?.value?.[0];
+                        if (val && typeof val === "string" && val.startsWith("http")) {
+                            return val;
+                        }
                     }
                 }
+            } catch (e) {
+                console.error("Error in executeCatalogQuery for supplier", sId, e);
             }
-        } catch (e) {
-            console.error("Error in executeCatalogQuery:", e);
         }
         return null;
     };
@@ -2894,7 +2901,7 @@ async function resolveWfProductImage(sku: string | null, settings: Record<string
         if (!candidates.includes(withDash)) candidates.push(withDash);
 
         for (const target of candidates) {
-            const baseMatch = await db.orderItem.findFirst({
+            const baseMatches = await db.orderItem.findMany({
                 where: {
                     sku: {
                         startsWith: target
@@ -2905,9 +2912,10 @@ async function resolveWfProductImage(sku: string | null, settings: Record<string
                         startsWith: "http"
                     }
                 },
-                orderBy: { id: "desc" }
+                orderBy: { id: "desc" },
+                take: 10
             });
-            if (baseMatch) {
+            for (const baseMatch of baseMatches) {
                 const matchedBase = extractWfBaseSku(baseMatch.sku || "");
                 if (matchedBase === baseSku || matchedBase.replace(/-/g, '') === baseSku.replace(/-/g, '')) {
                     return baseMatch.image_src;
@@ -3291,6 +3299,32 @@ export async function syncWayfairOrders(force: boolean = false) {
             } catch (err: any) {
                 console.error(`Error mapping Wayfair order:`, err)
             }
+        }
+
+        // Auto-heal any recent Wayfair orders that still have a placeholder image
+        try {
+            const placeholderItems = await db.orderItem.findMany({
+                where: {
+                    order: { source: "wayfair" },
+                    image_src: { contains: "placehold.co" }
+                },
+                select: { id: true, sku: true, order: { select: { externalId: true } } },
+                take: 10,
+                orderBy: { id: "desc" }
+            });
+            for (const it of placeholderItems) {
+                if (!it.sku) continue;
+                const fixedImg = (await resolveWfCatalogImage(it.sku, null, "476700", accessToken, isSandbox)) ||
+                                 (await resolveWfProductImage(it.sku, settings));
+                if (fixedImg) {
+                    await db.orderItem.update({
+                        where: { id: it.id },
+                        data: { image_src: fixedImg }
+                    });
+                }
+            }
+        } catch (e) {
+            console.error("Error auto-healing Wayfair placeholder images:", e);
         }
 
         return { success: true, message: `Wayfair eşitlemesi başarılı. ${importedCount} yeni sipariş eklendi.`, count: importedCount }
