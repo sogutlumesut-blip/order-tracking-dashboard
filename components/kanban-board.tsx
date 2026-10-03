@@ -14,7 +14,7 @@ import { toast } from "sonner"
 import { Toaster } from "sonner"
 // Removed duplicate import
 import { updateOrderStatusV3 } from '../app/actionsV2'
-import { getStatuses, getOrders, getLabels, updateOrderDetails, addCommentAction, getOrderDetails, logoutAction, syncWooCommerceOrders, syncEtsyOrders, syncPrintMarktOrders, syncWayfairOrders, syncCargoKargoEntegrator, createManualOrder, simulateWooCommerceOrder, markOrderAsRead, bulkUpdateOrderStatus, updateStatusOrder, createDHLShipmentAction } from '../app/actions'
+import { getStatuses, getOrders, getLabels, updateOrderDetails, addCommentAction, getOrderDetails, logoutAction, syncWooCommerceOrders, syncEtsyOrders, syncPrintMarktOrders, syncWayfairOrders, syncShopifyOrders, syncCargoKargoEntegrator, createManualOrder, simulateWooCommerceOrder, markOrderAsRead, bulkUpdateOrderStatus, updateStatusOrder, createDHLShipmentAction } from '../app/actions'
 import Link from "next/link"
 import { ManualOrderModal } from "./manual-order-modal"
 import { useRouter } from "next/navigation"
@@ -104,6 +104,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 await syncWooCommerceOrders(false);
                 await syncPrintMarktOrders(false);
                 await syncWayfairOrders(false);
+                await syncShopifyOrders(false);
                 
                 // Fetch fresh local state and update orders directly
                 const latest = await getOrders(Date.now());
@@ -1298,6 +1299,15 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                     <RefreshCw className="w-3.5 h-3.5" />
                                     Wayfair Çek
                                 </button>
+
+                                <button
+                                    onClick={() => handleSafeAction(() => syncShopifyOrders(true), "Shopify senkronizasyonu...", "Senkronizasyon tamamlandı")}
+                                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
+                                    title="Shopify'dan son siparişleri manuel çek"
+                                >
+                                    <RefreshCw className="w-3.5 h-3.5" />
+                                    Shopify Çek
+                                </button>
                             </>
                         )}
 
@@ -1434,6 +1444,22 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                     <div className="flex items-center gap-2">
                                         <RefreshCw className="w-4 h-4" />
                                         Wayfair Siparişleri Çek
+                                    </div>
+                                    <ChevronRight className="w-4 h-4 opacity-50" />
+                                </button>
+                            )}
+
+                            {(currentUser.role === 'admin' || (currentUser as any).allowedStatuses?.includes("MANUAL_SYNC")) && (
+                                <button
+                                    onClick={() => {
+                                        setMobileMenuOpen(false);
+                                        handleSafeAction(() => syncShopifyOrders(true), "Shopify senkronizasyonu...", "Senkronizasyon tamamlandı");
+                                    }}
+                                    className="w-full flex items-center justify-between p-3 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-lg hover:bg-emerald-100 font-bold text-sm border border-emerald-100 dark:border-emerald-900/30"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <RefreshCw className="w-4 h-4" />
+                                        Shopify Siparişleri Çek
                                     </div>
                                     <ChevronRight className="w-4 h-4 opacity-50" />
                                 </button>

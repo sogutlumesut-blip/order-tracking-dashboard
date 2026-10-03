@@ -8,6 +8,7 @@ import { revalidatePath, unstable_noStore as noStore } from "next/cache"
 import bcrypt from "bcryptjs"
 import { OrderStatus } from "@/data/mock-orders"
 import WooCommerceRestApi from "@woocommerce/woocommerce-rest-api"
+import { fetchShopifyOrders, upsertShopifyOrder, cleanShopifyDomain } from "@/lib/shopify"
 import fs from "fs"
 import path from "path"
 
@@ -2715,6 +2716,115 @@ export async function wipeWayfairOrders() {
     }
 }
 
+// SHOPIFY SETTINGS SAVE ACTION
+export async function saveShopifySettings(formData: FormData) {
+    const domain = (formData.get("shopify_shop_domain") as string)?.trim() || ""
+    const token = (formData.get("shopify_access_token") as string)?.trim() || ""
+    const secret = (formData.get("shopify_webhook_secret") as string)?.trim() || ""
+
+    try {
+        await db.systemSetting.upsert({
+            where: { key: 'shopify_shop_domain' },
+            update: { value: cleanShopifyDomain(domain) },
+            create: { key: 'shopify_shop_domain', value: cleanShopifyDomain(domain) }
+        })
+        await db.systemSetting.upsert({
+            where: { key: 'shopify_access_token' },
+            update: { value: token },
+            create: { key: 'shopify_access_token', value: token }
+        })
+        await db.systemSetting.upsert({
+            where: { key: 'shopify_webhook_secret' },
+            update: { value: secret },
+            create: { key: 'shopify_webhook_secret', value: secret }
+        })
+
+        return { success: true, message: "Shopify ayarları başarıyla kaydedildi! 🚀" }
+    } catch (e: any) {
+        console.error("Shopify settings save error:", e)
+        return { error: "Ayarlar kaydedilirken hata oluştu: " + e.message }
+    }
+}
+
+// SHOPIFY SYNC ACTION
+export async function syncShopifyOrders(force: boolean = false) {
+    const settings = (await getSystemSettings()) as Record<string, string>
+
+    const shopDomain = settings['shopify_shop_domain']
+    const accessToken = settings['shopify_access_token']
+
+    if (!shopDomain || !accessToken) {
+        return { error: "Shopify mağaza adresi veya Access Token eksik. Lütfen Ayarlar sayfasından tamamlayınız." }
+    }
+
+    // Rate Limit check for background sync (skip if called less than 2 minutes ago unless force=true)
+    if (!force) {
+        const lastSyncStr = settings['last_shopify_sync_time']
+        if (lastSyncStr) {
+            const lastSync = parseInt(lastSyncStr)
+            const now = Date.now()
+            if (now - lastSync < 120000) {
+                return { skipped: true, message: "Sync skipped (Rate Limit)" }
+            }
+        }
+    }
+
+    try {
+        await db.systemSetting.upsert({
+            where: { key: 'last_shopify_sync_time' },
+            update: { value: Date.now().toString() },
+            create: { key: 'last_shopify_sync_time', value: Date.now().toString() }
+        })
+
+        const limit = force ? 100 : 25
+        const orders = await fetchShopifyOrders(shopDomain, accessToken, limit)
+
+        let newCount = 0
+        let updatedCount = 0
+
+        for (const order of orders) {
+            try {
+                const res = await upsertShopifyOrder(order)
+                if (res.isNew) newCount++
+                else updatedCount++
+            } catch (err: any) {
+                console.error(`[SHOPIFY_SYNC_ORDER_ERR] #${order.id}:`, err.message)
+            }
+        }
+
+        return {
+            success: true,
+            count: newCount,
+            updatedCount,
+            totalFetched: orders.length,
+            message: `${newCount} yeni sipariş eklendi, ${updatedCount} sipariş güncellendi.`
+        }
+    } catch (e: any) {
+        console.error("Shopify sync error:", e)
+        return { error: e.message || "Shopify siparişleri senkronize edilirken bir hata oluştu." }
+    }
+}
+
+// SHOPIFY WIPE ACTION
+export async function wipeShopifyOrders() {
+    try {
+        const session = await getSession()
+        if (!session || session.user.role !== "admin") {
+            return { error: "Yetkisiz işlem: Sadece yöneticiler silebilir." }
+        }
+
+        const result = await db.order.deleteMany({
+            where: { source: 'shopify' }
+        })
+
+        return { success: true, message: `${result.count} adet Shopify siparişi başarıyla silindi.` }
+    } catch (e: any) {
+        console.error("Shopify Wipe Error:", e)
+        return { error: "Silme hatası: " + e.message }
+    }
+}
+
+
 let cachedCatalogApiToken: { token: string; exp: number } | null = null;
 async function getCatalogApiToken(): Promise<string | null> {
     if (cachedCatalogApiToken && Date.now() < cachedCatalogApiToken.exp - 60000) {
@@ -3361,7 +3471,8 @@ if (typeof window === 'undefined' && process.env.NODE_ENV === 'production' && pr
                 const etsy = await syncEtsyOrders().catch(e => ({ error: e.message }));
                 const cargo = await syncCargoKargoEntegrator().catch(e => ({ error: e.message }));
                 const wf = await syncWayfairOrders(false).catch(e => ({ error: e.message }));
-                console.log("[BACKGROUND_SYNC] Scheduled sync completed:", { wc, pm, etsy, cargo, wf });
+                const shopify = await syncShopifyOrders(false).catch(e => ({ error: e.message }));
+                console.log("[BACKGROUND_SYNC] Scheduled sync completed:", { wc, pm, etsy, cargo, wf, shopify });
             } catch (error) {
                 console.error("[BACKGROUND_SYNC] Fatal error in scheduled sync:", error);
             } finally {

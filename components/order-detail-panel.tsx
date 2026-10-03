@@ -254,7 +254,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                 <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950 print:hidden">
                     <div>
                         <h2 className="text-lg font-bold dark:text-slate-100">
-                            Sipariş {(formData.source === 'woo' || formData.source === 'wayfair') && formData.externalId ? `#${formData.externalId}` : `#${formData.id}`}
+                            Sipariş {(formData.source === 'woo' || formData.source === 'wayfair' || formData.source === 'shopify') && formData.externalId ? `#${formData.externalId}` : `#${formData.id}`}
                         </h2>
                         {/* Compact user info for header */}
                         <div className="font-medium text-slate-900 dark:text-slate-300">
@@ -263,7 +263,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     {line}
                                 </span>
                             ))}
-                            {(formData.source === 'woo' || formData.source === 'wayfair') && formData.externalId && (
+                            {(formData.source === 'woo' || formData.source === 'wayfair' || formData.source === 'shopify') && formData.externalId && (
                                 <span className="ml-2 text-xs text-slate-400 font-mono inline-block">(Sistem ID: #{formData.id})</span>
                             )}
                         </div>
@@ -304,7 +304,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                     </div>
 
                     <h1 className="text-2xl font-bold mb-2">
-                        Sipariş {(formData.source === 'woo' || formData.source === 'wayfair') && formData.externalId ? `#${formData.externalId}` : `#${formData.id}`}
+                        Sipariş {(formData.source === 'woo' || formData.source === 'wayfair' || formData.source === 'shopify') && formData.externalId ? `#${formData.externalId}` : `#${formData.id}`}
                     </h1>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -769,13 +769,23 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                 {(!formData.cargoBarcode && !formData.cargoLabelPdf) && (
                                     <div className="mb-4">
                                         <div className="grid grid-cols-1 gap-2">
-                                            <button
-                                                onClick={() => window.open(`https://duvarkagidimarketi.com/wp-admin/post.php?post=${formData.externalId || formData.id}&action=edit`, '_blank')}
-                                                className="py-3 mt-2 border-2 border-slate-300 bg-slate-50 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-slate-100 hover:border-slate-400 transition-all text-slate-600 font-bold text-xs"
-                                            >
-                                                <ExternalLink className="w-5 h-5" />
-                                                WooCommerce'da Aç
-                                            </button>
+                                            {formData.source === 'shopify' ? (
+                                                <button
+                                                    onClick={() => window.open(`https://admin.shopify.com/store/orders?query=${formData.externalId || formData.id}`, '_blank')}
+                                                    className="py-3 mt-2 border-2 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 hover:border-emerald-400 transition-all text-emerald-700 dark:text-emerald-400 font-bold text-xs"
+                                                >
+                                                    <ExternalLink className="w-5 h-5 text-emerald-600" />
+                                                    Shopify'da Aç
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={() => window.open(`https://duvarkagidimarketi.com/wp-admin/post.php?post=${formData.externalId || formData.id}&action=edit`, '_blank')}
+                                                    className="py-3 mt-2 border-2 border-slate-300 bg-slate-50 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-slate-100 hover:border-slate-400 transition-all text-slate-600 font-bold text-xs"
+                                                >
+                                                    <ExternalLink className="w-5 h-5" />
+                                                    WooCommerce'da Aç
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 )}

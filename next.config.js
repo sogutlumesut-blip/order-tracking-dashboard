@@ -33,6 +33,11 @@ const nextConfig = {
                 hostname: 'www.duvarkagidimarketi.com',
                 pathname: '**',
             },
+            {
+                protocol: 'https',
+                hostname: 'cdn.shopify.com',
+                pathname: '**',
+            },
         ],
     },
 }

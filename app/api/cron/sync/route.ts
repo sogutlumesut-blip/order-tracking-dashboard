@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { syncWooCommerceOrders, syncPrintMarktOrders, syncEtsyOrders, syncWayfairOrders } from "@/app/actions";
+import { syncWooCommerceOrders, syncPrintMarktOrders, syncEtsyOrders, syncWayfairOrders, syncShopifyOrders } from "@/app/actions";
 
 export const dynamic = 'force-dynamic';
 
@@ -18,8 +18,11 @@ export async function GET(req: Request) {
 
         // Run Wayfair sync
         const wfRes = await syncWayfairOrders(false).catch(err => ({ error: err.message }));
+
+        // Run Shopify sync
+        const shopifyRes = await syncShopifyOrders(false).catch(err => ({ error: err.message }));
         
-        console.log("[CRON] Periodic Sync finished:", { wcRes, pmRes, etsyRes, wfRes });
+        console.log("[CRON] Periodic Sync finished:", { wcRes, pmRes, etsyRes, wfRes, shopifyRes });
         
         return NextResponse.json({
             success: true,
@@ -28,7 +31,8 @@ export async function GET(req: Request) {
                 woocommerce: wcRes,
                 printmarkt: pmRes,
                 etsy: etsyRes,
-                wayfair: wfRes
+                wayfair: wfRes,
+                shopify: shopifyRes
             }
         });
     } catch (e: any) {

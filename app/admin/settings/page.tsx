@@ -17,6 +17,7 @@ import { PrintMarktSettingsForm } from "@/components/settings/printmarkt-setting
 import { CronTrigger } from "@/components/settings/cron-trigger"
 import { DHLSettingsForm } from "@/components/settings/dhl-settings-form"
 import { WayfairSettingsForm } from "@/components/settings/wayfair-settings-form"
+import { ShopifySettingsForm } from "@/components/settings/shopify-settings-form"
 
 
 export const dynamic = 'force-dynamic'
@@ -65,6 +66,23 @@ export default async function SettingsPage() {
                         wc_url: systemSettings.wc_url,
                         wc_key: systemSettings.wc_key,
                         wc_secret: systemSettings.wc_secret
+                    }} />
+                </div>
+
+                {/* SHOPIFY INTEGRATION */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-emerald-100">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-900">
+                        <span className="bg-[#008060] text-white p-1 px-2 rounded text-sm font-bold">SHOPIFY</span>
+                        Shopify Mağaza Entegrasyonu
+                    </h2>
+                    <p className="text-sm text-slate-600 mb-6">
+                        Shopify mağazanıza gelen siparişlerin anında otomatik olarak bu sisteme düşmesini sağlayın.
+                    </p>
+
+                    <ShopifySettingsForm initialSettings={{
+                        shopify_shop_domain: systemSettings.shopify_shop_domain,
+                        shopify_access_token: systemSettings.shopify_access_token,
+                        shopify_webhook_secret: systemSettings.shopify_webhook_secret
                     }} />
                 </div>
 
