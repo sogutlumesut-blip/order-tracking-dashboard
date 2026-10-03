@@ -2739,6 +2739,7 @@ export async function saveShopifySettings(formData: FormData) {
             create: { key: 'shopify_webhook_secret', value: secret }
         })
 
+        revalidatePath("/admin/settings")
         return { success: true, message: "Shopify ayarları başarıyla kaydedildi! 🚀" }
     } catch (e: any) {
         console.error("Shopify settings save error:", e)

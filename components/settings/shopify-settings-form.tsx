@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useTransition, useEffect } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Globe, Key, Lock, Save, Loader2, Copy, Check, RefreshCw, AlertCircle, ShoppingBag, ExternalLink, HelpCircle } from "lucide-react"
 import { toast } from "sonner"
 import { saveShopifySettings, syncShopifyOrders } from "@/app/actions"
@@ -14,7 +15,8 @@ interface ShopifySettingsFormProps {
 }
 
 export function ShopifySettingsForm({ initialSettings }: ShopifySettingsFormProps) {
-    const [isPending, startTransition] = useTransition()
+    const router = useRouter()
+    const [isSaving, setIsSaving] = useState(false)
     const [isSyncing, setIsSyncing] = useState(false)
     const [copied, setCopied] = useState(false)
     const [webhookUrl, setWebhookUrl] = useState("")
@@ -33,20 +35,24 @@ export function ShopifySettingsForm({ initialSettings }: ShopifySettingsFormProp
         setTimeout(() => setCopied(false), 2500)
     }
 
-    const handleSubmit = async (formData: FormData) => {
-        startTransition(async () => {
-            try {
-                const res = await saveShopifySettings(formData)
-                if (res.success) {
-                    toast.success(res.message)
-                } else {
-                    toast.error(res.error || "Ayarlar kaydedilemedi.")
-                }
-            } catch (error: any) {
-                console.error(error)
-                toast.error("Ayarlar kaydedilirken bir hata oluştu: " + error.message)
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault()
+        setIsSaving(true)
+        try {
+            const formData = new FormData(e.currentTarget)
+            const res = await saveShopifySettings(formData)
+            if (res.success) {
+                toast.success(res.message)
+                router.refresh()
+            } else {
+                toast.error(res.error || "Ayarlar kaydedilemedi.")
             }
-        })
+        } catch (error: any) {
+            console.error(error)
+            toast.error("Ayarlar kaydedilirken bir hata oluştu: " + error.message)
+        } finally {
+            setIsSaving(false)
+        }
     }
 
     const handleManualSync = async () => {
@@ -57,6 +63,7 @@ export function ShopifySettingsForm({ initialSettings }: ShopifySettingsFormProp
                 toast.error(`Shopify Hatası: ${res.error}`)
             } else if (res.success) {
                 toast.success(res.message || `${res.count} yeni sipariş aktarıldı!`)
+                router.refresh()
             }
         } catch (err: any) {
             toast.error("Senkronizasyon sırasında hata oluştu: " + err.message)
@@ -119,7 +126,7 @@ export function ShopifySettingsForm({ initialSettings }: ShopifySettingsFormProp
             </div>
 
             {/* 2. API Settings Form (For Syncing Past Orders & Polling) */}
-            <form action={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-5 bg-white dark:bg-slate-900/50 p-6 rounded-xl border border-slate-200 dark:border-slate-800">
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-5 bg-white dark:bg-slate-900/50 p-6 rounded-xl border border-slate-200 dark:border-slate-800">
                 <div className="col-span-1 md:col-span-2">
                     <h4 className="font-bold text-sm text-slate-800 dark:text-slate-200 mb-1">
                         Shopify Admin API Ayarları
@@ -198,12 +205,12 @@ export function ShopifySettingsForm({ initialSettings }: ShopifySettingsFormProp
                     </button>
 
                     <button
-                        disabled={isPending}
+                        disabled={isSaving}
                         type="submit"
                         className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-emerald-700 transition-colors flex items-center gap-2 shadow-sm text-xs disabled:opacity-50 disabled:cursor-not-allowed ml-auto"
                     >
-                        {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                        {isPending ? "Kaydediliyor..." : "Shopify Ayarlarını Kaydet"}
+                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        {isSaving ? "Kaydediliyor..." : "Shopify Ayarlarını Kaydet"}
                     </button>
                 </div>
             </form>
