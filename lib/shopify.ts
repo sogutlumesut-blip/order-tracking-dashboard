@@ -203,17 +203,19 @@ export async function upsertShopifyOrder(shopifyOrder: any) {
     const externalId = orderNumber;
     const barcode = `SHOP-${orderNumber}`;
 
-    // Prefetch Statuses to map to default "Incoming" / "Gelen Siparişler"
+    // Target PrintMarkt pending column ("Bekliyor (PrintMarkt)" / "pending_pm")
     const statuses = await db.statusColumn.findMany({ orderBy: { order: 'asc' } });
-    let defaultStatus = statuses.length > 0 ? statuses[0].id : 'pending';
+    let defaultStatus = 'pending_pm';
 
-    const incoming = statuses.find(s =>
-        s.title.toLowerCase().includes('gelen') ||
-        s.title.toLowerCase().includes('yeni') ||
-        s.title.toLowerCase().includes('sipariş') ||
-        s.id === 'pending'
+    const pmColumn = statuses.find(s =>
+        s.id === 'pending_pm' ||
+        s.title.toLowerCase().includes('printmarkt')
     );
-    if (incoming) defaultStatus = incoming.id;
+    if (pmColumn) {
+        defaultStatus = pmColumn.id;
+    } else if (statuses.length > 0) {
+        defaultStatus = statuses[0].id;
+    }
 
     // Customer & Address Info
     const shipping = shopifyOrder.shipping_address;
