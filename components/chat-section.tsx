@@ -153,11 +153,11 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
                             <div className="flex items-center gap-2 text-xs text-slate-500">
                                 <span className="font-bold text-slate-700">{comment.author}</span>
                                 <span>{comment.timestamp}</span>
-                                {currentUser?.role === 'admin' && (
+                                {currentUser && (
                                     <button
                                         onClick={() => onDeleteComment?.(comment.id)}
                                         className="text-slate-400 hover:text-red-500 ml-1 p-0.5 rounded transition-colors"
-                                        title="Mesajı Sil"
+                                        title="Mesajı / Dosyayı Sil"
                                     >
                                         <Trash2 className="w-3.5 h-3.5" />
                                     </button>

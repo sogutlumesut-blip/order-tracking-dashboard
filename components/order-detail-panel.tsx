@@ -158,7 +158,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
     }
 
     const handleInternalDeleteComment = async (commentId: string) => {
-        if (!confirm("Bu yorumu/notu silmek istediğinize emin misiniz?")) return
+        if (!confirm("Bu mesajı / dosyayı silmek istediğinize emin misiniz?")) return
 
         const previousComments = lazyComments ? [...lazyComments] : null
         setLazyComments(prev => prev ? prev.filter(c => c.id !== commentId) : null)
@@ -173,6 +173,9 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                 setLazyComments(previousComments)
             } else {
                 toast.success("Silindi")
+                if (result.activity) {
+                    setLazyActivities(prev => prev ? [result.activity, ...prev] : [result.activity])
+                }
                 router.refresh()
             }
         } catch (e: any) {

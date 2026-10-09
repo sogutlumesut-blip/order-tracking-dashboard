@@ -148,8 +148,8 @@ export function NoteLog({ comments = [], onAddNote, currentUser, className, isLo
 
                 {!isLoading && comments.map(comment => (
                     <div key={comment.id} className="relative bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-lg p-3 shadow-sm group hover:shadow-md transition-shadow pr-8">
-                        {/* Admin Delete Button */}
-                        {currentUser?.role === 'admin' && (
+                        {/* Delete Button */}
+                        {currentUser && (
                             <button
                                 onClick={() => onDeleteNote?.(comment.id)}
                                 className="absolute top-2 right-2 p-1 text-slate-400 hover:text-red-500 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"

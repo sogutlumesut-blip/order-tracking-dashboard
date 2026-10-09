@@ -1,4 +1,4 @@
-import { FileText, MessageSquare, Truck, User, Info } from "lucide-react"
+import { FileText, MessageSquare, Truck, User, Info, Trash2 } from "lucide-react"
 
 interface Activity {
     id: string
@@ -18,7 +18,11 @@ export function ActivityLog({ activities, isLoading }: ActivityLogProps) {
         switch (action) {
             case 'STATUS_CHANGE': return <Truck className="w-3 h-3 text-blue-600 dark:text-blue-400" />
             case 'NOTE_ADDED': return <FileText className="w-3 h-3 text-yellow-600 dark:text-yellow-400" />
-            case 'COMMENT_ADDED': return <MessageSquare className="w-3 h-3 text-green-600 dark:text-green-400" />
+            case 'COMMENT_ADDED':
+            case 'COMMENT_ADDED_API': return <MessageSquare className="w-3 h-3 text-green-600 dark:text-green-400" />
+            case 'COMMENT_DELETED':
+            case 'COMMENT_DELETED_API':
+            case 'NOTE_DELETED': return <Trash2 className="w-3 h-3 text-red-600 dark:text-red-400" />
             case 'ASSIGN_CHANGE': return <User className="w-3 h-3 text-purple-600 dark:text-purple-400" />
             default: return <Info className="w-3 h-3 text-slate-500 dark:text-slate-400" />
         }
