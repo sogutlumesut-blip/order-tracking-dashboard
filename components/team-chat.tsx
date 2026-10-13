@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from "react"
-import { MessageCircle, X, Send, User as UserIcon, Paperclip, Download, CornerUpLeft, Trash2, Smile, FolderOpen, ChevronLeft, ChevronRight, Image as ImageIcon, Link, FileText, Calendar, Pin, MessageSquare, Pencil, Copy, Share2, ExternalLink, Phone, Check } from "lucide-react"
+import { MessageCircle, X, Send, User as UserIcon, Paperclip, Download, CornerUpLeft, Trash2, Smile, FolderOpen, ChevronLeft, ChevronRight, Image as ImageIcon, Link, FileText, Calendar, Pin, MessageSquare, Pencil, Copy, Share2, ExternalLink, Phone, Check, Upload } from "lucide-react"
 import { toast } from "sonner"
 
 function WhatsAppIcon({ className = "w-4 h-4" }: { className?: string }) {
@@ -345,6 +345,36 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     const sendingMessageIdsRef = useRef<Set<string>>(new Set())
     const deletedMessageIdsRef = useRef<Set<string>>(new Set())
     const isFirstFetchRef = useRef(true)
+    const [isDraggingOver, setIsDraggingOver] = useState(false)
+    const dragCounterRef = useRef(0)
+
+    // Prevent default browser behavior when dragging files over the window to avoid accidental navigation away from the app
+    useEffect(() => {
+        if (!isOpen) {
+            setIsDraggingOver(false)
+            dragCounterRef.current = 0
+            return
+        }
+
+        const handleWindowDragOver = (e: DragEvent) => {
+            if (e.dataTransfer?.types && Array.from(e.dataTransfer.types).includes('Files')) {
+                e.preventDefault()
+            }
+        }
+        const handleWindowDrop = (e: DragEvent) => {
+            if (e.dataTransfer?.types && Array.from(e.dataTransfer.types).includes('Files')) {
+                e.preventDefault()
+            }
+        }
+
+        window.addEventListener('dragover', handleWindowDragOver)
+        window.addEventListener('drop', handleWindowDrop)
+
+        return () => {
+            window.removeEventListener('dragover', handleWindowDragOver)
+            window.removeEventListener('drop', handleWindowDrop)
+        }
+    }, [isOpen])
 
     // Keep refs up-to-date to avoid stale closures in polling callbacks
     useEffect(() => {
@@ -776,6 +806,115 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         }
     }
 
+    const handleProcessFiles = async (files: File[]) => {
+        if (!files || files.length === 0) return
+
+        let processedCount = 0
+
+        for (const file of files) {
+            if (file.type.includes('tiff') || file.name.endsWith('.tiff') || file.name.endsWith('.tif')) {
+                toast.error("TIFF formatındaki görseller tarayıcılar tarafından doğrudan gösterilemez. Lütfen PNG/JPG formatında yükleyin.")
+                continue
+            }
+            if (file.size > 200 * 1024 * 1024) {
+                toast.error(`"${file.name}" dosya boyutu 200MB'dan büyük olamaz.`)
+                continue
+            }
+
+            const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+            const isImage = file.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(file.name)
+
+            if (!isImage && !isPdf) {
+                toast.error(`"${file.name}" desteklenmeyen bir dosya türü. Sadece görsel ve PDF yükleyebilirsiniz.`)
+                continue
+            }
+
+            try {
+                const rawResult = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader()
+                    reader.onload = () => resolve(reader.result as string)
+                    reader.onerror = reject
+                    reader.readAsDataURL(file)
+                })
+
+                if (isPdf) {
+                    setAttachments(prev => [...prev, rawResult])
+                    setNewMessage(prev => prev.trim() ? prev : file.name)
+                    processedCount++
+                } else {
+                    try {
+                        const compressed = await compressImage(rawResult)
+                        setAttachments(prev => [...prev, compressed])
+                    } catch (err: any) {
+                        setAttachments(prev => [...prev, rawResult])
+                    }
+                    processedCount++
+                }
+            } catch (err) {
+                console.error("Dosya işleme hatası:", err)
+                toast.error(`"${file.name}" yüklenirken bir hata oluştu.`)
+            }
+        }
+
+        if (processedCount > 0) {
+            toast.success(`${processedCount} görsel/dosya eklendi`)
+            setTimeout(() => inputRef.current?.focus(), 50)
+        }
+    }
+
+    const handleDragEnter = (e: React.DragEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (e.dataTransfer?.types && Array.from(e.dataTransfer.types).includes('Files')) {
+            dragCounterRef.current++
+            setIsDraggingOver(true)
+        }
+    }
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (e.dataTransfer) {
+            e.dataTransfer.dropEffect = 'copy'
+        }
+    }
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        dragCounterRef.current--
+        if (dragCounterRef.current <= 0) {
+            dragCounterRef.current = 0
+            setIsDraggingOver(false)
+        }
+    }
+
+    const handleDrop = async (e: React.DragEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        dragCounterRef.current = 0
+        setIsDraggingOver(false)
+
+        if (isSending) {
+            toast.error("Lütfen önceki mesajın gönderilmesini bekleyin.")
+            return
+        }
+
+        const files = Array.from(e.dataTransfer.files || [])
+        if (files.length > 0) {
+            await handleProcessFiles(files)
+            return
+        }
+
+        // Check if image URL was dragged from web
+        const uri = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain')
+        if (uri && (uri.match(/\.(jpeg|jpg|gif|png|webp|svg)($|\?)/i) || uri.startsWith('data:image/'))) {
+            setAttachments(prev => [...prev, uri])
+            toast.success("Görsel eklendi")
+            setTimeout(() => inputRef.current?.focus(), 50)
+        }
+    }
+
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault()
         if (isSending) return
@@ -1061,7 +1200,28 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     return (
         <div className="fixed bottom-4 right-4 z-50 flex flex-col items-end">
             {isOpen && (
-                <div className="bg-white dark:bg-slate-900 w-[92vw] sm:w-[480px] h-[760px] max-h-[90vh] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden mb-4 animate-in slide-in-from-bottom-5">
+                <div 
+                    onDragEnter={handleDragEnter}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    className="relative bg-white dark:bg-slate-900 w-[92vw] sm:w-[480px] h-[760px] max-h-[90vh] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden mb-4 animate-in slide-in-from-bottom-5"
+                >
+                    {/* Drag and Drop Overlay */}
+                    {isDraggingOver && (
+                        <div className="absolute inset-0 z-50 rounded-2xl bg-slate-900/85 backdrop-blur-sm border-2 border-dashed border-emerald-400 flex flex-col items-center justify-center text-white pointer-events-none animate-in fade-in zoom-in-95 duration-150 p-6 text-center shadow-2xl">
+                            <div className="bg-emerald-500/20 p-5 rounded-full border border-emerald-400/40 mb-3 animate-bounce shadow-lg">
+                                <Upload className="w-12 h-12 text-emerald-400" />
+                            </div>
+                            <p className="text-lg font-bold text-white mb-1">
+                                Görselleri veya Dosyaları Buraya Bırakın
+                            </p>
+                            <p className="text-xs text-emerald-200/80 max-w-[280px]">
+                                Bıraktığınız fotoğraf ve belgeler sohbete eklenecektir
+                            </p>
+                        </div>
+                    )}
+
                     {/* Header */}
                     <div className="bg-slate-900 text-white px-4 py-3 flex justify-between items-center">
                         <div className="flex items-center gap-2">
@@ -1817,32 +1977,8 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                     className="hidden" 
                                     onChange={async (e) => {
                                         const files = Array.from(e.target.files || [])
-                                        if (files.length === 0) return
-                                        for (const file of files) {
-                                            if (file.type.includes('tiff') || file.name.endsWith('.tiff') || file.name.endsWith('.tif')) {
-                                                alert("TIFF formatındaki görseller tarayıcılar tarafından doğrudan gösterilemez. Lütfen PNG/JPG formatında yükleyin.")
-                                                continue
-                                            }
-                                            if (file.size > 200 * 1024 * 1024) {
-                                                alert(`"${file.name}" dosya boyutu 200MB'dan büyük olamaz.`)
-                                                continue
-                                            }
-                                            const reader = new FileReader()
-                                            reader.onload = async () => {
-                                                const rawResult = reader.result as string
-                                                if (file.type === 'application/pdf') {
-                                                    setAttachments(prev => [...prev, rawResult])
-                                                    if (!newMessage.trim()) setNewMessage(file.name)
-                                                } else {
-                                                    try {
-                                                        const compressed = await compressImage(rawResult)
-                                                        setAttachments(prev => [...prev, compressed])
-                                                    } catch (err: any) {
-                                                        setAttachments(prev => [...prev, rawResult])
-                                                    }
-                                                }
-                                            }
-                                            reader.readAsDataURL(file)
+                                        if (files.length > 0) {
+                                            await handleProcessFiles(files)
                                         }
                                         e.target.value = ''
                                     }}
@@ -1865,43 +2001,23 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                 disabled={isSending}
                                 value={newMessage}
                                 onChange={handleInputChange}
-                                    onPaste={(e) => {
-                                        const items = e.clipboardData.items
-                                        for (let i = 0; i < items.length; i++) {
-                                            if (items[i].type.indexOf('image') !== -1 && !items[i].type.includes('tiff')) {
-                                                const file = items[i].getAsFile()
-                                                if (file) {
-                                                    if (file.size > 200 * 1024 * 1024) {
-                                                        alert("Dosya boyutu 200MB'dan büyük olamaz.")
-                                                        return
-                                                    }
-                                                    const reader = new FileReader()
-                                                    reader.onload = async () => {
-                                                        try {
-                                                            const compressed = await compressImage(reader.result as string)
-                                                            setAttachments(prev => [...prev, compressed])
-                                                        } catch (err: any) {
-                                                            setAttachments(prev => [...prev, reader.result as string])
-                                                        }
-                                                    }
-                                                    reader.readAsDataURL(file)
-                                                }
-                                            } else if (items[i].type === 'application/pdf') {
-                                                const file = items[i].getAsFile()
-                                                if (file) {
-                                                    const reader = new FileReader()
-                                                    reader.onload = () => {
-                                                        setAttachments(prev => [...prev, reader.result as string])
-                                                        if (!newMessage.trim()) {
-                                                            setNewMessage(file.name)
-                                                        }
-                                                    }
-                                                    reader.readAsDataURL(file)
-                                                }
-                                            }
+                                onPaste={async (e) => {
+                                    const items = e.clipboardData?.items
+                                    if (!items) return
+                                    const files: File[] = []
+                                    for (let i = 0; i < items.length; i++) {
+                                        if (items[i].type.indexOf('image') !== -1 || items[i].type === 'application/pdf') {
+                                            const file = items[i].getAsFile()
+                                            if (file) files.push(file)
                                         }
-                                    }}
-                                placeholder="Mesaj yazın... (Birden fazla görsel yapıştırabilirsiniz)"
+                                    }
+                                    if (files.length > 0) {
+                                        await handleProcessFiles(files)
+                                    }
+                                }}
+                                onDragOver={handleDragOver}
+                                onDrop={handleDrop}
+                                placeholder="Mesaj yazın... (Görsel yapıştırabilir veya sürükleyebilirsiniz)"
                                 className="flex-1 bg-slate-100 dark:bg-slate-800 border-0 rounded-full px-4 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
                             />
                             <button 

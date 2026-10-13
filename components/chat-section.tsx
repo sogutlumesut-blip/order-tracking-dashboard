@@ -2,7 +2,7 @@
 
 import { Comment } from "../data/mock-orders" // Ensure this type matches generic Comment structure
 import { useState, useRef } from "react"
-import { Send, Paperclip, File as FileIcon, Trash2 } from "lucide-react"
+import { Send, Paperclip, File as FileIcon, Trash2, Upload } from "lucide-react"
 
 interface ChatAttachment {
     name: string
@@ -124,8 +124,91 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
         }
     }
 
+    const [isDraggingOver, setIsDraggingOver] = useState(false)
+    const dragCounterRef = useRef(0)
+
+    const handleProcessFile = async (file: File) => {
+        const isImg = file.type.startsWith('image/')
+        const reader = new FileReader()
+        reader.onload = async () => {
+            let result = reader.result as string
+            if (isImg) {
+                try {
+                    result = await compressImage(result)
+                } catch {
+                    // Fallback to raw base64 if compression fails
+                }
+            }
+            setAttachment({
+                name: file.name,
+                type: isImg ? 'image' : 'file',
+                url: result
+            })
+        }
+        reader.readAsDataURL(file)
+    }
+
+    const handleDragEnter = (e: React.DragEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (e.dataTransfer?.types && Array.from(e.dataTransfer.types).includes('Files')) {
+            dragCounterRef.current++
+            setIsDraggingOver(true)
+        }
+    }
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (e.dataTransfer) {
+            e.dataTransfer.dropEffect = 'copy'
+        }
+    }
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        dragCounterRef.current--
+        if (dragCounterRef.current <= 0) {
+            dragCounterRef.current = 0
+            setIsDraggingOver(false)
+        }
+    }
+
+    const handleDrop = async (e: React.DragEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        dragCounterRef.current = 0
+        setIsDraggingOver(false)
+
+        const files = Array.from(e.dataTransfer.files || [])
+        if (files.length > 0) {
+            await handleProcessFile(files[0])
+        }
+    }
+
     return (
-        <div className="flex flex-col h-[600px] border dark:border-slate-700 rounded-xl overflow-hidden bg-slate-50/50 dark:bg-slate-900/50 shadow-sm transition-all" onPaste={handlePaste}>
+        <div 
+            className="relative flex flex-col h-[600px] border dark:border-slate-700 rounded-xl overflow-hidden bg-slate-50/50 dark:bg-slate-900/50 shadow-sm transition-all" 
+            onPaste={handlePaste}
+            onDragEnter={handleDragEnter}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+        >
+            {isDraggingOver && (
+                <div className="absolute inset-0 z-50 rounded-xl bg-slate-900/80 backdrop-blur-sm border-2 border-dashed border-blue-400 flex flex-col items-center justify-center text-white pointer-events-none animate-in fade-in duration-150 p-6 text-center shadow-xl">
+                    <div className="bg-blue-500/20 p-4 rounded-full border border-blue-400/40 mb-2 animate-bounce">
+                        <Upload className="w-10 h-10 text-blue-400" />
+                    </div>
+                    <p className="text-sm font-bold text-white mb-0.5">
+                        Görsel veya dosyayı buraya bırakın
+                    </p>
+                    <p className="text-xs text-blue-200/80">
+                        Bıraktığınız dosya mesaja eklenecektir
+                    </p>
+                </div>
+            )}
             {/* Header */}
             <div className="p-3 border-b dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-between text-xs">
                 <span className="font-semibold text-slate-500 dark:text-slate-400">Yazışma Geçmişi</span>
