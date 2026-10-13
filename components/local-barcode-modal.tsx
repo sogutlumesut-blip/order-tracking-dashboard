@@ -12,23 +12,27 @@ import { toast } from "sonner"
 interface LocalBarcodeModalProps {
     order: {
         id: number
-        barcode?: string
-        cargoBarcode?: string
+        barcode?: string | null
+        cargoBarcode?: string | null
         customer: string
-        address?: string
-        city?: string
-        phone?: string
+        address?: string | null
+        city?: string | null
+        phone?: string | null
         items?: Array<{
             name: string
             quantity: number
-            sku?: string
-            material?: string
-            dimensions?: string
-            image_src?: string
+            sku?: string | null
+            material?: string | null
+            dimensions?: string | null
+            image_src?: string | null
+            sampleData?: string | null
         }>
         labels?: string | string[]
-        cargoTrackingNumber?: string
-    }
+        cargoTrackingNumber?: string | null
+        source?: string | null
+        externalId?: string | null
+        paymentMethod?: string | null
+    } | null
     isOpen: boolean
     onClose: () => void
 }
@@ -40,7 +44,7 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
 
     const handlePrint = useReactToPrint({
         contentRef: printRef,
-        documentTitle: `Kargo-Barkod-${order.cargoBarcode || order.barcode || order.id}`,
+        documentTitle: `Kargo-Barkod-${order?.cargoBarcode || order?.barcode || order?.id}`,
         pageStyle: `
             @page {
                 size: 100mm 150mm !important;
@@ -112,6 +116,57 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
     };
     const activeBadge = findActiveBadge();
 
+    const getPlatformName = (): string | null => {
+        const src = (order.source || "").toLowerCase().trim();
+        const barcode = (order.barcode || "").toUpperCase().trim();
+        const payMethod = (order.paymentMethod || "").toUpperCase().trim();
+        const labelsStr = orderLabels.map(l => l.toUpperCase());
+
+        // 1. Direct source check
+        if (src === 'woo' || src === 'woocommerce') return 'WOO';
+        if (src === 'printmarkt') return 'PRINTMARKT';
+        if (src === 'wayfair') return 'WAYFAIR';
+        if (src === 'shopify') return 'SHOPIFY';
+        if (src === 'etsy') return 'ETSY';
+
+        // 2. Barcode prefix check
+        if (barcode.startsWith('WC-') || barcode.startsWith('WOO-')) return 'WOO';
+        if (barcode.startsWith('WF-') || barcode.startsWith('WAYFAIR-')) return 'WAYFAIR';
+        if (barcode.startsWith('PM-') || barcode.startsWith('PRINTMARKT-')) return 'PRINTMARKT';
+        if (barcode.startsWith('SH-') || barcode.startsWith('SHOPIFY-')) return 'SHOPIFY';
+        if (barcode.startsWith('ET-') || barcode.startsWith('ETSY-')) return 'ETSY';
+
+        // 3. Labels check
+        if (labelsStr.some(l => l.includes('WOO'))) return 'WOO';
+        if (labelsStr.some(l => l.includes('PRINTMARKT'))) return 'PRINTMARKT';
+        if (labelsStr.some(l => l.includes('WAYFAIR'))) return 'WAYFAIR';
+        if (labelsStr.some(l => l.includes('SHOPIFY'))) return 'SHOPIFY';
+        if (labelsStr.some(l => l.includes('ETSY'))) return 'ETSY';
+
+        // 4. Payment method check
+        if (payMethod.includes('PRINTMARKT')) return 'PRINTMARKT';
+
+        // 5. Fallback to source
+        if (order.source && order.source.trim()) {
+            return order.source.toUpperCase().trim();
+        }
+
+        return null;
+    };
+    const platformBadge = getPlatformName();
+
+    const getOrderDisplayNumber = () => {
+        if (order.externalId) {
+            const clean = order.externalId.replace(/^pm_/, '');
+            return clean.startsWith('#') ? clean : `#${clean}`;
+        }
+        if (order.barcode && !order.barcode.startsWith('TR')) {
+            return order.barcode;
+        }
+        return `#${order.id}`;
+    };
+    const displayOrderNo = getOrderDisplayNumber();
+
     return (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
@@ -180,30 +235,64 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                                     justifyContent: "space-between",
                                     alignItems: "center"
                                 }}>
-                                    <span style={{
-                                        fontSize: "12px",
-                                        fontWeight: "bold",
-                                        letterSpacing: "0.05em",
-                                        color: "#000000"
-                                    }}>RULO ETİKETİ</span>
-                                    {activeBadge && (
-                                        <div 
-                                            style={{
-                                                padding: "4px 12px",
-                                                backgroundColor: '#000000',
-                                                color: '#ffffff',
-                                                fontWeight: "900",
+                                    <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
+                                        <span style={{
+                                            fontSize: "12px",
+                                            fontWeight: "bold",
+                                            letterSpacing: "0.05em",
+                                            color: "#000000"
+                                        }}>RULO ETİKETİ</span>
+                                        {displayOrderNo && (
+                                            <span style={{
                                                 fontSize: "12px",
-                                                borderRadius: "4px",
-                                                textTransform: "uppercase",
-                                                letterSpacing: "0.05em",
-                                                WebkitPrintColorAdjust: 'exact',
-                                                printColorAdjust: 'exact'
-                                            }}
-                                        >
-                                            {activeBadge}
-                                        </div>
-                                    )}
+                                                fontWeight: "800",
+                                                color: "#1e293b",
+                                                fontFamily: "monospace"
+                                            }}>
+                                                {displayOrderNo}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                        {platformBadge && (
+                                            <div 
+                                                style={{
+                                                    padding: "4px 10px",
+                                                    backgroundColor: '#000000',
+                                                    color: '#ffffff',
+                                                    fontWeight: "900",
+                                                    fontSize: "12px",
+                                                    borderRadius: "4px",
+                                                    textTransform: "uppercase",
+                                                    letterSpacing: "0.05em",
+                                                    WebkitPrintColorAdjust: 'exact',
+                                                    printColorAdjust: 'exact',
+                                                    lineHeight: "1.2"
+                                                }}
+                                            >
+                                                {platformBadge}
+                                            </div>
+                                        )}
+                                        {activeBadge && activeBadge !== platformBadge && (
+                                            <div 
+                                                style={{
+                                                    padding: "4px 10px",
+                                                    backgroundColor: '#000000',
+                                                    color: '#ffffff',
+                                                    fontWeight: "900",
+                                                    fontSize: "12px",
+                                                    borderRadius: "4px",
+                                                    textTransform: "uppercase",
+                                                    letterSpacing: "0.05em",
+                                                    WebkitPrintColorAdjust: 'exact',
+                                                    printColorAdjust: 'exact',
+                                                    lineHeight: "1.2"
+                                                }}
+                                            >
+                                                {activeBadge}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {/* Customer Name (Very Large) */}
@@ -244,7 +333,7 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                                         margin: "0 0 8px 0"
                                     }}>SİPARİŞ İÇERİĞİ:</p>
                                     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                                        {order.items?.map((item: { sku?: string; dimensions?: string; quantity: number; material?: string }, idx: number) => (
+                                        {order.items?.map((item: any, idx: number) => (
                                             <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                                                 <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
                                                     <span style={{
@@ -336,7 +425,7 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                                 <div style={{
                                     width: "100%",
                                     borderBottom: "2px solid #000000",
-                                    paddingBottom: activeBadge ? "10px" : "8px",
+                                    paddingBottom: (activeBadge || platformBadge) ? "10px" : "8px",
                                     marginBottom: "12px",
                                     textAlign: "center"
                                 }}>
@@ -354,24 +443,53 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                                         margin: "0",
                                         color: "#000000"
                                     }}>Duvar Kağıdı Marketi</p>
-                                    {activeBadge && (
+                                    {(platformBadge || activeBadge) && (
                                         <div 
                                             style={{
-                                                display: "inline-block",
+                                                display: "flex",
+                                                justifyContent: "center",
+                                                alignItems: "center",
+                                                gap: "6px",
                                                 marginTop: "6px",
-                                                padding: "4px 14px",
-                                                backgroundColor: '#000000',
-                                                color: '#ffffff',
-                                                fontWeight: "900",
-                                                fontSize: "12px",
-                                                borderRadius: "4px",
-                                                textTransform: "uppercase",
-                                                letterSpacing: "0.05em",
-                                                WebkitPrintColorAdjust: 'exact',
-                                                printColorAdjust: 'exact'
+                                                flexWrap: "wrap"
                                             }}
                                         >
-                                            {activeBadge}
+                                            {platformBadge && (
+                                                <div 
+                                                    style={{
+                                                        padding: "4px 12px",
+                                                        backgroundColor: '#000000',
+                                                        color: '#ffffff',
+                                                        fontWeight: "900",
+                                                        fontSize: "12px",
+                                                        borderRadius: "4px",
+                                                        textTransform: "uppercase",
+                                                        letterSpacing: "0.05em",
+                                                        WebkitPrintColorAdjust: 'exact',
+                                                        printColorAdjust: 'exact'
+                                                    }}
+                                                >
+                                                    {platformBadge}
+                                                </div>
+                                            )}
+                                            {activeBadge && activeBadge !== platformBadge && (
+                                                <div 
+                                                    style={{
+                                                        padding: "4px 12px",
+                                                        backgroundColor: '#000000',
+                                                        color: '#ffffff',
+                                                        fontWeight: "900",
+                                                        fontSize: "12px",
+                                                        borderRadius: "4px",
+                                                        textTransform: "uppercase",
+                                                        letterSpacing: "0.05em",
+                                                        WebkitPrintColorAdjust: 'exact',
+                                                        printColorAdjust: 'exact'
+                                                    }}
+                                                >
+                                                    {activeBadge}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -385,13 +503,20 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                                     flexDirection: "column",
                                     gap: "2px"
                                 }}>
-                                    <p style={{
-                                        fontSize: "10px",
-                                        textTransform: "uppercase",
-                                        fontWeight: "bold",
-                                        margin: "0 0 2px 0",
-                                        color: "#475569"
-                                    }}>ALICI:</p>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                                        <p style={{
+                                            fontSize: "10px",
+                                            textTransform: "uppercase",
+                                            fontWeight: "bold",
+                                            margin: "0 0 2px 0",
+                                            color: "#475569"
+                                        }}>ALICI:</p>
+                                        {displayOrderNo && (
+                                            <span style={{ fontSize: "11px", fontWeight: "bold", fontFamily: "monospace", color: "#475569" }}>
+                                                {displayOrderNo}
+                                            </span>
+                                        )}
+                                    </div>
                                     <p style={{
                                         fontSize: "16px",
                                         fontWeight: "bold",
@@ -441,7 +566,7 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                                         flexDirection: "column",
                                         gap: "8px"
                                     }}>
-                                        {order.items?.map((item: { name: string; quantity: number; sku?: string; material?: string; dimensions?: string; image_src?: string; sampleData?: string }, idx: number) => {
+                                        {order.items?.map((item: any, idx: number) => {
                                             const imgUrls = (item.image_src || "").split('|').filter(Boolean);
                                             const firstImg = imgUrls[0];
                                             return (
@@ -450,7 +575,7 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                                                     flexDirection: "row",
                                                     gap: "8px",
                                                     alignItems: "flex-start",
-                                                    borderBottom: idx === (order.items?.length - 1) ? "none" : "1px solid #f1f5f9",
+                                                    borderBottom: idx === ((order.items?.length || 0) - 1) ? "none" : "1px solid #f1f5f9",
                                                     paddingBottom: "8px",
                                                     boxSizing: "border-box"
                                                 }}>

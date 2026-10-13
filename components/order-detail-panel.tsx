@@ -256,9 +256,37 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                 {/* Header */}
                 <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950 print:hidden">
                     <div>
-                        <h2 className="text-lg font-bold dark:text-slate-100">
-                            Sipariş {(formData.source === 'woo' || formData.source === 'wayfair' || formData.source === 'shopify') && formData.externalId ? `#${formData.externalId}` : `#${formData.id}`}
-                        </h2>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <h2 className="text-lg font-bold dark:text-slate-100">
+                                Sipariş {(formData.source === 'woo' || formData.source === 'wayfair' || formData.source === 'shopify' || formData.source === 'PrintMarkt') && formData.externalId ? `#${formData.externalId.replace(/^pm_/, '')}` : `#${formData.id}`}
+                            </h2>
+                            {((formData.source || '').toLowerCase() === 'shopify' || (formData.barcode || '').startsWith('SH-')) && (
+                                <span className="bg-[#008060] text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
+                                    SHOPIFY
+                                </span>
+                            )}
+                            {((formData.source || '').toLowerCase() === 'etsy' || (formData.barcode || '').startsWith('ET-')) && (
+                                <span className="bg-[#F1641E] text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm">
+                                    <span className="font-serif italic lowercase font-extrabold translate-y-[0.5px]">e</span>
+                                    ETSY
+                                </span>
+                            )}
+                            {((formData.source || '').toLowerCase() === 'wayfair' || (formData.barcode || '').startsWith('WF-')) && (
+                                <span className="bg-purple-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
+                                    WAYFAIR
+                                </span>
+                            )}
+                            {(((formData.source || '').toLowerCase() === 'woo' || (formData.source || '').toLowerCase() === 'woocommerce') || (!formData.source && (formData.barcode || '').startsWith('WC-'))) && (
+                                <span className="bg-[#96588A] text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
+                                    WOO
+                                </span>
+                            )}
+                            {((formData.source || '').toLowerCase() === 'printmarkt' || (formData.barcode || '').startsWith('PM-') || (formData.paymentMethod || '').toUpperCase().includes('PRINTMARKT')) && (
+                                <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded border text-blue-700 bg-blue-100 border-blue-200 shadow-sm">
+                                    PRINTMARKT
+                                </span>
+                            )}
+                        </div>
                         {/* Compact user info for header */}
                         <div className="font-medium text-slate-900 dark:text-slate-300">
                             {formData.customer.split('\n').map((line, i, arr) => (
@@ -266,7 +294,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     {line}
                                 </span>
                             ))}
-                            {(formData.source === 'woo' || formData.source === 'wayfair' || formData.source === 'shopify') && formData.externalId && (
+                            {(formData.source === 'woo' || formData.source === 'wayfair' || formData.source === 'shopify' || formData.source === 'PrintMarkt') && formData.externalId && (
                                 <span className="ml-2 text-xs text-slate-400 font-mono inline-block">(Sistem ID: #{formData.id})</span>
                             )}
                         </div>
@@ -307,7 +335,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                     </div>
 
                     <h1 className="text-2xl font-bold mb-2">
-                        Sipariş {(formData.source === 'woo' || formData.source === 'wayfair' || formData.source === 'shopify') && formData.externalId ? `#${formData.externalId}` : `#${formData.id}`}
+                        Sipariş {(formData.source === 'woo' || formData.source === 'wayfair' || formData.source === 'shopify' || formData.source === 'PrintMarkt') && formData.externalId ? `#${formData.externalId.replace(/^pm_/, '')}` : `#${formData.id}`}
                     </h1>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
