@@ -214,6 +214,42 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
         }
     }
 
+    const handleDownloadPreviewImage = async (url: string) => {
+        try {
+            let blob: Blob
+            if (url.startsWith('data:')) {
+                const res = await fetch(url)
+                blob = await res.blob()
+            } else {
+                const res = await fetch(url)
+                blob = await res.blob()
+            }
+            let ext = 'jpg'
+            if (blob.type === 'image/png') ext = 'png'
+            else if (blob.type === 'image/webp') ext = 'webp'
+            else if (blob.type === 'image/gif') ext = 'gif'
+            else if (blob.type === 'application/pdf') ext = 'pdf'
+
+            const objectUrl = window.URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = objectUrl
+            a.download = `taslak-${formData.id || Date.now()}.${ext}`
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+            setTimeout(() => window.URL.revokeObjectURL(objectUrl), 1000)
+            toast.success("Görsel tam kalitede indirildi")
+        } catch (e) {
+            const a = document.createElement('a')
+            a.href = url
+            a.download = "taslak.png"
+            a.target = "_blank"
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+        }
+    }
+
     return (
         <div className="fixed inset-0 z-50 flex justify-end">
             {/* Backdrop */}
@@ -229,16 +265,18 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
             {previewImage && (
                 <div className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setPreviewImage(null)}>
                     <div className="absolute top-4 right-4 flex gap-2">
-                        <a 
-                            href={previewImage} 
-                            download="taslak.png"
-                            className="text-white hover:text-slate-200 bg-slate-900/50 p-2.5 rounded-full backdrop-blur-md transition-colors flex items-center justify-center cursor-pointer"
-                            title="Görseli İndir"
-                            onClick={(e) => e.stopPropagation()}
+                        <button 
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                handleDownloadPreviewImage(previewImage)
+                            }}
+                            className="text-white hover:text-slate-200 bg-slate-900/50 p-2.5 rounded-full backdrop-blur-md transition-colors flex items-center justify-center cursor-pointer hover:bg-slate-800"
+                            title="Orijinal Görseli İndir (Tam Kalite)"
                         >
                             <Download className="w-5 h-5" />
-                        </a>
-                        <button className="text-white hover:text-slate-300 transition-colors p-1" onClick={() => setPreviewImage(null)}>
+                        </button>
+                        <button className="text-white hover:text-slate-300 transition-colors p-1 cursor-pointer" onClick={() => setPreviewImage(null)}>
                             <X className="w-8 h-8" />
                         </button>
                     </div>

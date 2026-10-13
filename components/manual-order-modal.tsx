@@ -60,11 +60,21 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
             if (isImage) {
                 const reader = new FileReader()
                 reader.onload = (event) => {
+                    const rawResult = event.target?.result as string
+                    if (file.size <= 3.5 * 1024 * 1024) {
+                        setFiles(prev => [...prev, {
+                            name: file.name,
+                            type: 'image',
+                            content: rawResult
+                        }])
+                        return
+                    }
+
                     const img = new Image()
                     img.onload = () => {
                         const canvas = document.createElement('canvas')
-                        const MAX_WIDTH = 2048
-                        const MAX_HEIGHT = 2048
+                        const MAX_WIDTH = 4096
+                        const MAX_HEIGHT = 4096
                         let width = img.width
                         let height = img.height
 
@@ -82,16 +92,26 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                         canvas.width = width
                         canvas.height = height
                         const ctx = canvas.getContext('2d')
-                        ctx?.drawImage(img, 0, 0, width, height)
-                        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.90)
-
-                        setFiles(prev => [...prev, {
-                            name: file.name,
-                            type: 'image',
-                            content: compressedBase64
-                        }])
+                        if (ctx) {
+                            ctx.imageSmoothingEnabled = true
+                            ctx.imageSmoothingQuality = 'high'
+                            ctx.drawImage(img, 0, 0, width, height)
+                            const isPng = file.type === 'image/png'
+                            const finalBase64 = isPng ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.95)
+                            setFiles(prev => [...prev, {
+                                name: file.name,
+                                type: 'image',
+                                content: finalBase64
+                            }])
+                        } else {
+                            setFiles(prev => [...prev, {
+                                name: file.name,
+                                type: 'image',
+                                content: rawResult
+                            }])
+                        }
                     }
-                    img.src = event.target?.result as string
+                    img.src = rawResult
                 }
                 reader.readAsDataURL(file)
             } else {
@@ -463,6 +483,7 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                             material: "Tekstil Duvar Kağıdı",
                             sample: "",
                             note: "Acele teslimat lütfen.",
+                            total: "",
                             sku: formData.sku,
                             imageLink: "",
                             pdfLink: ""

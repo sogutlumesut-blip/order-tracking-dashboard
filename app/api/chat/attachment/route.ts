@@ -32,22 +32,30 @@ export async function GET(req: Request) {
             const base64Data = match[2]
             const buffer = Buffer.from(base64Data, 'base64')
 
-            // Determine safe filename based on Content-Type
-            let filename = "gorsel.jpg"
+            // Determine accurate extension based on Content-Type
+            let extension = "jpg"
             if (contentType === "application/pdf") {
-                filename = "belge.pdf"
+                extension = "pdf"
             } else if (contentType === "image/png") {
-                filename = "gorsel.png"
+                extension = "png"
             } else if (contentType === "image/gif") {
-                filename = "gorsel.gif"
+                extension = "gif"
             } else if (contentType === "image/webp") {
-                filename = "gorsel.webp"
+                extension = "webp"
+            } else if (contentType === "image/svg+xml") {
+                extension = "svg"
             }
+
+            const isDownload = searchParams.get('download') === '1'
+            const customName = searchParams.get('name')
+            const filename = customName
+                ? (customName.includes('.') ? customName : `${customName}.${extension}`)
+                : `gorsel-${id.substring(0, 8)}.${extension}`
 
             return new Response(buffer, {
                 headers: {
                     "Content-Type": contentType,
-                    "Content-Disposition": `inline; filename="${filename}"`,
+                    "Content-Disposition": `${isDownload ? 'attachment' : 'inline'}; filename="${filename}"`,
                     "Cache-Control": "public, max-age=31536000, immutable" // Highly cacheable in client browsers
                 }
             })

@@ -43,32 +43,55 @@ export function NoteLog({ comments = [], onAddNote, currentUser, className, isLo
         }
     }
 
-    const compressImage = (base64Str: string, maxWidth = 1024, maxHeight = 1024): Promise<string> => {
+    const optimizeImageIfNeeded = (base64Str: string, fileSizeBytes?: number): Promise<string> => {
         return new Promise((resolve) => {
+            const approximateSize = fileSizeBytes || Math.round(base64Str.length * 0.75)
+            const SAFE_LIMIT = 3.5 * 1024 * 1024 // 3.5 MB
+
+            if (approximateSize <= SAFE_LIMIT) {
+                return resolve(base64Str)
+            }
+
             const img = new Image()
             img.src = base64Str
             img.onload = () => {
                 const canvas = document.createElement('canvas')
+                const maxDimension = 4096
                 let width = img.width
                 let height = img.height
 
-                if (width > height) {
-                    if (width > maxWidth) {
-                        height *= maxWidth / width
-                        width = maxWidth
-                    }
-                } else {
-                    if (height > maxHeight) {
-                        width *= maxHeight / height
-                        height = maxHeight
+                if (width > maxDimension || height > maxDimension) {
+                    if (width > height) {
+                        height = Math.round((height * maxDimension) / width)
+                        width = maxDimension
+                    } else {
+                        width = Math.round((width * maxDimension) / height)
+                        height = maxDimension
                     }
                 }
 
                 canvas.width = width
                 canvas.height = height
                 const ctx = canvas.getContext('2d')
-                ctx?.drawImage(img, 0, 0, width, height)
-                resolve(canvas.toDataURL('image/jpeg', 0.75))
+                if (ctx) {
+                    ctx.imageSmoothingEnabled = true
+                    ctx.imageSmoothingQuality = 'high'
+                    ctx.drawImage(img, 0, 0, width, height)
+                    
+                    const isPng = base64Str.startsWith('data:image/png')
+                    if (isPng) {
+                        const pngData = canvas.toDataURL('image/png')
+                        if (pngData.length <= 4.5 * 1024 * 1024) {
+                            return resolve(pngData)
+                        }
+                    }
+                    resolve(canvas.toDataURL('image/jpeg', 0.95))
+                } else {
+                    resolve(base64Str)
+                }
+            }
+            img.onerror = () => {
+                resolve(base64Str)
             }
         })
     }
@@ -84,9 +107,9 @@ export function NoteLog({ comments = [], onAddNote, currentUser, className, isLo
 
             if (isImg) {
                 try {
-                    result = await compressImage(result)
+                    result = await optimizeImageIfNeeded(result, file.size)
                 } catch {
-                    // Fallback to raw base64 if compression fails
+                    // Fallback to raw base64 if optimization fails
                 }
             }
 
@@ -109,10 +132,10 @@ export function NoteLog({ comments = [], onAddNote, currentUser, className, isLo
                     reader.onload = async () => {
                         let result = reader.result as string
                         try {
-                            result = await compressImage(result)
+                            result = await optimizeImageIfNeeded(result, file.size)
                         } catch {}
                         setAttachment({
-                            name: `yapistirilan-gorsel-${Date.now()}.jpg`,
+                            name: `yapistirilan-gorsel-${Date.now()}.${file.type === 'image/png' ? 'png' : 'jpg'}`,
                             type: 'image',
                             url: result
                         })

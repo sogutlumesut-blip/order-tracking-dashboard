@@ -59,14 +59,23 @@ const playNotificationSound = () => {
     }
 }
 
-// Client-side image compression utility
-const compressImage = (base64Str: string): Promise<string> => {
-    return new Promise((resolve, reject) => {
+// High-fidelity image processor: preserves 100% original quality unless size exceeds server payload limits (>3.5MB)
+const optimizeImageIfNeeded = (base64Str: string, fileSizeBytes?: number): Promise<string> => {
+    return new Promise((resolve) => {
+        // If file size is under 3.5MB (or base64 is under ~4.8MB), return 100% original lossless data untouched!
+        const approximateSize = fileSizeBytes || Math.round(base64Str.length * 0.75)
+        const SAFE_LIMIT = 3.5 * 1024 * 1024 // 3.5 MB
+
+        if (approximateSize <= SAFE_LIMIT) {
+            return resolve(base64Str)
+        }
+
+        // Only if exceeds safe limit: optimize gracefully preserving ultra-high resolution (up to 4096px)
         const img = new Image()
         img.src = base64Str
         img.onload = () => {
             const canvas = document.createElement('canvas')
-            const maxDimension = 2048 // 2K Ultra High Resolution
+            const maxDimension = 4096 // 4K Ultra High Definition
             let width = img.width
             let height = img.height
 
@@ -84,15 +93,25 @@ const compressImage = (base64Str: string): Promise<string> => {
             canvas.height = height
             const ctx = canvas.getContext('2d')
             if (ctx) {
+                ctx.imageSmoothingEnabled = true
+                ctx.imageSmoothingQuality = 'high'
                 ctx.drawImage(img, 0, 0, width, height)
-                // Compress as JPEG with 0.90 quality (lossless look, small footprint)
-                resolve(canvas.toDataURL('image/jpeg', 0.90))
+                
+                // Preserve PNG if original is PNG and fits within size limits
+                const isPng = base64Str.startsWith('data:image/png')
+                if (isPng) {
+                    const pngData = canvas.toDataURL('image/png')
+                    if (pngData.length <= 4.5 * 1024 * 1024) {
+                        return resolve(pngData)
+                    }
+                }
+                resolve(canvas.toDataURL('image/jpeg', 0.95))
             } else {
-                reject(new Error("Canvas context or loading failed."))
+                resolve(base64Str)
             }
         }
         img.onerror = () => {
-            reject(new Error("Seçilen görsel formatı tarayıcı tarafından desteklenmiyor. Lütfen PNG veya JPG formatında yükleyin."))
+            resolve(base64Str)
         }
     })
 }
@@ -179,6 +198,54 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
     const [isCopyingImage, setIsCopyingImage] = useState(false)
     const [copiedSuccess, setCopiedSuccess] = useState(false)
 
+    const handleDownloadImage = async (imageUrl: string, suggestedFilename?: string) => {
+        try {
+            let blob: Blob
+            if (imageUrl.startsWith('data:')) {
+                const res = await fetch(imageUrl)
+                blob = await res.blob()
+            } else {
+                const downloadUrl = imageUrl.includes('?') 
+                    ? `${imageUrl}&download=1` 
+                    : `${imageUrl}?download=1`
+                const res = await fetch(downloadUrl)
+                blob = await res.blob()
+            }
+
+            let ext = 'jpg'
+            if (blob.type === 'image/png') ext = 'png'
+            else if (blob.type === 'image/webp') ext = 'webp'
+            else if (blob.type === 'image/gif') ext = 'gif'
+            else if (blob.type === 'application/pdf') ext = 'pdf'
+            else if (blob.type === 'image/svg+xml') ext = 'svg'
+
+            let cleanName = suggestedFilename ? suggestedFilename.trim().replace(/[\\/:*?"<>|]/g, '') : ''
+            if (cleanName && !cleanName.includes('.')) {
+                cleanName = `${cleanName}.${ext}`
+            }
+            const finalName = cleanName || `tasarim-${Date.now()}.${ext}`
+
+            const objectUrl = window.URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = objectUrl
+            a.download = finalName
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+            setTimeout(() => window.URL.revokeObjectURL(objectUrl), 1000)
+            toast.success("Orijinal görsel tam kalitede indirildi")
+        } catch (err) {
+            console.error("Görsel indirme hatası:", err)
+            const a = document.createElement('a')
+            a.href = imageUrl.includes('?') ? `${imageUrl}&download=1` : `${imageUrl}?download=1`
+            a.download = suggestedFilename || `tasarim-${Date.now()}.jpg`
+            a.target = "_blank"
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+        }
+    }
+
     const handleCopyImageOnly = async (imageUrl: string) => {
         try {
             let blob: Blob
@@ -204,6 +271,8 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                         canvas.height = img.naturalHeight || img.height
                         const ctx = canvas.getContext('2d')
                         if (!ctx) return reject(new Error('Canvas context not available'))
+                        ctx.imageSmoothingEnabled = true
+                        ctx.imageSmoothingQuality = 'high'
                         ctx.drawImage(img, 0, 0)
                         canvas.toBlob((b) => {
                             if (b) resolve(b)
@@ -246,7 +315,11 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                 blob = await res.blob()
             }
 
-            const file = new File([blob], 'tasarim-gorseli.png', { type: blob.type || 'image/png' })
+            let ext = 'png'
+            if (blob.type === 'image/jpeg') ext = 'jpg'
+            else if (blob.type === 'image/webp') ext = 'webp'
+
+            const file = new File([blob], `tasarim-gorseli.${ext}`, { type: blob.type || 'image/png' })
             if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
                 await navigator.share({
                     files: [file],
@@ -843,8 +916,8 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                     processedCount++
                 } else {
                     try {
-                        const compressed = await compressImage(rawResult)
-                        setAttachments(prev => [...prev, compressed])
+                        const optimized = await optimizeImageIfNeeded(rawResult, file.size)
+                        setAttachments(prev => [...prev, optimized])
                     } catch (err: any) {
                         setAttachments(prev => [...prev, rawResult])
                     }
@@ -857,7 +930,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
         }
 
         if (processedCount > 0) {
-            toast.success(`${processedCount} görsel/dosya eklendi`)
+            toast.success(`${processedCount} görsel/dosya eklendi (Orijinal kalitede)`)
             setTimeout(() => inputRef.current?.focus(), 50)
         }
     }
@@ -1502,16 +1575,17 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                         >
                                                             <MessageSquare className="w-4 h-4" />
                                                         </button>
-                                                        <a 
-                                                            href={item.url} 
-                                                            download={item.name} 
-                                                            target="_blank" 
-                                                            rel="noopener noreferrer" 
+                                                        <button 
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                handleDownloadImage(item.url, item.name)
+                                                            }}
                                                             className="p-2 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 rounded-lg transition-colors cursor-pointer flex items-center justify-center"
-                                                            title="İndir"
+                                                            title="Orijinal Kalitede İndir"
                                                         >
                                                             <Download className="w-4 h-4" />
-                                                        </a>
+                                                        </button>
                                                     </div>
                                                 </div>
                                             ))}
@@ -1675,7 +1749,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                                             className="max-w-full rounded-lg max-h-48 min-h-[120px] min-w-[150px] object-cover cursor-pointer hover:opacity-95 transition-opacity bg-slate-100 dark:bg-slate-700/50 block" 
                                                                             onClick={() => setActiveLightboxImage({ url: msg.attachment, messageId: msg.id })} 
                                                                         />
-                                                                        {/* WhatsApp & Copy Action Overlay on Hover */}
+                                                                        {/* WhatsApp, Copy & Download Action Overlay on Hover */}
                                                                         <div className="absolute top-2 right-2 opacity-0 group-hover/chatimg:opacity-100 transition-opacity duration-150 flex items-center gap-1 bg-black/65 backdrop-blur-sm p-1 rounded-lg z-10 shadow-lg">
                                                                             <button
                                                                                 type="button"
@@ -1699,6 +1773,17 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                                                 title="Görseli Kopyala (WhatsApp'a Yapıştır)"
                                                                             >
                                                                                 <Copy className="w-3.5 h-3.5" />
+                                                                            </button>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation()
+                                                                                    handleDownloadImage(msg.attachment, msg.text)
+                                                                                }}
+                                                                                className="p-1 bg-slate-700/90 hover:bg-slate-600 active:scale-95 text-white rounded-md transition-all text-[11px] cursor-pointer"
+                                                                                title="Orijinal Kalitede İndir"
+                                                                            >
+                                                                                <Download className="w-3.5 h-3.5" />
                                                                             </button>
                                                                         </div>
                                                                     </div>
@@ -2079,15 +2164,17 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                             <WhatsAppIcon className="w-4 h-4 fill-white" />
                             <span>WhatsApp ile İlet</span>
                         </button>
-                        <a 
-                            href={activeLightboxImage.url} 
-                            download="gorsel.png"
-                            className="text-white hover:text-slate-200 bg-slate-900/50 p-2.5 rounded-full backdrop-blur-md transition-colors flex items-center justify-center cursor-pointer"
-                            title="Görseli İndir"
-                            onClick={(e) => e.stopPropagation()}
+                        <button 
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                handleDownloadImage(activeLightboxImage.url)
+                            }}
+                            className="text-white hover:text-slate-200 bg-slate-900/50 p-2.5 rounded-full backdrop-blur-md transition-colors flex items-center justify-center cursor-pointer hover:bg-slate-800"
+                            title="Orijinal Görseli İndir (Tam Kalite)"
                         >
                             <Download className="w-5 h-5" />
-                        </a>
+                        </button>
                         <button 
                             className="text-white hover:text-slate-200 bg-slate-900/50 p-2 rounded-full backdrop-blur-md transition-colors cursor-pointer"
                             onClick={() => setActiveLightboxImage(null)}
@@ -2196,6 +2283,15 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                 <span>Kopyala</span>
                                             </>
                                         )}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleDownloadImage(whatsAppShareData.url, whatsAppShareData.messageText)}
+                                        className="py-2.5 px-3 bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 rounded-lg text-xs font-medium flex items-center gap-1 transition-all cursor-pointer shadow-xs"
+                                        title="Orijinal görsel dosyasını tam kalitede indir"
+                                    >
+                                        <Download className="w-3.5 h-3.5 text-emerald-600" />
+                                        <span>İndir</span>
                                     </button>
                                 </div>
                             </div>

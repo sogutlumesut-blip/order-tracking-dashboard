@@ -59,7 +59,12 @@ export async function GET(req: Request) {
                 if (m.attachmentType === 'url') {
                     attachmentLink = m.attachmentUrl;
                 } else {
-                    const ext = m.attachmentType === 'pdf' ? '.pdf' : '.jpg';
+                    let ext = '.jpg';
+                    if (m.attachmentType === 'pdf') ext = '.pdf';
+                    else if (m.attachmentType === 'png') ext = '.png';
+                    else if (m.attachmentType === 'webp') ext = '.webp';
+                    else if (m.attachmentType === 'gif') ext = '.gif';
+                    else if (m.attachmentType === 'svg') ext = '.svg';
                     attachmentLink = `/api/chat/attachment?id=${m.id}&ext=${ext}`;
                 }
             }
@@ -116,6 +121,14 @@ export async function POST(req: Request) {
                 urlAttach = attachment
             } else if (attachment.startsWith('data:application/pdf')) {
                 typeAttach = 'pdf'
+            } else if (attachment.startsWith('data:image/png')) {
+                typeAttach = 'png'
+            } else if (attachment.startsWith('data:image/webp')) {
+                typeAttach = 'webp'
+            } else if (attachment.startsWith('data:image/gif')) {
+                typeAttach = 'gif'
+            } else if (attachment.startsWith('data:image/svg+xml')) {
+                typeAttach = 'svg'
             } else {
                 typeAttach = 'image'
             }
@@ -155,6 +168,13 @@ export async function POST(req: Request) {
             select: selectFields
         })
 
+        let postExt = '.jpg'
+        if (message.attachmentType === 'pdf') postExt = '.pdf'
+        else if (message.attachmentType === 'png') postExt = '.png'
+        else if (message.attachmentType === 'webp') postExt = '.webp'
+        else if (message.attachmentType === 'gif') postExt = '.gif'
+        else if (message.attachmentType === 'svg') postExt = '.svg'
+
         // Serialize the attachment URL for the newly created message
         const serializedMessage = {
             id: message.id,
@@ -163,7 +183,7 @@ export async function POST(req: Request) {
             attachment: message.hasAttachment
                 ? (message.attachmentType === 'url'
                     ? message.attachmentUrl
-                    : `/api/chat/attachment?id=${message.id}&ext=${message.attachmentType === 'pdf' ? '.pdf' : '.jpg'}`)
+                    : `/api/chat/attachment?id=${message.id}&ext=${postExt}`)
                 : null,
             replyToId: message.replyToId,
             replyToText: message.replyToText,
