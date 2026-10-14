@@ -129,6 +129,110 @@ const normalizeText = (str: string) => {
         .replace(/ç/g, 'c')
 }
 
+export interface UserColorPalette {
+    name: string;
+    text: string;
+    border: string;
+    bgLight: string;
+    avatarBg: string;
+}
+
+export const USER_COLOR_PALETTES: UserColorPalette[] = [
+    { 
+        name: "blue", 
+        text: "text-blue-600 dark:text-blue-400", 
+        border: "border-blue-500", 
+        bgLight: "bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300", 
+        avatarBg: "bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300" 
+    },
+    { 
+        name: "amber", 
+        text: "text-amber-600 dark:text-amber-400", 
+        border: "border-amber-500", 
+        bgLight: "bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300", 
+        avatarBg: "bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300" 
+    },
+    { 
+        name: "purple", 
+        text: "text-purple-600 dark:text-purple-400", 
+        border: "border-purple-500", 
+        bgLight: "bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300", 
+        avatarBg: "bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300" 
+    },
+    { 
+        name: "emerald", 
+        text: "text-emerald-600 dark:text-emerald-400", 
+        border: "border-emerald-500", 
+        bgLight: "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300", 
+        avatarBg: "bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300" 
+    },
+    { 
+        name: "rose", 
+        text: "text-rose-600 dark:text-rose-400", 
+        border: "border-rose-500", 
+        bgLight: "bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300", 
+        avatarBg: "bg-rose-100 dark:bg-rose-900/60 text-rose-700 dark:text-rose-300" 
+    },
+    { 
+        name: "cyan", 
+        text: "text-cyan-600 dark:text-cyan-400", 
+        border: "border-cyan-500", 
+        bgLight: "bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300", 
+        avatarBg: "bg-cyan-100 dark:bg-cyan-900/60 text-cyan-700 dark:text-cyan-300" 
+    },
+    { 
+        name: "orange", 
+        text: "text-orange-600 dark:text-orange-400", 
+        border: "border-orange-500", 
+        bgLight: "bg-orange-50 dark:bg-orange-950/50 text-orange-700 dark:text-orange-300", 
+        avatarBg: "bg-orange-100 dark:bg-orange-900/60 text-orange-700 dark:text-orange-300" 
+    },
+    { 
+        name: "indigo", 
+        text: "text-indigo-600 dark:text-indigo-400", 
+        border: "border-indigo-500", 
+        bgLight: "bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300", 
+        avatarBg: "bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300" 
+    },
+    { 
+        name: "teal", 
+        text: "text-teal-600 dark:text-teal-400", 
+        border: "border-teal-500", 
+        bgLight: "bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300", 
+        avatarBg: "bg-teal-100 dark:bg-teal-900/60 text-teal-700 dark:text-teal-300" 
+    },
+    { 
+        name: "red", 
+        text: "text-red-600 dark:text-red-400", 
+        border: "border-red-500", 
+        bgLight: "bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300", 
+        avatarBg: "bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-300" 
+    },
+    { 
+        name: "violet", 
+        text: "text-violet-600 dark:text-violet-400", 
+        border: "border-violet-500", 
+        bgLight: "bg-violet-50 dark:bg-violet-950/50 text-violet-700 dark:text-violet-300", 
+        avatarBg: "bg-violet-100 dark:bg-violet-900/60 text-violet-700 dark:text-violet-300" 
+    },
+    { 
+        name: "fuchsia", 
+        text: "text-fuchsia-600 dark:text-fuchsia-400", 
+        border: "border-fuchsia-500", 
+        bgLight: "bg-fuchsia-50 dark:bg-fuchsia-950/50 text-fuchsia-700 dark:text-fuchsia-300", 
+        avatarBg: "bg-fuchsia-100 dark:bg-fuchsia-900/60 text-fuchsia-700 dark:text-fuchsia-300" 
+    }
+];
+
+export const getUserColor = (nameOrId?: string | null): UserColorPalette => {
+    if (!nameOrId) return USER_COLOR_PALETTES[0];
+    let h = 2;
+    for (let i = 0; i < nameOrId.length; i++) {
+        h = (h * 31 + nameOrId.charCodeAt(i)) >>> 0;
+    }
+    return USER_COLOR_PALETTES[h % USER_COLOR_PALETTES.length];
+};
+
 // Helper function to render text with clickable links and @mentions
 const renderMessageText = (text: string, isMe: boolean) => {
     if (!text) return null;
@@ -162,13 +266,15 @@ const renderMessageText = (text: string, isMe: boolean) => {
         
         return mentionParts.map((mPart, mIndex) => {
             if (mPart.match(mentionRegex)) {
+                const mentionedName = mPart.replace(/^@/, '');
+                const mColor = getUserColor(mentionedName);
                 return (
                     <span 
                         key={`mention-${urlIndex}-${mIndex}`} 
                         className={`font-bold px-1.5 py-0.5 rounded text-xs select-none ${
                             isMe 
-                                ? 'bg-emerald-700/50 text-emerald-100' 
-                                : 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-750 dark:text-emerald-400'
+                                ? 'bg-emerald-700/60 text-emerald-100' 
+                                : `${mColor.bgLight} border border-current/15`
                         }`}
                     >
                         {mPart}
@@ -1508,7 +1614,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                             "{item.text}"
                                                         </p>
                                                         <div className="flex justify-between items-center mt-2 text-[9px] text-slate-400">
-                                                            <span className="font-semibold">{item.senderName}</span>
+                                                            <span className={`font-semibold ${getUserColor(item.senderName).text}`}>{item.senderName}</span>
                                                             <div className="flex items-center gap-2">
                                                                 <button 
                                                                     type="button"
@@ -1555,7 +1661,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                                 {item.name}
                                                             </h4>
                                                             <div className="flex gap-2 items-center mt-1 text-[9px] text-slate-400">
-                                                                <span className="font-semibold">{item.senderName}</span>
+                                                                <span className={`font-semibold ${getUserColor(item.senderName).text}`}>{item.senderName}</span>
                                                                 <span>•</span>
                                                                 <span>{new Date(item.createdAt).toLocaleDateString('tr-TR')}</span>
                                                             </div>
@@ -1629,12 +1735,22 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                 )}
                                 {messages.map((msg, i) => {
                                 const isMe = msg.senderId === currentUser.id
+                                const senderName = msg.sender?.name || 'Bilinmeyen'
+                                const senderColor = getUserColor(senderName)
+                                const senderInitial = senderName.trim().charAt(0).toUpperCase() || '?'
                                 return (
                                     <div key={msg.id || i} id={`msg-${msg.id}`} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                                         <div className={`flex items-center gap-2 group ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                                             <div className={`flex items-end gap-1.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
-                                                <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
-                                                    <UserIcon className="w-3.5 h-3.5 text-slate-500" />
+                                                <div 
+                                                    title={senderName}
+                                                    className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold select-none ${
+                                                        isMe 
+                                                            ? 'bg-emerald-700 text-emerald-100' 
+                                                            : senderColor.avatarBg
+                                                    }`}
+                                                >
+                                                    {senderInitial}
                                                 </div>
                                                 <div className={`relative px-3 py-2 rounded-2xl max-w-[340px] text-sm break-words flex flex-col transition-all duration-300 ${
                                                     highlightedMessageId === msg.id 
@@ -1645,14 +1761,15 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                         ? 'bg-emerald-600 text-white rounded-br-none' 
                                                         : 'bg-white dark:bg-slate-800 border dark:border-slate-700 rounded-bl-none text-slate-800 dark:text-slate-200'
                                                 } ${msg.isOptimistic ? 'opacity-70' : ''}`}>
-                                                    <div className={`text-[10px] font-bold mb-1 ${isMe ? 'text-emerald-200' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                                                        {msg.sender?.name || 'Bilinmeyen'}
+                                                    <div className={`text-[10px] font-bold mb-1 ${isMe ? 'text-emerald-200' : senderColor.text}`}>
+                                                        {senderName}
                                                     </div>
 
                                                     {/* Quoted Message Render */}
                                                     {msg.replyToText && (() => {
                                                         const quotedMsg = msg.replyToId ? messages.find(m => m.id === msg.replyToId) : null;
-                                                        const quotedName = quotedMsg ? (quotedMsg.sender?.name || 'Bilinmeyen') : msg.replyToName;
+                                                        const quotedName = quotedMsg ? (quotedMsg.sender?.name || 'Bilinmeyen') : (msg.replyToName || 'Bilinmeyen');
+                                                        const quotedColor = getUserColor(quotedName);
                                                         
                                                         // Determine text to show
                                                         let quotedText = msg.replyToText;
@@ -1668,8 +1785,8 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
 
                                                         // Check if quoted message has an image attachment for thumbnail
                                                         const hasImageThumbnail = quotedMsg && quotedMsg.attachment && 
-                                                                                   !quotedMsg.attachment.startsWith('data:application/pdf') &&
-                                                                                   !quotedMsg.attachment.endsWith('.pdf');
+                                                                                    !quotedMsg.attachment.startsWith('data:application/pdf') &&
+                                                                                    !quotedMsg.attachment.endsWith('.pdf');
 
                                                         return (
                                                             <div 
@@ -1680,11 +1797,11 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                                 className={`p-2 rounded-lg text-left text-[11px] leading-tight mb-1.5 border-l-4 flex justify-between gap-2 items-center cursor-pointer transition-all hover:opacity-90 ${
                                                                     isMe 
                                                                         ? 'bg-emerald-700/40 border-emerald-300 text-emerald-100' 
-                                                                        : 'bg-slate-100 dark:bg-slate-900 border-emerald-500 text-slate-600 dark:text-slate-400'
+                                                                        : `bg-slate-100 dark:bg-slate-900 ${quotedColor.border} text-slate-600 dark:text-slate-400`
                                                                 } max-w-full`}
                                                             >
                                                                 <div className="min-w-0 flex-1">
-                                                                    <div className={`font-bold text-[9px] mb-0.5 ${isMe ? 'text-emerald-200' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                                                    <div className={`font-bold text-[9px] mb-0.5 ${isMe ? 'text-emerald-200' : quotedColor.text}`}>
                                                                         {quotedName}
                                                                     </div>
                                                                     <div className="truncate opacity-90">
@@ -1943,28 +2060,32 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
 
                     {/* Input */}
                     <div className="p-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-2">
-                        {replyToMessage && (
-                            <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-950 px-3 py-1.5 rounded-lg border-l-4 border-emerald-500 text-xs animate-in slide-in-from-top-2 duration-100">
-                                <div className="text-left min-w-0">
-                                    <div className="font-bold text-[9px] text-emerald-600 dark:text-emerald-400">
-                                        {replyToMessage.sender?.name || 'Bilinmeyen'} kullanıcısına yanıt veriliyor
+                        {replyToMessage && (() => {
+                            const replyName = replyToMessage.sender?.name || 'Bilinmeyen';
+                            const replyColor = getUserColor(replyName);
+                            return (
+                                <div className={`flex items-center justify-between bg-slate-50 dark:bg-slate-950 px-3 py-1.5 rounded-lg border-l-4 ${replyColor.border} text-xs animate-in slide-in-from-top-2 duration-100`}>
+                                    <div className="text-left min-w-0">
+                                        <div className={`font-bold text-[9px] ${replyColor.text}`}>
+                                            {replyName} kullanıcısına yanıt veriliyor
+                                        </div>
+                                        <div className="text-slate-500 dark:text-slate-400 truncate max-w-[340px]">
+                                            {replyToMessage.attachment && (replyToMessage.attachment.startsWith('data:application/pdf') || replyToMessage.attachment.endsWith('.pdf')) 
+                                                ? "📄 PDF Belgesi" 
+                                                : replyToMessage.attachment 
+                                                    ? "📷 Görsel" 
+                                                    : replyToMessage.text}
+                                        </div>
                                     </div>
-                                    <div className="text-slate-500 dark:text-slate-400 truncate max-w-[340px]">
-                                        {replyToMessage.attachment && (replyToMessage.attachment.startsWith('data:application/pdf') || replyToMessage.attachment.endsWith('.pdf')) 
-                                            ? "📄 PDF Belgesi" 
-                                            : replyToMessage.attachment 
-                                                ? "📷 Görsel" 
-                                                : replyToMessage.text}
-                                    </div>
+                                    <button 
+                                        onClick={() => setReplyToMessage(null)}
+                                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-0.5 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
+                                    >
+                                        <X className="w-3.5 h-3.5" />
+                                    </button>
                                 </div>
-                                <button 
-                                    onClick={() => setReplyToMessage(null)}
-                                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-0.5 rounded-full hover:bg-slate-200/50 dark:hover:bg-slate-800/50"
-                                >
-                                    <X className="w-3.5 h-3.5" />
-                                </button>
-                            </div>
-                        )}
+                            );
+                        })()}
                         {editingMessage && (
                             <div className="flex items-center justify-between bg-amber-50/70 dark:bg-amber-950/20 px-3 py-1.5 rounded-lg border-l-4 border-amber-500 text-xs animate-in slide-in-from-top-2 duration-100">
                                 <div className="text-left min-w-0">
@@ -2039,20 +2160,23 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                 if (filtered.length === 0) return null
                                 return (
                                     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg max-h-40 overflow-y-auto flex flex-col divide-y divide-slate-100 dark:divide-slate-700/50 z-50 absolute bottom-12 left-0 right-0 animate-in slide-in-from-bottom-2 duration-150">
-                                        {filtered.map((u: any) => (
-                                            <button
-                                                key={u.id}
-                                                type="button"
-                                                onClick={() => selectMention(u.name)}
-                                                className="px-3 py-2 text-left text-xs hover:bg-slate-100 dark:hover:bg-slate-750 flex items-center gap-2 text-slate-700 dark:text-slate-200 transition-colors"
-                                            >
-                                                <div className="w-5 h-5 rounded-full bg-slate-250 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-650 dark:text-slate-300">
-                                                    {u.name.substring(0, 1)}
-                                                </div>
-                                                <span className="font-semibold">{u.name}</span>
-                                                <span className="text-[9px] text-slate-400">({u.role === 'admin' ? 'Yönetici' : 'Personel'})</span>
-                                            </button>
-                                        ))}
+                                        {filtered.map((u: any) => {
+                                            const uColor = getUserColor(u.name);
+                                            return (
+                                                <button
+                                                    key={u.id}
+                                                    type="button"
+                                                    onClick={() => selectMention(u.name)}
+                                                    className="px-3 py-2 text-left text-xs hover:bg-slate-100 dark:hover:bg-slate-750 flex items-center gap-2 text-slate-700 dark:text-slate-200 transition-colors"
+                                                >
+                                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${uColor.avatarBg}`}>
+                                                        {u.name.substring(0, 1)}
+                                                    </div>
+                                                    <span className={`font-semibold ${uColor.text}`}>{u.name}</span>
+                                                    <span className="text-[9px] text-slate-400">({u.role === 'admin' ? 'Yönetici' : 'Personel'})</span>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 )
                             })()}
