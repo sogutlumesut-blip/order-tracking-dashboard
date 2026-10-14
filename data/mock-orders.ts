@@ -31,6 +31,17 @@ export interface OrderItem {
     croppedImage?: string | null;
 }
 
+export interface WarehouseStockMatch {
+    id: number;
+    sku: string;
+    dimensions: string;
+    material: string;
+    source?: string | null;
+    orderNo?: string | null;
+    returnReason?: string | null;
+    pdfPath?: string | null;
+}
+
 export interface Order {
     id: number;
     customer: string
@@ -65,6 +76,7 @@ export interface Order {
     invoiceUrl?: string | null;
     source?: string | null;
     externalId?: string | null;
+    warehouseStockMatch?: WarehouseStockMatch | null;
 }
 
 export const MOCK_ORDERS: Order[] = [

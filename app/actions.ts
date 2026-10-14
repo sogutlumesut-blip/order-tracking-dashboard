@@ -9,6 +9,7 @@ import bcrypt from "bcryptjs"
 import { OrderStatus } from "@/data/mock-orders"
 import WooCommerceRestApi from "@woocommerce/woocommerce-rest-api"
 import { fetchShopifyOrders, upsertShopifyOrder, cleanShopifyDomain } from "@/lib/shopify"
+import { isStockMatch } from "@/lib/warehouse-matcher"
 import fs from "fs"
 import path from "path"
 
@@ -181,52 +182,83 @@ export async function getOrders(timestamp?: number) {
 
     // Serializing dates to strings to match interface and avoid hydration issues
     const returnedOrderIds = orders.map(o => o.id);
-    const ordersWithPdf = returnedOrderIds.length > 0 ? await db.order.findMany({
+    const ordersWithPdfPromise = returnedOrderIds.length > 0 ? db.order.findMany({
         where: {
             id: { in: returnedOrderIds },
             cargoLabelPdf: { not: null }
         },
         select: { id: true }
-    }) : [];
+    }) : Promise.resolve([]);
+
+    // Fetch available warehouse stocks to match against active orders
+    const availableStocksPromise = db.warehouseStock.findMany({
+        where: { status: "available" },
+        select: {
+            id: true,
+            sku: true,
+            dimensions: true,
+            material: true,
+            source: true,
+            orderNo: true,
+            returnReason: true,
+            pdfPath: true
+        }
+    }).catch(() => []);
+
+    const [ordersWithPdf, availableStocks] = await Promise.all([ordersWithPdfPromise, availableStocksPromise]);
     const pdfIds = new Set(ordersWithPdf.map(o => o.id));
 
-    return orders.map(order => ({
-        hasCargoPdf: pdfIds.has(order.id),
-        ...order,
-        date: order.date.toISOString(),
-        createdAt: order.createdAt.toISOString(),
-        updatedAt: order.updatedAt.toISOString(),
-        total: order.total || "0 ₺",
-        items: order.items.map(item => ({
-            ...item,
-            sku: item.sku || null,
-            image_src: item.image_src?.startsWith('data:image') 
-                ? `/api/order-image/${item.id}` 
-                : (item.image_src && (item.image_src.startsWith('/api/uploads/') || item.image_src.startsWith('/uploads/') || item.image_src.startsWith('uploads/'))
-                    ? `https://printmarkt.co${item.image_src.startsWith('/') ? '' : '/'}${item.image_src}`
-                    : item.image_src),
-            url: item.url?.startsWith('data:') ? `/api/order-url/${item.id}` : item.url,
-            material: item.material || null,
-            dimensions: item.dimensions || null,
-        })),
-        comments: (order as any).comments ? (order as any).comments.map((c: any) => ({
-            id: c.id,
-            message: c.message,
-            type: c.type || "message",
-            timestamp: c.timestamp.toISOString(),
-            author: c.author?.name || "Unknown"
-        })) : [],
-        commentCount: order._count?.comments || 0,
-        labels: (() => {
-            if (!order.labels) return []
-            try {
-                const parsed = typeof order.labels === 'string' ? JSON.parse(order.labels) : order.labels
-                return Array.isArray(parsed) ? parsed : []
-            } catch (e) {
-                return []
+    return orders.map(order => {
+        let warehouseStockMatch: any = null;
+        if (availableStocks && availableStocks.length > 0 && order.items) {
+            for (const item of order.items) {
+                const found = availableStocks.find(stk => isStockMatch(item, stk));
+                if (found) {
+                    warehouseStockMatch = found;
+                    break;
+                }
             }
-        })()
-    })) as any
+        }
+
+        return {
+            hasCargoPdf: pdfIds.has(order.id),
+            warehouseStockMatch,
+            ...order,
+            date: order.date.toISOString(),
+            createdAt: order.createdAt.toISOString(),
+            updatedAt: order.updatedAt.toISOString(),
+            total: order.total || "0 ₺",
+            items: order.items.map(item => ({
+                ...item,
+                sku: item.sku || null,
+                image_src: item.image_src?.startsWith('data:image') 
+                    ? `/api/order-image/${item.id}` 
+                    : (item.image_src && (item.image_src.startsWith('/api/uploads/') || item.image_src.startsWith('/uploads/') || item.image_src.startsWith('uploads/'))
+                        ? `https://printmarkt.co${item.image_src.startsWith('/') ? '' : '/'}${item.image_src}`
+                        : item.image_src),
+                url: item.url?.startsWith('data:') ? `/api/order-url/${item.id}` : item.url,
+                material: item.material || null,
+                dimensions: item.dimensions || null,
+            })),
+            comments: (order as any).comments ? (order as any).comments.map((c: any) => ({
+                id: c.id,
+                message: c.message,
+                type: c.type || "message",
+                timestamp: c.timestamp.toISOString(),
+                author: c.author?.name || "Unknown"
+            })) : [],
+            commentCount: order._count?.comments || 0,
+            labels: (() => {
+                if (!order.labels) return []
+                try {
+                    const parsed = typeof order.labels === 'string' ? JSON.parse(order.labels) : order.labels
+                    return Array.isArray(parsed) ? parsed : []
+                } catch (e) {
+                    return []
+                }
+            })()
+        };
+    }) as any
 }
 
 export async function getOrderDetails(rawOrderId: any) {

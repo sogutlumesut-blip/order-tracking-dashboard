@@ -2,7 +2,7 @@
 
 import { Order, OrderStatus, Comment } from "../data/mock-orders"
 import { APP_CONFIG } from "../data/settings"
-import { X, Save, Truck, User, Tag, FileText, Upload, Printer, FileDown, History, ChevronDown, ChevronRight, ExternalLink, Receipt, ShieldCheck, Download } from "lucide-react"
+import { X, Save, Truck, User, Tag, FileText, Upload, Printer, FileDown, History, ChevronDown, ChevronRight, ExternalLink, Receipt, ShieldCheck, Download, Package } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import { NoteLog } from "./note-log"
 import { ChatSection } from "./chat-section"
@@ -398,6 +398,78 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                         {/* LEFT COLUMN: Order Details */}
                         <div className="space-y-6">
+                            {/* WAREHOUSE STOCK MATCH BANNER */}
+                            {formData.warehouseStockMatch && (
+                                <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-500 rounded-xl space-y-3 shadow-md">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-200 font-bold text-sm">
+                                            <Package className="w-5 h-5 text-emerald-600 shrink-0" />
+                                            <span>Bu Ürün Deponuzda Hazır Stokta Bulunuyor!</span>
+                                        </div>
+                                        <span className="bg-emerald-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
+                                            {formData.warehouseStockMatch.source} İADESİ
+                                        </span>
+                                    </div>
+                                    
+                                    <p className="text-xs text-emerald-700 dark:text-emerald-300">
+                                        Yeni baskı almanıza gerek olmayabilir. Bu ürün daha önce <strong>{formData.warehouseStockMatch.source}</strong> üzerinden iade edilmiş ve depoda hazır bekliyor.
+                                    </p>
+
+                                    <div className="text-xs text-slate-800 dark:text-slate-200 grid grid-cols-2 gap-2 bg-white dark:bg-slate-900 p-3 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                                        <div><span className="text-slate-500 dark:text-slate-400">Ürün Kodu:</span> <strong>{formData.warehouseStockMatch.sku}</strong></div>
+                                        <div><span className="text-slate-500 dark:text-slate-400">Ölçü:</span> <strong>{formData.warehouseStockMatch.dimensions}</strong></div>
+                                        <div><span className="text-slate-500 dark:text-slate-400">Doku / Kağıt:</span> <strong>{formData.warehouseStockMatch.material}</strong></div>
+                                        <div><span className="text-slate-500 dark:text-slate-400">İade Sipariş No:</span> <strong>#{formData.warehouseStockMatch.orderNo || "-"}</strong></div>
+                                        {formData.warehouseStockMatch.returnReason && (
+                                            <div className="col-span-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+                                                <span className="text-slate-500 dark:text-slate-400">İade Nedeni / Müşteri:</span> <strong>{formData.warehouseStockMatch.returnReason}</strong>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="flex items-center gap-2 pt-1">
+                                        {formData.warehouseStockMatch.pdfPath && (
+                                            <a
+                                                href={formData.warehouseStockMatch.pdfPath}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex-1 py-2 px-3 bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-50 text-center transition-colors"
+                                            >
+                                                📄 İade Formu PDF'ini Aç
+                                            </a>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={async () => {
+                                                if (confirm("Bu ürün depodan alındı ve bu siparişte kullanıldı olarak işaretlensin mi?")) {
+                                                    try {
+                                                        const res = await fetch("/api/warehouse-stock", {
+                                                            method: "PATCH",
+                                                            headers: { "Content-Type": "application/json" },
+                                                            body: JSON.stringify({
+                                                                id: formData.warehouseStockMatch?.id,
+                                                                status: "used",
+                                                                usedInOrderId: formData.id
+                                                            })
+                                                        });
+                                                        if (res.ok) {
+                                                            toast.success("Depo stoğu kullanıldı olarak işaretlendi.");
+                                                            setFormData({ ...formData, warehouseStockMatch: null });
+                                                            router.refresh();
+                                                        }
+                                                    } catch (e) {
+                                                        toast.error("İşlem sırasında hata oluştu.");
+                                                    }
+                                                }
+                                            }}
+                                            className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold text-center transition-colors shadow-xs"
+                                        >
+                                            ✅ Depodan Kullanıldı (Stoktan Düş)
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Customer Details Card (Screen Only) */}
                             <div className="print:hidden bg-slate-50 dark:bg-slate-800/50 p-4 rounded-lg border dark:border-slate-700">
                                 <h3 className="font-semibold text-slate-900 dark:text-slate-100 mb-2">Müşteri Bilgileri</h3>

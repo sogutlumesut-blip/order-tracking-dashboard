@@ -156,3 +156,22 @@ model ChatMessage {
   @@index([createdAt])
   @@index([updatedAt])
 }
+
+model WarehouseStock {
+  id            Int       @id @default(autoincrement())
+  sku           String
+  dimensions    String
+  material      String
+  orderNo       String?
+  source        String?
+  returnReason  String?
+  pdfPath       String?
+  status        String    @default("available") // "available", "used"
+  usedInOrderId Int?
+  usedAt        DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([sku])
+  @@index([status])
+}

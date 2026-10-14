@@ -3,7 +3,7 @@
 import { Order, OrderStatus, Comment } from "../data/mock-orders"
 import { OrderCard } from "./order-card"
 import { useState, useEffect, useRef, useMemo } from "react"
-import { ChevronDown, ChevronUp, ChevronRight, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck, ScanBarcode, Clock, CheckCircle, Lock, Unlock } from "lucide-react"
+import { ChevronDown, ChevronUp, ChevronRight, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck, ScanBarcode, Clock, CheckCircle, Lock, Unlock, Package } from "lucide-react"
 import { Html5QrcodeScanner } from "html5-qrcode"
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, TouchSensor, MouseSensor, useSensor, useSensors, useDraggable, useDroppable, closestCorners, defaultDropAnimationSideEffects } from "@dnd-kit/core"
 import { arrayMove, SortableContext, horizontalListSortingStrategy, useSortable } from "@dnd-kit/sortable"
@@ -17,6 +17,7 @@ import { updateOrderStatusV3 } from '../app/actionsV2'
 import { getStatuses, getOrders, getLabels, updateOrderDetails, addCommentAction, getOrderDetails, logoutAction, syncWooCommerceOrders, syncEtsyOrders, syncPrintMarktOrders, syncWayfairOrders, syncShopifyOrders, syncCargoKargoEntegrator, createManualOrder, simulateWooCommerceOrder, markOrderAsRead, bulkUpdateOrderStatus, updateStatusOrder, createDHLShipmentAction } from '../app/actions'
 import Link from "next/link"
 import { ManualOrderModal } from "./manual-order-modal"
+import { WarehouseStockModal } from "./warehouse-stock-modal"
 import { useRouter } from "next/navigation"
 
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -63,6 +64,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
     const [isPanelOpen, setIsPanelOpen] = useState(false)
     const [isManualOrderOpen, setIsManualOrderOpen] = useState(false)
+    const [isWarehouseStockOpen, setIsWarehouseStockOpen] = useState(false)
     const [isSyncing, setIsSyncing] = useState(false)
     const [lastSynced, setLastSynced] = useState<Date | null>(null)
     const [isValidating, setIsValidating] = useState(false) // Added missing state
@@ -1259,6 +1261,16 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                             <span>Manuel Sipariş</span>
                         </button>
 
+                        {/* Depo Stokları & İade Yönetimi */}
+                        <button
+                            onClick={() => setIsWarehouseStockOpen(true)}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 shadow-xs"
+                            title="Depo stoklarını ve iadeleri görüntüle / PDF yükle"
+                        >
+                            <Package className="w-4 h-4" />
+                            <span>Depo Stokları</span>
+                        </button>
+
                         {/* Woo & Etsy Sync - Styled similarly */}
                         {(currentUser.role === 'admin' || (currentUser as any).allowedStatuses?.includes("MANUAL_SYNC")) && (
                             <>
@@ -1481,6 +1493,20 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 </button>
                             )}
 
+                            <button
+                                onClick={() => {
+                                    setMobileMenuOpen(false);
+                                    setIsWarehouseStockOpen(true);
+                                }}
+                                className="w-full flex items-center justify-between p-3 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-lg hover:bg-emerald-100 font-bold text-sm border border-emerald-100 dark:border-emerald-900/30"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Package className="w-4 h-4" />
+                                    Depo Stokları & İadeler
+                                </div>
+                                <ChevronRight className="w-4 h-4 opacity-50" />
+                            </button>
+
                             {currentUser.role === 'admin' && (
                                 <Link onClick={() => setMobileMenuOpen(false)} href="/admin/settings" className="w-full flex items-center justify-between p-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 font-bold text-sm border border-slate-200 dark:border-slate-700">
                                     <div className="flex items-center gap-2">
@@ -1596,6 +1622,11 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                     toast.error("Sipariş yüklenemedi: " + (e.message || "Bağlantı hatası"));
                                 });
                         }}
+                    />
+
+                    <WarehouseStockModal
+                        isOpen={isWarehouseStockOpen}
+                        onClose={() => setIsWarehouseStockOpen(false)}
                     />
 
                     <OrderDetailPanel

@@ -189,6 +189,14 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                             <span>{Math.floor(daysSinceUpdate)} GÜNDÜR BEKLİYOR</span>
                         </div>
                     )}
+
+                    {/* Warehouse Stock Match Badge (High Priority Alert) */}
+                    {order.warehouseStockMatch && !isPaymentFailed && !isCancelled && !isDeleted && (
+                        <div className="bg-emerald-600 border border-emerald-300 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-xl flex items-center gap-1.5 animate-bounce">
+                            <span>📦</span>
+                            <span>DEPODA STOK! ({order.warehouseStockMatch.source?.toUpperCase()} İADESİ)</span>
+                        </div>
+                    )}
                 </div>
 
                 {/* Visual Status Indicator for Shipped Orders using Tracking Number */}
@@ -386,6 +394,36 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                 </span>
                             )}
                         </div>
+
+                        {/* WAREHOUSE STOCK MATCH DETAIL BOX */}
+                        {order.warehouseStockMatch && (
+                            <div className="mt-2.5 p-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded-lg flex items-center justify-between text-xs text-emerald-900 dark:text-emerald-200 shadow-xs">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-base">📦</span>
+                                    <div>
+                                        <div className="font-extrabold text-[11px] uppercase tracking-wide flex items-center gap-1.5">
+                                            <span>Depoda Mevcut:</span>
+                                            <span className="bg-emerald-200 dark:bg-emerald-800 text-emerald-900 dark:text-emerald-100 px-1.5 py-0.2 rounded font-black text-[10px]">
+                                                {order.warehouseStockMatch.source} İADESİ
+                                            </span>
+                                            {order.warehouseStockMatch.orderNo && (
+                                                <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-mono">
+                                                    (#{order.warehouseStockMatch.orderNo})
+                                                </span>
+                                            )}
+                                        </div>
+                                        {order.warehouseStockMatch.returnReason && (
+                                            <div className="text-[10px] text-emerald-700 dark:text-emerald-400 truncate max-w-[220px]">
+                                                {order.warehouseStockMatch.returnReason}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <span className="bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-xs uppercase shrink-0">
+                                    RAFTAN AL
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex items-center justify-between mt-1">
