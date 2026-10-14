@@ -1636,7 +1636,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                 <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
                                                     <UserIcon className="w-3.5 h-3.5 text-slate-500" />
                                                 </div>
-                                                <div className={`relative px-3 py-2 rounded-2xl max-w-[340px] text-sm break-words transition-all duration-300 ${
+                                                <div className={`relative px-3 py-2 rounded-2xl max-w-[340px] text-sm break-words flex flex-col transition-all duration-300 ${
                                                     highlightedMessageId === msg.id 
                                                         ? 'ring-4 ring-amber-400 dark:ring-amber-500 scale-[1.03] shadow-md z-10' 
                                                         : ''
@@ -1742,7 +1742,7 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                                         Görsel yükleniyor...
                                                                     </div>
                                                                 ) : (
-                                                                    <div className="relative group/chatimg mb-2 inline-block max-w-full">
+                                                                    <div className="relative group/chatimg mb-1.5 block w-fit max-w-full">
                                                                         <img 
                                                                             src={msg.attachment} 
                                                                             alt="Attachment" 
@@ -1788,7 +1788,11 @@ export function TeamChat({ currentUser }: { currentUser: User }) {
                                                                         </div>
                                                                     </div>
                                                                 )}
-                                                                {renderMessageText(msg.text, isMe)}
+                                                                {msg.text && msg.text.trim() && (
+                                                                    <div className="text-xs pt-1 break-words font-medium leading-relaxed block">
+                                                                        {renderMessageText(msg.text, isMe)}
+                                                                    </div>
+                                                                )}
                                                             </>
                                                         )
                                                     )}
