@@ -41,11 +41,6 @@ export async function POST(req: NextRequest) {
                 return NextResponse.json({ error: "Yüklenecek PDF dosyası bulunamadı." }, { status: 400 });
             }
 
-            const uploadsDir = path.join(process.cwd(), "public", "uploads", "warehouse-returns");
-            if (!fs.existsSync(uploadsDir)) {
-                fs.mkdirSync(uploadsDir, { recursive: true });
-            }
-
             const results = [];
 
             for (const file of files) {
@@ -58,18 +53,65 @@ export async function POST(req: NextRequest) {
                 const safeName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_")}`;
                 let publicUrl: string | null = null;
                 try {
+                    const uploadsDir = path.join(process.cwd(), "public", "uploads", "warehouse-returns");
+                    if (!fs.existsSync(uploadsDir)) {
+                        fs.mkdirSync(uploadsDir, { recursive: true });
+                    }
                     const filePath = path.join(uploadsDir, safeName);
                     fs.writeFileSync(filePath, buffer);
                     publicUrl = `/uploads/warehouse-returns/${safeName}`;
                 } catch (fsErr) {
-                    console.warn("Dosya sistemi yazma hatası, Base64 fallback kullanılıyor:", fsErr);
+                    console.warn("Dosya sistemi yazma hatası (Vercel read-only), Base64 fallback kullanılıyor");
                     const b64 = buffer.toString('base64');
                     publicUrl = `data:application/pdf;base64,${b64}`;
                 }
 
-                // Parse PDF
-                const parsed = await parseReturnFormPdf(buffer);
+                // Parse PDF with fileName awareness
+                let parsed;
+                try {
+                    parsed = await parseReturnFormPdf(buffer, file.name);
+                } catch (parseErr: any) {
+                    results.push({
+                        fileName: file.name,
+                        success: false,
+                        error: `PDF okunamadı: ${parseErr.message}`
+                    });
+                    continue;
+                }
 
+                // Smart database order lookup fallback:
+                // If SKU is missing or "Bilinmiyor", but we have an orderNo:
+                if ((!parsed.sku || parsed.sku === "Bilinmiyor" || parsed.sku.toLowerCase() === "unknown") && parsed.orderNo) {
+                    try {
+                        const matchedOrder = await db.order.findFirst({
+                            where: {
+                                OR: [
+                                    { externalId: { contains: parsed.orderNo } },
+                                    { trackingNumber: { contains: parsed.orderNo } },
+                                    { cargoTrackingNumber: { contains: parsed.orderNo } }
+                                ]
+                            },
+                            include: { items: true }
+                        });
+                        if (matchedOrder && matchedOrder.items.length > 0) {
+                            const firstItem = matchedOrder.items[0];
+                            if (firstItem.sku) parsed.sku = firstItem.sku;
+                            if (firstItem.dimensions && (!parsed.dimensions || parsed.dimensions === "Bilinmiyor")) {
+                                parsed.dimensions = firstItem.dimensions;
+                            }
+                            if (firstItem.material && (!parsed.material || parsed.material === "Bilinmiyor")) {
+                                parsed.material = firstItem.material;
+                            }
+                            if (matchedOrder.source && parsed.source === "Bilinmiyor") {
+                                parsed.source = matchedOrder.source;
+                            }
+                        }
+                    } catch (dbLookupErr) {
+                        console.warn("Sipariş veritabanından çekilemedi:", dbLookupErr);
+                    }
+                }
+
+                // Validation check: at least SKU or orderNo must exist
                 if (!parsed.sku && !parsed.orderNo) {
                     results.push({
                         fileName: file.name,
@@ -79,11 +121,24 @@ export async function POST(req: NextRequest) {
                     continue;
                 }
 
-                // Check if already exists by orderNo or sku+dimensions+orderNo
+                const finalSku = parsed.sku || "Bilinmiyor";
+                const finalDimensions = parsed.dimensions || "Bilinmiyor";
+                const finalMaterial = parsed.material || "Bilinmiyor";
+
+                // Check if already exists by orderNo or (sku + dimensions + material)
                 let existing = null;
                 if (parsed.orderNo) {
                     existing = await db.warehouseStock.findFirst({
                         where: { orderNo: parsed.orderNo }
+                    });
+                }
+                if (!existing && finalSku !== "Bilinmiyor" && finalDimensions !== "Bilinmiyor") {
+                    existing = await db.warehouseStock.findFirst({
+                        where: {
+                            sku: finalSku,
+                            dimensions: finalDimensions,
+                            material: finalMaterial
+                        }
                     });
                 }
 
@@ -92,23 +147,23 @@ export async function POST(req: NextRequest) {
                     stockRecord = await db.warehouseStock.update({
                         where: { id: existing.id },
                         data: {
-                            sku: parsed.sku || existing.sku,
-                            dimensions: parsed.dimensions || existing.dimensions,
-                            material: parsed.material || existing.material,
+                            sku: finalSku !== "Bilinmiyor" ? finalSku : existing.sku,
+                            dimensions: finalDimensions !== "Bilinmiyor" ? finalDimensions : existing.dimensions,
+                            material: finalMaterial !== "Bilinmiyor" ? finalMaterial : existing.material,
                             source: parsed.source !== "Bilinmiyor" ? parsed.source : existing.source,
                             returnReason: parsed.returnReason || existing.returnReason,
-                            pdfPath: publicUrl
+                            pdfPath: publicUrl || existing.pdfPath
                         }
                     });
                 } else {
                     stockRecord = await db.warehouseStock.create({
                         data: {
-                            sku: parsed.sku || "Bilinmiyor",
-                            dimensions: parsed.dimensions || "Bilinmiyor",
-                            material: parsed.material || "Bilinmiyor",
-                            orderNo: parsed.orderNo,
+                            sku: finalSku,
+                            dimensions: finalDimensions,
+                            material: finalMaterial,
+                            orderNo: parsed.orderNo || null,
                             source: parsed.source,
-                            returnReason: parsed.returnReason,
+                            returnReason: parsed.returnReason || null,
                             pdfPath: publicUrl,
                             status: "available"
                         }
@@ -188,19 +243,28 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
     try {
         const body = await req.json();
-        const { id, status, usedInOrderId } = body;
+        const { id, status, usedInOrderId, sku, dimensions, material, orderNo, source, returnReason } = body;
 
         if (!id) {
             return NextResponse.json({ error: "Stok ID gereklidir." }, { status: 400 });
         }
 
+        const updateData: any = {};
+        if (status !== undefined) {
+            updateData.status = status;
+            updateData.usedInOrderId = status === "used" ? (usedInOrderId ? Number(usedInOrderId) : null) : null;
+            updateData.usedAt = status === "used" ? new Date() : null;
+        }
+        if (sku !== undefined) updateData.sku = sku;
+        if (dimensions !== undefined) updateData.dimensions = dimensions;
+        if (material !== undefined) updateData.material = material;
+        if (orderNo !== undefined) updateData.orderNo = orderNo;
+        if (source !== undefined) updateData.source = source;
+        if (returnReason !== undefined) updateData.returnReason = returnReason;
+
         const updated = await db.warehouseStock.update({
             where: { id: Number(id) },
-            data: {
-                status: status || "available",
-                usedInOrderId: status === "used" ? (usedInOrderId ? Number(usedInOrderId) : null) : null,
-                usedAt: status === "used" ? new Date() : null
-            }
+            data: updateData
         });
 
         return NextResponse.json({ success: true, stock: updated });

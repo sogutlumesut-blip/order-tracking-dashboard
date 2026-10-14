@@ -430,12 +430,12 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     <div className="flex items-center gap-2 pt-1">
                                         {formData.warehouseStockMatch.pdfPath && (
                                             <a
-                                                href={formData.warehouseStockMatch.pdfPath}
+                                                href={`/api/warehouse-stock/pdf?id=${formData.warehouseStockMatch.id}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="flex-1 py-2 px-3 bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-50 text-center transition-colors"
                                             >
-                                                📄 İade Formu PDF'ini Aç
+                                                📄 İade Formu PDF&apos;ini Aç
                                             </a>
                                         )}
                                         <button

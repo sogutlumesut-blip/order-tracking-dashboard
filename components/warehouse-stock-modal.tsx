@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { X, Upload, Package, Trash2, FileText, Search, RefreshCw, Layers } from "lucide-react"
+import { X, Upload, Package, Trash2, FileText, Search, RefreshCw, Layers, Pencil, Check } from "lucide-react"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 
@@ -36,6 +36,58 @@ export function WarehouseStockModal({ isOpen, onClose }: WarehouseStockModalProp
     const [activeTab, setActiveTab] = useState<"list" | "upload" | "mac-watcher">("list")
     const fileInputRef = useRef<HTMLInputElement>(null)
     const folderInputRef = useRef<HTMLInputElement>(null)
+
+    // Edit modal state
+    const [editingItem, setEditingItem] = useState<WarehouseStockItem | null>(null)
+    const [editForm, setEditForm] = useState({
+        sku: "",
+        dimensions: "",
+        material: "",
+        orderNo: "",
+        source: "",
+        returnReason: ""
+    })
+
+    const handleStartEdit = (item: WarehouseStockItem) => {
+        setEditingItem(item)
+        setEditForm({
+            sku: item.sku || "",
+            dimensions: item.dimensions || "",
+            material: item.material || "",
+            orderNo: item.orderNo || "",
+            source: item.source || "",
+            returnReason: item.returnReason || ""
+        })
+    }
+
+    const handleSaveEdit = async () => {
+        if (!editingItem) return
+        try {
+            const res = await fetch("/api/warehouse-stock", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    id: editingItem.id,
+                    sku: editForm.sku.trim(),
+                    dimensions: editForm.dimensions.trim(),
+                    material: editForm.material.trim(),
+                    orderNo: editForm.orderNo.trim() || null,
+                    source: editForm.source.trim() || null,
+                    returnReason: editForm.returnReason.trim() || null
+                })
+            })
+            if (res.ok) {
+                toast.success("Depo stoğu güncellendi.")
+                setStocks(stocks.map(s => s.id === editingItem.id ? { ...s, ...editForm } : s))
+                setEditingItem(null)
+                router.refresh()
+            } else {
+                toast.error("Güncellenirken hata oluştu.")
+            }
+        } catch (e: any) {
+            toast.error("Hata: " + e.message)
+        }
+    }
 
     const fetchStocks = async () => {
         setLoading(true)
@@ -77,6 +129,7 @@ export function WarehouseStockModal({ isOpen, onClose }: WarehouseStockModalProp
         const total = pdfFiles.length
         let addedTotal = 0
         const CHUNK_SIZE = 5
+        const fileErrors: string[] = []
 
         try {
             for (let i = 0; i < total; i += CHUNK_SIZE) {
@@ -94,16 +147,40 @@ export function WarehouseStockModal({ isOpen, onClose }: WarehouseStockModalProp
                     method: "POST",
                     body: formData
                 })
+
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({ error: `Sunucu hatası (${res.status})` }))
+                    throw new Error(errData.error || `Yükleme başarısız oldu (${res.status})`)
+                }
+
                 const data = await res.json()
                 if (data.success) {
-                    addedTotal += data.count || chunk.length
+                    if (typeof data.count === "number") {
+                        addedTotal += data.count
+                    }
+                    if (data.results) {
+                        for (const r of data.results) {
+                            if (!r.success) {
+                                fileErrors.push(`${r.fileName}: ${r.error || "Okunamadı"}`)
+                            }
+                        }
+                    }
                 }
             }
 
-            toast.success(`Harika! ${addedTotal} adet ürün depoya başarıyla eklendi!`)
-            await fetchStocks()
-            router.refresh()
-            setActiveTab("list")
+            if (addedTotal > 0) {
+                toast.success(`Harika! ${addedTotal} adet ürün depoya başarıyla eklendi!`)
+                if (fileErrors.length > 0) {
+                    toast.warning(`${fileErrors.length} dosya eklenemedi: ` + fileErrors.slice(0, 2).join(", "))
+                }
+                await fetchStocks()
+                router.refresh()
+                setActiveTab("list")
+            } else {
+                toast.error(fileErrors.length > 0
+                    ? `Hiçbir ürün eklenemedi: ${fileErrors[0]}`
+                    : "Hiçbir ürün eklenemedi! PDF'lerden SKU veya Sipariş No okunamadı.")
+            }
         } catch (e: any) {
             toast.error("Yükleme sırasında hata oluştu: " + e.message)
         } finally {
@@ -373,7 +450,7 @@ export function WarehouseStockModal({ isOpen, onClose }: WarehouseStockModalProp
                                                     <td className="py-3 px-4 text-right space-x-1 whitespace-nowrap">
                                                         {item.pdfPath && (
                                                             <a
-                                                                href={item.pdfPath}
+                                                                href={`/api/warehouse-stock/pdf?id=${item.id}`}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
                                                                 className="inline-flex p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded transition-colors"
@@ -382,6 +459,13 @@ export function WarehouseStockModal({ isOpen, onClose }: WarehouseStockModalProp
                                                                 <FileText className="w-4 h-4" />
                                                             </a>
                                                         )}
+                                                        <button
+                                                            onClick={() => handleStartEdit(item)}
+                                                            className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors"
+                                                            title="Düzenle"
+                                                        >
+                                                            <Pencil className="w-4 h-4" />
+                                                        </button>
                                                         <button
                                                             onClick={() => handleDelete(item.id)}
                                                             className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950 rounded transition-colors"
@@ -530,6 +614,99 @@ export function WarehouseStockModal({ isOpen, onClose }: WarehouseStockModalProp
                     </button>
                 </div>
             </div>
+
+            {/* EDIT STOCK MODAL */}
+            {editingItem && (
+                <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
+                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                            <h3 className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                                <Pencil className="w-4 h-4 text-emerald-600" />
+                                Depo Stoğunu Düzenle
+                            </h3>
+                            <button onClick={() => setEditingItem(null)} className="text-slate-400 hover:text-slate-600">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="space-y-3 text-xs">
+                            <div>
+                                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Ürün Kodu (SKU)</label>
+                                <input
+                                    type="text"
+                                    value={editForm.sku}
+                                    onChange={(e) => setEditForm({ ...editForm, sku: e.target.value })}
+                                    className="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-700 text-slate-900 dark:text-slate-100"
+                                    placeholder="Örn: YZ1034"
+                                />
+                            </div>
+                            <div>
+                                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Ölçü (Genişlik x Yükseklik)</label>
+                                <input
+                                    type="text"
+                                    value={editForm.dimensions}
+                                    onChange={(e) => setEditForm({ ...editForm, dimensions: e.target.value })}
+                                    className="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-700 text-slate-900 dark:text-slate-100"
+                                    placeholder="Örn: 90'' W x 60'' H veya 250x150 cm"
+                                />
+                            </div>
+                            <div>
+                                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Kağıt Türü / Doku</label>
+                                <input
+                                    type="text"
+                                    value={editForm.material}
+                                    onChange={(e) => setEditForm({ ...editForm, material: e.target.value })}
+                                    className="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-700 text-slate-900 dark:text-slate-100"
+                                    placeholder="Örn: Non Woven, Peel & Stick, Textured"
+                                />
+                            </div>
+                            <div>
+                                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">İade Sipariş No</label>
+                                <input
+                                    type="text"
+                                    value={editForm.orderNo}
+                                    onChange={(e) => setEditForm({ ...editForm, orderNo: e.target.value })}
+                                    className="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-700 text-slate-900 dark:text-slate-100"
+                                    placeholder="Örn: CS673263650"
+                                />
+                            </div>
+                            <div>
+                                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Kanal / Kaynak Platform</label>
+                                <input
+                                    type="text"
+                                    value={editForm.source}
+                                    onChange={(e) => setEditForm({ ...editForm, source: e.target.value })}
+                                    className="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-700 text-slate-900 dark:text-slate-100"
+                                    placeholder="Örn: Wayfair, PrintMarkt, WooCommerce, Etsy"
+                                />
+                            </div>
+                            <div>
+                                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Müşteri / İade Nedeni</label>
+                                <input
+                                    type="text"
+                                    value={editForm.returnReason}
+                                    onChange={(e) => setEditForm({ ...editForm, returnReason: e.target.value })}
+                                    className="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-700 text-slate-900 dark:text-slate-100"
+                                    placeholder="Örn: Jim Pidcock - WayFair"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                            <button
+                                onClick={() => setEditingItem(null)}
+                                className="px-4 py-2 border rounded-lg text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800"
+                            >
+                                İptal
+                            </button>
+                            <button
+                                onClick={handleSaveEdit}
+                                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors shadow-sm"
+                            >
+                                Kaydet
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

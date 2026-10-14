@@ -8,80 +8,135 @@ export interface ParsedReturnForm {
     rawText?: string;
 }
 
-export function parseReturnFormText(text: string): ParsedReturnForm {
+export function parseReturnFormText(text: string, fileName: string = ""): ParsedReturnForm {
     const cleanText = text.replace(/\r/g, "");
+    const lines = cleanText.split("\n").map(l => l.trim()).filter(Boolean);
 
     let sku: string | null = null;
     let dimensions: string | null = null;
     let material: string | null = null;
     let orderNo: string | null = null;
     let returnReason: string | null = null;
-
-    // 1. Find SKU / Ürün Kodu
-    // Cases:
-    // "SKU: YZ1034" or "SKU\nYZ1034" or "YZ1034\nSKU" or "Kod: YZ1034"
-    const skuAfter = cleanText.match(/(?:SKU|Ürün\s*Kodu|Product\s*Code|Part\s*Number)\s*[:\s]*\n*([A-Za-z0-9\-_]+)/i);
-    const skuBefore = cleanText.match(/([A-Za-z0-9\-_]{3,})\s*\n+\s*SKU/i);
-    if (skuAfter && !skuAfter[1].toLowerCase().includes("sku")) {
-        sku = skuAfter[1].trim();
-    } else if (skuBefore) {
-        sku = skuBefore[1].trim();
-    }
-
-    // 2. Find Dimensions / Ölçü
-    // Cases:
-    // "Dimensions: 90" W x 60" H" or "Dimensions\n90'' W x 60'' H" or "90'' W x 60'' H\n..." or "245x245 CM"
-    const dimAfter = cleanText.match(/(?:Dimensions|Ölçü|Size|Boyut)\s*[:\s]*\n*([^\n\r]+)/i);
-    const dimRegex = /([0-9\.\'\"]+\s*(?:[WwXxHh\s,\*]|CM|cm|INCH|inch|\"|\'\')+[0-9\.\'\"]*(?:\s*[WwXxHh\s]*[A-Za-z]+)?)/i;
-    if (dimAfter && dimAfter[1].trim().length > 1) {
-        dimensions = dimAfter[1].trim();
-    } else {
-        const dimMatch = cleanText.match(dimRegex);
-        if (dimMatch) dimensions = dimMatch[1].trim();
-    }
-
-    // 3. Find Paper Type / Kağıt Türü / Doku
-    // Cases:
-    // "Paper Type: Non Woven" or "Paper Type\nNon Woven" or "Non Woven\nPaper Type" or "Doku: Canvas-Peel-And-Stick"
-    const matAfter = cleanText.match(/(?:Paper\s*Type|Kağıt\s*Türü|Doku|Material|Materyal)\s*[:\s]*\n*([^\n\r]+)/i);
-    const matBefore = cleanText.match(/([A-Za-z\s\-]+)\s*\n+\s*Paper\s*Type/i);
-    if (matAfter && matAfter[1].trim().length > 1 && !matAfter[1].toLowerCase().includes("paper")) {
-        material = matAfter[1].trim();
-    } else if (matBefore) {
-        material = matBefore[1].trim();
-    }
-
-    // Fallback material detection by common wallpaper paper types if missing
-    if (!material) {
-        if (/non\s*woven/i.test(cleanText)) material = "Non Woven";
-        else if (/peel\s*(?:and|&)\s*stick/i.test(cleanText) || /canvas\-peel/i.test(cleanText)) material = "Peel & Stick";
-        else if (/textured/i.test(cleanText)) material = "Textured";
-        else if (/canvas/i.test(cleanText)) material = "Canvas";
-    }
-
-    // 4. Find Order No / Sipariş No
-    const ordAfter = cleanText.match(/(?:Order\s*No|Sipariş\s*No|PO\s*Number)\s*[:\s]*\n*([A-Za-z0-9\-_]+)/i);
-    const ordBefore = cleanText.match(/([A-Za-z0-9\-_]{4,})\s*\n+\s*Order\s*No/i);
-    if (ordAfter && !ordAfter[1].toLowerCase().includes("order")) {
-        orderNo = ordAfter[1].trim();
-    } else if (ordBefore) {
-        orderNo = ordBefore[1].trim();
-    }
-
-    // 5. Find Reason for Return / İade Nedeni
-    const reasonMatch = cleanText.match(/(?:Reason\s*for\s*Return|İade\s*Nedeni)\s*[:\s]*\n*([^\n\r]+)/i);
-    if (reasonMatch) {
-        returnReason = reasonMatch[1].trim();
-    }
-
-    // 6. Source / Platform Detection (Wayfair, PrintMarkt, Woo, Etsy, Shopify)
     let source = "Bilinmiyor";
-    const combined = (cleanText + " " + (returnReason || "")).toLowerCase();
-    if (combined.includes("wayfair")) source = "Wayfair";
-    else if (combined.includes("printmarkt")) source = "PrintMarkt";
-    else if (combined.includes("woo") || combined.includes("woocommerce")) source = "WooCommerce";
-    else if (combined.includes("etsy")) source = "Etsy";
-    else if (combined.includes("shopify")) source = "Shopify";
+
+    const isGarbage = (s: string) => {
+        if (!s) return true;
+        const lower = s.toLowerCase();
+        if (s.startsWith("--") || s.endsWith("--")) return true;
+        if (/^\d+\s*of\s*\d+$/i.test(s)) return true;
+        if (lower === "product image" || lower === "return form") return true;
+        return false;
+    };
+
+    const isLabel = (s: string) => {
+        const lower = s.toLowerCase();
+        return lower === "dimensions" || lower === "reason for return" ||
+               lower === "paper type" || lower === "order no" || lower === "sku" ||
+               lower === "ürün kodu" || lower === "ölçü" || lower === "kağıt türü" ||
+               lower === "product image" || lower === "return form";
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        // 1. Dimensions / Ölçü
+        if (/^(?:Dimensions|Ölçü|Size|Boyut)(?:\s*:|$)/i.test(line)) {
+            if (line.includes(":")) {
+                const val = line.split(":")[1]?.trim();
+                if (val && !isGarbage(val)) dimensions = val;
+            } else if (i + 1 < lines.length && !isLabel(lines[i + 1]) && !isGarbage(lines[i + 1])) {
+                dimensions = lines[i + 1];
+            } else if (i > 0 && !isLabel(lines[i - 1]) && !isGarbage(lines[i - 1]) && /\d+.*(?:w|h|x|cm|inch|\"|\'\')/i.test(lines[i - 1])) {
+                dimensions = lines[i - 1];
+            }
+        }
+
+        // 2. Reason for Return / İade Nedeni
+        if (/^(?:Reason\s*for\s*Return|İade\s*Nedeni)(?:\s*:|$)/i.test(line)) {
+            if (line.includes(":")) {
+                const val = line.split(":")[1]?.trim();
+                if (val && !isGarbage(val)) returnReason = val;
+            } else if (i + 1 < lines.length && !isLabel(lines[i + 1]) && !isGarbage(lines[i + 1])) {
+                returnReason = lines[i + 1];
+            }
+        }
+
+        // 3. Paper Type / Kağıt Türü / Doku / Material
+        if (/^(?:Paper\s*Type|Kağıt\s*Türü|Doku|Material|Materyal)(?:\s*:|$)/i.test(line)) {
+            if (line.includes(":")) {
+                const val = line.split(":")[1]?.trim();
+                if (val && !isGarbage(val)) material = val;
+            } else {
+                // In inverted format: value is the line BEFORE ("Non Woven \n Paper Type")
+                if (i > 0 && !isLabel(lines[i - 1]) && !isGarbage(lines[i - 1])) {
+                    material = lines[i - 1];
+                } else if (i + 1 < lines.length && !isLabel(lines[i + 1]) && !isGarbage(lines[i + 1])) {
+                    material = lines[i + 1];
+                }
+            }
+        }
+
+        // 4. Order No / Sipariş No
+        if (/^(?:Order\s*No|Sipariş\s*No|PO\s*Number)(?:\s*:|$)/i.test(line)) {
+            if (line.includes(":")) {
+                const val = line.split(":")[1]?.trim();
+                if (val && !isGarbage(val)) orderNo = val;
+            } else {
+                // In inverted format: value is line BEFORE ("CS673263650 \n Order No")
+                if (i > 0 && !isLabel(lines[i - 1]) && !isGarbage(lines[i - 1])) {
+                    orderNo = lines[i - 1];
+                } else if (i + 1 < lines.length && !isLabel(lines[i + 1]) && !isGarbage(lines[i + 1])) {
+                    orderNo = lines[i + 1];
+                }
+            }
+        }
+
+        // 5. SKU / Ürün Kodu
+        if (/^(?:SKU|Ürün\s*Kodu|Product\s*Code|Part\s*Number)(?:\s*:|$)/i.test(line)) {
+            if (line.includes(":")) {
+                const val = line.split(":")[1]?.trim();
+                if (val && !isGarbage(val)) sku = val;
+            } else {
+                // In inverted format: value is line BEFORE ("YZ1034 \n SKU")
+                if (i > 0 && !isLabel(lines[i - 1]) && !isGarbage(lines[i - 1])) {
+                    sku = lines[i - 1];
+                } else if (i + 1 < lines.length && !isLabel(lines[i + 1]) && !isGarbage(lines[i + 1])) {
+                    sku = lines[i + 1];
+                }
+            }
+        }
+    }
+
+    // Material fallback & normalization
+    if (!material || isGarbage(material) || material.length < 2) {
+        if (/non\s*woven/i.test(cleanText) || /nonwoven/i.test(fileName)) material = "Non Woven";
+        else if (/peel\s*(?:and|&)\s*stick/i.test(cleanText) || /canvas\-peel/i.test(cleanText) || /peelandstick/i.test(fileName)) material = "Peel & Stick";
+        else if (/textured/i.test(cleanText) || /textured/i.test(fileName)) material = "Textured";
+        else if (/canvas/i.test(cleanText) || /canvas/i.test(fileName)) material = "Canvas";
+        else if (/vinil|vinyl/i.test(cleanText) || /vinyl/i.test(fileName)) material = "Vinyl";
+    }
+
+    // Order No fallback from fileName or text
+    if (!orderNo || isGarbage(orderNo)) {
+        const ordMatch = (fileName + " " + cleanText).match(/(CS\d{6,}|PO\d{6,}|\b\d{5,8}\b)/i);
+        if (ordMatch) orderNo = ordMatch[1];
+    }
+
+    // SKU fallback from fileName or text patterns (e.g. YZ1034, GM1234, etc.)
+    if (!sku || isGarbage(sku) || sku.toLowerCase() === "unknown") {
+        const skuPattern = (cleanText + " " + fileName).match(/\b([A-Z]{2,4}[-_]?\d{3,6}(?:-[A-Za-z0-9]+)?)\b/);
+        if (skuPattern && !skuPattern[1].startsWith("CS") && !skuPattern[1].startsWith("PO")) {
+            sku = skuPattern[1];
+        }
+    }
+
+    // Source detection (Wayfair, PrintMarkt, Woo, Etsy, Shopify)
+    const fullHaystack = `${cleanText} ${returnReason || ""} ${fileName}`.toLowerCase();
+    if (fullHaystack.includes("wayfair")) source = "Wayfair";
+    else if (fullHaystack.includes("printmarkt")) source = "PrintMarkt";
+    else if (fullHaystack.includes("woo") || fullHaystack.includes("woocommerce")) source = "WooCommerce";
+    else if (fullHaystack.includes("etsy")) source = "Etsy";
+    else if (fullHaystack.includes("shopify")) source = "Shopify";
 
     // Clean up multiple spaces or trailing semicolons
     if (dimensions) {
@@ -92,17 +147,17 @@ export function parseReturnFormText(text: string): ParsedReturnForm {
     }
 
     return {
-        sku,
-        dimensions,
-        material,
-        orderNo,
+        sku: sku && !isGarbage(sku) ? (sku.toLowerCase() === "unknown" ? "Bilinmiyor" : sku) : null,
+        dimensions: dimensions && !isGarbage(dimensions) ? dimensions : null,
+        material: material && !isGarbage(material) ? material : null,
+        orderNo: orderNo && !isGarbage(orderNo) ? orderNo : null,
         source,
-        returnReason,
+        returnReason: returnReason && !isGarbage(returnReason) ? returnReason : null,
         rawText: cleanText.substring(0, 500)
     };
 }
 
-export async function parseReturnFormPdf(pdfBuffer: Buffer): Promise<ParsedReturnForm> {
+export async function parseReturnFormPdf(pdfBuffer: Buffer, fileName: string = ""): Promise<ParsedReturnForm> {
     let text = "";
     try {
         const pdfParseModule = require('pdf-parse');
@@ -127,5 +182,5 @@ export async function parseReturnFormPdf(pdfBuffer: Buffer): Promise<ParsedRetur
         throw new Error(`PDF okunamadı: ${err.message}`);
     }
 
-    return parseReturnFormText(text);
+    return parseReturnFormText(text, fileName);
 }
