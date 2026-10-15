@@ -90,104 +90,242 @@ function normalizeKey(str: string): string {
 /**
  * Parse line items from Shopify order payload
  */
-export function parseShopifyLineItems(lineItems: any[]) {
+/**
+ * Parse line items from Shopify order payload
+ */
+export async function parseShopifyLineItems(lineItems: any[]): Promise<any[]> {
     if (!Array.isArray(lineItems)) return [];
 
-    return lineItems.map((item: any) => {
-        const properties: Array<{ name: string; value: any }> = Array.isArray(item.properties)
-            ? item.properties
-            : [];
+    return Promise.all(
+        lineItems.map(async (item: any) => {
+            const properties: Array<{ name: string; value: any }> = Array.isArray(item.properties)
+                ? item.properties
+                : [];
 
-        const getProp = (keys: string[]) => {
-            const normKeys = keys.map(normalizeKey);
-            const found = properties.find((p: any) => {
+            const getProp = (keys: string[], excludeKeys: string[] = []) => {
+                const normKeys = keys.map(normalizeKey);
+                const normExcludes = excludeKeys.map(normalizeKey);
+
+                // 1. Try exact match first
+                let found = properties.find((p: any) => {
+                    const pName = normalizeKey(p.name || '');
+                    if (normExcludes.some(ex => pName === ex || pName.includes(ex))) return false;
+                    return normKeys.includes(pName);
+                });
+
+                // 2. Try substring match if no exact match
+                if (!found) {
+                    found = properties.find((p: any) => {
+                        const pName = normalizeKey(p.name || '');
+                        if (normExcludes.some(ex => pName === ex || pName.includes(ex))) return false;
+                        return normKeys.some(k => pName.includes(k));
+                    });
+                }
+
+                if (!found) return null;
+                let val = found.value;
+                if (val && typeof val === 'string') {
+                    val = val.replace(/<[^>]*>?/gm, '').trim();
+                }
+                return val ? String(val) : null;
+            };
+
+            // Sample Detection
+            const sampleProp = getProp(['numune', 'sample', '_sample']);
+            const isSampleOrder = Boolean(
+                sampleProp ||
+                (item.title && /sample|numune/i.test(item.title)) ||
+                (item.sku && /sample|numune/i.test(item.sku))
+            );
+
+            // Wallpaper Design Title (for sample orders where item title is "Wallpaper Sample")
+            const wallpaperName = getProp(
+                ['wallpaper', 'duvar kagidi', 'design', 'desen', 'motif'],
+                ['url', 'image', 'resim', 'gorsel', 'material', 'malzeme', 'doku']
+            );
+
+            let finalName = item.title || item.name || 'Ürün';
+            if (isSampleOrder && wallpaperName && !finalName.toLowerCase().includes(wallpaperName.toLowerCase())) {
+                finalName = `${finalName} - ${wallpaperName}`;
+            }
+
+            // 1. Dimensions (Boyut / Ölçü)
+            let dimensions = getProp(['boyut', 'olculer', 'dimensions', 'ebat', 'size', 'siparis olcusu', 'olcu'], ['wallpaper']);
+            if (!dimensions) {
+                const width = getProp(['genislik', 'width', 'en'], ['wallpaper']);
+                const height = getProp(['yukseklik', 'height', 'boy'], ['wallpaper']);
+                const unit = getProp(['birim', 'unit'], ['wallpaper']);
+                if (width && height) {
+                    const hasUnitAlready = /\b(cm|m|inch|in|mm)\b/i.test(`${width} ${height}`);
+                    if (hasUnitAlready) {
+                        dimensions = `${width} x ${height}`;
+                    } else {
+                        dimensions = `${width} x ${height} ${unit || 'cm'}`;
+                    }
+                }
+            }
+            // Fallback to variant_title if it contains dimensions
+            if (!dimensions && item.variant_title) {
+                const dimMatch = item.variant_title.match(/(\d+(?:[.,]\d+)?\s*(?:x|\*|X)\s*\d+(?:[.,]\d+)?(?:\s*(?:cm|m|inch|in|mm))?)/i);
+                if (dimMatch) {
+                    dimensions = dimMatch[1].trim();
+                }
+            }
+
+            // 2. Material (Malzeme / Doku)
+            // Exclude 'wallpaper' so property "Wallpaper: Pink Textured..." is not matched as material!
+            let material = getProp(
+                ['malzeme', 'doku', 'kagit turu', 'kagit cinsi', 'material', 'paper type', 'texture', 'pa_doku'],
+                ['wallpaper', 'duvar kagidi', 'url', 'image']
+            );
+            if (!material && item.variant_title && !dimensions) {
+                material = item.variant_title;
+            }
+
+            // 3. Image URL Resolution
+            const isActualImageUrl = (url: string | null): boolean => {
+                if (!url) return false;
+                const clean = url.split('?')[0].toLowerCase();
+                // If it is an HTML product page link (like /products/...), it is not an image
+                if (clean.includes('/products/') && !clean.match(/\.(jpg|jpeg|png|webp|gif|svg)$/)) {
+                    return false;
+                }
+                return (
+                    clean.endsWith('.jpg') ||
+                    clean.endsWith('.jpeg') ||
+                    clean.endsWith('.png') ||
+                    clean.endsWith('.webp') ||
+                    clean.endsWith('.gif') ||
+                    clean.endsWith('.svg') ||
+                    clean.includes('cdn.shopify.com') ||
+                    clean.includes('/cdn/shop/')
+                );
+            };
+
+            const extractCleanUrl = (val: any): string | null => {
+                if (!val) return null;
+                const str = String(val).trim();
+                const imgMatch = str.match(/src=["']([^"']+)["']/i);
+                if (imgMatch && imgMatch[1]) {
+                    let src = imgMatch[1].trim();
+                    if (src.startsWith('//')) src = `https:${src}`;
+                    return src;
+                }
+                if (str.startsWith('//')) return `https:${str}`;
+                if (str.startsWith('http://') || str.startsWith('https://')) return str;
+                return null;
+            };
+
+            let imageSrc: string | null = null;
+
+            // A. Check properties for an explicit image (e.g. "Wallpaper Image", "Design Image", "Görsel")
+            const imageProp = properties.find((p: any) => {
                 const pName = normalizeKey(p.name || '');
-                return normKeys.includes(pName) || normKeys.some(k => pName.includes(k));
+                if (pName.includes('url') && !pName.includes('image') && !pName.includes('gorsel') && !pName.includes('resim')) {
+                    return false;
+                }
+                return ['wallpaper image', 'design image', 'product image', 'gorsel', 'resim', 'image', 'picture', 'preview'].some(term => pName.includes(term));
             });
-            if (!found) return null;
-            let val = found.value;
-            if (val && typeof val === 'string') {
-                val = val.replace(/<[^>]*>?/gm, '').trim();
-            }
-            return val ? String(val) : null;
-        };
 
-        // 1. Dimensions (Boyut / Ölçü)
-        let dimensions = getProp(['boyut', 'olculer', 'dimensions', 'ebat', 'size', 'siparis olcusu', 'olcu']);
-        if (!dimensions) {
-            const width = getProp(['genislik', 'width', 'en']);
-            const height = getProp(['yukseklik', 'height', 'boy']);
-            const unit = getProp(['birim', 'unit']) || 'cm';
-            if (width && height) {
-                dimensions = `${width} x ${height} ${unit}`;
+            if (imageProp) {
+                const extracted = extractCleanUrl(imageProp.value);
+                if (extracted && isActualImageUrl(extracted)) {
+                    imageSrc = extracted;
+                }
             }
-        }
-        // Fallback to variant_title if it contains dimensions
-        if (!dimensions && item.variant_title) {
-            const dimMatch = item.variant_title.match(/(\d+(?:[.,]\d+)?\s*(?:x|\*|X)\s*\d+(?:[.,]\d+)?(?:\s*(?:cm|m|inch|in|mm))?)/i);
-            if (dimMatch) {
-                dimensions = dimMatch[1].trim();
-            }
-        }
 
-        // 2. Material (Malzeme / Doku)
-        let material = getProp(['malzeme', 'doku', 'kagit turu', 'kagit cinsi', 'material', 'paper type', 'paper', 'texture', 'pa_doku']);
-        if (!material && item.variant_title && !dimensions) {
-            material = item.variant_title;
-        }
-
-        // 3. Image URL
-        let imageSrc = item.image?.src || (Array.isArray(item.images) && item.images[0]?.src) || null;
-        if (!imageSrc) {
-            // Check properties for uploaded image or preview link
-            const imgProp = properties.find((p: any) => {
+            // B. If sample order (or no image found yet), pull actual design image from "Wallpaper URL"
+            const wallpaperUrlProp = properties.find((p: any) => {
                 const pName = normalizeKey(p.name || '');
                 const pVal = String(p.value || '').trim();
-                const isImgKey = ['gorsel', 'resim', 'image', 'picture', 'foto', 'dosya', 'upload', 'file', 'preview'].some(term => pName.includes(term));
-                return isImgKey || pVal.startsWith('http');
+                return (
+                    pName.includes('wallpaper url') ||
+                    pName.includes('product url') ||
+                    (pVal.includes('/products/') && (pVal.includes('wallpapermarkt.com') || pVal.startsWith('http')))
+                );
             });
-            if (imgProp && String(imgProp.value).startsWith('http')) {
-                imageSrc = String(imgProp.value).trim();
+
+            if ((!imageSrc || isSampleOrder) && wallpaperUrlProp) {
+                let prodUrl = String(wallpaperUrlProp.value || '').trim();
+                if (prodUrl) {
+                    if (!prodUrl.startsWith('http')) {
+                        prodUrl = `https://${prodUrl}`;
+                    }
+                    try {
+                        const cleanUrl = prodUrl.split('?')[0].replace(/\/+$/, '');
+                        const jsonUrl = `${cleanUrl}.js`;
+                        const res = await fetch(jsonUrl, {
+                            headers: { Accept: 'application/json' },
+                            signal: AbortSignal.timeout(4000),
+                        });
+                        if (res.ok) {
+                            const prodData = await res.json();
+                            let featImg = prodData.featured_image || (Array.isArray(prodData.images) && prodData.images[0]);
+                            if (featImg) {
+                                if (typeof featImg === 'object' && featImg.src) featImg = featImg.src;
+                                if (typeof featImg === 'string') {
+                                    if (featImg.startsWith('//')) featImg = `https:${featImg}`;
+                                    imageSrc = featImg;
+                                }
+                            }
+                        }
+                    } catch (fetchErr) {
+                        console.warn('[SHOPIFY] Could not fetch product JSON for sample image:', fetchErr);
+                    }
+                }
             }
-        }
-        if (!imageSrc) {
-            imageSrc = 'https://placehold.co/600x400?text=Shopify+Urun';
-        }
 
-        // 4. Custom File / Cloud Link
-        let customFileUrl = getProp(['ozel url', 'dosya linki', 'file link', 'drive link', 'link', 'url', 'siparis dosyasi', 'cloud link']);
-        if (!customFileUrl) {
-            const linkProp = properties.find((p: any) => {
-                const val = String(p.value || '').trim();
-                return val.startsWith('http://') || val.startsWith('https://');
-            });
-            if (linkProp) {
-                customFileUrl = String(linkProp.value).trim();
+            // C. Fallback to Shopify line item's default image (if not set or for non-sample products)
+            if (!imageSrc) {
+                const defaultImg = item.image?.src || (Array.isArray(item.images) && item.images[0]?.src);
+                if (defaultImg) {
+                    const extracted = extractCleanUrl(defaultImg);
+                    if (extracted && isActualImageUrl(extracted)) {
+                        imageSrc = extracted;
+                    }
+                }
             }
-        }
 
-        // 5. Product Note / Personalization
-        const productNote = getProp(['urun notu', 'not', 'note', 'ozellestirme', 'personalization', 'custom text', 'yazi']);
+            // D. Fallback placeholder
+            if (!imageSrc) {
+                imageSrc = 'https://placehold.co/600x400?text=Shopify+Urun';
+            }
 
-        // 6. Cropped image
-        const croppedImage = getProp(['kirpilan resim', 'cropped_image', 'cropped image', 'crop']);
+            // 4. Custom File / Cloud Link / Product Link
+            let customFileUrl = getProp(['ozel url', 'dosya linki', 'file link', 'drive link', 'link', 'siparis dosyasi', 'cloud link', 'wallpaper url', 'product url']);
+            if (!customFileUrl) {
+                const linkProp = properties.find((p: any) => {
+                    const val = String(p.value || '').trim();
+                    return val.startsWith('http://') || val.startsWith('https://');
+                });
+                if (linkProp) {
+                    customFileUrl = String(linkProp.value).trim();
+                }
+            }
 
-        // 7. Sample Info
-        const sampleData = getProp(['numune', 'sample']);
+            // 5. Product Note / Personalization
+            const productNote = getProp(['urun notu', 'not', 'note', 'ozellestirme', 'personalization', 'custom text', 'yazi']);
 
-        return {
-            name: item.title || item.name || 'Ürün',
-            sku: item.sku || (item.product_id ? String(item.product_id) : null),
-            quantity: Number(item.quantity) || 1,
-            image_src: imageSrc,
-            url: customFileUrl,
-            material: material,
-            dimensions: dimensions,
-            productNote: productNote,
-            sampleData: sampleData,
-            croppedImage: croppedImage,
-        };
-    });
+            // 6. Cropped image
+            const croppedImage = getProp(['kirpilan resim', 'cropped_image', 'cropped image', 'crop']);
+
+            // 7. Sample Info
+            const sampleData = sampleProp || (isSampleOrder ? '1' : null);
+
+            return {
+                name: finalName,
+                sku: item.sku || (item.product_id ? String(item.product_id) : null),
+                quantity: Number(item.quantity) || 1,
+                image_src: imageSrc,
+                url: customFileUrl,
+                material: material,
+                dimensions: dimensions,
+                productNote: productNote,
+                sampleData: sampleData,
+                croppedImage: croppedImage,
+            };
+        })
+    );
 }
 
 /**
@@ -284,7 +422,7 @@ export async function upsertShopifyOrder(shopifyOrder: any) {
     }
 
     // Line items
-    const parsedItems = parseShopifyLineItems(shopifyOrder.line_items || []);
+    const parsedItems = await parseShopifyLineItems(shopifyOrder.line_items || []);
 
     // Labels
     let labels: string[] = ['Shopify', 'Yeni'];

@@ -38,6 +38,16 @@ const nextConfig = {
                 hostname: 'cdn.shopify.com',
                 pathname: '**',
             },
+            {
+                protocol: 'https',
+                hostname: 'wallpapermarkt.com',
+                pathname: '**',
+            },
+            {
+                protocol: 'https',
+                hostname: 'www.wallpapermarkt.com',
+                pathname: '**',
+            },
         ],
     },
 }
