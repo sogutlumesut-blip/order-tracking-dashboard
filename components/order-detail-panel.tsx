@@ -47,80 +47,124 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
     const [lazyActivities, setLazyActivities] = useState<any[] | null>(null)
     const [isLoadingDetails, setIsLoadingDetails] = useState(false)
 
-    const lastOrderIdRef = useRef<number | null>(null)
+    const activeOrderIdRef = useRef<number | null>(null)
+    const abortControllerRef = useRef<AbortController | null>(null)
 
+    // Sync formData when order prop changes
     useEffect(() => {
         if (order && isOpen) {
-            const isSameOrder = lastOrderIdRef.current === order.id;
-
-            // Update formData ONLY if:
-            // 1. It's a different order (ID change)
-            // 2. User hasn't made any local modifications yet (safe to sync)
+            // Update formData if it's a new order OR user hasn't made local modifications
             if (!formData || formData.id !== order.id || !isModified) {
                 setFormData({ ...order })
-                setIsModified(false)
-                setIsActivityLogOpen(true)
+                if (!formData || formData.id !== order.id) {
+                    setIsModified(false)
+                    setIsActivityLogOpen(true)
+                }
             }
-
-            if (!isSameOrder) {
-                // Setup placeholder state until server fetch completes
-                setLazyComments([])
-                setLazyActivities([])
-                setIsLoadingDetails(true)
-                lastOrderIdRef.current = order.id
-            }
-
-            // Background fetch FULL details via REST API
-            fetch(`/api/order-details?orderId=${order.id}`)
-                .then((res) => {
-                    if (!res.ok) throw new Error("API hatası");
-                    return res.json();
-                })
-                .then((details) => {
-                    if (details) {
-                        const formattedComments = (details.comments || []).map((c: any) => {
-                            let displayTime = c.timestamp;
-                            try {
-                                const d = new Date(c.timestamp);
-                                if (d instanceof Date && !isNaN(d.getTime())) {
-                                    displayTime = d.toLocaleString('tr-TR', {
-                                        timeZone: 'Europe/Istanbul',
-                                        day: '2-digit', month: '2-digit', year: 'numeric',
-                                        hour: '2-digit', minute: '2-digit'
-                                    });
-                                }
-                            } catch (e) {}
-                            return { ...c, timestamp: displayTime };
-                        });
-                        setLazyComments((prev) => {
-                            const now = Date.now();
-                            const pendingOptimistic = (prev || []).filter((c: any) => 
-                                c.isOptimistic && 
-                                (now - (c.createdAt || 0) < 15000) &&
-                                !formattedComments.some((fc: any) => 
-                                    fc.message === c.message && fc.type === c.type
-                                )
-                            );
-                            return [...formattedComments, ...pendingOptimistic];
-                        });
-                        setLazyActivities(details.activities)
-                    }
-                })
-                .catch(e => console.error("Lazy fetch err:", e))
-                .finally(() => {
-                    if (!isSameOrder) {
-                        setIsLoadingDetails(false)
-                    }
-                })
         } else if (!isOpen) {
-            // Reset for next time
             setFormData(null)
             setIsModified(false)
+        }
+    }, [order, isOpen, isModified])
+
+    // Fetch full order details (comments & activities) safely without race conditions
+    useEffect(() => {
+        if (!order || !isOpen) {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort()
+                abortControllerRef.current = null
+            }
+            activeOrderIdRef.current = null
             setLazyComments(null)
             setLazyActivities(null)
-            lastOrderIdRef.current = null
+            setIsLoadingDetails(false)
+            return
         }
-    }, [order, isOpen])
+
+        const currentOrderId = order.id
+        const isDifferentOrder = activeOrderIdRef.current !== currentOrderId
+
+        // Abort previous order's fetch if still in flight
+        if (isDifferentOrder && abortControllerRef.current) {
+            abortControllerRef.current.abort()
+        }
+
+        activeOrderIdRef.current = currentOrderId
+
+        // When switching to a new order, immediately clear previous order's comments and show loading
+        if (isDifferentOrder) {
+            setLazyComments([])
+            setLazyActivities([])
+            setIsLoadingDetails(true)
+        }
+
+        const abortController = new AbortController()
+        abortControllerRef.current = abortController
+
+        fetch(`/api/order-details?orderId=${currentOrderId}`, {
+            cache: 'no-store',
+            signal: abortController.signal
+        })
+            .then(async (res) => {
+                if (!res.ok) throw new Error("API hatası")
+                return res.json()
+            })
+            .then((details) => {
+                // GUARD: If user switched to another order while this was fetching, DO NOT UPDATE!
+                if (activeOrderIdRef.current !== currentOrderId) {
+                    return
+                }
+
+                if (details) {
+                    const formattedComments = (details.comments || []).map((c: any) => {
+                        let displayTime = c.timestamp
+                        try {
+                            const d = new Date(c.timestamp)
+                            if (d instanceof Date && !isNaN(d.getTime())) {
+                                displayTime = d.toLocaleString('tr-TR', {
+                                    timeZone: 'Europe/Istanbul',
+                                    day: '2-digit', month: '2-digit', year: 'numeric',
+                                    hour: '2-digit', minute: '2-digit'
+                                })
+                            }
+                        } catch (e) {}
+                        return { ...c, timestamp: displayTime }
+                    })
+
+                    setLazyComments((prev) => {
+                        // Double check we are still on the same order
+                        if (activeOrderIdRef.current !== currentOrderId) return prev
+                        const now = Date.now()
+                        const pendingOptimistic = (prev || []).filter((c: any) => 
+                            c.isOptimistic && 
+                            (now - (c.createdAt || 0) < 15000) &&
+                            !formattedComments.some((fc: any) => 
+                                fc.message === c.message && fc.type === c.type
+                            )
+                        )
+                        return [...formattedComments, ...pendingOptimistic]
+                    })
+                    setLazyActivities(details.activities || [])
+                }
+            })
+            .catch((e) => {
+                if (e.name === 'AbortError') {
+                    // Fetch was aborted because user switched orders
+                    return
+                }
+                console.error("Lazy fetch err:", e)
+            })
+            .finally(() => {
+                // GUARD: Only stop loading if we are still on this order
+                if (activeOrderIdRef.current === currentOrderId) {
+                    setIsLoadingDetails(false)
+                }
+            })
+
+        return () => {
+            abortController.abort()
+        }
+    }, [order?.id, isOpen])
 
     if (!isOpen || !formData) return null
 
@@ -1176,6 +1220,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     <FileText className="w-4 h-4" /> İşlem Notları
                                 </label>
                                 <NoteLog
+                                    key={`note-${formData.id}`}
                                     comments={(lazyComments || []).filter(c => c.type === 'note')}
                                     onAddNote={(msg, att) => handleInternalAddComment(msg, att, 'note')}
                                     currentUser={currentUser}
@@ -1191,6 +1236,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     <Upload className="w-4 h-4" /> Yazışma & Dosyalar
                                 </label>
                                 <ChatSection
+                                    key={`chat-${formData.id}`}
                                     comments={(lazyComments || []).filter(c => c.type === 'message' || !c.type)}
                                     onAddComment={(msg, att) => handleInternalAddComment(msg, att, 'message')}
                                     currentUser={currentUser}

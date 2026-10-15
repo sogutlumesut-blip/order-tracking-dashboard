@@ -46,30 +46,36 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
     const optimizeImageIfNeeded = (base64Str: string, fileSizeBytes?: number): Promise<string> => {
         return new Promise((resolve) => {
             const approximateSize = fileSizeBytes || Math.round(base64Str.length * 0.75)
-            const SAFE_LIMIT = 3.5 * 1024 * 1024 // 3.5 MB
+            const MAX_DIMENSION = 1920
+            const QUALITY = 0.85
 
-            if (approximateSize <= SAFE_LIMIT) {
+            // Files already under 200 KB that are not giant PNGs can stay as is
+            if (approximateSize <= 200 * 1024 && !base64Str.startsWith('data:image/png')) {
                 return resolve(base64Str)
             }
 
             const img = new Image()
             img.src = base64Str
             img.onload = () => {
-                const canvas = document.createElement('canvas')
-                const maxDimension = 4096
                 let width = img.width
                 let height = img.height
 
-                if (width > maxDimension || height > maxDimension) {
+                // If already small and reasonable resolution, keep
+                if (width <= MAX_DIMENSION && height <= MAX_DIMENSION && approximateSize <= 250 * 1024) {
+                    return resolve(base64Str)
+                }
+
+                if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
                     if (width > height) {
-                        height = Math.round((height * maxDimension) / width)
-                        width = maxDimension
+                        height = Math.round((height * MAX_DIMENSION) / width)
+                        width = MAX_DIMENSION
                     } else {
-                        width = Math.round((width * maxDimension) / height)
-                        height = maxDimension
+                        width = Math.round((width * MAX_DIMENSION) / height)
+                        height = MAX_DIMENSION
                     }
                 }
 
+                const canvas = document.createElement('canvas')
                 canvas.width = width
                 canvas.height = height
                 const ctx = canvas.getContext('2d')
@@ -78,14 +84,8 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
                     ctx.imageSmoothingQuality = 'high'
                     ctx.drawImage(img, 0, 0, width, height)
                     
-                    const isPng = base64Str.startsWith('data:image/png')
-                    if (isPng) {
-                        const pngData = canvas.toDataURL('image/png')
-                        if (pngData.length <= 4.5 * 1024 * 1024) {
-                            return resolve(pngData)
-                        }
-                    }
-                    resolve(canvas.toDataURL('image/jpeg', 0.95))
+                    // Convert to high-quality compressed JPEG (typically 150-250 KB instead of 5 MB)
+                    resolve(canvas.toDataURL('image/jpeg', QUALITY))
                 } else {
                     resolve(base64Str)
                 }
@@ -282,6 +282,8 @@ export function ChatSection({ comments = [], onAddComment, currentUser, onImageC
                                             <img
                                                 src={att.url}
                                                 alt="attachment"
+                                                loading="lazy"
+                                                decoding="async"
                                                 className="w-full h-auto rounded-md max-w-[200px] min-h-[100px] min-w-[120px] bg-slate-100 dark:bg-slate-700/50 object-cover cursor-zoom-in hover:opacity-90 transition-opacity"
                                                 onClick={() => onImageClick?.(att.url)}
                                             />
