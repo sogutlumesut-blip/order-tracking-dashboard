@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 
 import { Order } from "../data/mock-orders"
 import Image from "next/image"
-import { Calendar, Package, AlertCircle, User, Truck, Clock, AlertTriangle } from "lucide-react"
+import { Calendar, Package, AlertCircle, User, Truck, Clock, AlertTriangle, Scissors, ExternalLink } from "lucide-react"
 import { getColorClasses } from "@/lib/colors"
 
 function getPersonnelColorClass(name: string): string {
@@ -206,6 +206,22 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                     </div>
                 )}
 
+                {/* Cropped Image Link Pill on Hero */}
+                {order.items && order.items[0]?.croppedImage && (
+                    <a
+                        href={order.items[0].croppedImage}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute bottom-2 left-2 z-20 bg-emerald-600/95 hover:bg-emerald-700 text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-lg backdrop-blur-xs flex items-center gap-1.5 transition-all hover:scale-105 border border-emerald-400/50"
+                        title="Müşterinin kırptığı görseli yeni sekmede aç"
+                    >
+                        <Scissors className="w-3.5 h-3.5" />
+                        <span>Kırpma Linki</span>
+                        <ExternalLink className="w-3 h-3 opacity-80" />
+                    </a>
+                )}
+
                 {/* Overlay Badge for Item Count if multiple */}
                 {order.items.length > 1 && (
                     <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded-full backdrop-blur-sm">
@@ -392,6 +408,21 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                 <span className="bg-amber-100 dark:bg-amber-950/40 px-1.5 py-0.5 rounded text-amber-850 dark:text-amber-300 font-bold border border-amber-200 dark:border-amber-900/50">
                                     ADET: {order.items[0].quantity}
                                 </span>
+                            )}
+                            {/* Cropped Image Badge */}
+                            {order.items && order.items.length > 0 && order.items[0].croppedImage && (
+                                <a
+                                    href={order.items[0].croppedImage}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/50 dark:hover:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 font-bold px-1.5 py-0.5 rounded text-[11px] border border-emerald-300 dark:border-emerald-800 flex items-center gap-1 shadow-2xs transition-all hover:scale-105"
+                                    title="Müşterinin kırptığı görseli görüntüle"
+                                >
+                                    <Scissors className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                    <span>Kırpma Linki</span>
+                                    <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+                                </a>
                             )}
                         </div>
 

@@ -568,7 +568,7 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                                     }}>
                                         {order.items?.map((item: any, idx: number) => {
                                             const imgUrls = (item.image_src || "").split('|').filter(Boolean);
-                                            const firstImg = imgUrls[0];
+                                            const firstImg = item.croppedImage || imgUrls[0];
                                             return (
                                                 <div key={idx} style={{
                                                     display: "flex",

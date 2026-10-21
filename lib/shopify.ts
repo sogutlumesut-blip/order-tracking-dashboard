@@ -125,7 +125,15 @@ export async function parseShopifyLineItems(lineItems: any[]): Promise<any[]> {
                 if (!found) return null;
                 let val = found.value;
                 if (val && typeof val === 'string') {
-                    val = val.replace(/<[^>]*>?/gm, '').trim();
+                    const srcMatch = val.match(/src=["']([^"']+)["']/i);
+                    const hrefMatch = val.match(/href=["']([^"']+)["']/i);
+                    if (srcMatch && srcMatch[1]) {
+                        val = srcMatch[1].trim();
+                    } else if (hrefMatch && hrefMatch[1]) {
+                        val = hrefMatch[1].trim();
+                    } else {
+                        val = val.replace(/<[^>]*>?/gm, '').trim();
+                    }
                 }
                 return val ? String(val) : null;
             };
@@ -198,7 +206,8 @@ export async function parseShopifyLineItems(lineItems: any[]): Promise<any[]> {
                     clean.endsWith('.gif') ||
                     clean.endsWith('.svg') ||
                     clean.includes('cdn.shopify.com') ||
-                    clean.includes('/cdn/shop/')
+                    clean.includes('/cdn/shop/') ||
+                    clean.includes('wm-crop')
                 );
             };
 
@@ -211,14 +220,87 @@ export async function parseShopifyLineItems(lineItems: any[]): Promise<any[]> {
                     if (src.startsWith('//')) src = `https:${src}`;
                     return src;
                 }
+                const hrefMatch = str.match(/href=["']([^"']+)["']/i);
+                if (hrefMatch && hrefMatch[1]) {
+                    let href = hrefMatch[1].trim();
+                    if (href.startsWith('//')) href = `https:${href}`;
+                    return href;
+                }
                 if (str.startsWith('//')) return `https:${str}`;
                 if (str.startsWith('http://') || str.startsWith('https://')) return str;
+                // Check if string contains an embedded http(s) URL
+                const urlMatch = str.match(/(https?:\/\/[^\s"'<>]+)/i);
+                if (urlMatch && urlMatch[1]) {
+                    return urlMatch[1].trim();
+                }
                 return null;
             };
 
+            // --- 6. Cropped Image Resolution (Customer-Selected Crop) ---
+            let croppedImage: string | null = null;
+
+            // Priority A: Search all properties for 'wm-crop' in value or name
+            for (const p of properties) {
+                const valStr = String(p.value || '').trim();
+                if (valStr.includes('wm-crop')) {
+                    const extracted = extractCleanUrl(valStr);
+                    if (extracted && isActualImageUrl(extracted)) {
+                        croppedImage = extracted;
+                        break;
+                    }
+                }
+            }
+
+            // Priority B: Properties explicitly named for cropped/final image
+            if (!croppedImage) {
+                const cropProp = properties.find((p: any) => {
+                    const pName = normalizeKey(p.name || '');
+                    // Exclude coordinate or position properties like "_crop (x,y,w,h)", "_crop position"
+                    if (pName.includes('(x,y') || pName.includes('position') || pName.includes('coordinate')) {
+                        return false;
+                    }
+                    const isCropName = [
+                        'final image',
+                        'cropped image',
+                        'crop image',
+                        'kirpilan resim',
+                        'kirpilmis resim',
+                        'kirpma',
+                        'cropped_image',
+                        'wm-crop',
+                        '_crop',
+                        'crop',
+                    ].some(term => pName.includes(term));
+
+                    if (!isCropName) return false;
+
+                    const extracted = extractCleanUrl(p.value);
+                    return extracted && isActualImageUrl(extracted);
+                });
+
+                if (cropProp) {
+                    croppedImage = extractCleanUrl(cropProp.value);
+                }
+            }
+
+            // Priority C: Check any property value containing an image URL with 'crop' in it
+            if (!croppedImage) {
+                for (const p of properties) {
+                    const valStr = String(p.value || '').trim();
+                    if (valStr.includes('crop') && (valStr.includes('cdn.shopify.com') || valStr.includes('/files/'))) {
+                        const extracted = extractCleanUrl(valStr);
+                        if (extracted && isActualImageUrl(extracted)) {
+                            croppedImage = extracted;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // --- Main Image Resolution ---
             let imageSrc: string | null = null;
 
-            // A. Check properties for an explicit image (e.g. "Wallpaper Image", "Design Image", "Görsel")
+            // A. Check properties for an explicit design image (e.g. "_Design Image", "Wallpaper Image", "Görsel")
             const imageProp = properties.find((p: any) => {
                 const pName = normalizeKey(p.name || '');
                 if (pName.includes('url') && !pName.includes('image') && !pName.includes('gorsel') && !pName.includes('resim')) {
@@ -291,23 +373,32 @@ export async function parseShopifyLineItems(lineItems: any[]): Promise<any[]> {
                 imageSrc = 'https://placehold.co/600x400?text=Shopify+Urun';
             }
 
+            // E. If customer has a cropped image, make sure it is prioritized as the primary visual on cards!
+            if (croppedImage) {
+                // Secondary visual can be the flat design or product image
+                if (imageSrc && imageSrc !== croppedImage) {
+                    imageSrc = `${croppedImage}|${imageSrc}`;
+                } else {
+                    imageSrc = croppedImage;
+                }
+            }
+
             // 4. Custom File / Cloud Link / Product Link
             let customFileUrl = getProp(['ozel url', 'dosya linki', 'file link', 'drive link', 'link', 'siparis dosyasi', 'cloud link', 'wallpaper url', 'product url']);
             if (!customFileUrl) {
                 const linkProp = properties.find((p: any) => {
+                    const pName = normalizeKey(p.name || '');
+                    if (pName.includes('crop') || pName.includes('image') || pName.includes('resim')) return false;
                     const val = String(p.value || '').trim();
-                    return val.startsWith('http://') || val.startsWith('https://');
+                    return (val.startsWith('http://') || val.startsWith('https://')) && !val.includes('wm-crop');
                 });
                 if (linkProp) {
-                    customFileUrl = String(linkProp.value).trim();
+                    customFileUrl = extractCleanUrl(linkProp.value);
                 }
             }
 
             // 5. Product Note / Personalization
             const productNote = getProp(['urun notu', 'not', 'note', 'ozellestirme', 'personalization', 'custom text', 'yazi']);
-
-            // 6. Cropped image
-            const croppedImage = getProp(['kirpilan resim', 'cropped_image', 'cropped image', 'crop']);
 
             // 7. Sample Info
             const sampleData = sampleProp || (isSampleOrder ? '1' : null);
