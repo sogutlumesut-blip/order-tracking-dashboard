@@ -92,11 +92,6 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         }
     }, [])
 
-    // Sync initialOrders to orders state when initialOrders changes from Server Component
-    useEffect(() => {
-        setOrders(initialOrders)
-    }, [initialOrders])
-
     // Background polling sync for WooCommerce, PrintMarkt, and Wayfair
     useEffect(() => {
         const interval = setInterval(async () => {
@@ -187,12 +182,19 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     useEffect(() => {
         setOrders(currentOrders => {
             return initialOrders.map(initialOrder => {
-                const lockKey = String(initialOrder.id);
-                const lockTime = interactionLocks.current[lockKey];
-                const isLocked = lockTime && (Date.now() - lockTime < 8000);
-                if (isLocked) {
-                    const localOrder = currentOrders.find(o => o.id === initialOrder.id);
-                    if (localOrder && localOrder.status !== initialOrder.status) {
+                const localOrder = currentOrders.find(o => o.id === initialOrder.id);
+                if (localOrder) {
+                    const lockKey = String(initialOrder.id);
+                    const lockTime = interactionLocks.current[lockKey];
+                    const isLocked = lockTime && (Date.now() - lockTime < 8000);
+                    const serverTime = new Date(initialOrder.updatedAt).getTime();
+                    const localTime = new Date(localOrder.updatedAt).getTime();
+
+                    if (localTime > serverTime) {
+                        return localOrder;
+                    }
+
+                    if (isLocked && localOrder.status !== initialOrder.status) {
                         return {
                             ...initialOrder,
                             status: localOrder.status,
@@ -458,6 +460,10 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         const serverTime = new Date(serverOrder.updatedAt).getTime();
                         const localTime = new Date(localOrder.updatedAt).getTime();
 
+                        if (localTime > serverTime) {
+                            return localOrder;
+                        }
+
                         if (serverTime > localTime) {
                             hasChanges = true;
                             return serverOrder;
@@ -584,8 +590,15 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             ordersInColumn = ordersInColumn.filter(o => o.items.some(i => i.material === filter))
         }
 
-        // Sort strictly by the original order date (newest first) to prevent UI jumping when a notification is cleared
+        // Sort by the most recent update/revision/comment/change (updatedAt newest first)
         return ordersInColumn.sort((a, b) => {
+            const aUpdated = new Date(a.updatedAt || a.date).getTime();
+            const bUpdated = new Date(b.updatedAt || b.date).getTime();
+
+            if (aUpdated !== bUpdated) {
+                return bUpdated - aUpdated;
+            }
+
             const aDate = new Date(a.date).getTime();
             const bDate = new Date(b.date).getTime();
 
@@ -593,7 +606,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 return bDate - aDate;
             }
 
-            // 3. Fallback to newest orders taking precedence
+            // Fallback to newest orders taking precedence
             return b.id - a.id;
         });
     }
@@ -1024,8 +1037,13 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
     const handleOrderUpdate = async (updatedOrder: Order) => {
         const previousOrders = [...orders]
-        const orderWithNotification = { ...updatedOrder, hasNotification: true, updatedAt: new Date().toISOString() }
+        const nowIso = new Date().toISOString()
+        const orderWithNotification = { ...updatedOrder, hasNotification: true, updatedAt: nowIso }
+        interactionLocks.current[String(updatedOrder.id)] = Date.now()
         setOrders(prev => prev.map(o => o.id === updatedOrder.id ? orderWithNotification : o))
+        if (selectedOrder && selectedOrder.id === updatedOrder.id) {
+            setSelectedOrder(orderWithNotification)
+        }
 
         try {
             console.log(`[CLIENT_DEBUG] Using Unified API for Detail Update #${updatedOrder.id}`);
@@ -1034,7 +1052,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     mode: 'full_update',
-                    orderData: updatedOrder,
+                    orderData: orderWithNotification,
                     userName: currentUser.name,
                     version: "v3.6.6.36"
                 })
@@ -1043,6 +1061,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             const res = await response.json();
             if (!response.ok || (res && res.error)) throw new Error(res?.error || "API Hatası")
 
+            interactionLocks.current[String(updatedOrder.id)] = Date.now()
             toast.success("Sipariş güncellendi")
         } catch (error: any) {
             console.error("Update failed:", error)
@@ -1054,15 +1073,18 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     const handleAddComment = async (orderId: number, message: string, attachments: any[], type: string) => {
         // Save current orders for rollback
         const previousOrders = [...orders]
+        const nowIso = new Date().toISOString()
 
         const newComment: Comment = {
             id: Date.now().toString(),
             author: currentUser.name,
             message,
-            timestamp: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+            timestamp: nowIso,
             attachments,
             type
         }
+
+        interactionLocks.current[String(orderId)] = Date.now()
 
         // Optimistic UI update
         const updatedOrders = orders.map(o => {
@@ -1070,7 +1092,8 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 const refreshedOrder = {
                     ...o,
                     hasNotification: true,
-                    updatedAt: new Date().toISOString(),
+                    updatedAt: nowIso,
+                    comments: [newComment],
                     commentCount: (o.commentCount || 0) + 1
                 }
                 // Update selected order IF it is this order
@@ -1633,10 +1656,6 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         isOpen={isPanelOpen}
                         onClose={() => {
                             setIsPanelOpen(false);
-                            if (selectedOrder && selectedOrder.hasNotification) {
-                                setOrders((prev) => prev.map(o => o.id === selectedOrder.id ? { ...o, hasNotification: false } : o));
-                                markOrderAsRead(selectedOrder.id);
-                            }
                         }}
                         order={selectedOrder ? orders.find(o => o.id === selectedOrder.id) || selectedOrder : null}
                         onUpdate={handleOrderUpdate}

@@ -128,7 +128,7 @@ export async function GET(req: NextRequest) {
                     status: { in: targetActive },
                     ...searchFilter
                 },
-                orderBy: { date: "desc" },
+                orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
                 select: orderSelect
             }) : Promise.resolve([]);
 
@@ -137,19 +137,19 @@ export async function GET(req: NextRequest) {
                     status: { in: targetTerminal },
                     ...searchFilter
                 },
-                orderBy: { date: "desc" },
+                orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
                 select: orderSelect
             }) : Promise.resolve([]);
         } else {
             activeOrdersPromise = targetActive.length > 0 ? db.order.findMany({
                 where: { status: { in: targetActive } },
-                orderBy: { date: "desc" },
+                orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
                 select: orderSelect
             }) : Promise.resolve([]);
 
             terminalOrdersPromise = targetTerminal.length > 0 ? db.order.findMany({
                 where: { status: { in: targetTerminal } },
-                orderBy: { date: "desc" },
+                orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
                 take: 400,
                 select: orderSelect
             }) : Promise.resolve([]);

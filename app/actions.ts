@@ -165,14 +165,14 @@ export async function getOrders(timestamp?: number) {
     // Query 1: Fetch all active orders (no limit, since they are active!)
     const activeOrdersPromise = targetActive.length > 0 ? db.order.findMany({
         where: { status: { in: targetActive } },
-        orderBy: { date: "desc" },
+        orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
         select: orderSelect
     }) : Promise.resolve([]);
 
     // Query 2: Fetch latest 200 terminal orders to show recent history
     const terminalOrdersPromise = targetTerminal.length > 0 ? db.order.findMany({
         where: { status: { in: targetTerminal } },
-        orderBy: { date: "desc" },
+        orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
         take: 200,
         select: orderSelect
     }) : Promise.resolve([]);
@@ -973,10 +973,7 @@ export async function simulateWooCommerceOrder() {
 }
 
 export async function markOrderAsRead(orderId: number) {
-    await db.order.update({
-        where: { id: orderId },
-        data: { hasNotification: false }
-    })
+    await db.$executeRaw`UPDATE "Order" SET "hasNotification" = false WHERE "id" = ${Number(orderId)}`
     // revalidatePath("/") Removed for performance consistency
 }
 
@@ -1824,30 +1821,34 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                     const localLabelsStr = typeof existingOrder.labels === 'string' ? existingOrder.labels : JSON.stringify(existingOrder.labels || []);
                     const finalLabelsStr = JSON.stringify(finalLabels);
                     const hasLabelChange = localLabelsStr !== finalLabelsStr;
+                    const isWorkedOnLocally = isLocalModified || !!existingOrder.assignedTo;
 
-                    const hasDataChange =
-                        oldCustomer !== newCustomer ||
-                        existingOrder.city !== city ||
-                        existingOrder.email !== email ||
-                        existingOrder.phone !== phone ||
-                        existingOrder.address !== address ||
-                        (taxNumber && existingOrder.taxNumber !== taxNumber) ||
-                        (taxOffice && existingOrder.taxOffice !== taxOffice) ||
-                        hasLabelChange;
+                    const hasDataChange = isWorkedOnLocally
+                        ? (hadPaymentFailedLabel || hasLabelChange)
+                        : (
+                            oldCustomer !== newCustomer ||
+                            existingOrder.city !== city ||
+                            existingOrder.email !== email ||
+                            existingOrder.phone !== phone ||
+                            existingOrder.address !== address ||
+                            (taxNumber && existingOrder.taxNumber !== taxNumber) ||
+                            (taxOffice && existingOrder.taxOffice !== taxOffice) ||
+                            hasLabelChange
+                        );
 
                     await db.order.update({
                         where: { id: existingOrder.id },
                         data: {
-                            customer: newCustomer,
+                            customer: isWorkedOnLocally ? existingOrder.customer : newCustomer,
                             total: `${wcOrder.total} ${wcOrder.currency_symbol}`,
                             // If we identified we should keep local status, we pass undefined so Prisma doesn't update this field
                             status: keepLocalStatus ? undefined : finalStatus,
                             // Only update timestamp if status changed OR meaningful data changed
                             updatedAt: (hasStatusChange || hasDataChange) ? new Date() : existingOrder.updatedAt,
                             email: email,
-                            phone: phone,
-                            address: address,
-                            city: city,
+                            phone: isWorkedOnLocally ? (existingOrder.phone || phone) : phone,
+                            address: isWorkedOnLocally ? (existingOrder.address || address) : address,
+                            city: isWorkedOnLocally ? (existingOrder.city || city) : city,
                             note: existingOrder.note || wcOrder.customer_note,
                             cargoBarcode: cargoBarcodeMeta ? cargoBarcodeMeta.value : (existingOrder.cargoBarcode || null),
                             cargoTrackingNumber: cargoTrackingMeta ? cargoTrackingMeta.value : (existingOrder.cargoTrackingNumber || null),
@@ -1857,7 +1858,7 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                             externalId: String(wcOrder.id),
                             taxNumber: taxNumber || existingOrder.taxNumber,
                             taxOffice: taxOffice || existingOrder.taxOffice,
-                            items: {
+                            items: isWorkedOnLocally ? undefined : {
                                 deleteMany: {}, // Items are still source-of-truth from WC
                                 create: items
                             }
@@ -2192,7 +2193,8 @@ export async function syncCargoKargoEntegrator(force: boolean = false) {
                     cargoTrackingNumber: true,
                     cargoBarcode: true,
                     cargoLabelPdf: true,
-                    status: true
+                    status: true,
+                    updatedAt: true
                 }
             });
 
@@ -2258,7 +2260,8 @@ export async function syncCargoKargoEntegrator(force: boolean = false) {
                                 cargoBarcode: barcode || undefined,
                                 cargoLabelPdf: printUrl,
                                 hasCargoPdf: printUrl ? true : false,
-                                ...(statusChanged ? { status: targetStatus, updatedAt: new Date() } : {})
+                                updatedAt: statusChanged ? new Date() : order.updatedAt,
+                                ...(statusChanged ? { status: targetStatus } : {})
                             }
                         });
 
@@ -2386,10 +2389,12 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                 address: true,
                 total: true,
                 labels: true,
+                note: true,
                 cargoBarcode: true,
                 cargoTrackingNumber: true,
                 cargoLabelPdf: true,
                 paymentMethod: true,
+                assignedTo: true,
                 updatedAt: true,
                 items: {
                     select: {
@@ -2598,13 +2603,18 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                         });
 
                     const hasStatusChange = dbStatus !== finalStatus;
-                    const hasDataChange = 
-                        existingOrder.customer !== shippingName ||
-                        existingOrder.address !== shippingAddress ||
-                        existingOrder.phone !== shippingPhone ||
-                        existingOrder.total !== totalAmount.toFixed(2) ||
-                        (!isManualPdf && trackingPdf && existingOrder.cargoLabelPdf !== trackingPdf) ||
-                        itemsChanged;
+                    const isWorkedOnLocally = isLocalModified || !!existingOrder.assignedTo;
+                    const hasNewTrackingPdf = !isManualPdf && !!trackingPdf && existingOrder.cargoLabelPdf !== trackingPdf;
+                    const hasDataChange = isWorkedOnLocally
+                        ? (hasNewTrackingPdf || existingOrder.total !== totalAmount.toFixed(2))
+                        : (
+                            existingOrder.customer !== shippingName ||
+                            existingOrder.address !== shippingAddress ||
+                            existingOrder.phone !== shippingPhone ||
+                            existingOrder.total !== totalAmount.toFixed(2) ||
+                            hasNewTrackingPdf ||
+                            itemsChanged
+                        );
                     if (hasStatusChange || hasDataChange) {
                         if (hasStatusChange) {
                             await logActivity(existingOrder.id, "PrintMarkt Senkronizasyon", "STATUS_CHANGE", `Durum PrintMarkt tarafından '${finalStatus}' olarak güncellendi.`);
@@ -2625,10 +2635,10 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                         await db.order.update({
                             where: { id: existingOrder.id },
                             data: {
-                                customer: shippingName,
+                                customer: isWorkedOnLocally ? existingOrder.customer : shippingName,
                                 email: shippingEmail,
-                                phone: shippingPhone,
-                                address: shippingAddress,
+                                phone: isWorkedOnLocally ? (existingOrder.phone || shippingPhone) : shippingPhone,
+                                address: isWorkedOnLocally ? (existingOrder.address || shippingAddress) : shippingAddress,
                                 total: totalAmount.toFixed(2),
                                 status: finalStatus,
                                 updatedAt: new Date(),
@@ -2637,7 +2647,7 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                                 labels: JSON.stringify(finalLabels),
                                 note: existingOrder.note || customerNote,
                                 paymentMethod: paymentMethod,
-                                items: {
+                                items: isWorkedOnLocally ? undefined : {
                                     deleteMany: {},
                                     create: items
                                 }

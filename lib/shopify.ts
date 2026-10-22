@@ -551,30 +551,28 @@ export async function upsertShopifyOrder(shopifyOrder: any) {
             finalLabels = finalLabels.filter(l => l !== 'Ödeme Başarısız' && l !== 'Ödeme Bekleniyor');
         }
 
+        const localLabelsStr = typeof existingOrder.labels === 'string' ? existingOrder.labels : JSON.stringify(existingOrder.labels || []);
+        const finalLabelsStr = JSON.stringify(finalLabels);
+        const hasLabelChange = localLabelsStr !== finalLabelsStr;
+        const hasTotalChange = existingOrder.total !== totalFormatted;
+        const hasMeaningfulChange = hasLabelChange || hasTotalChange;
+
         const updateData: any = {
-            customer,
-            phone: phone || existingOrder.phone,
-            email: email || existingOrder.email,
-            address: address || existingOrder.address,
-            city: city || existingOrder.city,
+            customer: existingOrder.customer || customer,
+            phone: existingOrder.phone || phone,
+            email: existingOrder.email || email,
+            address: existingOrder.address || address,
+            city: existingOrder.city || city,
             total: totalFormatted,
             paymentMethod,
             taxNumber: taxNumber || existingOrder.taxNumber,
             taxOffice: taxOffice || existingOrder.taxOffice,
             labels: JSON.stringify(finalLabels),
-            updatedAt: new Date(),
+            updatedAt: hasMeaningfulChange ? new Date() : existingOrder.updatedAt,
         };
 
         if (note && !existingOrder.note) {
             updateData.note = note;
-        }
-
-        // If items exist, refresh them
-        if (parsedItems.length > 0) {
-            updateData.items = {
-                deleteMany: {},
-                create: parsedItems,
-            };
         }
 
         await db.order.update({
@@ -582,14 +580,16 @@ export async function upsertShopifyOrder(shopifyOrder: any) {
             data: updateData,
         });
 
-        await db.orderActivity.create({
-            data: {
-                orderId: existingOrder.id,
-                author: 'Shopify Webhook',
-                action: 'ORDER_SYNC',
-                details: `Shopify siparişi (#${externalId}) güncellendi. Finansal Durum: ${financialStatus || 'bilinmiyor'}`,
-            },
-        });
+        if (hasMeaningfulChange) {
+            await db.orderActivity.create({
+                data: {
+                    orderId: existingOrder.id,
+                    author: 'Shopify Webhook',
+                    action: 'ORDER_SYNC',
+                    details: `Shopify siparişi (#${externalId}) güncellendi. Finansal Durum: ${financialStatus || 'bilinmiyor'}`,
+                },
+            });
+        }
 
         return { success: true, isNew: false, order: existingOrder };
     }

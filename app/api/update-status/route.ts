@@ -206,6 +206,10 @@ export async function POST(request: Request) {
                     phone: order.phone,
                     address: order.address,
                     city: order.city,
+                    taxNumber: order.taxNumber,
+                    taxOffice: order.taxOffice,
+                    invoiceStatus: order.invoiceStatus,
+                    invoiceUrl: order.invoiceUrl,
                     hasNotification: true,
                     updatedAt: new Date(),
                     items: order.items ? {
@@ -219,7 +223,8 @@ export async function POST(request: Request) {
                             material: item.material,
                             dimensions: item.dimensions,
                             productNote: item.productNote,
-                            sampleData: item.sampleData
+                            sampleData: item.sampleData,
+                            croppedImage: item.croppedImage
                         }))
                     } : undefined
                 }
