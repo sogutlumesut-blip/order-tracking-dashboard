@@ -9,7 +9,7 @@ import bcrypt from "bcryptjs"
 import { OrderStatus } from "@/data/mock-orders"
 import WooCommerceRestApi from "@woocommerce/woocommerce-rest-api"
 import { fetchShopifyOrders, upsertShopifyOrder, cleanShopifyDomain } from "@/lib/shopify"
-import { isStockMatch } from "@/lib/warehouse-matcher"
+import { isStockMatch, checkStockMatch } from "@/lib/warehouse-matcher"
 import fs from "fs"
 import path from "path"
 
@@ -212,13 +212,28 @@ export async function getOrders(timestamp?: number) {
     return orders.map(order => {
         let warehouseStockMatch: any = null;
         if (availableStocks && availableStocks.length > 0 && order.items) {
+            let bestMatch: any = null;
             for (const item of order.items) {
-                const found = availableStocks.find(stk => isStockMatch(item, stk));
-                if (found) {
-                    warehouseStockMatch = found;
-                    break;
+                for (const stk of availableStocks) {
+                    const matchRes = checkStockMatch(item, stk);
+                    if (matchRes.isMatch) {
+                        const candidate = {
+                            ...stk,
+                            matchType: matchRes.matchType,
+                            matchDescription: matchRes.description,
+                            orderDimensions: item.dimensions || null
+                        };
+                        if (matchRes.matchType === "exact") {
+                            bestMatch = candidate;
+                            break;
+                        } else if (!bestMatch) {
+                            bestMatch = candidate;
+                        }
+                    }
                 }
+                if (bestMatch && bestMatch.matchType === "exact") break;
             }
+            warehouseStockMatch = bestMatch;
         }
 
         return {

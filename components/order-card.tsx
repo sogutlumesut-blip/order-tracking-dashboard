@@ -192,9 +192,17 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
 
                     {/* Warehouse Stock Match Badge (High Priority Alert) */}
                     {order.warehouseStockMatch && !isPaymentFailed && !isCancelled && !isDeleted && (
-                        <div className="bg-emerald-600 border border-emerald-300 text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-xl flex items-center gap-1.5 animate-bounce">
-                            <span>📦</span>
-                            <span>DEPODA STOK! ({order.warehouseStockMatch.source?.toUpperCase()} İADESİ)</span>
+                        <div className={`text-white text-[10px] font-black px-2.5 py-1 rounded-full shadow-xl flex items-center gap-1.5 animate-bounce ${
+                            order.warehouseStockMatch.matchType === "close_smaller"
+                                ? "bg-amber-600 border border-amber-300"
+                                : "bg-emerald-600 border border-emerald-300"
+                        }`}>
+                            <span>{order.warehouseStockMatch.matchType === "close_smaller" ? "✂️" : "📦"}</span>
+                            <span>
+                                {order.warehouseStockMatch.matchType === "close_smaller"
+                                    ? `DEPODA KESİLEBİLİR STOK! (${order.warehouseStockMatch.source?.toUpperCase()} İADESİ)`
+                                    : `DEPODA STOK! (${order.warehouseStockMatch.source?.toUpperCase()} İADESİ)`}
+                            </span>
                         </div>
                     )}
                 </div>
@@ -428,7 +436,11 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
 
                         {/* WAREHOUSE STOCK MATCH DETAIL BOX */}
                         {order.warehouseStockMatch && (
-                            <div className="mt-2.5 p-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded-lg flex items-center justify-between text-xs text-emerald-900 dark:text-emerald-200 shadow-xs">
+                            <div className={`mt-2.5 p-2 rounded-lg flex items-center justify-between text-xs shadow-xs border ${
+                                order.warehouseStockMatch.matchType === "close_smaller"
+                                    ? "bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200"
+                                    : "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200"
+                            }`}>
                                 <div className="flex items-center gap-2">
                                     {(order.warehouseStockMatch.imageUrl || order.warehouseStockMatch.id) ? (
                                         <img
@@ -443,28 +455,36 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                             }}
                                         />
                                     ) : null}
-                                    <span className="text-base" style={{ display: (order.warehouseStockMatch.imageUrl || order.warehouseStockMatch.id) ? 'none' : 'inline' }}>📦</span>
+                                    <span className="text-base" style={{ display: (order.warehouseStockMatch.imageUrl || order.warehouseStockMatch.id) ? 'none' : 'inline' }}>
+                                        {order.warehouseStockMatch.matchType === "close_smaller" ? "✂️" : "📦"}
+                                    </span>
                                     <div>
                                         <div className="font-extrabold text-[11px] uppercase tracking-wide flex items-center gap-1.5">
-                                            <span>Depoda Mevcut:</span>
-                                            <span className="bg-emerald-200 dark:bg-emerald-800 text-emerald-900 dark:text-emerald-100 px-1.5 py-0.2 rounded font-black text-[10px]">
+                                            <span>{order.warehouseStockMatch.matchType === "close_smaller" ? "Kesilebilir Stok:" : "Depoda Mevcut:"}</span>
+                                            <span className={`px-1.5 py-0.2 rounded font-black text-[10px] ${
+                                                order.warehouseStockMatch.matchType === "close_smaller"
+                                                    ? "bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100"
+                                                    : "bg-emerald-200 dark:bg-emerald-800 text-emerald-900 dark:text-emerald-100"
+                                            }`}>
                                                 {order.warehouseStockMatch.source} İADESİ
                                             </span>
                                             {order.warehouseStockMatch.orderNo && (
-                                                <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-mono">
+                                                <span className="text-[10px] opacity-75 font-mono">
                                                     (#{order.warehouseStockMatch.orderNo})
                                                 </span>
                                             )}
                                         </div>
-                                        {order.warehouseStockMatch.returnReason && (
-                                            <div className="text-[10px] text-emerald-700 dark:text-emerald-400 truncate max-w-[220px]">
-                                                {order.warehouseStockMatch.returnReason}
-                                            </div>
-                                        )}
+                                        <div className="text-[10px] font-medium opacity-90 truncate max-w-[240px]">
+                                            {order.warehouseStockMatch.matchType === "close_smaller"
+                                                ? `Depo: ${order.warehouseStockMatch.dimensions} (Sipariş daha küçük, kesilebilir)`
+                                                : `Depo: ${order.warehouseStockMatch.dimensions} (Birebir ölçü)`}
+                                        </div>
                                     </div>
                                 </div>
-                                <span className="bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-xs uppercase shrink-0">
-                                    RAFTAN AL
+                                <span className={`text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-xs uppercase shrink-0 ${
+                                    order.warehouseStockMatch.matchType === "close_smaller" ? "bg-amber-600" : "bg-emerald-600"
+                                }`}>
+                                    {order.warehouseStockMatch.matchType === "close_smaller" ? "KESİP KULLAN" : "RAFTAN AL"}
                                 </span>
                             </div>
                         )}

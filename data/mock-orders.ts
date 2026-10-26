@@ -41,6 +41,9 @@ export interface WarehouseStockMatch {
     returnReason?: string | null;
     pdfPath?: string | null;
     imageUrl?: string | null;
+    matchType?: "exact" | "close_smaller";
+    matchDescription?: string;
+    orderDimensions?: string | null;
 }
 
 export interface Order {

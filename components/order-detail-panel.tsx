@@ -444,22 +444,58 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                         <div className="space-y-6">
                             {/* WAREHOUSE STOCK MATCH BANNER */}
                             {formData.warehouseStockMatch && (
-                                <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border-2 border-emerald-500 rounded-xl space-y-3 shadow-md">
+                                <div className={`p-4 rounded-xl space-y-3 shadow-md border-2 ${
+                                    formData.warehouseStockMatch.matchType === "close_smaller"
+                                        ? "bg-amber-50 dark:bg-amber-950/40 border-amber-500"
+                                        : "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500"
+                                }`}>
                                     <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-200 font-bold text-sm">
-                                            <Package className="w-5 h-5 text-emerald-600 shrink-0" />
-                                            <span>Bu Ürün Deponuzda Hazır Stokta Bulunuyor!</span>
+                                        <div className={`flex items-center gap-2 font-bold text-sm ${
+                                            formData.warehouseStockMatch.matchType === "close_smaller"
+                                                ? "text-amber-900 dark:text-amber-200"
+                                                : "text-emerald-800 dark:text-emerald-200"
+                                        }`}>
+                                            {formData.warehouseStockMatch.matchType === "close_smaller" ? (
+                                                <Scissors className="w-5 h-5 text-amber-600 shrink-0" />
+                                            ) : (
+                                                <Package className="w-5 h-5 text-emerald-600 shrink-0" />
+                                            )}
+                                            <span>
+                                                {formData.warehouseStockMatch.matchType === "close_smaller"
+                                                    ? "Depodaki Büyük Stok Bu Sipariş İçin Kesilip Kullanılabilir!"
+                                                    : "Bu Ürün Deponuzda Birebir Hazır Stokta Bulunuyor!"}
+                                            </span>
                                         </div>
-                                        <span className="bg-emerald-600 text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
+                                        <span className={`text-white text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider ${
+                                            formData.warehouseStockMatch.matchType === "close_smaller"
+                                                ? "bg-amber-600"
+                                                : "bg-emerald-600"
+                                        }`}>
                                             {formData.warehouseStockMatch.source} İADESİ
                                         </span>
                                     </div>
                                     
-                                    <p className="text-xs text-emerald-700 dark:text-emerald-300">
-                                        Yeni baskı almanıza gerek olmayabilir. Bu ürün daha önce <strong>{formData.warehouseStockMatch.source}</strong> üzerinden iade edilmiş ve depoda hazır bekliyor.
+                                    <p className={`text-xs ${
+                                        formData.warehouseStockMatch.matchType === "close_smaller"
+                                            ? "text-amber-800 dark:text-amber-300"
+                                            : "text-emerald-700 dark:text-emerald-300"
+                                    }`}>
+                                        {formData.warehouseStockMatch.matchType === "close_smaller" ? (
+                                            <>
+                                                Yeni baskı almanıza gerek olmayabilir. Depodaki <strong>{formData.warehouseStockMatch.dimensions}</strong> ölçülü ürün bu siparişten daha büyüktür. Kenarlarından kesilerek ({formData.warehouseStockMatch.orderDimensions || "küçük sipariş"} için) kullanılabilir.
+                                            </>
+                                        ) : (
+                                            <>
+                                                Yeni baskı almanıza gerek olmayabilir. Bu ürün daha önce <strong>{formData.warehouseStockMatch.source}</strong> üzerinden iade edilmiş ve depoda hazır bekliyor.
+                                            </>
+                                        )}
                                     </p>
 
-                                    <div className="flex gap-3 bg-white dark:bg-slate-900 p-3 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                                    <div className={`flex gap-3 bg-white dark:bg-slate-900 p-3 rounded-lg border ${
+                                        formData.warehouseStockMatch.matchType === "close_smaller"
+                                            ? "border-amber-200 dark:border-amber-800"
+                                            : "border-emerald-200 dark:border-emerald-800"
+                                    }`}>
                                         <a
                                             href={formData.warehouseStockMatch.imageUrl || `/api/warehouse-stock/image?id=${formData.warehouseStockMatch.id}`}
                                             target="_blank"
@@ -470,7 +506,11 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                             <img
                                                 src={formData.warehouseStockMatch.imageUrl || `/api/warehouse-stock/image?id=${formData.warehouseStockMatch.id}`}
                                                 alt={formData.warehouseStockMatch.sku || "Depo Ürünü"}
-                                                className="w-20 h-20 rounded-lg object-cover border border-emerald-300 dark:border-emerald-700 group-hover:scale-105 transition-transform bg-slate-100 dark:bg-slate-800 shadow-xs"
+                                                className={`w-20 h-20 rounded-lg object-cover border group-hover:scale-105 transition-transform bg-slate-100 dark:bg-slate-800 shadow-xs ${
+                                                    formData.warehouseStockMatch.matchType === "close_smaller"
+                                                        ? "border-amber-300 dark:border-amber-700"
+                                                        : "border-emerald-300 dark:border-emerald-700"
+                                                }`}
                                                 onError={(e) => {
                                                     const target = e.target as HTMLElement;
                                                     target.style.display = 'none';
@@ -480,7 +520,14 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                         </a>
                                         <div className="flex-1 text-xs text-slate-800 dark:text-slate-200 grid grid-cols-2 gap-2">
                                             <div><span className="text-slate-500 dark:text-slate-400">Ürün Kodu:</span> <strong>{formData.warehouseStockMatch.sku}</strong></div>
-                                            <div><span className="text-slate-500 dark:text-slate-400">Ölçü:</span> <strong>{formData.warehouseStockMatch.dimensions}</strong></div>
+                                            <div>
+                                                <span className="text-slate-500 dark:text-slate-400">Depo Ölçüsü:</span> <strong>{formData.warehouseStockMatch.dimensions}</strong>
+                                                {formData.warehouseStockMatch.matchType === "close_smaller" && formData.warehouseStockMatch.orderDimensions && (
+                                                    <span className="block text-[11px] text-amber-700 dark:text-amber-400 font-semibold">
+                                                        Sipariş: {formData.warehouseStockMatch.orderDimensions} (Küçük)
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div><span className="text-slate-500 dark:text-slate-400">Doku / Kağıt:</span> <strong>{formData.warehouseStockMatch.material}</strong></div>
                                             <div><span className="text-slate-500 dark:text-slate-400">İade Sipariş No:</span> <strong>#{formData.warehouseStockMatch.orderNo || "-"}</strong></div>
                                             {formData.warehouseStockMatch.returnReason && (
