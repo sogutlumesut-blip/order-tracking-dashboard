@@ -201,7 +201,8 @@ export async function getOrders(timestamp?: number) {
             source: true,
             orderNo: true,
             returnReason: true,
-            pdfPath: true
+            pdfPath: true,
+            imageUrl: true
         }
     }).catch(() => []);
 

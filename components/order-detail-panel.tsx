@@ -459,16 +459,36 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                         Yeni baskı almanıza gerek olmayabilir. Bu ürün daha önce <strong>{formData.warehouseStockMatch.source}</strong> üzerinden iade edilmiş ve depoda hazır bekliyor.
                                     </p>
 
-                                    <div className="text-xs text-slate-800 dark:text-slate-200 grid grid-cols-2 gap-2 bg-white dark:bg-slate-900 p-3 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                                        <div><span className="text-slate-500 dark:text-slate-400">Ürün Kodu:</span> <strong>{formData.warehouseStockMatch.sku}</strong></div>
-                                        <div><span className="text-slate-500 dark:text-slate-400">Ölçü:</span> <strong>{formData.warehouseStockMatch.dimensions}</strong></div>
-                                        <div><span className="text-slate-500 dark:text-slate-400">Doku / Kağıt:</span> <strong>{formData.warehouseStockMatch.material}</strong></div>
-                                        <div><span className="text-slate-500 dark:text-slate-400">İade Sipariş No:</span> <strong>#{formData.warehouseStockMatch.orderNo || "-"}</strong></div>
-                                        {formData.warehouseStockMatch.returnReason && (
-                                            <div className="col-span-2 pt-1 border-t border-slate-100 dark:border-slate-800">
-                                                <span className="text-slate-500 dark:text-slate-400">İade Nedeni / Müşteri:</span> <strong>{formData.warehouseStockMatch.returnReason}</strong>
-                                            </div>
-                                        )}
+                                    <div className="flex gap-3 bg-white dark:bg-slate-900 p-3 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                                        <a
+                                            href={formData.warehouseStockMatch.imageUrl || `/api/warehouse-stock/image?id=${formData.warehouseStockMatch.id}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            title="Ürün görselini büyüt"
+                                            className="block group relative shrink-0"
+                                        >
+                                            <img
+                                                src={formData.warehouseStockMatch.imageUrl || `/api/warehouse-stock/image?id=${formData.warehouseStockMatch.id}`}
+                                                alt={formData.warehouseStockMatch.sku || "Depo Ürünü"}
+                                                className="w-20 h-20 rounded-lg object-cover border border-emerald-300 dark:border-emerald-700 group-hover:scale-105 transition-transform bg-slate-100 dark:bg-slate-800 shadow-xs"
+                                                onError={(e) => {
+                                                    const target = e.target as HTMLElement;
+                                                    target.style.display = 'none';
+                                                    if (target.parentElement) target.parentElement.style.display = 'none';
+                                                }}
+                                            />
+                                        </a>
+                                        <div className="flex-1 text-xs text-slate-800 dark:text-slate-200 grid grid-cols-2 gap-2">
+                                            <div><span className="text-slate-500 dark:text-slate-400">Ürün Kodu:</span> <strong>{formData.warehouseStockMatch.sku}</strong></div>
+                                            <div><span className="text-slate-500 dark:text-slate-400">Ölçü:</span> <strong>{formData.warehouseStockMatch.dimensions}</strong></div>
+                                            <div><span className="text-slate-500 dark:text-slate-400">Doku / Kağıt:</span> <strong>{formData.warehouseStockMatch.material}</strong></div>
+                                            <div><span className="text-slate-500 dark:text-slate-400">İade Sipariş No:</span> <strong>#{formData.warehouseStockMatch.orderNo || "-"}</strong></div>
+                                            {formData.warehouseStockMatch.returnReason && (
+                                                <div className="col-span-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+                                                    <span className="text-slate-500 dark:text-slate-400">İade Nedeni / Müşteri:</span> <strong>{formData.warehouseStockMatch.returnReason}</strong>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
 
                                     <div className="flex items-center gap-2 pt-1">

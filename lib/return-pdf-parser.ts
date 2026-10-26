@@ -150,6 +150,7 @@ export interface ParsedReturnForm {
     orderNo: string | null;
     source: string;
     returnReason: string | null;
+    imageUrl?: string | null;
     rawText?: string;
 }
 
@@ -390,18 +391,40 @@ export function parseReturnFormText(text: string, fileName: string = ""): Parsed
 
 export async function parseReturnFormPdf(pdfBuffer: Buffer, fileName: string = ""): Promise<ParsedReturnForm> {
     let text = "";
+    let imageUrl: string | null = null;
+
     try {
         const pdfParseModule = require('pdf-parse');
-        if (typeof pdfParseModule === 'function') {
+        if (pdfParseModule.PDFParse) {
+            // 1. Extract text
+            try {
+                const parser = new pdfParseModule.PDFParse({ data: pdfBuffer });
+                const data = await parser.getText();
+                text = (typeof data === 'string' ? data : data?.text) || "";
+                if (parser.destroy) {
+                    try { await parser.destroy(); } catch { /* ignore */ }
+                }
+            } catch (tErr: any) {
+                console.warn(`PDF getText hatası (${fileName}):`, tErr?.message);
+            }
+
+            // 2. Extract embedded product image
+            try {
+                const imgParser = new pdfParseModule.PDFParse({ data: pdfBuffer });
+                const imgRes = await imgParser.getImage({ imageDataUrl: true });
+                const firstImg = imgRes?.pages?.[0]?.images?.[0];
+                if (firstImg?.dataUrl && firstImg.dataUrl.length > 50) {
+                    imageUrl = firstImg.dataUrl;
+                }
+                if (imgParser.destroy) {
+                    try { await imgParser.destroy(); } catch { /* ignore */ }
+                }
+            } catch (imgErr: any) {
+                console.warn(`PDF getImage hatası (${fileName}):`, imgErr?.message);
+            }
+        } else if (typeof pdfParseModule === 'function') {
             const data = await pdfParseModule(pdfBuffer);
             text = data.text || "";
-        } else if (pdfParseModule.PDFParse) {
-            const parser = new pdfParseModule.PDFParse({ data: pdfBuffer });
-            const data = await parser.getText();
-            text = (typeof data === 'string' ? data : data?.text) || "";
-            if (parser.destroy) {
-                try { await parser.destroy(); } catch { /* ignore */ }
-            }
         } else if (typeof pdfParseModule.default === 'function') {
             const data = await pdfParseModule.default(pdfBuffer);
             text = data.text || "";
@@ -411,5 +434,9 @@ export async function parseReturnFormPdf(pdfBuffer: Buffer, fileName: string = "
         // Graceful fallback to filename parsing - never crash the upload!
     }
 
-    return parseReturnFormText(text, fileName);
+    const parsed = parseReturnFormText(text, fileName);
+    if (imageUrl) {
+        parsed.imageUrl = imageUrl;
+    }
+    return parsed;
 }

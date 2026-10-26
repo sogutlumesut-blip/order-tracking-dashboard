@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { X, Upload, Package, Trash2, FileText, Search, RefreshCw, Layers, Pencil, Check } from "lucide-react"
+import { X, Upload, Package, Trash2, FileText, Search, RefreshCw, Layers, Pencil, Check, ImageIcon, ZoomIn } from "lucide-react"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 
@@ -14,6 +14,7 @@ interface WarehouseStockItem {
     source: string | null
     returnReason: string | null
     pdfPath: string | null
+    imageUrl: string | null
     status: string
     usedInOrderId: number | null
     createdAt: string
@@ -37,6 +38,9 @@ export function WarehouseStockModal({ isOpen, onClose }: WarehouseStockModalProp
     const fileInputRef = useRef<HTMLInputElement>(null)
     const folderInputRef = useRef<HTMLInputElement>(null)
 
+    // Image preview / lightbox modal state
+    const [previewImage, setPreviewImage] = useState<{ src: string; title: string } | null>(null)
+
     // Edit modal state
     const [editingItem, setEditingItem] = useState<WarehouseStockItem | null>(null)
     const [editForm, setEditForm] = useState({
@@ -45,7 +49,8 @@ export function WarehouseStockModal({ isOpen, onClose }: WarehouseStockModalProp
         material: "",
         orderNo: "",
         source: "",
-        returnReason: ""
+        returnReason: "",
+        imageUrl: ""
     })
 
     const handleStartEdit = (item: WarehouseStockItem) => {
@@ -56,7 +61,8 @@ export function WarehouseStockModal({ isOpen, onClose }: WarehouseStockModalProp
             material: item.material || "",
             orderNo: item.orderNo || "",
             source: item.source || "",
-            returnReason: item.returnReason || ""
+            returnReason: item.returnReason || "",
+            imageUrl: item.imageUrl || ""
         })
     }
 
@@ -73,7 +79,8 @@ export function WarehouseStockModal({ isOpen, onClose }: WarehouseStockModalProp
                     material: editForm.material.trim(),
                     orderNo: editForm.orderNo.trim() || null,
                     source: editForm.source.trim() || null,
-                    returnReason: editForm.returnReason.trim() || null
+                    returnReason: editForm.returnReason.trim() || null,
+                    imageUrl: editForm.imageUrl.trim() || null
                 })
             })
             if (res.ok) {
@@ -389,6 +396,7 @@ export function WarehouseStockModal({ isOpen, onClose }: WarehouseStockModalProp
                                     <table className="w-full text-left text-xs">
                                         <thead className="bg-slate-50 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 font-bold uppercase border-b border-slate-100 dark:border-slate-700">
                                             <tr>
+                                                <th className="py-3 px-3 w-16 text-center">Görsel</th>
                                                 <th className="py-3 px-4">Ürün Kodu (SKU)</th>
                                                 <th className="py-3 px-4">Ölçü</th>
                                                 <th className="py-3 px-4">Doku / Kağıt</th>
@@ -401,6 +409,36 @@ export function WarehouseStockModal({ isOpen, onClose }: WarehouseStockModalProp
                                         <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                                             {filteredStocks.map((item) => (
                                                 <tr key={item.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-750 transition-colors">
+                                                    <td className="py-2 px-3 text-center">
+                                                        <div
+                                                            onClick={() => {
+                                                                const imgSrc = item.imageUrl || `/api/warehouse-stock/image?id=${item.id}`;
+                                                                setPreviewImage({ src: imgSrc, title: `${item.sku} - #${item.orderNo || ""}` });
+                                                            }}
+                                                            className="w-12 h-12 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0 mx-auto cursor-pointer hover:border-emerald-500 hover:shadow-md transition-all group relative"
+                                                            title="Görseli büyütmek için tıklayın"
+                                                        >
+                                                            <img
+                                                                src={item.imageUrl || `/api/warehouse-stock/image?id=${item.id}`}
+                                                                alt={item.sku || "Ürün"}
+                                                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-200"
+                                                                onError={(e) => {
+                                                                    const target = e.target as HTMLElement;
+                                                                    target.style.display = "none";
+                                                                    const parent = target.parentElement;
+                                                                    if (parent && !parent.querySelector(".fallback-icon")) {
+                                                                        const icon = document.createElement("div");
+                                                                        icon.className = "fallback-icon text-slate-400 text-sm font-bold flex items-center justify-center w-full h-full";
+                                                                        icon.innerHTML = "📦";
+                                                                        parent.appendChild(icon);
+                                                                    }
+                                                                }}
+                                                            />
+                                                            <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                                                <ZoomIn className="w-4 h-4" />
+                                                            </div>
+                                                        </div>
+                                                    </td>
                                                     <td className="py-3 px-4 font-mono font-bold text-slate-900 dark:text-slate-100">
                                                         {item.sku}
                                                     </td>
@@ -630,6 +668,30 @@ export function WarehouseStockModal({ isOpen, onClose }: WarehouseStockModalProp
                         </div>
                         <div className="space-y-3 text-xs">
                             <div>
+                                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Ürün Görseli (URL veya CDN Linki)</label>
+                                <div className="flex gap-2 items-center">
+                                    {(editForm.imageUrl || editingItem.imageUrl) ? (
+                                        <img
+                                            src={editForm.imageUrl || editingItem.imageUrl || `/api/warehouse-stock/image?id=${editingItem.id}`}
+                                            alt="Önizleme"
+                                            className="w-10 h-10 object-cover rounded-lg border border-slate-200 dark:border-slate-700 shrink-0 bg-slate-100 dark:bg-slate-800"
+                                            onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                                        />
+                                    ) : (
+                                        <div className="w-10 h-10 rounded-lg border border-dashed border-slate-300 dark:border-slate-700 flex items-center justify-center shrink-0 text-slate-400">
+                                            <ImageIcon className="w-4 h-4" />
+                                        </div>
+                                    )}
+                                    <input
+                                        type="text"
+                                        value={editForm.imageUrl}
+                                        onChange={(e) => setEditForm({ ...editForm, imageUrl: e.target.value })}
+                                        className="w-full px-3 py-2 border rounded-lg dark:bg-slate-800 dark:border-slate-700 text-slate-900 dark:text-slate-100 font-mono text-[11px]"
+                                        placeholder="https://... (Görsel URL)"
+                                    />
+                                </div>
+                            </div>
+                            <div>
                                 <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">Ürün Kodu (SKU)</label>
                                 <input
                                     type="text"
@@ -703,6 +765,38 @@ export function WarehouseStockModal({ isOpen, onClose }: WarehouseStockModalProp
                             >
                                 Kaydet
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* LIGHTBOX / IMAGE PREVIEW MODAL */}
+            {previewImage && (
+                <div
+                    className="fixed inset-0 z-70 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+                    onClick={() => setPreviewImage(null)}
+                >
+                    <div
+                        className="relative max-w-2xl max-h-[85vh] bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-2xl border border-slate-700 flex flex-col"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60">
+                            <h4 className="font-bold text-sm text-slate-800 dark:text-slate-100 truncate pr-4">
+                                {previewImage.title || "Ürün Görseli"}
+                            </h4>
+                            <button
+                                onClick={() => setPreviewImage(null)}
+                                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-4 flex items-center justify-center bg-slate-950/70 overflow-auto">
+                            <img
+                                src={previewImage.src}
+                                alt={previewImage.title}
+                                className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-md"
+                            />
                         </div>
                     </div>
                 </div>

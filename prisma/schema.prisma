@@ -166,6 +166,7 @@ model WarehouseStock {
   source        String?
   returnReason  String?
   pdfPath       String?
+  imageUrl      String?
   status        String    @default("available") // "available", "used"
   usedInOrderId Int?
   usedAt        DateTime?

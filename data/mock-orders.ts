@@ -40,6 +40,7 @@ export interface WarehouseStockMatch {
     orderNo?: string | null;
     returnReason?: string | null;
     pdfPath?: string | null;
+    imageUrl?: string | null;
 }
 
 export interface Order {

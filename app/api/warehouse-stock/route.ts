@@ -105,10 +105,30 @@ export async function POST(req: NextRequest) {
                             if (matchedOrder.source && parsed.source === "Bilinmiyor") {
                                 parsed.source = matchedOrder.source;
                             }
+                            if (firstItem.image_src && !parsed.imageUrl) {
+                                parsed.imageUrl = firstItem.image_src;
+                            }
                         }
                     } catch (dbLookupErr) {
                         console.warn("Sipariş veritabanından çekilemedi:", dbLookupErr);
                     }
+                }
+
+                // If image still not found, check if any order item in db has image for this SKU
+                const candidateSku = parsed.sku || "";
+                if (!parsed.imageUrl && candidateSku && candidateSku !== "Bilinmiyor" && candidateSku.toLowerCase() !== "unknown") {
+                    try {
+                        const itemWithImg = await db.orderItem.findFirst({
+                            where: {
+                                sku: { contains: candidateSku },
+                                NOT: { image_src: "" }
+                            },
+                            select: { image_src: true }
+                        });
+                        if (itemWithImg?.image_src) {
+                            parsed.imageUrl = itemWithImg.image_src;
+                        }
+                    } catch { /* ignore */ }
                 }
 
                 // Validation check: at least SKU or orderNo must exist
@@ -152,7 +172,8 @@ export async function POST(req: NextRequest) {
                             material: finalMaterial !== "Bilinmiyor" ? finalMaterial : existing.material,
                             source: parsed.source !== "Bilinmiyor" ? parsed.source : existing.source,
                             returnReason: parsed.returnReason || existing.returnReason,
-                            pdfPath: publicUrl || existing.pdfPath
+                            pdfPath: publicUrl || existing.pdfPath,
+                            imageUrl: parsed.imageUrl || existing.imageUrl
                         }
                     });
                 } else {
@@ -165,6 +186,7 @@ export async function POST(req: NextRequest) {
                             source: parsed.source,
                             returnReason: parsed.returnReason || null,
                             pdfPath: publicUrl,
+                            imageUrl: parsed.imageUrl || null,
                             status: "available"
                         }
                     });
@@ -212,6 +234,7 @@ export async function POST(req: NextRequest) {
                         source: item.source || existing.source,
                         returnReason: item.returnReason || existing.returnReason,
                         pdfPath: item.pdfPath || existing.pdfPath,
+                        imageUrl: item.imageUrl || existing.imageUrl,
                         status: item.status || existing.status
                     }
                 });
@@ -225,6 +248,7 @@ export async function POST(req: NextRequest) {
                         source: item.source || "Bilinmiyor",
                         returnReason: item.returnReason || null,
                         pdfPath: item.pdfPath || null,
+                        imageUrl: item.imageUrl || null,
                         status: item.status || "available"
                     }
                 });
@@ -243,7 +267,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
     try {
         const body = await req.json();
-        const { id, status, usedInOrderId, sku, dimensions, material, orderNo, source, returnReason } = body;
+        const { id, status, usedInOrderId, sku, dimensions, material, orderNo, source, returnReason, imageUrl } = body;
 
         if (!id) {
             return NextResponse.json({ error: "Stok ID gereklidir." }, { status: 400 });
@@ -261,6 +285,7 @@ export async function PATCH(req: NextRequest) {
         if (orderNo !== undefined) updateData.orderNo = orderNo;
         if (source !== undefined) updateData.source = source;
         if (returnReason !== undefined) updateData.returnReason = returnReason;
+        if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
 
         const updated = await db.warehouseStock.update({
             where: { id: Number(id) },

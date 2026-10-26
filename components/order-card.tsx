@@ -430,7 +430,20 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                         {order.warehouseStockMatch && (
                             <div className="mt-2.5 p-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded-lg flex items-center justify-between text-xs text-emerald-900 dark:text-emerald-200 shadow-xs">
                                 <div className="flex items-center gap-2">
-                                    <span className="text-base">📦</span>
+                                    {(order.warehouseStockMatch.imageUrl || order.warehouseStockMatch.id) ? (
+                                        <img
+                                            src={order.warehouseStockMatch.imageUrl || `/api/warehouse-stock/image?id=${order.warehouseStockMatch.id}`}
+                                            alt={order.warehouseStockMatch.sku || "Depo"}
+                                            className="w-8 h-8 rounded-md object-cover border border-emerald-300 dark:border-emerald-700 shrink-0 bg-white"
+                                            onError={(e) => {
+                                                const target = e.target as HTMLElement;
+                                                target.style.display = 'none';
+                                                const next = target.nextElementSibling as HTMLElement;
+                                                if (next) next.style.display = 'inline';
+                                            }}
+                                        />
+                                    ) : null}
+                                    <span className="text-base" style={{ display: (order.warehouseStockMatch.imageUrl || order.warehouseStockMatch.id) ? 'none' : 'inline' }}>📦</span>
                                     <div>
                                         <div className="font-extrabold text-[11px] uppercase tracking-wide flex items-center gap-1.5">
                                             <span>Depoda Mevcut:</span>
