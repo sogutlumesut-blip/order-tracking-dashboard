@@ -10,6 +10,7 @@ import { OrderStatus } from "@/data/mock-orders"
 import WooCommerceRestApi from "@woocommerce/woocommerce-rest-api"
 import { fetchShopifyOrders, upsertShopifyOrder, cleanShopifyDomain } from "@/lib/shopify"
 import { isStockMatch, checkStockMatch } from "@/lib/warehouse-matcher"
+import { createFaturaEntegratorInvoice } from "@/lib/fatura-entegrator-api"
 import fs from "fs"
 import path from "path"
 
@@ -767,7 +768,7 @@ export async function addCommentAction(orderId: number, message: string, attachm
 }
 
 // INVOICE & CARGO ACTIONS
-export async function createInvoiceAction(orderId: number) {
+export async function createInvoiceAction(orderId: number, taxNumber?: string, taxOffice?: string) {
     noStore()
     console.log(`[ACTION] createInvoiceAction started for order ${orderId}`)
     const session = await getSession()
@@ -777,29 +778,50 @@ export async function createInvoiceAction(orderId: number) {
     }
 
     const settings = await getSystemSettings()
-    if (!settings.fe_user || !settings.fe_pass) {
-        console.log(`[ACTION] createInvoiceAction aborted: Missing settings`)
-        return { error: "Lütfen önce Ayarlar sayfasından FaturaEntegra bilgilerini (Kullanıcı Adı ve Şifre) giriniz." }
-    }
 
     try {
-        await logActivity(orderId, session.user.name, "INVOICE_START", "Fatura oluşturma işlemi başlatıldı.")
+        if (taxNumber !== undefined || taxOffice !== undefined) {
+            await db.order.update({
+                where: { id: orderId },
+                data: {
+                    ...(taxNumber !== undefined ? { taxNumber } : {}),
+                    ...(taxOffice !== undefined ? { taxOffice } : {})
+                }
+            })
+        }
 
-        // SIMULATION: Since we have settings now, we simulate a successful API call
-        const mockInvoiceUrl = `https://faturaentegrator.com/download/invoice/${orderId}.pdf`
+        const order = await db.order.findUnique({
+            where: { id: orderId },
+            include: { items: true }
+        })
+
+        if (!order) {
+            return { error: "Sipariş bulunamadı." }
+        }
+
+        await logActivity(orderId, session.user.name, "INVOICE_START", "Fatura Entegratör üzerinden fatura oluşturma işlemi başlatıldı.")
+
+        const result = await createFaturaEntegratorInvoice(order, order.items, settings)
+
+        if (result.error || !result.success || !result.pdfUrl) {
+            const errMsg = result.error || "Fatura oluşturulamadı."
+            await logActivity(orderId, session.user.name, "INVOICE_ERROR", `Fatura hatası: ${errMsg}`)
+            return { error: errMsg }
+        }
 
         await db.order.update({
             where: { id: orderId },
             data: {
                 invoiceStatus: "created",
-                invoiceUrl: mockInvoiceUrl
+                invoiceUrl: result.pdfUrl
             }
         })
 
-        await logActivity(orderId, session.user.name, "INVOICE_CREATED", "Fatura başarıyla oluşturuldu.")
+        const serialInfo = result.serialNumber ? ` (Seri No: ${result.serialNumber})` : ` (ID: ${result.invoiceId})`
+        await logActivity(orderId, session.user.name, "INVOICE_CREATED", `Fatura başarıyla oluşturuldu${serialInfo}.`)
 
-        console.log(`[ACTION] createInvoiceAction success for order ${orderId}`)
-        return { success: true, url: mockInvoiceUrl }
+        console.log(`[ACTION] createInvoiceAction success for order ${orderId}: ${result.pdfUrl}`)
+        return { success: true, url: result.pdfUrl, invoiceId: result.invoiceId }
     } catch (e: any) {
         console.error(`[ACTION] createInvoiceAction error for order ${orderId}:`, e)
         await logActivity(orderId, session.user.name, "INVOICE_ERROR", `Fatura hatası: ${e.message}`)

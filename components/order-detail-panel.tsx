@@ -705,7 +705,11 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     {formData.invoiceUrl && (
                                         <div className="pt-2 border-t border-blue-100 dark:border-blue-900/30">
                                             <a
-                                                href={formData.invoiceUrl}
+                                                href={
+                                                    formData.invoiceUrl.includes("faturaentegrator.com/download/invoice/")
+                                                        ? `/api/invoice-pdf/${formData.id}`
+                                                        : formData.invoiceUrl
+                                                }
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="flex items-center justify-center gap-2 py-2 bg-emerald-600 text-white rounded-md text-xs font-bold hover:bg-emerald-700 transition-all"
@@ -966,15 +970,29 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                     <button
                                         onClick={async () => {
-                                            if (!formData.taxNumber) {
-                                                toast.error("Lütfen önce TCKN/VKN alanını doldurun.");
-                                                return;
+                                            const effectiveTaxNumber = (formData.taxNumber || "11111111111").trim();
+                                            const effectiveTaxOffice = (formData.taxOffice || "").trim();
+                                            if (isModified) {
+                                                await updateOrderDetails({
+                                                    ...formData,
+                                                    taxNumber: effectiveTaxNumber,
+                                                    taxOffice: effectiveTaxOffice
+                                                });
+                                                setIsModified(false);
                                             }
-                                            toast.promise(createInvoiceAction(formData.id), {
-                                                loading: "Fatura oluşturuluyor...",
+                                            toast.promise(createInvoiceAction(formData.id, effectiveTaxNumber, effectiveTaxOffice), {
+                                                loading: "Fatura Entegratör üzerinden fatura oluşturuluyor...",
                                                 success: (res: any) => {
                                                     if (res.error) throw new Error(res.error);
-                                                    setFormData({ ...formData, invoiceStatus: 'created', invoiceUrl: res.url });
+                                                    const updated = {
+                                                        ...formData,
+                                                        taxNumber: effectiveTaxNumber,
+                                                        taxOffice: effectiveTaxOffice,
+                                                        invoiceStatus: 'created',
+                                                        invoiceUrl: res.url
+                                                    };
+                                                    setFormData(updated);
+                                                    if (onUpdate) onUpdate(updated);
                                                     return "Fatura başarıyla oluşturuldu!";
                                                 },
                                                 error: (err) => err.message || "Hata oluştu"
