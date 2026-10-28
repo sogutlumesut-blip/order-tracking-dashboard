@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/prisma';
-import { verifyShopifyWebhook, upsertShopifyOrder } from '@/lib/shopify';
+import { verifyShopifyWebhook, upsertShopifyOrder, cleanShopifyDomain, ShopifyStoreConfig } from '@/lib/shopify';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
     return NextResponse.json(
-        { status: 'active', message: 'Shopify Webhook is listening' },
+        { status: 'active', message: 'Shopify Webhook is listening (Multi-Store Supported)' },
         { status: 200 }
     );
 }
@@ -16,21 +16,68 @@ export async function POST(req: Request) {
         const rawBody = await req.text();
         const hmacHeader = req.headers.get('x-shopify-hmac-sha256');
         const topic = req.headers.get('x-shopify-topic') || 'orders/create';
-        const shopDomain = req.headers.get('x-shopify-shop-domain') || '';
+        const shopDomain = cleanShopifyDomain(req.headers.get('x-shopify-shop-domain') || '');
 
-        console.log(`[SHOPIFY_WEBHOOK] Received webhook event: ${topic} from domain: ${shopDomain}`);
+        const { searchParams } = new URL(req.url);
+        const storeParam = searchParams.get('store');
 
-        // Fetch configured webhook secret if any
-        const secretSetting = await db.systemSetting.findUnique({
-            where: { key: 'shopify_webhook_secret' },
+        console.log(`[SHOPIFY_WEBHOOK] Received webhook event: ${topic} from domain: ${shopDomain || 'unknown'} (store param: ${storeParam || 'auto'})`);
+
+        // Fetch settings for Store 1 and Store 2
+        const settings = await db.systemSetting.findMany({
+            where: {
+                key: {
+                    in: [
+                        'shopify_shop_domain',
+                        'shopify_webhook_secret',
+                        'shopify_shop_name',
+                        'shopify_shop_domain_2',
+                        'shopify_webhook_secret_2',
+                        'shopify_shop_name_2',
+                    ],
+                },
+            },
         });
-        const webhookSecret = secretSetting?.value || null;
+
+        const settingsMap = settings.reduce((acc, curr) => ({ ...acc, [curr.key]: curr.value }), {} as Record<string, string>);
+
+        const domain1 = cleanShopifyDomain(settingsMap.shopify_shop_domain || '');
+        const secret1 = settingsMap.shopify_webhook_secret || null;
+        const name1 = settingsMap.shopify_shop_name || 'Shopify';
+
+        const domain2 = cleanShopifyDomain(settingsMap.shopify_shop_domain_2 || '');
+        const secret2 = settingsMap.shopify_webhook_secret_2 || null;
+        const name2 = settingsMap.shopify_shop_name_2 || 'Shopify 2';
+
+        // Detect if this request belongs to Store 2
+        const isStore2 = Boolean(
+            storeParam === '2' ||
+            (domain2 && shopDomain && shopDomain.toLowerCase() === domain2.toLowerCase())
+        );
+
+        const storeConfig: ShopifyStoreConfig = isStore2
+            ? {
+                  storeId: '2',
+                  storeName: name2,
+                  source: 'shopify_2',
+                  barcodePrefix: 'SHOP2-',
+                  shopDomain: domain2 || shopDomain,
+              }
+            : {
+                  storeId: '1',
+                  storeName: name1,
+                  source: 'shopify',
+                  barcodePrefix: 'SHOP-',
+                  shopDomain: domain1 || shopDomain,
+              };
+
+        const webhookSecret = isStore2 ? secret2 : secret1;
 
         // Verify HMAC if a secret is provided
         if (webhookSecret && webhookSecret.trim().length > 0) {
             const isValid = verifyShopifyWebhook(rawBody, hmacHeader, webhookSecret);
             if (!isValid) {
-                console.warn('[SHOPIFY_WEBHOOK] Warning: HMAC signature mismatch with configured secret, proceeding with payload.');
+                console.warn(`[SHOPIFY_WEBHOOK] Warning: HMAC signature mismatch for ${storeConfig.storeName}, proceeding with payload.`);
             }
         }
 
@@ -53,10 +100,10 @@ export async function POST(req: Request) {
             return NextResponse.json({ message: 'Payload received (no order id)' }, { status: 200 });
         }
 
-        // Process the order
-        const result = await upsertShopifyOrder(body);
+        // Process the order with store configuration
+        const result = await upsertShopifyOrder(body, storeConfig);
 
-        console.log(`[SHOPIFY_WEBHOOK] Successfully processed order #${result.order.externalId} (DB ID: ${result.order.id}, New: ${result.isNew})`);
+        console.log(`[SHOPIFY_WEBHOOK] Successfully processed order #${result.order.externalId} for ${storeConfig.storeName} (DB ID: ${result.order.id}, Source: ${result.order.source}, New: ${result.isNew})`);
 
         return NextResponse.json(
             {
@@ -64,6 +111,8 @@ export async function POST(req: Request) {
                 message: result.isNew ? 'Sipariş başarıyla oluşturuldu' : 'Sipariş başarıyla güncellendi',
                 id: result.order.id,
                 orderNumber: result.order.externalId,
+                store: storeConfig.storeName,
+                source: storeConfig.source,
             },
             { status: 200 }
         );

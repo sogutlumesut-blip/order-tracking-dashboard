@@ -356,7 +356,8 @@ export function WarehouseStockModal({ isOpen, onClose }: WarehouseStockModalProp
                                         <option value="printmarkt">PrintMarkt</option>
                                         <option value="woocommerce">WooCommerce</option>
                                         <option value="etsy">Etsy</option>
-                                        <option value="shopify">Shopify</option>
+                                        <option value="shopify">Shopify 1</option>
+                                        <option value="shopify_2">Shopify 2</option>
                                     </select>
 
                                     {/* Status Filter */}

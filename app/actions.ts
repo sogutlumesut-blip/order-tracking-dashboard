@@ -2801,8 +2801,20 @@ export async function saveShopifySettings(formData: FormData) {
     const domain = (formData.get("shopify_shop_domain") as string)?.trim() || ""
     const token = (formData.get("shopify_access_token") as string)?.trim() || ""
     const secret = (formData.get("shopify_webhook_secret") as string)?.trim() || ""
+    const name = (formData.get("shopify_shop_name") as string)?.trim() || "Shopify 1"
+
+    const domain2 = (formData.get("shopify_shop_domain_2") as string)?.trim() || ""
+    const token2 = (formData.get("shopify_access_token_2") as string)?.trim() || ""
+    const secret2 = (formData.get("shopify_webhook_secret_2") as string)?.trim() || ""
+    const name2 = (formData.get("shopify_shop_name_2") as string)?.trim() || "Shopify 2"
 
     try {
+        // Store 1
+        await db.systemSetting.upsert({
+            where: { key: 'shopify_shop_name' },
+            update: { value: name },
+            create: { key: 'shopify_shop_name', value: name }
+        })
         await db.systemSetting.upsert({
             where: { key: 'shopify_shop_domain' },
             update: { value: cleanShopifyDomain(domain) },
@@ -2819,8 +2831,30 @@ export async function saveShopifySettings(formData: FormData) {
             create: { key: 'shopify_webhook_secret', value: secret }
         })
 
+        // Store 2
+        await db.systemSetting.upsert({
+            where: { key: 'shopify_shop_name_2' },
+            update: { value: name2 },
+            create: { key: 'shopify_shop_name_2', value: name2 }
+        })
+        await db.systemSetting.upsert({
+            where: { key: 'shopify_shop_domain_2' },
+            update: { value: cleanShopifyDomain(domain2) },
+            create: { key: 'shopify_shop_domain_2', value: cleanShopifyDomain(domain2) }
+        })
+        await db.systemSetting.upsert({
+            where: { key: 'shopify_access_token_2' },
+            update: { value: token2 },
+            create: { key: 'shopify_access_token_2', value: token2 }
+        })
+        await db.systemSetting.upsert({
+            where: { key: 'shopify_webhook_secret_2' },
+            update: { value: secret2 },
+            create: { key: 'shopify_webhook_secret_2', value: secret2 }
+        })
+
         revalidatePath("/admin/settings")
-        return { success: true, message: "Shopify ayarları başarıyla kaydedildi! 🚀" }
+        return { success: true, message: "Shopify mağaza ayarları başarıyla kaydedildi! 🚀" }
     } catch (e: any) {
         console.error("Shopify settings save error:", e)
         return { error: "Ayarlar kaydedilirken hata oluştu: " + e.message }
@@ -2828,74 +2862,118 @@ export async function saveShopifySettings(formData: FormData) {
 }
 
 // SHOPIFY SYNC ACTION
-export async function syncShopifyOrders(force: boolean = false) {
+export async function syncShopifyOrders(force: boolean = false, targetStore: '1' | '2' | 'all' = 'all') {
     const settings = (await getSystemSettings()) as Record<string, string>
 
-    const shopDomain = settings['shopify_shop_domain']
-    const accessToken = settings['shopify_access_token']
+    const store1 = {
+        id: '1',
+        name: settings['shopify_shop_name'] || 'Shopify 1',
+        domain: settings['shopify_shop_domain'],
+        token: settings['shopify_access_token'],
+        source: 'shopify',
+        barcodePrefix: 'SHOP-',
+        lastSyncKey: 'last_shopify_sync_time',
+    }
 
-    if (!shopDomain || !accessToken) {
+    const store2 = {
+        id: '2',
+        name: settings['shopify_shop_name_2'] || 'Shopify 2',
+        domain: settings['shopify_shop_domain_2'],
+        token: settings['shopify_access_token_2'],
+        source: 'shopify_2',
+        barcodePrefix: 'SHOP2-',
+        lastSyncKey: 'last_shopify_sync_time_2',
+    }
+
+    const storesToSync: typeof store1[] = []
+    if ((targetStore === 'all' || targetStore === '1') && store1.domain && store1.token) {
+        storesToSync.push(store1)
+    }
+    if ((targetStore === 'all' || targetStore === '2') && store2.domain && store2.token) {
+        storesToSync.push(store2)
+    }
+
+    if (storesToSync.length === 0) {
+        if (targetStore === '2') {
+            return { error: "2. Shopify mağaza adresi veya Access Token girilmemiş. Lütfen Ayarlar sayfasından tamamlayınız." }
+        }
         return { error: "Shopify mağaza adresi veya Access Token eksik. Lütfen Ayarlar sayfasından tamamlayınız." }
     }
 
-    // Rate Limit check for background sync (skip if called less than 2 minutes ago unless force=true)
-    if (!force) {
-        const lastSyncStr = settings['last_shopify_sync_time']
-        if (lastSyncStr) {
-            const lastSync = parseInt(lastSyncStr)
-            const now = Date.now()
-            if (now - lastSync < 120000) {
-                return { skipped: true, message: "Sync skipped (Rate Limit)" }
+    let totalNew = 0
+    let totalUpdated = 0
+    let results: string[] = []
+
+    for (const store of storesToSync) {
+        // Rate Limit check for background sync (skip if called less than 2 minutes ago unless force=true)
+        if (!force) {
+            const lastSyncStr = settings[store.lastSyncKey]
+            if (lastSyncStr) {
+                const lastSync = parseInt(lastSyncStr)
+                if (Date.now() - lastSync < 120000) {
+                    continue
+                }
             }
+        }
+
+        try {
+            await db.systemSetting.upsert({
+                where: { key: store.lastSyncKey },
+                update: { value: Date.now().toString() },
+                create: { key: store.lastSyncKey, value: Date.now().toString() }
+            })
+
+            const limit = force ? 100 : 25
+            const orders = await fetchShopifyOrders(store.domain!, store.token!, limit)
+
+            let storeNew = 0
+            let storeUpdated = 0
+
+            for (const order of orders) {
+                try {
+                    const res = await upsertShopifyOrder(order, {
+                        storeId: store.id,
+                        storeName: store.name,
+                        source: store.source,
+                        barcodePrefix: store.barcodePrefix,
+                        shopDomain: store.domain
+                    })
+                    if (res.isNew) storeNew++
+                    else storeUpdated++
+                } catch (err: any) {
+                    console.error(`[SHOPIFY_SYNC_ORDER_ERR] ${store.name} #${order.id}:`, err.message)
+                }
+            }
+
+            totalNew += storeNew
+            totalUpdated += storeUpdated
+            results.push(`${store.name}: ${storeNew} yeni, ${storeUpdated} güncellendi`)
+        } catch (err: any) {
+            console.error(`[SHOPIFY_SYNC_ERR] ${store.name}:`, err)
+            results.push(`${store.name}: ${err.message}`)
         }
     }
 
-    try {
-        await db.systemSetting.upsert({
-            where: { key: 'last_shopify_sync_time' },
-            update: { value: Date.now().toString() },
-            create: { key: 'last_shopify_sync_time', value: Date.now().toString() }
-        })
-
-        const limit = force ? 100 : 25
-        const orders = await fetchShopifyOrders(shopDomain, accessToken, limit)
-
-        let newCount = 0
-        let updatedCount = 0
-
-        for (const order of orders) {
-            try {
-                const res = await upsertShopifyOrder(order)
-                if (res.isNew) newCount++
-                else updatedCount++
-            } catch (err: any) {
-                console.error(`[SHOPIFY_SYNC_ORDER_ERR] #${order.id}:`, err.message)
-            }
-        }
-
-        return {
-            success: true,
-            count: newCount,
-            updatedCount,
-            totalFetched: orders.length,
-            message: `${newCount} yeni sipariş eklendi, ${updatedCount} sipariş güncellendi.`
-        }
-    } catch (e: any) {
-        console.error("Shopify sync error:", e)
-        return { error: e.message || "Shopify siparişleri senkronize edilirken bir hata oluştu." }
+    revalidatePath("/")
+    return {
+        success: true,
+        count: totalNew,
+        updatedCount: totalUpdated,
+        message: results.join(" | ") || `${totalNew} yeni sipariş eklendi.`
     }
 }
 
 // SHOPIFY WIPE ACTION
-export async function wipeShopifyOrders() {
+export async function wipeShopifyOrders(targetStore: '1' | '2' | 'all' = 'all') {
     try {
         const session = await getSession()
         if (!session || session.user.role !== "admin") {
             return { error: "Yetkisiz işlem: Sadece yöneticiler silebilir." }
         }
 
+        const sources = targetStore === '1' ? ['shopify'] : targetStore === '2' ? ['shopify_2'] : ['shopify', 'shopify_2']
         const result = await db.order.deleteMany({
-            where: { source: 'shopify' }
+            where: { source: { in: sources } }
         })
 
         return { success: true, message: `${result.count} adet Shopify siparişi başarıyla silindi.` }

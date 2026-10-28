@@ -247,12 +247,12 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                 {order.barcode}
                             </span>
                             <h3 className="font-bold text-slate-900 dark:text-slate-100">
-                                {(order.source === 'woo' || order.source === 'wayfair' || order.source === 'shopify') && order.externalId ? `#${order.externalId}` : (order.id > 0 ? `#${order.id}` : null)}
+                                {(order.source === 'woo' || order.source === 'wayfair' || order.source === 'shopify' || order.source === 'shopify_2') && order.externalId ? `#${order.externalId}` : (order.id > 0 ? `#${order.id}` : null)}
                             </h3>
-                            {order.source === 'shopify' && (
+                            {(order.source === 'shopify' || order.source === 'shopify_2') && (
                                 <div className="flex items-center gap-1">
-                                    <span className="bg-[#008060] text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm">
-                                        SHOPIFY
+                                    <span className={`text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm ${order.source === 'shopify_2' ? 'bg-[#5c6ac4]' : 'bg-[#008060]'}`}>
+                                        {order.source === 'shopify_2' ? 'SHOPIFY 2' : 'SHOPIFY'}
                                     </span>
                                     {order.externalId && (
                                         <span className="text-[10px] text-slate-400 font-mono">({order.id})</span>
@@ -297,9 +297,9 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                     </div>
                     <div className="flex flex-col items-end gap-1">
                         <span className={`text-sm font-semibold px-2 py-1 rounded-md ${isPaymentFailed ? 'text-red-700 bg-red-100 line-through' : 'text-green-600 bg-green-50'}`}>
-                            {order.source === 'PrintMarkt' || order.source === 'wayfair' || (order.source === 'shopify' && order.total.includes('$'))
+                            {order.source === 'PrintMarkt' || order.source === 'wayfair' || (order.source?.startsWith('shopify') && order.total.includes('$'))
                                 ? `$${order.total.replace('$', '').replace('USD', '').trim()}`
-                                : (order.source === 'shopify' && order.total.includes('€'))
+                                : (order.source?.startsWith('shopify') && order.total.includes('€'))
                                 ? `€${order.total.replace('€', '').replace('EUR', '').trim()}`
                                 : `${order.total.replace('₺', '').replace('TL', '').replace('$', '').replace('USD', '').replace('€', '').replace('EUR', '').trim()} ₺`}
                         </span>
@@ -526,7 +526,7 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                             <button
                                 onClick={async (e) => {
                                     e.stopPropagation();
-                                    const orderNo = (order.source === 'woo' || order.source === 'wayfair' || order.source === 'shopify') && order.externalId ? `#${order.externalId}` : `#${order.id}`;
+                                    const orderNo = (order.source === 'woo' || order.source === 'wayfair' || order.source === 'shopify' || order.source === 'shopify_2') && order.externalId ? `#${order.externalId}` : `#${order.id}`;
                                     const productName = order.items && order.items.length > 0 ? order.items[0].name : "Ürün detayı yok";
                                     const productSku = order.items && order.items.length > 0 && order.items[0].sku ? ` (Kod: ${order.items[0].sku})` : "";
                                     const text = `📦 Sipariş Paylaşıldı:\n• Sipariş No: ${orderNo}\n• Müşteri: ${order.customer}\n• Ürün: ${productName}${productSku}\n• Tutar: ${order.total}`;

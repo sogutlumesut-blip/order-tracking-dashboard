@@ -80,9 +80,14 @@ export default async function SettingsPage() {
                     </p>
 
                     <ShopifySettingsForm initialSettings={{
+                        shopify_shop_name: systemSettings.shopify_shop_name,
                         shopify_shop_domain: systemSettings.shopify_shop_domain,
                         shopify_access_token: systemSettings.shopify_access_token,
-                        shopify_webhook_secret: systemSettings.shopify_webhook_secret
+                        shopify_webhook_secret: systemSettings.shopify_webhook_secret,
+                        shopify_shop_name_2: systemSettings.shopify_shop_name_2,
+                        shopify_shop_domain_2: systemSettings.shopify_shop_domain_2,
+                        shopify_access_token_2: systemSettings.shopify_access_token_2,
+                        shopify_webhook_secret_2: systemSettings.shopify_webhook_secret_2,
                     }} />
                 </div>
 

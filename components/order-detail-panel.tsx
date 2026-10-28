@@ -340,11 +340,11 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                     <div>
                         <div className="flex items-center gap-2 flex-wrap">
                             <h2 className="text-lg font-bold dark:text-slate-100">
-                                Sipariş {(formData.source === 'woo' || formData.source === 'wayfair' || formData.source === 'shopify' || formData.source === 'PrintMarkt') && formData.externalId ? `#${formData.externalId.replace(/^pm_/, '')}` : `#${formData.id}`}
+                                Sipariş {(formData.source === 'woo' || formData.source === 'wayfair' || formData.source === 'shopify' || formData.source === 'shopify_2' || formData.source === 'PrintMarkt') && formData.externalId ? `#${formData.externalId.replace(/^pm_/, '')}` : `#${formData.id}`}
                             </h2>
-                            {((formData.source || '').toLowerCase() === 'shopify' || (formData.barcode || '').startsWith('SH-')) && (
-                                <span className="bg-[#008060] text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
-                                    SHOPIFY
+                            {((formData.source || '').toLowerCase().startsWith('shopify') || (formData.barcode || '').startsWith('SH-') || (formData.barcode || '').startsWith('SHOP')) && (
+                                <span className={`${(formData.source || '').toLowerCase() === 'shopify_2' ? 'bg-[#5c6ac4]' : 'bg-[#008060]'} text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm`}>
+                                    {(formData.source || '').toLowerCase() === 'shopify_2' ? 'SHOPIFY 2' : 'SHOPIFY'}
                                 </span>
                             )}
                             {((formData.source || '').toLowerCase() === 'etsy' || (formData.barcode || '').startsWith('ET-')) && (
@@ -376,7 +376,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     {line}
                                 </span>
                             ))}
-                            {(formData.source === 'woo' || formData.source === 'wayfair' || formData.source === 'shopify' || formData.source === 'PrintMarkt') && formData.externalId && (
+                            {(formData.source === 'woo' || formData.source === 'wayfair' || formData.source === 'shopify' || formData.source === 'shopify_2' || formData.source === 'PrintMarkt') && formData.externalId && (
                                 <span className="ml-2 text-xs text-slate-400 font-mono inline-block">(Sistem ID: #{formData.id})</span>
                             )}
                         </div>
@@ -417,7 +417,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                     </div>
 
                     <h1 className="text-2xl font-bold mb-2">
-                        Sipariş {(formData.source === 'woo' || formData.source === 'wayfair' || formData.source === 'shopify' || formData.source === 'PrintMarkt') && formData.externalId ? `#${formData.externalId.replace(/^pm_/, '')}` : `#${formData.id}`}
+                        Sipariş {(formData.source === 'woo' || formData.source === 'wayfair' || formData.source === 'shopify' || formData.source === 'shopify_2' || formData.source === 'PrintMarkt') && formData.externalId ? `#${formData.externalId.replace(/^pm_/, '')}` : `#${formData.id}`}
                     </h1>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -1100,7 +1100,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                 {(!formData.cargoBarcode && !formData.cargoLabelPdf) && (
                                     <div className="mb-4">
                                         <div className="grid grid-cols-1 gap-2">
-                                            {formData.source === 'shopify' ? (
+                                            {(formData.source === 'shopify' || formData.source === 'shopify_2') ? (
                                                 <button
                                                     onClick={() => window.open(`https://admin.shopify.com/store/orders?query=${formData.externalId || formData.id}`, '_blank')}
                                                     className="py-3 mt-2 border-2 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 hover:border-emerald-400 transition-all text-emerald-700 dark:text-emerald-400 font-bold text-xs"

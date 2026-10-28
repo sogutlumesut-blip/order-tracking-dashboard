@@ -419,18 +419,30 @@ export async function parseShopifyLineItems(lineItems: any[]): Promise<any[]> {
     );
 }
 
+export interface ShopifyStoreConfig {
+    storeId?: '1' | '2' | string;
+    storeName?: string;
+    source?: string;
+    barcodePrefix?: string;
+    shopDomain?: string;
+}
+
 /**
  * Process and upsert a Shopify order into the database
  */
-export async function upsertShopifyOrder(shopifyOrder: any) {
+export async function upsertShopifyOrder(shopifyOrder: any, storeConfig?: ShopifyStoreConfig) {
     if (!shopifyOrder || !shopifyOrder.id) {
         throw new Error('Geçersiz Shopify sipariş verisi.');
     }
 
+    const source = storeConfig?.source || 'shopify';
+    const barcodePrefix = storeConfig?.barcodePrefix || (source === 'shopify_2' ? 'SHOP2-' : 'SHOP-');
+    const storeDisplayName = storeConfig?.storeName || (source === 'shopify_2' ? 'Shopify 2' : 'Shopify');
+
     const orderId = String(shopifyOrder.id);
     const orderNumber = String(shopifyOrder.order_number || shopifyOrder.name?.replace('#', '') || orderId);
     const externalId = orderNumber;
-    const barcode = `SHOP-${orderNumber}`;
+    const barcode = `${barcodePrefix}${orderNumber}`;
 
     // Target PrintMarkt pending column ("Bekliyor (PrintMarkt)" / "pending_pm")
     const statuses = await db.statusColumn.findMany({ orderBy: { order: 'asc' } });
@@ -516,7 +528,11 @@ export async function upsertShopifyOrder(shopifyOrder: any) {
     const parsedItems = await parseShopifyLineItems(shopifyOrder.line_items || []);
 
     // Labels
-    let labels: string[] = ['Shopify', 'Yeni'];
+    let labels: string[] = ['Shopify'];
+    if (source === 'shopify_2') {
+        labels.push(storeDisplayName);
+    }
+    labels.push('Yeni');
     const financialStatus = shopifyOrder.financial_status;
     const isFailedPayment = financialStatus === 'voided' || financialStatus === 'refunded';
     if (isFailedPayment) {
@@ -525,11 +541,11 @@ export async function upsertShopifyOrder(shopifyOrder: any) {
         labels.push('Ödeme Bekleniyor');
     }
 
-    // Check if order already exists (idempotency by externalId or barcode)
+    // Check if order already exists (idempotency by source+externalId or barcode)
     const existingOrder = await db.order.findFirst({
         where: {
             OR: [
-                { source: 'shopify', externalId: externalId },
+                { source: source, externalId: externalId },
                 { barcode: barcode },
             ],
         },
@@ -584,9 +600,9 @@ export async function upsertShopifyOrder(shopifyOrder: any) {
             await db.orderActivity.create({
                 data: {
                     orderId: existingOrder.id,
-                    author: 'Shopify Webhook',
+                    author: `${storeDisplayName} Webhook`,
                     action: 'ORDER_SYNC',
-                    details: `Shopify siparişi (#${externalId}) güncellendi. Finansal Durum: ${financialStatus || 'bilinmiyor'}`,
+                    details: `${storeDisplayName} siparişi (#${externalId}) güncellendi. Finansal Durum: ${financialStatus || 'bilinmiyor'}`,
                 },
             });
         }
@@ -611,7 +627,7 @@ export async function upsertShopifyOrder(shopifyOrder: any) {
             barcode: barcode,
             paymentMethod,
             hasNotification: true, // Trigger audio/badge notification
-            source: 'shopify',
+            source: source,
             externalId: externalId,
             taxNumber,
             taxOffice,
@@ -625,9 +641,9 @@ export async function upsertShopifyOrder(shopifyOrder: any) {
     await db.orderActivity.create({
         data: {
             orderId: newOrder.id,
-            author: 'Shopify Entegrasyonu',
+            author: storeDisplayName,
             action: 'ORDER_CREATE',
-            details: `Shopify üzerinden #${externalId} numaralı yeni sipariş sisteme eklendi.`,
+            details: `${storeDisplayName} üzerinden #${externalId} numaralı yeni sipariş sisteme eklendi.`,
         },
     });
 
