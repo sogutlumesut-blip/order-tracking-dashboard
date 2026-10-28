@@ -10,7 +10,7 @@ import { OrderStatus } from "@/data/mock-orders"
 import WooCommerceRestApi from "@woocommerce/woocommerce-rest-api"
 import { fetchShopifyOrders, upsertShopifyOrder, cleanShopifyDomain } from "@/lib/shopify"
 import { isStockMatch, checkStockMatch } from "@/lib/warehouse-matcher"
-import { createFaturaEntegratorInvoice } from "@/lib/fatura-entegrator-api"
+import { createEdmInvoiceDirect } from "@/lib/edm-api"
 import fs from "fs"
 import path from "path"
 
@@ -799,12 +799,12 @@ export async function createInvoiceAction(orderId: number, taxNumber?: string, t
             return { error: "Sipariş bulunamadı." }
         }
 
-        await logActivity(orderId, session.user.name, "INVOICE_START", "Fatura Entegratör üzerinden fatura oluşturma işlemi başlatıldı.")
+        await logActivity(orderId, session.user.name, "INVOICE_START", "EDM Bilişim üzerinden doğrudan fatura oluşturma işlemi başlatıldı.")
 
-        const result = await createFaturaEntegratorInvoice(order, order.items, settings)
+        const result = await createEdmInvoiceDirect(order, order.items, settings)
 
         if (result.error || !result.success || !result.pdfUrl) {
-            const errMsg = result.error || "Fatura oluşturulamadı."
+            const errMsg = result.error || "EDM üzerinden fatura oluşturulamadı."
             await logActivity(orderId, session.user.name, "INVOICE_ERROR", `Fatura hatası: ${errMsg}`)
             return { error: errMsg }
         }
@@ -817,10 +817,10 @@ export async function createInvoiceAction(orderId: number, taxNumber?: string, t
             }
         })
 
-        const serialInfo = result.serialNumber ? ` (Seri No: ${result.serialNumber})` : ` (ID: ${result.invoiceId})`
-        await logActivity(orderId, session.user.name, "INVOICE_CREATED", `Fatura başarıyla oluşturuldu${serialInfo}.`)
+        const serialInfo = result.serialNumber ? ` (Seri No: ${result.serialNumber})` : ` (UUID: ${result.invoiceId})`
+        await logActivity(orderId, session.user.name, "INVOICE_CREATED", `EDM üzerinden fatura başarıyla oluşturuldu${serialInfo}.`)
 
-        console.log(`[ACTION] createInvoiceAction success for order ${orderId}: ${result.pdfUrl}`)
+        console.log(`[ACTION] createInvoiceAction (EDM Direct) success for order ${orderId}: ${result.pdfUrl}`)
         return { success: true, url: result.pdfUrl, invoiceId: result.invoiceId }
     } catch (e: any) {
         console.error(`[ACTION] createInvoiceAction error for order ${orderId}:`, e)

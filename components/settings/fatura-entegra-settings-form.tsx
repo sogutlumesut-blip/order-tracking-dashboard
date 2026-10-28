@@ -36,13 +36,13 @@ export function FaturaEntegraSettingsForm({ initialSettings }: FaturaEntegraSett
     return (
         <form action={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-indigo-50/50 p-6 rounded-xl border border-indigo-100">
             <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Kullanıcı Adı <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-bold text-slate-700 mb-2">EDM Kullanıcı Adı <span className="text-red-500">*</span></label>
                 <div className="relative">
                     <User className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
                     <input
                         name="fe_user"
-                        defaultValue={initialSettings.fe_user || ''}
-                        placeholder="Kullanıcı adınız"
+                        defaultValue={initialSettings.fe_user || 'cc_51628375490'}
+                        placeholder="cc_51628375490"
                         required
                         className="w-full pl-10 p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 bg-white dark:text-slate-100 dark:bg-slate-900 dark:border-slate-800"
                     />
@@ -50,7 +50,7 @@ export function FaturaEntegraSettingsForm({ initialSettings }: FaturaEntegraSett
             </div>
 
             <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Şifre <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-bold text-slate-700 mb-2">EDM Şifre <span className="text-red-500">*</span></label>
                 <div className="relative">
                     <Lock className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
                     <input
@@ -65,13 +65,13 @@ export function FaturaEntegraSettingsForm({ initialSettings }: FaturaEntegraSett
             </div>
 
             <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">App Key (Opsiyonel)</label>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Gönderici Etiketi (GB Tag)</label>
                 <div className="relative">
                     <ShieldCheck className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
                     <input
                         name="fe_app_key"
-                        defaultValue={initialSettings.fe_app_key || ''}
-                        placeholder="Uygulama anahtarı"
+                        defaultValue={initialSettings.fe_app_key || 'urn:mail:mesutgb@edmbilisim.com'}
+                        placeholder="urn:mail:mesutgb@edmbilisim.com"
                         className="w-full pl-10 p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 bg-white dark:text-slate-100 dark:bg-slate-900 dark:border-slate-800"
                     />
                 </div>
@@ -84,7 +84,7 @@ export function FaturaEntegraSettingsForm({ initialSettings }: FaturaEntegraSett
                     className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-indigo-700 transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    {isPending ? "Kaydediliyor..." : "FaturaEntegra Ayarlarını Kaydet"}
+                    {isPending ? "Kaydediliyor..." : "EDM Ayarlarını Kaydet"}
                 </button>
             </div>
         </form>

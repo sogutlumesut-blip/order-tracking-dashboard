@@ -102,14 +102,14 @@ export default async function SettingsPage() {
                     }} />
                 </div>
 
-                {/* FATURA ENTEGRA INTEGRATION */}
+                {/* EDM BILISIM DIRECT INTEGRATION */}
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-indigo-100">
                     <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-900">
-                        <span className="bg-indigo-600 text-white p-1 px-2 rounded text-sm">FE</span>
-                        FaturaEntegra Entegrasyonu
+                        <span className="bg-indigo-600 text-white p-1 px-2 rounded text-sm">EDM</span>
+                        EDM Bilişim (Doğrudan e-Fatura / e-Arşiv) Entegrasyonu
                     </h2>
                     <p className="text-sm text-slate-600 mb-6">
-                        Faturaları otomatik kesmek ve kargo barkodu oluşturmak için API bilgilerinizi giriniz.
+                        Aracı entegratör kullanmadan doğrudan EDM Bilişim Web Servisi üzerinden e-Fatura ve e-Arşiv fatura kesmek için portal bilgilerinizi giriniz.
                     </p>
 
                     <FaturaEntegraSettingsForm initialSettings={{

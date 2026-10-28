@@ -981,7 +981,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                 setIsModified(false);
                                             }
                                             toast.promise(createInvoiceAction(formData.id, effectiveTaxNumber, effectiveTaxOffice), {
-                                                loading: "Fatura Entegratör üzerinden fatura oluşturuluyor...",
+                                                loading: "EDM Bilişim üzerinden fatura oluşturuluyor...",
                                                 success: (res: any) => {
                                                     if (res.error) throw new Error(res.error);
                                                     const updated = {
