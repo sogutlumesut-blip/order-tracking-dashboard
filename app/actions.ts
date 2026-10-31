@@ -2029,6 +2029,70 @@ export async function createManualOrder(orderData: any) {
     }
 }
 
+export async function createMaterialOrder(orderData: any) {
+    const { items, note, requestedBy, clientBarcode, customer, status, labels, total } = orderData
+
+    const barcode = clientBarcode || `MLZ-${Date.now()}`
+    const orderCustomer = customer || `📦 MALZEME SİPARİŞİ\nTalep Eden: ${requestedBy || "Atölye"}`
+
+    try {
+        serverLog(`[CREATE_MATERIAL] Starting material order: ${orderCustomer}`);
+
+        // Ensure "Malzeme" label exists in the database
+        try {
+            const existingLabel = await db.orderLabel.findFirst({ where: { name: 'Malzeme' } });
+            if (!existingLabel) {
+                await db.orderLabel.create({
+                    data: {
+                        name: 'Malzeme',
+                        color: 'amber'
+                    }
+                });
+            }
+        } catch (e) {
+            // Non-critical, ignore
+        }
+
+        const newOrder = await db.order.create({
+            data: {
+                customer: orderCustomer,
+                phone: "",
+                email: "",
+                address: "Atölye / Malzeme Deposu",
+                city: "İç Tedarik",
+                note: note ? note.trim() : null,
+                total: total || "0.00 ₺",
+                status: status || "pending_woo",
+                barcode,
+                source: "malzeme",
+                labels: JSON.stringify(labels || ['Malzeme', 'DKM']),
+                hasNotification: true,
+                items: {
+                    create: (items || []).map((item: any) => ({
+                        name: item.name,
+                        sku: item.sku || `MLZ-${Math.floor(1000 + Math.random() * 9000)}`,
+                        quantity: Number(item.quantity) || 1,
+                        image_src: item.image_src || "",
+                        material: item.material || "Malzeme",
+                        dimensions: item.dimensions || "-",
+                        productNote: item.productNote || null
+                    }))
+                }
+            }
+        });
+
+        serverLog(`[CREATE_MATERIAL] Material order created in DB: ${newOrder.id}`);
+
+        await logManualActivity(newOrder.id, "ORDER_CREATED", `Malzeme siparişi oluşturuldu: ${(items || []).map((i: any) => `${i.name} (x${i.quantity || 1})`).join(', ')}`);
+
+        return { success: true, orderId: newOrder.id };
+    } catch (error: any) {
+        serverLog(`[CREATE_MATERIAL_ERR] Failed: ${error?.message || error}`);
+        console.error("Failed to create material order:", error);
+        throw new Error("Malzeme siparişi oluşturulamadı: " + (error?.message || String(error)));
+    }
+}
+
 export async function inspectLatestWooCommerceOrder(specificOrderId?: string) {
     const settings = await getSystemSettings()
     if (!settings.wc_url || !settings.wc_key || !settings.wc_secret) {

@@ -3,7 +3,7 @@
 import { Order, OrderStatus, Comment } from "../data/mock-orders"
 import { OrderCard } from "./order-card"
 import { useState, useEffect, useRef, useMemo } from "react"
-import { ChevronDown, ChevronUp, ChevronRight, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck, ScanBarcode, Clock, CheckCircle, Lock, Unlock, Package } from "lucide-react"
+import { ChevronDown, ChevronUp, ChevronRight, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck, ScanBarcode, Clock, CheckCircle, Lock, Unlock, Package, Boxes } from "lucide-react"
 import { Html5QrcodeScanner } from "html5-qrcode"
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, TouchSensor, MouseSensor, useSensor, useSensors, useDraggable, useDroppable, closestCorners, defaultDropAnimationSideEffects } from "@dnd-kit/core"
 import { arrayMove, SortableContext, horizontalListSortingStrategy, useSortable } from "@dnd-kit/sortable"
@@ -14,9 +14,10 @@ import { toast } from "sonner"
 import { Toaster } from "sonner"
 // Removed duplicate import
 import { updateOrderStatusV3 } from '../app/actionsV2'
-import { getStatuses, getOrders, getLabels, updateOrderDetails, addCommentAction, getOrderDetails, logoutAction, syncWooCommerceOrders, syncEtsyOrders, syncPrintMarktOrders, syncWayfairOrders, syncShopifyOrders, syncCargoKargoEntegrator, createManualOrder, simulateWooCommerceOrder, markOrderAsRead, bulkUpdateOrderStatus, updateStatusOrder, createDHLShipmentAction } from '../app/actions'
+import { getStatuses, getOrders, getLabels, updateOrderDetails, addCommentAction, getOrderDetails, logoutAction, syncWooCommerceOrders, syncEtsyOrders, syncPrintMarktOrders, syncWayfairOrders, syncShopifyOrders, syncCargoKargoEntegrator, createManualOrder, createMaterialOrder, simulateWooCommerceOrder, markOrderAsRead, bulkUpdateOrderStatus, updateStatusOrder, createDHLShipmentAction } from '../app/actions'
 import Link from "next/link"
 import { ManualOrderModal } from "./manual-order-modal"
+import { MaterialOrderModal } from "./material-order-modal"
 import { WarehouseStockModal } from "./warehouse-stock-modal"
 import { useRouter } from "next/navigation"
 
@@ -64,6 +65,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
     const [isPanelOpen, setIsPanelOpen] = useState(false)
     const [isManualOrderOpen, setIsManualOrderOpen] = useState(false)
+    const [isMaterialOrderOpen, setIsMaterialOrderOpen] = useState(false)
     const [isWarehouseStockOpen, setIsWarehouseStockOpen] = useState(false)
     const [isSyncing, setIsSyncing] = useState(false)
     const [lastSynced, setLastSynced] = useState<Date | null>(null)
@@ -173,10 +175,12 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     // Refs to track modal state allows accessing current state inside setInterval closure
     const isPanelOpenRef = useRef(isPanelOpen)
     const isManualOrderOpenRef = useRef(isManualOrderOpen)
+    const isMaterialOrderOpenRef = useRef(isMaterialOrderOpen)
     const selectedOrderRef = useRef(selectedOrder)
 
     useEffect(() => { isPanelOpenRef.current = isPanelOpen }, [isPanelOpen])
     useEffect(() => { isManualOrderOpenRef.current = isManualOrderOpen }, [isManualOrderOpen])
+    useEffect(() => { isMaterialOrderOpenRef.current = isMaterialOrderOpen }, [isMaterialOrderOpen])
     useEffect(() => { selectedOrderRef.current = selectedOrder }, [selectedOrder])
 
     useEffect(() => {
@@ -1284,6 +1288,16 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                             <span>Manuel Sipariş</span>
                         </button>
 
+                        {/* Malzemeler Siparişi */}
+                        <button
+                            onClick={() => setIsMaterialOrderOpen(true)}
+                            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 shadow-xs"
+                            title="Malzeme siparişi oluştur (Kağıt & Boya)"
+                        >
+                            <Boxes className="w-4 h-4" />
+                            <span>Malzemeler Siparişi</span>
+                        </button>
+
                         {/* Depo Stokları & İade Yönetimi */}
                         <button
                             onClick={() => setIsWarehouseStockOpen(true)}
@@ -1519,6 +1533,20 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                             <button
                                 onClick={() => {
                                     setMobileMenuOpen(false);
+                                    setIsMaterialOrderOpen(true);
+                                }}
+                                className="w-full flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded-lg hover:bg-amber-100 font-bold text-sm border border-amber-100 dark:border-amber-900/30"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Boxes className="w-4 h-4" />
+                                    Malzemeler Siparişi (Kağıt & Boya)
+                                </div>
+                                <ChevronRight className="w-4 h-4 opacity-50" />
+                            </button>
+
+                            <button
+                                onClick={() => {
+                                    setMobileMenuOpen(false);
                                     setIsWarehouseStockOpen(true);
                                 }}
                                 className="w-full flex items-center justify-between p-3 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-lg hover:bg-emerald-100 font-bold text-sm border border-emerald-100 dark:border-emerald-900/30"
@@ -1650,6 +1678,51 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     <WarehouseStockModal
                         isOpen={isWarehouseStockOpen}
                         onClose={() => setIsWarehouseStockOpen(false)}
+                    />
+
+                    <MaterialOrderModal
+                        isOpen={isMaterialOrderOpen}
+                        onClose={() => setIsMaterialOrderOpen(false)}
+                        currentUserName={currentUser?.name || "Atölye"}
+                        onCreate={async (data) => {
+                            const tempId = -Math.floor(Math.random() * 100000);
+                            const clientBarcode = `MLZ-${Date.now()}`;
+
+                            const optimisticOrder = {
+                                id: tempId,
+                                barcode: clientBarcode,
+                                customer: data.customer || `📦 MALZEME SİPARİŞİ\nTalep Eden: ${currentUser?.name || "Atölye"}`,
+                                status: 'pending_woo',
+                                source: 'malzeme',
+                                date: new Date().toISOString(),
+                                createdAt: new Date().toISOString(),
+                                updatedAt: new Date().toISOString(),
+                                labels: ['Malzeme', 'DKM'],
+                                items: data.items || [],
+                                total: "0.00 ₺",
+                                note: data.note || "",
+                                commentCount: 0,
+                                hasNotification: true
+                            };
+
+                            setOrders(prev => [optimisticOrder, ...prev] as any);
+                            toast.success("Malzeme siparişi başarıyla oluşturuldu! Bekliyor (DKM) paneline eklendi.");
+
+                            try {
+                                const res = await createMaterialOrder({
+                                    ...data,
+                                    requestedBy: currentUser?.name || "Atölye",
+                                    clientBarcode
+                                });
+
+                                if (res && res.orderId) {
+                                    setOrders(prev => prev.map(o => o.id === tempId ? { ...o, id: res.orderId } : o) as any);
+                                }
+                            } catch (e: any) {
+                                setOrders(prev => prev.filter(o => o.id !== tempId) as any);
+                                toast.error("Malzeme siparişi yüklenemedi: " + (e.message || "Bağlantı hatası"));
+                            }
+                        }}
                     />
 
                     <OrderDetailPanel

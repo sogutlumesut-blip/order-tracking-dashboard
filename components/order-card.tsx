@@ -270,6 +270,11 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                     WAYFAIR
                                 </span>
                             )}
+                            {order.source === 'malzeme' && (
+                                <span className="bg-amber-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm">
+                                    MALZEME
+                                </span>
+                            )}
                             {(order.source === 'woo' || (!order.source && order.barcode?.startsWith('WC-'))) && (
                                 <div className="flex items-center gap-1">
                                     <span className="bg-[#96588A] text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm">
@@ -331,7 +336,9 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                 <div className="flex flex-wrap gap-1">
                     {order.labels.map(labelName => {
                         const tagDef = tags.find(t => t.name === labelName)
-                        const colors = getColorClasses(tagDef?.color)
+                        const colors = labelName === 'Malzeme'
+                            ? { bg: 'bg-amber-100 dark:bg-amber-950/60', text: 'text-amber-800 dark:text-amber-300', border: 'border-amber-300 dark:border-amber-700' }
+                            : getColorClasses(tagDef?.color)
 
                         return (
                             <span
