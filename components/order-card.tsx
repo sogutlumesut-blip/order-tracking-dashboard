@@ -56,10 +56,11 @@ function MaterialHeroBanner({ item, totalItems }: { item?: any; totalItems: numb
     const name = (item.name || "").trim()
     const material = (item.material || "").trim()
     const sku = (item.sku || "").toUpperCase()
+    const matLower = material.toLowerCase()
 
-    const isPaper = material === 'Kağıt' || sku.includes('PAPER') || sku.includes('KGT') || sku.includes('NW') || sku.includes('TEX') || sku.includes('PS')
-    const isHp = material.toLowerCase().includes('hp') || sku.includes('HP')
-    const isEpson = material.toLowerCase().includes('epson') || sku.includes('EPSON')
+    const isHp = matLower.includes('hp') || sku.includes('HP')
+    const isEpson = matLower.includes('epson') || sku.includes('EPSON')
+    const isPaper = !isHp && !isEpson && (matLower.includes('kağıt') || matLower.includes('kagit') || sku.includes('PAPER') || sku.includes('KGT') || sku.includes('NW') || sku.includes('TEX'))
 
     const lowerName = name.toLowerCase()
     let colorHex: string | undefined

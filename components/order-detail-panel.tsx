@@ -740,9 +740,11 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                         const name = (item.name || "").trim();
                                                         const material = (item.material || "").trim();
                                                         const sku = (item.sku || "").toUpperCase();
-                                                        const isPaper = material === 'Kağıt' || sku.includes('PAPER') || sku.includes('KGT') || sku.includes('NW') || sku.includes('TEX') || sku.includes('PS');
-                                                        const isHp = material.toLowerCase().includes('hp') || sku.includes('HP');
-                                                        const isEpson = material.toLowerCase().includes('epson') || sku.includes('EPSON');
+                                                        const matLower = material.toLowerCase();
+
+                                                        const isHp = matLower.includes('hp') || sku.includes('HP');
+                                                        const isEpson = matLower.includes('epson') || sku.includes('EPSON');
+                                                        const isPaper = !isHp && !isEpson && (matLower.includes('kağıt') || matLower.includes('kagit') || sku.includes('PAPER') || sku.includes('KGT') || sku.includes('NW') || sku.includes('TEX'));
                                                         
                                                         const lowerName = name.toLowerCase();
                                                         let colorHex = isPaper ? '#38BDF8' : isHp ? '#EC4899' : '#F97316';
@@ -771,8 +773,6 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                                 >
                                                                     {isPaper ? (
                                                                         <ScrollText className="w-5 h-5 text-blue-400" />
-                                                                    ) : isEpson ? (
-                                                                        <Printer className="w-5 h-5" style={{ color: colorHex }} />
                                                                     ) : (
                                                                         <Droplet className="w-5 h-5" style={{ color: colorHex }} />
                                                                     )}
@@ -784,7 +784,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                                     className="text-[9px] font-bold px-1.5 py-0.2 rounded mt-0.5 truncate max-w-full"
                                                                     style={{ color: colorHex, backgroundColor: `${colorHex}20` }}
                                                                 >
-                                                                    {isPaper ? (item.dimensions && item.dimensions !== '-' ? item.dimensions : 'Rulo') : (isHp ? 'HP Boya' : 'Epson Boya')}
+                                                                    {isPaper ? (item.dimensions && item.dimensions !== '-' ? item.dimensions : 'Kağıt Rulo') : (isHp ? 'HP Boya' : 'Epson Boya')}
                                                                 </span>
                                                             </div>
                                                         );
