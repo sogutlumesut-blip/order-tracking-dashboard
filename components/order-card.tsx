@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 
 import { Order } from "../data/mock-orders"
 import Image from "next/image"
-import { Calendar, Package, AlertCircle, User, Truck, Clock, AlertTriangle, Scissors, ExternalLink } from "lucide-react"
+import { Calendar, Package, AlertCircle, User, Truck, Clock, AlertTriangle, Scissors, ExternalLink, ScrollText, Droplet, Printer } from "lucide-react"
 import { getColorClasses } from "@/lib/colors"
 
 function getPersonnelColorClass(name: string): string {
@@ -44,6 +44,111 @@ function getPersonnelColorClass(name: string): string {
     return colors[index];
 }
 
+function MaterialHeroBanner({ item, totalItems }: { item?: any; totalItems: number }) {
+    if (!item) {
+        return (
+            <div className="w-full h-full bg-slate-900 flex items-center justify-center text-slate-400">
+                <Package className="w-10 h-10" />
+            </div>
+        )
+    }
+
+    const name = (item.name || "").trim()
+    const material = (item.material || "").trim()
+    const sku = (item.sku || "").toUpperCase()
+
+    const isPaper = material === 'Kağıt' || sku.includes('PAPER') || sku.includes('KGT') || sku.includes('NW') || sku.includes('TEX') || sku.includes('PS')
+    const isHp = material.toLowerCase().includes('hp') || sku.includes('HP')
+    const isEpson = material.toLowerCase().includes('epson') || sku.includes('EPSON')
+
+    const lowerName = name.toLowerCase()
+    let colorHex: string | undefined
+    if (lowerName.includes('light cyan')) colorHex = '#7DD3FC'
+    else if (lowerName.includes('light macenta') || lowerName.includes('light magenta')) colorHex = '#F472B6'
+    else if (lowerName.includes('cyan')) colorHex = '#00AEEF'
+    else if (lowerName.includes('magenta') || lowerName.includes('macenta')) colorHex = '#EC008C'
+    else if (lowerName.includes('yellow')) colorHex = '#FACC15'
+    else if (lowerName.includes('light black')) colorHex = '#64748B'
+    else if (lowerName.includes('black')) colorHex = '#18181B'
+    else if (lowerName.includes('orange')) colorHex = '#EA580C'
+    else if (lowerName.includes('red')) colorHex = '#DC2626'
+    else if (lowerName.includes('optimizer')) colorHex = '#94A3B8'
+    else if (lowerName.includes('overcoat')) colorHex = '#CBD5E1'
+    else if (lowerName.includes('cleaning')) colorHex = '#06B6D4'
+    else if (lowerName.includes('stick')) colorHex = '#8B5CF6'
+    else if (lowerName.includes('maintenance')) colorHex = '#64748B'
+    else if (lowerName.includes('collection')) colorHex = '#475569'
+
+    const accentColor = colorHex || (isPaper ? '#38BDF8' : isHp ? '#EC4899' : '#F97316')
+    const categoryTitle = isPaper ? 'Kağıt' : isHp ? 'HP Makina Boyası' : isEpson ? 'Epson Makina Boyası' : 'Malzeme'
+
+    return (
+        <div className="w-full h-full relative overflow-hidden bg-slate-950 flex flex-col items-center justify-center p-4 select-none group/hero">
+            {/* Ambient Background Glow */}
+            <div 
+                className="absolute inset-0 opacity-30 blur-2xl pointer-events-none transition-opacity duration-500 group-hover/hero:opacity-45"
+                style={{
+                    background: `radial-gradient(circle at 50% 50%, ${accentColor} 0%, transparent 70%)`
+                }}
+            />
+
+            {/* Subtle Grid Lines */}
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:16px_16px] pointer-events-none" />
+
+            {/* Top Right: Category Pill */}
+            <div className="absolute top-2.5 right-2.5 z-20">
+                <span 
+                    className="text-[10px] font-black tracking-wider uppercase px-2.5 py-0.5 rounded-full border shadow-md flex items-center gap-1 backdrop-blur-md"
+                    style={{
+                        backgroundColor: `${accentColor}25`,
+                        borderColor: `${accentColor}70`,
+                        color: accentColor === '#18181B' ? '#E2E8F0' : accentColor
+                    }}
+                >
+                    {isPaper ? '📜' : isHp ? '🎨' : '🖨️'} {categoryTitle}
+                </span>
+            </div>
+
+            {/* Center Content: Icon + Title */}
+            <div className="relative z-10 flex flex-col items-center text-center max-w-[90%]">
+                <div 
+                    className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-xl mb-2 transition-transform duration-300 group-hover:scale-110"
+                    style={{
+                        backgroundColor: `${accentColor}25`,
+                        border: `2px solid ${accentColor}`,
+                        boxShadow: `0 8px 24px ${accentColor}40`
+                    }}
+                >
+                    {isPaper ? (
+                        <ScrollText className="w-7 h-7 text-blue-400 drop-shadow" />
+                    ) : isEpson ? (
+                        <Printer className="w-7 h-7 text-white drop-shadow" />
+                    ) : (
+                        <Droplet className="w-7 h-7 text-white drop-shadow" />
+                    )}
+                </div>
+
+                <h3 className="text-base font-extrabold text-white tracking-tight drop-shadow truncate max-w-full">
+                    {name}
+                </h3>
+
+                {item.dimensions && item.dimensions !== '-' && (
+                    <span className="mt-1 text-[11px] font-bold text-slate-200 bg-white/10 px-2 py-0.5 rounded-md border border-white/20">
+                        En: {item.dimensions}
+                    </span>
+                )}
+            </div>
+
+            {/* Bottom Right Multiple Items Indicator */}
+            {totalItems > 1 && (
+                <div className="absolute bottom-2 right-2 z-20 bg-slate-900/90 text-amber-300 border border-amber-500/40 text-[10px] font-bold px-2 py-0.5 rounded-full backdrop-blur-md shadow-md flex items-center gap-1">
+                    <span>+{totalItems - 1} malzeme daha</span>
+                </div>
+            )}
+        </div>
+    )
+}
+
 interface OrderCardProps {
     order: Order
     onClick: () => void
@@ -67,6 +172,7 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
     const isPaymentFailed = order.labels.includes('Ödeme Başarısız')
     const isCancelled = order.labels.includes('İPTAL EDİLDİ') || order.labels.includes('İptal Edildi')
     const isDeleted = order.labels.includes('SİLİNDİ') || order.labels.includes('Silindi')
+    const isMaterialOrder = order.source === 'malzeme' || order.labels.includes('Malzeme') || (order.items && order.items.length > 0 && !!order.items[0]?.sku?.startsWith('MLZ'))
 
     useEffect(() => {
         const isPrintingStatus = ['processing', 'baski', 'printing', 'printed'].includes(order.status.toLowerCase()) || order.status.toLowerCase().includes('print')
@@ -107,7 +213,9 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
 
             {/* 1. VISUAL HERO SECTION */}
             <div className="aspect-video relative bg-slate-100 dark:bg-slate-900 border-b dark:border-slate-800 z-10">
-                {mainImage ? (
+                {isMaterialOrder ? (
+                    <MaterialHeroBanner item={order.items[0]} totalItems={order.items.length} />
+                ) : mainImage ? (
                     <Image
                         src={mainImage}
                         alt="Sipariş Görseli"
@@ -230,8 +338,8 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                     </a>
                 )}
 
-                {/* Overlay Badge for Item Count if multiple */}
-                {order.items.length > 1 && (
+                {/* Overlay Badge for Item Count if multiple (only for standard orders, material orders show inside banner) */}
+                {!isMaterialOrder && order.items.length > 1 && (
                     <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded-full backdrop-blur-sm">
                         +{order.items.length - 1} ürün daha
                     </div>
@@ -373,7 +481,7 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                     </span>
                                 );
                             })()}
-                            {order.items && order.items.length > 0 && order.items[0].dimensions && (
+                            {order.items && order.items.length > 0 && order.items[0].dimensions && order.items[0].dimensions !== '-' && (
                                 <span className={order.items[0].dimensions === 'SAMPLE' ? "bg-pink-50 dark:bg-pink-900/30 px-1.5 py-0.5 rounded text-pink-700 dark:text-pink-400 font-bold border border-pink-100 dark:border-pink-800 animate-pulse flex items-center gap-1" : "bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300 font-medium flex items-center gap-1"}>
                                     <span>{order.items[0].dimensions === 'SAMPLE' ? '✨ SAMPLE' : `📏 ${order.items[0].dimensions}`}</span>
                                     {/* Auto M2 Calculation */}
@@ -406,11 +514,24 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                     })()}
                                 </span>
                             )}
-                            {/* Texture/Material */}
+                            {/* Category / Texture Badge */}
                             {order.items && order.items.length > 0 && order.items[0].material && (
-                                <span className="bg-purple-50 px-1.5 py-0.5 rounded text-purple-700 font-medium border border-purple-100">
-                                    Doku: {order.items[0].material}
-                                </span>
+                                isMaterialOrder ? (
+                                    <span className={`px-2 py-0.5 rounded text-[11px] font-bold border flex items-center gap-1 shadow-2xs ${
+                                        order.items[0].material.toLowerCase().includes('hp')
+                                            ? 'bg-pink-100 dark:bg-pink-950/60 text-pink-800 dark:text-pink-300 border-pink-300 dark:border-pink-800'
+                                            : order.items[0].material.toLowerCase().includes('epson')
+                                                ? 'bg-orange-100 dark:bg-orange-950/60 text-orange-800 dark:text-orange-300 border-orange-300 dark:border-orange-800'
+                                                : 'bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-800'
+                                    }`}>
+                                        <span>{order.items[0].material.toLowerCase().includes('hp') ? '🎨' : order.items[0].material.toLowerCase().includes('epson') ? '🖨️' : '📜'}</span>
+                                        <span>{order.items[0].material}</span>
+                                    </span>
+                                ) : (
+                                    <span className="bg-purple-50 px-1.5 py-0.5 rounded text-purple-700 font-medium border border-purple-100">
+                                        Doku: {order.items[0].material}
+                                    </span>
+                                )
                             )}
                             {/* Sample Data Badge */}
                             {order.items && order.items.length > 0 && order.items[0].sampleData && (

@@ -2,7 +2,7 @@
 
 import { Order, OrderStatus, Comment } from "../data/mock-orders"
 import { APP_CONFIG } from "../data/settings"
-import { X, Save, Truck, User, Tag, FileText, Upload, Printer, FileDown, History, ChevronDown, ChevronRight, ExternalLink, Receipt, ShieldCheck, Download, Package, Scissors } from "lucide-react"
+import { X, Save, Truck, User, Tag, FileText, Upload, Printer, FileDown, History, ChevronDown, ChevronRight, ExternalLink, Receipt, ShieldCheck, Download, Package, Scissors, ScrollText, Droplet } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import { NoteLog } from "./note-log"
 import { ChatSection } from "./chat-section"
@@ -730,6 +730,66 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                         <div key={item.id} className="flex gap-4 border dark:border-slate-700 p-3 rounded-lg bg-white dark:bg-slate-800 shadow-sm">
                                             <div className="flex gap-2 shrink-0 max-w-[50%] flex-wrap">
                                                 {(() => {
+                                                    const isMaterial = item.sku?.startsWith('MLZ') || 
+                                                                       item.material === 'Kağıt' || 
+                                                                       item.material?.toLowerCase().includes('boya') || 
+                                                                       formData.source === 'malzeme' || 
+                                                                       formData.labels?.includes('Malzeme');
+
+                                                    if (isMaterial) {
+                                                        const name = (item.name || "").trim();
+                                                        const material = (item.material || "").trim();
+                                                        const sku = (item.sku || "").toUpperCase();
+                                                        const isPaper = material === 'Kağıt' || sku.includes('PAPER') || sku.includes('KGT') || sku.includes('NW') || sku.includes('TEX') || sku.includes('PS');
+                                                        const isHp = material.toLowerCase().includes('hp') || sku.includes('HP');
+                                                        const isEpson = material.toLowerCase().includes('epson') || sku.includes('EPSON');
+                                                        
+                                                        const lowerName = name.toLowerCase();
+                                                        let colorHex = isPaper ? '#38BDF8' : isHp ? '#EC4899' : '#F97316';
+                                                        if (lowerName.includes('light cyan')) colorHex = '#7DD3FC';
+                                                        else if (lowerName.includes('light macenta') || lowerName.includes('light magenta')) colorHex = '#F472B6';
+                                                        else if (lowerName.includes('cyan')) colorHex = '#00AEEF';
+                                                        else if (lowerName.includes('magenta') || lowerName.includes('macenta')) colorHex = '#EC008C';
+                                                        else if (lowerName.includes('yellow')) colorHex = '#FACC15';
+                                                        else if (lowerName.includes('light black')) colorHex = '#64748B';
+                                                        else if (lowerName.includes('black')) colorHex = '#18181B';
+                                                        else if (lowerName.includes('orange')) colorHex = '#EA580C';
+                                                        else if (lowerName.includes('red')) colorHex = '#DC2626';
+                                                        else if (lowerName.includes('optimizer')) colorHex = '#94A3B8';
+                                                        else if (lowerName.includes('overcoat')) colorHex = '#CBD5E1';
+                                                        else if (lowerName.includes('cleaning')) colorHex = '#06B6D4';
+                                                        else if (lowerName.includes('stick')) colorHex = '#8B5CF6';
+
+                                                        return (
+                                                            <div className="w-24 h-24 shrink-0 rounded-xl overflow-hidden border border-slate-700 bg-slate-950 flex flex-col items-center justify-center p-2 text-center shadow-md relative select-none">
+                                                                <div 
+                                                                    className="w-10 h-10 rounded-xl flex items-center justify-center mb-1 shadow-md"
+                                                                    style={{
+                                                                        backgroundColor: `${colorHex}25`,
+                                                                        border: `1.5px solid ${colorHex}`
+                                                                    }}
+                                                                >
+                                                                    {isPaper ? (
+                                                                        <ScrollText className="w-5 h-5 text-blue-400" />
+                                                                    ) : isEpson ? (
+                                                                        <Printer className="w-5 h-5" style={{ color: colorHex }} />
+                                                                    ) : (
+                                                                        <Droplet className="w-5 h-5" style={{ color: colorHex }} />
+                                                                    )}
+                                                                </div>
+                                                                <span className="text-[10px] font-extrabold text-white truncate max-w-full">
+                                                                    {item.name}
+                                                                </span>
+                                                                <span 
+                                                                    className="text-[9px] font-bold px-1.5 py-0.2 rounded mt-0.5 truncate max-w-full"
+                                                                    style={{ color: colorHex, backgroundColor: `${colorHex}20` }}
+                                                                >
+                                                                    {isPaper ? (item.dimensions && item.dimensions !== '-' ? item.dimensions : 'Rulo') : (isHp ? 'HP Boya' : 'Epson Boya')}
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    }
+
                                                     const imgUrls = (item.image_src || "").split('|').filter(Boolean);
                                                     return (
                                                         <>
@@ -799,11 +859,20 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                         );
                                                     })()}
                                                     {item.material && (
-                                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100">
-                                                            {item.material}
+                                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                                            item.material.toLowerCase().includes('hp')
+                                                                ? 'bg-pink-100 text-pink-800 border-pink-300 dark:bg-pink-950/60 dark:text-pink-300 dark:border-pink-800'
+                                                                : item.material.toLowerCase().includes('epson')
+                                                                    ? 'bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-950/60 dark:text-orange-300 dark:border-orange-800'
+                                                                    : item.material.toLowerCase().includes('kağıt')
+                                                                        ? 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800'
+                                                                        : 'bg-blue-50 text-blue-700 border-blue-100'
+                                                        }`}>
+                                                            <span>{item.material.toLowerCase().includes('hp') ? '🎨' : item.material.toLowerCase().includes('epson') ? '🖨️' : item.material.toLowerCase().includes('kağıt') ? '📜' : ''}</span>
+                                                            <span>{item.material}</span>
                                                         </span>
                                                     )}
-                                                    {item.dimensions && (() => {
+                                                    {item.dimensions && item.dimensions !== '-' && (() => {
                                                          const dimStr = item.dimensions;
                                                          const hasM2 = /m²|m2/i.test(dimStr);
                                                          

@@ -86,6 +86,13 @@ export function generateMaterialSvg(item: MaterialItemDefinition): string {
     </svg>
     `.trim()
 
+    if (typeof window !== 'undefined' && typeof window.btoa === 'function') {
+        try {
+            return `data:image/svg+xml;base64,${window.btoa(unescape(encodeURIComponent(svg)))}`
+        } catch (e) {
+            // fallback
+        }
+    }
     return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
 }
 
