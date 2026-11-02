@@ -45,6 +45,69 @@ export function verifyShopifyWebhook(rawBody: string, hmacHeader: string | null,
     }
 }
 
+let cachedStoreTokens: Record<string, { token: string; expiresAt: number }> = {};
+
+/**
+ * Resolves effective Access Token:
+ * - If already a direct token (starts with shpat_ or shpca_), returns it as-is.
+ * - If client_secret or clientId:clientSecret is passed, performs OAuth client_credentials exchange.
+ */
+export async function getShopifyAccessToken(shopDomain: string, rawTokenOrSecret: string): Promise<string> {
+    const cleanToken = rawTokenOrSecret?.trim();
+    if (!cleanToken) return '';
+
+    if (cleanToken.startsWith('shpat_') || cleanToken.startsWith('shpca_')) {
+        return cleanToken;
+    }
+
+    let clientId = 'a8e0dd813c144dfa13a8c060cfec7963';
+    let clientSecret = cleanToken;
+
+    if (cleanToken.includes(':')) {
+        const parts = cleanToken.split(':');
+        clientId = parts[0].trim();
+        clientSecret = parts[1].trim();
+    }
+
+    const domain = cleanShopifyDomain(shopDomain);
+    const cacheKey = `${domain}:${clientId}`;
+    const now = Date.now();
+
+    if (cachedStoreTokens[cacheKey] && cachedStoreTokens[cacheKey].expiresAt > now + 60000) {
+        return cachedStoreTokens[cacheKey].token;
+    }
+
+    try {
+        const response = await fetch(`https://${domain}/admin/oauth/access_token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                client_id: clientId,
+                client_secret: clientSecret,
+                grant_type: 'client_credentials',
+            }),
+        });
+
+        if (response.ok) {
+            const data: any = await response.json();
+            if (data.access_token) {
+                const expiresInMs = (data.expires_in || 86400) * 1000;
+                cachedStoreTokens[cacheKey] = {
+                    token: data.access_token,
+                    expiresAt: now + expiresInMs,
+                };
+                return data.access_token;
+            }
+        } else {
+            console.warn('[SHOPIFY_OAUTH] Exchange attempt response:', await response.text().catch(() => ''));
+        }
+    } catch (err: any) {
+        console.warn('[SHOPIFY_OAUTH_ERR]', err.message);
+    }
+
+    return cleanToken;
+}
+
 /**
  * Fetch orders directly from Shopify Admin REST API
  */
@@ -54,10 +117,12 @@ export async function fetchShopifyOrders(shopDomain: string, accessToken: string
         throw new Error('Shopify mağaza adresi veya Access Token eksik.');
     }
 
+    const effectiveToken = await getShopifyAccessToken(domain, accessToken);
+
     const url = `https://${domain}/admin/api/2024-01/orders.json?status=any&limit=${limit}`;
     const response = await fetch(url, {
         headers: {
-            'X-Shopify-Access-Token': accessToken.trim(),
+            'X-Shopify-Access-Token': effectiveToken.trim(),
             'Content-Type': 'application/json',
         },
         cache: 'no-store',
@@ -444,18 +509,32 @@ export async function upsertShopifyOrder(shopifyOrder: any, storeConfig?: Shopif
     const externalId = orderNumber;
     const barcode = `${barcodePrefix}${orderNumber}`;
 
-    // Target PrintMarkt pending column ("Bekliyor (PrintMarkt)" / "pending_pm")
+    // Determine initial status column based on store:
+    // Store 1 (source='shopify') -> Bekliyor (PrintMarkt) ('pending_pm')
+    // Store 2 (source='shopify_2') -> Bekliyor (DKM) ('pending_woo')
     const statuses = await db.statusColumn.findMany({ orderBy: { order: 'asc' } });
-    let defaultStatus = 'pending_pm';
+    let defaultStatus = source === 'shopify_2' ? 'pending_woo' : 'pending_pm';
 
-    const pmColumn = statuses.find(s =>
-        s.id === 'pending_pm' ||
-        s.title.toLowerCase().includes('printmarkt')
-    );
-    if (pmColumn) {
-        defaultStatus = pmColumn.id;
-    } else if (statuses.length > 0) {
-        defaultStatus = statuses[0].id;
+    if (source === 'shopify_2') {
+        const dkmColumn = statuses.find(s =>
+            s.id === 'pending_woo' ||
+            s.title.toLowerCase().includes('dkm')
+        );
+        if (dkmColumn) {
+            defaultStatus = dkmColumn.id;
+        } else if (statuses.length > 0) {
+            defaultStatus = statuses[0].id;
+        }
+    } else {
+        const pmColumn = statuses.find(s =>
+            s.id === 'pending_pm' ||
+            s.title.toLowerCase().includes('printmarkt')
+        );
+        if (pmColumn) {
+            defaultStatus = pmColumn.id;
+        } else if (statuses.length > 0) {
+            defaultStatus = statuses[0].id;
+        }
     }
 
     // Customer & Address Info
