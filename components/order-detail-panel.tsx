@@ -963,7 +963,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 
                         {/* LEFT COLUMN: Order Details */}
-                        <div className="space-y-6">
+                        <div className="space-y-6 min-w-0">
                             {/* WAREHOUSE STOCK MATCH BANNER */}
                             {formData.warehouseStockMatch && (
                                 <div className={`p-4 rounded-xl space-y-3 shadow-md border-2 ${
@@ -1249,8 +1249,8 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                 <h3 className="font-semibold text-slate-700 mb-3">Ürünler</h3>
                                 <div className="space-y-4">
                                     {formData.items.map(item => (
-                                        <div key={item.id} className="flex gap-4 border dark:border-slate-700 p-3 rounded-lg bg-white dark:bg-slate-800 shadow-sm">
-                                            <div className="flex gap-2 shrink-0 max-w-[50%] flex-wrap">
+                                        <div key={item.id} className="flex flex-col gap-3 border dark:border-slate-700 p-3 rounded-lg bg-white dark:bg-slate-800 shadow-sm overflow-hidden">
+                                            <div className="flex gap-2 flex-wrap">
                                                 {(() => {
                                                     const isMaterial = item.sku?.startsWith('MLZ') || 
                                                                        item.material === 'Kağıt' || 
@@ -1354,7 +1354,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                     );
                                                 })()}
                                             </div>
-                                            <div className="flex-1 min-w-0">
+                                            <div className="w-full min-w-0 break-words">
                                                 <div className="flex items-start justify-between flex-wrap gap-y-2 mb-2">
                                                     <p className="font-bold text-slate-900 dark:text-slate-100 line-clamp-2">{item.name}</p>
                                                     {item.sampleData && (
@@ -1421,7 +1421,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                          }
                                                          
                                                          return (
-                                                             <span className={item.dimensions === 'SAMPLE' ? "bg-pink-50 dark:bg-pink-900/30 px-2 py-0.5 rounded text-pink-700 dark:text-pink-400 font-bold border border-pink-100 dark:border-pink-800 animate-pulse" : "bg-slate-100 dark:bg-slate-700/50 px-2 py-0.5 rounded text-slate-700 dark:text-slate-300 border dark:border-slate-600/50"}>
+                                                             <span className={item.dimensions === 'SAMPLE' ? "inline-flex items-center text-[10px] bg-pink-50 dark:bg-pink-900/30 px-2 py-0.5 rounded text-pink-700 dark:text-pink-400 font-bold border border-pink-100 dark:border-pink-800 animate-pulse" : "inline-flex items-center text-[10px] font-bold bg-slate-100 dark:bg-slate-700/50 px-2 py-0.5 rounded text-slate-700 dark:text-slate-300 border dark:border-slate-600/50"}>
                                                                  {item.dimensions === 'SAMPLE' ? '✨ SAMPLE' : `📏 ${dimStr}${extraM2}`}
                                                              </span>
                                                          );
@@ -1447,7 +1447,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                             <span className="text-[10px] uppercase font-bold text-slate-500">Link:</span>
                                                         <input
                                                             type="text"
-                                                                className="flex-1 text-[10px] p-1.5 border dark:border-slate-700 rounded bg-slate-50 dark:bg-slate-900 font-medium focus:ring-1 focus:ring-blue-500 outline-none text-slate-900 dark:text-slate-100"
+                                                                className="flex-1 min-w-0 w-full text-[10px] p-1.5 border dark:border-slate-700 rounded bg-slate-50 dark:bg-slate-900 font-medium focus:ring-1 focus:ring-blue-500 outline-none text-slate-900 dark:text-slate-100"
                                                             value={item.url || ""}
                                                             onChange={(e) => {
                                                                 const newItems = formData.items.map(i => i.id === item.id ? { ...i, url: e.target.value } : i)
@@ -1463,7 +1463,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                 {/* Cropped Image Link */}
                                                 {item.croppedImage && (
                                                     <div className="mt-2.5 p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded-lg flex flex-col gap-2 shadow-xs">
-                                                        <div className="flex items-center justify-between">
+                                                        <div className="flex items-center justify-between flex-wrap gap-2">
                                                             <span className="text-xs font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-1.5">
                                                                 <Scissors className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                                                                 Müşterinin Kırptığı Görsel:
@@ -1482,7 +1482,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                             <span className="text-[10px] uppercase font-bold text-slate-500">Kırpma:</span>
                                                             <input
                                                                 type="text"
-                                                                className="flex-1 text-[10px] p-1.5 border border-emerald-300 dark:border-emerald-800 rounded bg-white dark:bg-slate-900 font-mono text-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-emerald-500"
+                                                                className="flex-1 min-w-0 w-full text-[10px] p-1.5 border border-emerald-300 dark:border-emerald-800 rounded bg-white dark:bg-slate-900 font-mono text-slate-800 dark:text-slate-200 outline-none focus:ring-1 focus:ring-emerald-500"
                                                                 value={item.croppedImage || ""}
                                                                 onChange={(e) => {
                                                                     const newItems = formData.items.map(i => i.id === item.id ? { ...i, croppedImage: e.target.value } : i)
@@ -1957,7 +1957,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                         </div>
 
                         {/* RIGHT COLUMN: Chat & Files */}
-                        <div className="flex flex-col h-full print:hidden space-y-6">
+                        <div className="flex flex-col h-full print:hidden space-y-6 min-w-0">
 
                             {/* Note Log (Top Right) */}
                             <div>
