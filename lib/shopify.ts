@@ -320,8 +320,8 @@ export async function parseShopifyLineItems(lineItems: any[]): Promise<any[]> {
             if (!croppedImage) {
                 const cropProp = properties.find((p: any) => {
                     const pName = normalizeKey(p.name || '');
-                    // Exclude coordinate or position properties like "_crop (x,y,w,h)", "_crop position"
-                    if (pName.includes('(x,y') || pName.includes('position') || pName.includes('coordinate')) {
+                    // Exclude coordinate, pixel or position properties like "_crop (x,y,w,h)", "_crop position", "_Kırpma (piksel)"
+                    if (pName.includes('(piksel)') || pName.includes('pixel') || pName.includes('(x,y') || pName.includes('position') || pName.includes('coordinate') || pName.includes('(%)')) {
                         return false;
                     }
                     const isCropName = [
@@ -330,6 +330,10 @@ export async function parseShopifyLineItems(lineItems: any[]): Promise<any[]> {
                         'crop image',
                         'kirpilan resim',
                         'kirpilmis resim',
+                        'kirpilmis gorsel',
+                        'kirpilan gorsel',
+                        'kirpilmis',
+                        'kirpilan',
                         'kirpma',
                         'cropped_image',
                         'wm-crop',
@@ -365,19 +369,50 @@ export async function parseShopifyLineItems(lineItems: any[]): Promise<any[]> {
             // --- Main Image Resolution ---
             let imageSrc: string | null = null;
 
-            // A. Check properties for an explicit design image (e.g. "_Design Image", "Wallpaper Image", "Görsel")
+            // A. Check properties for an explicit design image (e.g. "Tasarım Görseli", "_Design Image", "Wallpaper Image", "Görsel")
             const imageProp = properties.find((p: any) => {
                 const pName = normalizeKey(p.name || '');
-                if (pName.includes('url') && !pName.includes('image') && !pName.includes('gorsel') && !pName.includes('resim')) {
+                // Exclude pixel, coordinate, percent, or crop properties
+                if (pName.includes('(piksel)') || pName.includes('pixel') || pName.includes('(x,y') || pName.includes('position') || pName.includes('(%)') || pName.includes('crop') || pName.includes('kirp')) {
                     return false;
                 }
-                return ['wallpaper image', 'design image', 'product image', 'gorsel', 'resim', 'image', 'picture', 'preview'].some(term => pName.includes(term));
+                const isImageName = [
+                    'tasarim gorseli',
+                    'tasarim resmi',
+                    'tasarim',
+                    'wallpaper image',
+                    'design image',
+                    'product image',
+                    'gorsel',
+                    'resim',
+                    'image',
+                    'picture',
+                    'preview',
+                ].some(term => pName.includes(term));
+
+                if (!isImageName) return false;
+
+                const extracted = extractCleanUrl(p.value);
+                return extracted && isActualImageUrl(extracted);
             });
 
             if (imageProp) {
                 const extracted = extractCleanUrl(imageProp.value);
                 if (extracted && isActualImageUrl(extracted)) {
                     imageSrc = extracted;
+                }
+            }
+
+            // A2. Fallback: Search any property with an image URL that is not the cropped image
+            if (!imageSrc) {
+                for (const p of properties) {
+                    const pName = normalizeKey(p.name || '');
+                    if (pName.includes('(piksel)') || pName.includes('pixel') || pName.includes('(%)')) continue;
+                    const extracted = extractCleanUrl(p.value);
+                    if (extracted && isActualImageUrl(extracted) && extracted !== croppedImage) {
+                        imageSrc = extracted;
+                        break;
+                    }
                 }
             }
 
