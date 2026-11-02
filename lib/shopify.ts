@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { db } from './prisma';
 import { generateDHLShipment } from './cargo-service';
+import { parseTurkishCityAndDistrict } from './turkish-cities';
 
 /**
  * Clean Shopify domain string (removes protocol, trailing slashes, whitespace)
@@ -598,11 +599,9 @@ export async function upsertShopifyOrder(shopifyOrder: any, storeConfig?: Shopif
 
     // City & Country / State
     const cityObj = shipping || billing;
-    const cityParts: string[] = [];
-    if (cityObj?.city) cityParts.push(cityObj.city.trim());
-    if (cityObj?.province) cityParts.push(cityObj.province.trim());
-    if (cityObj?.country) cityParts.push(cityObj.country.trim());
-    const city = cityParts.join(' / ');
+    const rawCityStr = [cityObj?.city, cityObj?.province].filter(Boolean).map(s => String(s).trim()).join(' ');
+    const parsedLoc = parseTurkishCityAndDistrict(rawCityStr, address);
+    const city = parsedLoc.formattedCity;
 
     // Total Amount & Currency
     const currency = shopifyOrder.currency || 'USD';

@@ -9,7 +9,11 @@ import { ChatSection } from "./chat-section"
 import { ActivityLog } from "./activity-log"
 import { getColorClasses } from "@/lib/colors"
 import { logManualActivity, uploadCargoLabel, deleteCargoLabel, getOrderDetails, fetchOrderForCargo, createInvoiceAction, createCargoLabelAction, createDHLShipmentAction, markOrderAsPaidAction, updateOrderDetails } from "../app/actions"
+import { parseTurkishCityAndDistrict } from "@/lib/turkish-cities"
 import { LocalBarcodeModal } from "./local-barcode-modal"
+import Barcode from "react-barcode"
+import QRCode from "react-qr-code"
+import { useReactToPrint } from "react-to-print"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 
@@ -240,9 +244,107 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
         }
     }
 
+    const printSlipRef = useRef<HTMLDivElement>(null)
+
+    const reactToPrintFn = useReactToPrint({
+        contentRef: printSlipRef,
+        documentTitle: `Siparis-${formData?.externalId?.replace(/^pm_/, '') || formData?.id || ''}`,
+        pageStyle: `
+            @page {
+                size: 100mm 150mm !important;
+                margin: 0 !important;
+            }
+            @media print {
+                html, body {
+                    width: 100mm !important;
+                    height: 150mm !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    background: #ffffff !important;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
+            }
+        `
+    })
+
     const handlePrint = async () => {
-        window.print();
-        await logManualActivity(formData.id, "PRINT_ORDER", "Baskı önizleme açıldı / Yazdırıldı.")
+        if (!formData) return
+        if (reactToPrintFn) {
+            reactToPrintFn()
+        } else {
+            window.print()
+        }
+        await logManualActivity(formData.id, "PRINT_ORDER", "10x15 Barkod Sipariş Fişi yazdırıldı.")
+    }
+
+    const getSlipPlatformBadge = (): string | null => {
+        if (!formData) return null
+        const src = (formData.source || "").toLowerCase().trim()
+        const barcode = (formData.barcode || "").toUpperCase().trim()
+        const payMethod = (formData.paymentMethod || "").toUpperCase().trim()
+        const labelsStr = (formData.labels || []).map((l: string) => l.toUpperCase())
+
+        if (src === 'woo' || src === 'woocommerce') return 'WOO'
+        if (src === 'printmarkt') return 'PRINTMARKT'
+        if (src === 'wayfair') return 'WAYFAIR'
+        if (src === 'shopify') return 'SHOPIFY'
+        if (src === 'shopify_2') return 'SHOPIFY 2'
+        if (src === 'etsy') return 'ETSY'
+
+        if (barcode.startsWith('WC-') || barcode.startsWith('WOO-')) return 'WOO'
+        if (barcode.startsWith('WF-') || barcode.startsWith('WAYFAIR-')) return 'WAYFAIR'
+        if (barcode.startsWith('PM-') || barcode.startsWith('PRINTMARKT-')) return 'PRINTMARKT'
+        if (barcode.startsWith('SHOP2-')) return 'SHOPIFY 2'
+        if (barcode.startsWith('SH-') || barcode.startsWith('SHOPIFY-') || barcode.startsWith('SHOP-')) return 'SHOPIFY'
+        if (barcode.startsWith('ET-') || barcode.startsWith('ETSY-')) return 'ETSY'
+
+        if (labelsStr.some(l => l.includes('WOO'))) return 'WOO'
+        if (labelsStr.some(l => l.includes('PRINTMARKT'))) return 'PRINTMARKT'
+        if (labelsStr.some(l => l.includes('WAYFAIR'))) return 'WAYFAIR'
+        if (labelsStr.some(l => l.includes('SHOPIFY 2') || l.includes('SHOPIFY2'))) return 'SHOPIFY 2'
+        if (labelsStr.some(l => l.includes('SHOPIFY'))) return 'SHOPIFY'
+        if (labelsStr.some(l => l.includes('ETSY'))) return 'ETSY'
+
+        if (payMethod.includes('PRINTMARKT')) return 'PRINTMARKT'
+
+        if (formData.source && formData.source.trim()) {
+            return formData.source.toUpperCase().trim()
+        }
+
+        return null
+    }
+
+    const getSlipDisplayOrderNo = () => {
+        if (!formData) return ''
+        if ((formData.source === 'woo' || formData.source === 'wayfair' || formData.source === 'shopify' || formData.source === 'shopify_2' || formData.source === 'PrintMarkt') && formData.externalId) {
+            const clean = formData.externalId.replace(/^pm_/, '')
+            return clean.startsWith('#') ? clean : `#${clean}`
+        }
+        return `#${formData.id}`
+    }
+
+    const getSlipBarcodeValue = () => {
+        if (!formData) return ''
+        return (
+            formData.cargoBarcode ||
+            formData.cargoTrackingNumber ||
+            formData.barcode ||
+            (formData.externalId ? formData.externalId.replace(/^pm_/, '') : null) ||
+            formData.id.toString()
+        )
+    }
+
+    const getSlipM2 = (dimStr?: string | null) => {
+        if (!dimStr || dimStr === '-') return ''
+        if (/m²|m2/i.test(dimStr)) return ''
+        const match = dimStr.match(/(\d+(?:\.\d+)?)\s*[^0-9]*?\s*[x*]\s*[^0-9]*?\s*(\d+(?:\.\d+)?)/)
+        if (!match) return ''
+        const w = parseFloat(match[1])
+        const h = parseFloat(match[2])
+        const isInch = dimStr.includes('"') || /(?:^|\d|\s)(in|inch|inches|inc|inç)(?:\b|$)/i.test(dimStr)
+        const m2 = isInch ? (w * 0.0254) * (h * 0.0254) : (w * h) / 10000
+        return ` (${m2.toFixed(2)} m²)`
     }
 
     const handleDownloadPdf = async () => {
@@ -295,9 +397,9 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex justify-end">
+        <div className="fixed inset-0 z-50 flex justify-end print:block print:static">
             {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={onClose} />
+            <div className="absolute inset-0 bg-black/20 backdrop-blur-sm print:hidden" onClick={onClose} />
 
             <LocalBarcodeModal
                 order={formData}
@@ -332,11 +434,472 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                 </div>
             )}
 
+            {/* Global Print Styles for 10x15 cm Barcode Paper */}
+            <style>{`
+                @media print {
+                    @page {
+                        size: 100mm 150mm !important;
+                        margin: 0 !important;
+                    }
+                    html, body {
+                        width: 100mm !important;
+                        height: 150mm !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        background: #ffffff !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                    body * {
+                        visibility: hidden !important;
+                    }
+                    #order-10x15-slip, #order-10x15-slip * {
+                        visibility: visible !important;
+                    }
+                    #order-10x15-slip {
+                        display: flex !important;
+                        position: absolute !important;
+                        left: 0 !important;
+                        top: 0 !important;
+                        width: 100mm !important;
+                        min-height: 148mm !important;
+                        margin: 0 !important;
+                    }
+                }
+            `}</style>
+
+            {/* 10x15 cm Barcode / Order Slip (Used by react-to-print & print media) */}
+            <div 
+                className="print:block"
+                style={{ 
+                    position: "absolute", 
+                    left: "-9999px", 
+                    top: 0, 
+                    pointerEvents: "none" 
+                }}
+            >
+                <div
+                    ref={printSlipRef}
+                    id="order-10x15-slip"
+                    style={{
+                        width: "100mm",
+                        minHeight: "148mm",
+                        boxSizing: "border-box",
+                        padding: "3.5mm 4mm",
+                        backgroundColor: "#ffffff",
+                        color: "#000000",
+                        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+                        fontSize: "10px",
+                        lineHeight: "1.25",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between"
+                    }}
+                >
+                    <div>
+                        {/* HEADER: LOGO, COMPANY, ORDER NO, PLATFORM */}
+                        <div style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            borderBottom: "2px solid #000000",
+                            paddingBottom: "4px",
+                            marginBottom: "4px"
+                        }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <img
+                                    src={APP_CONFIG.companyLogo}
+                                    alt={APP_CONFIG.companyName}
+                                    style={{ height: "22px", width: "auto", objectFit: "contain" }}
+                                    onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                                />
+                                <div>
+                                    <div style={{ fontSize: "11px", fontWeight: "900", letterSpacing: "-0.2px", lineHeight: "1.1" }}>
+                                        {APP_CONFIG.companyName}
+                                    </div>
+                                    <div style={{ fontSize: "8px", color: "#333333", lineHeight: "1.1" }}>
+                                        {APP_CONFIG.companyPhone} • {APP_CONFIG.companyWeb}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style={{ textAlign: "right" }}>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "4px" }}>
+                                    {getSlipPlatformBadge() && (
+                                        <span style={{
+                                            fontSize: "8.5px",
+                                            fontWeight: "900",
+                                            backgroundColor: "#000000",
+                                            color: "#ffffff",
+                                            padding: "1px 4px",
+                                            borderRadius: "2px",
+                                            letterSpacing: "0.5px"
+                                        }}>
+                                            {getSlipPlatformBadge()}
+                                        </span>
+                                    )}
+                                    <span style={{ fontSize: "15px", fontWeight: "900" }}>
+                                        {getSlipDisplayOrderNo()}
+                                    </span>
+                                </div>
+                                <div style={{ fontSize: "8.5px", color: "#444444", fontWeight: "600" }}>
+                                    {formData.date ? new Date(formData.date).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* PRICE & PAYMENT & BARCODE STRIP */}
+                        <div style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            border: "1.5px solid #000000",
+                            borderRadius: "3px",
+                            padding: "3px 5px",
+                            marginBottom: "4px",
+                            backgroundColor: "#fafafa"
+                        }}>
+                            {/* Barcode & QR */}
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                {getSlipBarcodeValue() && (
+                                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+                                        <Barcode
+                                            value={getSlipBarcodeValue()}
+                                            width={1.15}
+                                            height={26}
+                                            fontSize={8}
+                                            margin={0}
+                                            lineColor="#000000"
+                                        />
+                                    </div>
+                                )}
+                                {getSlipBarcodeValue() && (
+                                    <div style={{ display: "flex", alignItems: "center" }}>
+                                        <QRCode
+                                            value={getSlipBarcodeValue()}
+                                            size={32}
+                                            style={{ height: "32px", width: "32px" }}
+                                            viewBox="0 0 256 256"
+                                            fgColor="#000000"
+                                            bgColor="#ffffff"
+                                        />
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Total Amount */}
+                            <div style={{ textAlign: "right", borderLeft: "1px solid #cccccc", paddingLeft: "6px" }}>
+                                <div style={{ fontSize: "7.5px", textTransform: "uppercase", color: "#555555", fontWeight: "700" }}>
+                                    Toplam Tutar
+                                </div>
+                                <div style={{ fontSize: "13px", fontWeight: "900", color: "#000000", whiteSpace: "nowrap" }}>
+                                    {formData.total}
+                                </div>
+                                {formData.paymentMethod && (
+                                    <div style={{ fontSize: "7.5px", color: "#333333", fontWeight: "600" }}>
+                                        {formData.paymentMethod}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* CUSTOMER & DELIVERY INFO */}
+                        <div style={{
+                            border: "1px solid #000000",
+                            borderRadius: "3px",
+                            padding: "4px 6px",
+                            marginBottom: "4px",
+                            fontSize: "9.5px",
+                            lineHeight: "1.3"
+                        }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", borderBottom: "1px solid #eeeeee", paddingBottom: "2px", marginBottom: "2px" }}>
+                                <div>
+                                    <span style={{ fontWeight: "700", color: "#555555", fontSize: "8.5px" }}>MÜŞTERİ: </span>
+                                    <span style={{ fontWeight: "900", fontSize: "11px" }}>{formData.customer}</span>
+                                </div>
+                                {formData.phone && (
+                                    <div style={{ fontWeight: "700", fontSize: "10px" }}>
+                                        📞 {formData.phone}
+                                    </div>
+                                )}
+                            </div>
+
+                            {formData.address && (
+                                <div style={{ color: "#111111" }}>
+                                    <span style={{ fontWeight: "700", color: "#555555", fontSize: "8.5px" }}>ADRES: </span>
+                                    <span>{formData.address}</span>
+                                </div>
+                            )}
+
+                            {formData.city && (
+                                <div style={{ fontWeight: "900", fontSize: "10px", marginTop: "1px", textTransform: "uppercase" }}>
+                                    📍 {formData.city}
+                                </div>
+                            )}
+
+                            {/* Customer Note */}
+                            {formData.note && (
+                                <div style={{
+                                    marginTop: "3px",
+                                    padding: "3px 5px",
+                                    border: "1px dashed #000000",
+                                    borderRadius: "2px",
+                                    backgroundColor: "#f5f5f5",
+                                    fontSize: "9px"
+                                }}>
+                                    <strong style={{ color: "#000000" }}>📝 Müşteri Notu: </strong>
+                                    <span>{formData.note}</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* INVOICE / TAX INFO (If exists) */}
+                        {(formData.taxNumber || formData.taxOffice) && (
+                            <div style={{
+                                border: "1px solid #666666",
+                                borderRadius: "2px",
+                                padding: "2px 5px",
+                                marginBottom: "4px",
+                                fontSize: "8.5px",
+                                display: "flex",
+                                justifyContent: "space-between",
+                                backgroundColor: "#fbfbfb"
+                            }}>
+                                <span><strong>Fatura:</strong> TCKN/VKN: <strong>{formData.taxNumber || "-"}</strong></span>
+                                <span>Vergi Dairesi: <strong>{formData.taxOffice || "-"}</strong></span>
+                            </div>
+                        )}
+
+                        {/* PRODUCTS SECTION */}
+                        <div style={{ marginBottom: "4px" }}>
+                            <div style={{
+                                fontSize: "9px",
+                                fontWeight: "900",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.5px",
+                                borderBottom: "1.5px solid #000000",
+                                paddingBottom: "2px",
+                                marginBottom: "3px",
+                                display: "flex",
+                                justifyContent: "space-between"
+                            }}>
+                                <span>ÜRÜNLER ({formData.items.length})</span>
+                                <span style={{ fontSize: "8px", fontWeight: "600", color: "#555555" }}>Üretim & Paketleme</span>
+                            </div>
+
+                            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                                {formData.items.map((item, idx) => {
+                                    const extraM2 = getSlipM2(item.dimensions);
+                                    const firstImg = (item.image_src || "").split('|').filter(Boolean)[0];
+                                    return (
+                                        <div
+                                            key={item.id || idx}
+                                            style={{
+                                                display: "flex",
+                                                gap: "6px",
+                                                border: "1px solid #dddddd",
+                                                borderRadius: "3px",
+                                                padding: "3px 4px",
+                                                pageBreakInside: "avoid"
+                                            }}
+                                        >
+                                            {/* Images */}
+                                            <div style={{ display: "flex", gap: "3px", flexShrink: 0 }}>
+                                                {firstImg && (
+                                                    <img
+                                                        src={firstImg}
+                                                        alt={item.name}
+                                                        style={{
+                                                            width: "36px",
+                                                            height: "36px",
+                                                            objectFit: "cover",
+                                                            borderRadius: "2px",
+                                                            border: "1px solid #999999"
+                                                        }}
+                                                        onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                                                    />
+                                                )}
+                                                {item.croppedImage && item.croppedImage !== firstImg && (
+                                                    <div style={{ position: "relative" }}>
+                                                        <img
+                                                            src={item.croppedImage}
+                                                            alt="Kırpılan"
+                                                            style={{
+                                                                width: "36px",
+                                                                height: "36px",
+                                                                objectFit: "cover",
+                                                                borderRadius: "2px",
+                                                                border: "1.5px solid #000000"
+                                                            }}
+                                                            onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                                                        />
+                                                        <span style={{
+                                                            position: "absolute",
+                                                            bottom: "0",
+                                                            left: "0",
+                                                            right: "0",
+                                                            backgroundColor: "#000000",
+                                                            color: "#ffffff",
+                                                            fontSize: "6px",
+                                                            fontWeight: "900",
+                                                            textAlign: "center",
+                                                            lineHeight: "1"
+                                                        }}>
+                                                            KIRPILAN
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Details */}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{
+                                                    fontSize: "9px",
+                                                    fontWeight: "800",
+                                                    lineHeight: "1.2",
+                                                    overflow: "hidden",
+                                                    textOverflow: "ellipsis",
+                                                    whiteSpace: "nowrap"
+                                                }}>
+                                                    {item.name}
+                                                </div>
+
+                                                <div style={{
+                                                    display: "flex",
+                                                    flexWrap: "wrap",
+                                                    gap: "3px",
+                                                    marginTop: "2px",
+                                                    fontSize: "8px"
+                                                }}>
+                                                    {item.sku && (
+                                                        <span style={{
+                                                            border: "1px solid #000000",
+                                                            padding: "0 3px",
+                                                            borderRadius: "2px",
+                                                            fontWeight: "700"
+                                                        }}>
+                                                            KOD: {item.sku}
+                                                        </span>
+                                                    )}
+                                                    {item.material && (
+                                                        <span style={{
+                                                            border: "1px solid #777777",
+                                                            padding: "0 3px",
+                                                            borderRadius: "2px"
+                                                        }}>
+                                                            {item.material}
+                                                        </span>
+                                                    )}
+                                                    {item.dimensions && item.dimensions !== '-' && (
+                                                        <span style={{
+                                                            border: "1px solid #777777",
+                                                            padding: "0 3px",
+                                                            borderRadius: "2px",
+                                                            fontWeight: "700"
+                                                        }}>
+                                                            📏 {item.dimensions}{extraM2}
+                                                        </span>
+                                                    )}
+                                                    <span style={{
+                                                        backgroundColor: "#000000",
+                                                        color: "#ffffff",
+                                                        padding: "0 4px",
+                                                        borderRadius: "2px",
+                                                        fontWeight: "900",
+                                                        marginLeft: "auto"
+                                                    }}>
+                                                        ADET: {item.quantity}
+                                                    </span>
+                                                </div>
+
+                                                {item.sampleData && (
+                                                    <div style={{
+                                                        fontSize: "7.5px",
+                                                        fontWeight: "700",
+                                                        color: "#000000",
+                                                        marginTop: "1px"
+                                                    }}>
+                                                        ✨ Numune: {item.sampleData}
+                                                    </div>
+                                                )}
+
+                                                {item.productNote && (
+                                                    <div style={{
+                                                        fontSize: "7.5px",
+                                                        fontStyle: "italic",
+                                                        color: "#333333",
+                                                        marginTop: "1px"
+                                                    }}>
+                                                        Not: {item.productNote}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* WAREHOUSE STOCK MATCH BANNER (if exists) */}
+                        {formData.warehouseStockMatch && (
+                            <div style={{
+                                border: "1px solid #000000",
+                                backgroundColor: "#f5f5f5",
+                                padding: "2px 5px",
+                                marginBottom: "4px",
+                                fontSize: "8px",
+                                fontWeight: "700"
+                            }}>
+                                📦 DEPO STOK KULLANIMI: {formData.warehouseStockMatch.sku} ({formData.warehouseStockMatch.dimensions})
+                            </div>
+                        )}
+
+                        {/* PROCESS NOTES / HISTORY (Latest comments) */}
+                        {formData.comments && formData.comments.length > 0 && (
+                            <div style={{
+                                borderTop: "1px dashed #888888",
+                                paddingTop: "2px",
+                                marginBottom: "2px"
+                            }}>
+                                <div style={{ fontSize: "8px", fontWeight: "800", color: "#333333", marginBottom: "1px" }}>
+                                    İşlem / Yazışma Notları:
+                                </div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
+                                    {formData.comments.slice(-2).map((comment: any, cIdx: number) => {
+                                        const authorName = typeof comment.author === 'object' ? (comment.author?.name || 'Sistem') : (comment.author || 'Sistem');
+                                        return (
+                                            <div key={cIdx} style={{ fontSize: "7.5px", color: "#222222", lineHeight: "1.2" }}>
+                                                <strong>{authorName}</strong>: {comment.message}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* FOOTER */}
+                    <div style={{
+                        borderTop: "1px solid #000000",
+                        paddingTop: "2px",
+                        marginTop: "3px",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        fontSize: "7.5px",
+                        color: "#555555"
+                    }}>
+                        <span>10x15 Barkod Sipariş Ekstresi</span>
+                        <span>{APP_CONFIG.companyName} • {new Date().toLocaleDateString('tr-TR')}</span>
+                    </div>
+                </div>
+            </div>
+
             {/* Panel */}
-            <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+            <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 print:hidden">
 
                 {/* Header */}
-                <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950 print:hidden">
+                <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
                     <div>
                         <div className="flex items-center gap-2 flex-wrap">
                             <h2 className="text-lg font-bold dark:text-slate-100">
@@ -381,9 +944,14 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                             )}
                         </div>
                     </div>
-                    <div className="flex gap-2">
-                        <button onClick={handlePrint} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full text-slate-600 dark:text-slate-400" title="Yazdır">
-                            <Printer className="w-5 h-5" />
+                    <div className="flex items-center gap-2">
+                        <button 
+                            onClick={handlePrint} 
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 transition-colors shadow-xs" 
+                            title="10x15 cm Barkod Kağıdına Sipariş Fişi / Ekstre Yazdır"
+                        >
+                            <Printer className="w-4 h-4" />
+                            <span>10x15 Fiş Yazdır</span>
                         </button>
                         <button onClick={onClose} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full dark:text-slate-400">
                             <X className="w-5 h-5" />
@@ -391,54 +959,9 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                     </div>
                 </div>
 
-                {/* Printable Header (Visible only in Print) */}
-                <div className="hidden print:block p-8 border-b">
-                    <style>{`
-                        @media print {
-                            -webkit-print-color-adjust: exact !important;
-                            print-color-adjust: exact !important;
-                            body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-                        }
-                    `}</style>
-
-                    {/* Company Logo Section - Placeholder */}
-                    <div className="mb-6 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <img
-                                src={APP_CONFIG.companyLogo}
-                                alt={APP_CONFIG.companyName}
-                                className="h-12 w-auto object-contain"
-                            />
-                        </div>
-                        <div className="text-right text-xs text-slate-500">
-                            <p>{APP_CONFIG.companyWeb}</p>
-                            <p>{APP_CONFIG.companyPhone}</p>
-                        </div>
-                    </div>
-
-                    <h1 className="text-2xl font-bold mb-2">
-                        Sipariş {(formData.source === 'woo' || formData.source === 'wayfair' || formData.source === 'shopify' || formData.source === 'shopify_2' || formData.source === 'PrintMarkt') && formData.externalId ? `#${formData.externalId.replace(/^pm_/, '')}` : `#${formData.id}`}
-                    </h1>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <p className="font-bold">Müşteri:</p>
-                            <p>{formData.customer}</p>
-                            <p>{formData.phone}</p>
-                            <p>{formData.email}</p>
-                            <p>{formData.address}</p>
-                            <p>{formData.city}</p>
-                        </div>
-                        <div className="text-right">
-                             <p className="font-bold">Tarih: {formData.date ? new Date(formData.date).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</p>
-                            <p className="text-xl font-bold mt-2">{formData.total}</p>
-                        </div>
-                    </div>
-                    {formData.note && <div className="mt-4 p-4 border border-dashed border-slate-300"><strong>Müşteri Notu:</strong> {formData.note}</div>}
-                </div>
-
                 {/* Content - Two Column Layout */}
                 <div className="flex-1 overflow-y-auto p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 print:block print:grid-cols-1">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 
                         {/* LEFT COLUMN: Order Details */}
                         <div className="space-y-6">
@@ -1088,12 +1611,18 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                 return;
                                             }
 
+                                            // Auto-normalize city and district (e.g. "istanbul kadıköy" -> "Kadıköy / İstanbul")
+                                            const locParsed = parseTurkishCityAndDistrict(formData.city, formData.address);
+                                            let currentCity = formData.city;
+                                            if (locParsed && locParsed.formattedCity && locParsed.formattedCity !== formData.city) {
+                                                currentCity = locParsed.formattedCity;
+                                                formData.city = locParsed.formattedCity;
+                                            }
+
                                             const toastId = toast.loading("DHL oluşturuluyor...");
                                             try {
-                                                if (isModified) {
-                                                    await updateOrderDetails(formData);
-                                                    setIsModified(false);
-                                                }
+                                                await updateOrderDetails({ ...formData, city: currentCity });
+                                                setIsModified(false);
                                                 // Use standard fetch instead of Server Action to prevent Next.js connection hanging bugs
                                                 const timeoutPromise = new Promise<{error: string}>((_, reject) => 
                                                     setTimeout(() => reject(new Error("Kargo Entegratör yanıt vermedi (Zaman Aşımı). Lütfen tekrar deneyin.")), 25000)
@@ -1169,23 +1698,39 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                 {(!formData.cargoBarcode && !formData.cargoLabelPdf) && (
                                     <div className="mb-4">
                                         <div className="grid grid-cols-1 gap-2">
-                                            {(formData.source === 'shopify' || formData.source === 'shopify_2') ? (
-                                                <button
-                                                    onClick={() => window.open(`https://admin.shopify.com/store/orders?query=${formData.externalId || formData.id}`, '_blank')}
-                                                    className="py-3 mt-2 border-2 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 hover:border-emerald-400 transition-all text-emerald-700 dark:text-emerald-400 font-bold text-xs"
-                                                >
-                                                    <ExternalLink className="w-5 h-5 text-emerald-600" />
-                                                    Shopify'da Aç
-                                                </button>
-                                            ) : (
-                                                <button
-                                                    onClick={() => window.open(`https://duvarkagidimarketi.com/wp-admin/post.php?post=${formData.externalId || formData.id}&action=edit`, '_blank')}
-                                                    className="py-3 mt-2 border-2 border-slate-300 bg-slate-50 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-slate-100 hover:border-slate-400 transition-all text-slate-600 font-bold text-xs"
-                                                >
-                                                    <ExternalLink className="w-5 h-5" />
-                                                    WooCommerce'da Aç
-                                                </button>
-                                            )}
+                                            {(() => {
+                                                const isShopify = formData.source === 'shopify' || 
+                                                    formData.source === 'shopify_2' || 
+                                                    (formData.barcode && formData.barcode.startsWith('SH-')) ||
+                                                    (Array.isArray(formData.labels) && formData.labels.some((l: any) => String(l).toLowerCase().includes('shopify'))) ||
+                                                    (typeof formData.labels === 'string' && (formData.labels as string).toLowerCase().includes('shopify'));
+
+                                                if (isShopify) {
+                                                    return (
+                                                        <button
+                                                            onClick={() => window.open(`https://admin.shopify.com/store/orders?query=${formData.externalId || formData.id}`, '_blank')}
+                                                            className="py-3 mt-2 border-2 border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 hover:border-emerald-400 transition-all text-emerald-700 dark:text-emerald-400 font-bold text-xs"
+                                                        >
+                                                            <ExternalLink className="w-5 h-5 text-emerald-600" />
+                                                            Shopify'da Aç
+                                                        </button>
+                                                    );
+                                                }
+
+                                                if (formData.source === 'woocommerce' || (formData.barcode && formData.barcode.startsWith('WC-'))) {
+                                                    return (
+                                                        <button
+                                                            onClick={() => window.open(`https://duvarkagidimarketi.com/wp-admin/post.php?post=${formData.externalId || formData.id}&action=edit`, '_blank')}
+                                                            className="py-3 mt-2 border-2 border-slate-300 bg-slate-50 rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-slate-100 hover:border-slate-400 transition-all text-slate-600 font-bold text-xs"
+                                                        >
+                                                            <ExternalLink className="w-5 h-5" />
+                                                            WooCommerce'da Aç
+                                                        </button>
+                                                    );
+                                                }
+
+                                                return null;
+                                            })()}
                                         </div>
                                     </div>
                                 )}
@@ -1293,21 +1838,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                             </div>
 
-                            {/* Print Only: Process Notes History */}
-                            <div className="hidden print:block mt-8 border-t pt-4">
-                                <h3 className="font-bold text-slate-900 mb-2">İşlem Notları / Yazışma Geçmişi</h3>
-                                {formData.comments && formData.comments.length > 0 ? (
-                                    <ul className="space-y-2 text-sm font-mono">
-                                        {formData.comments.map((comment: any, idx: number) => (
-                                            <li key={idx} className="border-b pb-1">
-                                                <span className="font-bold">{comment.author}</span> <span className="text-slate-500">[{comment.timestamp}]:</span> {comment.message}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                ) : (
-                                    <p className="text-slate-500 italic">Henüz not eklenmemiş.</p>
-                                )}
-                            </div>
+
 
                             {/* EDITABLE FIELDS (Hidden in Print) */}
                             <div className="space-y-6 print:hidden">

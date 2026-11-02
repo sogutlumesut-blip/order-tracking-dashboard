@@ -1,3 +1,5 @@
+import { parseTurkishCityAndDistrict } from "@/lib/turkish-cities";
+
 const API_KEY = process.env.KARGO_ENTEGRATOR_API_KEY || "OylOoz2vKllZtByiBAbl65NpdsnaNPVlpVTRzgNte8e42427";
 const BASE_URL = "https://app.kargoentegrator.com/api";
 const CARGO_INTEGRATION_ID = 1220;
@@ -10,29 +12,10 @@ export async function createKargoEntegratorShipment(order: any, items: any[]) {
         "Content-Type": "application/json"
     };
 
-    let il = "Bilinmiyor";
-    let ilce = "Bilinmiyor";
-    if (order.city && order.city.includes('/')) {
-        const parts = order.city.split('/');
-        il = parts[parts.length - 1].trim();
-        ilce = parts[0].trim();
-    } else if (order.city) {
-        il = order.city;
-        ilce = order.district || "Bilinmiyor";
-    }
-
-    // Fallback: Try to extract İlçe / İl from address if ilce is "Bilinmiyor"
-    if (ilce === "Bilinmiyor" && order.address) {
-        const addressMatch = order.address.match(/([a-zA-ZçğıöşüÇĞİÖŞÜ\s]+)\s*\/\s*([a-zA-ZçğıöşüÇĞİÖŞÜ\s]+)$/);
-        if (addressMatch) {
-            ilce = addressMatch[1].trim();
-            il = addressMatch[2].trim();
-        } else {
-            // Last resort: If they just wrote "İZMİT" in city, use it as district and default city to same or "Merkez"
-            // Usually Kargo Entegratör prefers district over city if one is missing
-            ilce = order.city;
-        }
-    }
+    // Smart Turkish City & District parser (fixes Shopify & manual space-separated entries like "istanbul kadıköy")
+    const parsedLocation = parseTurkishCityAndDistrict(order.city, order.address);
+    const il = parsedLocation.city;
+    const ilce = parsedLocation.district;
 
     const nameParts = (order.customer || "").trim().split(' ');
     const surname = nameParts.length > 1 ? nameParts.pop() : "Müşteri";

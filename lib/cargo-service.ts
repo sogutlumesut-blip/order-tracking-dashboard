@@ -1,5 +1,6 @@
 import { db } from "@/lib/prisma";
 import { createKargoEntegratorShipment } from "@/lib/kargo-entegrator-api";
+import { parseTurkishCityAndDistrict } from "@/lib/turkish-cities";
 import fs from "fs";
 
 const DEBUG_LOG_PATH = "/tmp/oms_debug.log";
@@ -67,6 +68,11 @@ export async function generateDHLShipment(orderId: number, actorName: string, by
             cargoBarcode: trackingNo,
             trackingNumber: trackingNo
         };
+
+        const parsedLoc = parseTurkishCityAndDistrict(order.city, order.address);
+        if (parsedLoc?.formattedCity && (!order.city || !order.city.includes('/'))) {
+            updateData.city = parsedLoc.formattedCity;
+        }
 
         if (!bypassStatusUpdate) {
             updateData.status = "shipped";
