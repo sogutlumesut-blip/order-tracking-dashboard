@@ -53,6 +53,29 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
     const activeOrderIdRef = useRef<number | null>(null)
     const abortControllerRef = useRef<AbortController | null>(null)
+    const printSlipRef = useRef<HTMLDivElement>(null)
+
+    const reactToPrintFn = useReactToPrint({
+        contentRef: printSlipRef,
+        documentTitle: `Siparis-${formData?.externalId?.replace(/^pm_/, '') || formData?.id || ''}`,
+        pageStyle: `
+            @page {
+                size: 100mm 150mm !important;
+                margin: 0 !important;
+            }
+            @media print {
+                html, body {
+                    width: 100mm !important;
+                    height: 150mm !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    background: #ffffff !important;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
+            }
+        `
+    })
 
     // Sync formData when order prop changes
     useEffect(() => {
@@ -243,30 +266,6 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
             onClose()
         }
     }
-
-    const printSlipRef = useRef<HTMLDivElement>(null)
-
-    const reactToPrintFn = useReactToPrint({
-        contentRef: printSlipRef,
-        documentTitle: `Siparis-${formData?.externalId?.replace(/^pm_/, '') || formData?.id || ''}`,
-        pageStyle: `
-            @page {
-                size: 100mm 150mm !important;
-                margin: 0 !important;
-            }
-            @media print {
-                html, body {
-                    width: 100mm !important;
-                    height: 150mm !important;
-                    margin: 0 !important;
-                    padding: 0 !important;
-                    background: #ffffff !important;
-                    -webkit-print-color-adjust: exact !important;
-                    print-color-adjust: exact !important;
-                }
-            }
-        `
-    })
 
     const handlePrint = async () => {
         if (!formData) return
