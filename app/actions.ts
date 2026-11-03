@@ -3599,7 +3599,10 @@ export async function syncWayfairOrders(force: boolean = false) {
                     }
                     const props = parseWfProperties(item.name || "");
                     const skuSize = parseSizeFromSku(sku || "");
-                    const finalDimensions = skuSize || props.dimensions;
+                    let finalDimensions = skuSize || props.dimensions;
+                    if (finalDimensions && !/inç|inch|cm|mm|m\b/i.test(finalDimensions)) {
+                        finalDimensions = `${finalDimensions} inç`;
+                    }
 
                     let finalName = item.name || item.partNumber || "Wayfair Product";
                     if (isSizeOnlyName(finalName)) {

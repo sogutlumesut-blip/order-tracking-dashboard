@@ -8,6 +8,7 @@ import { useRef, useState } from "react"
 import { useReactToPrint } from "react-to-print"
 import { syncCargoKargoEntegrator } from "@/app/actions"
 import { toast } from "sonner"
+import { formatDimensions } from "./order-card"
 
 interface LocalBarcodeModalProps {
     order: {
@@ -58,6 +59,21 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                     padding: 0 !important;
                     -webkit-print-color-adjust: exact !important;
                     print-color-adjust: exact !important;
+                }
+                body * {
+                    visibility: hidden !important;
+                }
+                #local-barcode-print, #local-barcode-print * {
+                    visibility: visible !important;
+                }
+                #local-barcode-print {
+                    position: absolute !important;
+                    left: 0 !important;
+                    top: 0 !important;
+                    width: 100mm !important;
+                    height: 150mm !important;
+                    margin: 0 !important;
+                    box-sizing: border-box !important;
                 }
             }
         `
@@ -206,6 +222,7 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                 <div className="flex-1 overflow-auto p-8 bg-slate-100 flex justify-center">
                     <div
                         ref={printRef}
+                        id="local-barcode-print"
                         className="bg-white rounded text-black dark:text-black"
                         style={{ 
                             width: "100mm", 
@@ -349,7 +366,7 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                                                             fontSize: "18px",
                                                             fontWeight: "700",
                                                             color: "#000000"
-                                                        }}>({item.dimensions})</span>
+                                                        }}>({formatDimensions(item.dimensions, order.source, order.barcode)})</span>
                                                     )}
                                                     <span style={{
                                                         fontSize: "18px",
@@ -401,6 +418,7 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                                         <Barcode
                                             value={order.cargoBarcode || order.cargoTrackingNumber || order.barcode || order.id.toString()}
+                                            renderer="svg"
                                             width={1.3}
                                             height={45}
                                             fontSize={9}
@@ -687,7 +705,7 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                                                                     padding: "1px 4px",
                                                                     borderRadius: "3px"
                                                                 }}>
-                                                                    📏 {item.dimensions}
+                                                                    📏 {formatDimensions(item.dimensions, order.source, order.barcode)}
                                                                 </span>
                                                             )}
                                                         </div>
@@ -779,6 +797,7 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                                             }}>
                                                 <Barcode
                                                     value={order.cargoBarcode || order.cargoTrackingNumber || order.barcode || order.id.toString()}
+                                                    renderer="svg"
                                                     width={1.4}
                                                     height={50}
                                                     fontSize={10}

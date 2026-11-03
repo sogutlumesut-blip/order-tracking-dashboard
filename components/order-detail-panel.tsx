@@ -11,6 +11,7 @@ import { getColorClasses } from "@/lib/colors"
 import { logManualActivity, uploadCargoLabel, deleteCargoLabel, getOrderDetails, fetchOrderForCargo, createInvoiceAction, createCargoLabelAction, createDHLShipmentAction, markOrderAsPaidAction, updateOrderDetails, syncOrderCargoToShopifyAction } from "../app/actions"
 import { parseTurkishCityAndDistrict } from "@/lib/turkish-cities"
 import { LocalBarcodeModal } from "./local-barcode-modal"
+import { formatDimensions } from "./order-card"
 import Barcode from "react-barcode"
 import QRCode from "react-qr-code"
 import { useReactToPrint } from "react-to-print"
@@ -341,7 +342,10 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
         if (!match) return ''
         const w = parseFloat(match[1])
         const h = parseFloat(match[2])
-        const isInch = dimStr.includes('"') || /(?:^|\d|\s)(in|inch|inches|inc|inç)(?:\b|$)/i.test(dimStr)
+        const isInch = (formData?.source || '').toLowerCase() === 'wayfair' || 
+                       (formData?.barcode && formData.barcode.toUpperCase().startsWith('WF-')) || 
+                       dimStr.includes('"') || 
+                       /(?:^|\d|\s)(in|inch|inches|inc|inç)(?:\b|$)/i.test(dimStr)
         const m2 = isInch ? (w * 0.0254) * (h * 0.0254) : (w * h) / 10000
         return ` (${m2.toFixed(2)} m²)`
     }
@@ -452,7 +456,8 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                     body * {
                         visibility: hidden !important;
                     }
-                    #order-10x15-slip, #order-10x15-slip * {
+                    #order-10x15-slip, #order-10x15-slip *,
+                    #local-barcode-print, #local-barcode-print * {
                         visibility: visible !important;
                     }
                     #order-10x15-slip {
@@ -796,7 +801,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                             borderRadius: "2px",
                                                             fontWeight: "700"
                                                         }}>
-                                                            📏 {item.dimensions}{extraM2}
+                                                            📏 {formatDimensions(item.dimensions, formData.source, formData.barcode)}{extraM2}
                                                         </span>
                                                     )}
                                                     <span style={{
@@ -1375,20 +1380,20 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                             }
                                                         }
                                                         return (
-                                                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 uppercase">
+                                                            <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs sm:text-[13px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 uppercase shadow-xs">
                                                                 Kod: {displaySku}
                                                             </span>
                                                         );
                                                     })()}
                                                     {item.material && (
-                                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs sm:text-[13px] font-bold border shadow-xs ${
                                                             item.material.toLowerCase().includes('hp')
                                                                 ? 'bg-pink-100 text-pink-800 border-pink-300 dark:bg-pink-950/60 dark:text-pink-300 dark:border-pink-800'
                                                                 : item.material.toLowerCase().includes('epson')
                                                                     ? 'bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-950/60 dark:text-orange-300 dark:border-orange-800'
                                                                     : item.material.toLowerCase().includes('kağıt')
                                                                         ? 'bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800'
-                                                                        : 'bg-blue-50 text-blue-700 border-blue-100'
+                                                                        : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800'
                                                         }`}>
                                                             <span>{item.material.toLowerCase().includes('hp') ? '🎨' : item.material.toLowerCase().includes('epson') ? '🖨️' : item.material.toLowerCase().includes('kağıt') ? '📜' : ''}</span>
                                                             <span>{item.material}</span>
@@ -1401,32 +1406,26 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                          // Try to parse dimensions (supports decimals and spaces)
                                                          const match = dimStr.match(/(\d+(?:\.\d+)?)\s*[^0-9]*?\s*[x*]\s*[^0-9]*?\s*(\d+(?:\.\d+)?)/)
                                                          let extraM2 = "";
+                                                         const isInch = (formData?.source || '').toLowerCase() === 'wayfair' || 
+                                                                        (formData?.barcode && formData.barcode.toUpperCase().startsWith('WF-')) ||
+                                                                        dimStr.includes('"') || 
+                                                                        /(?:^|\d|\s)(in|inch|inches|inc|inç)(?:\b|$)/i.test(dimStr);
                                                          if (match && !hasM2) {
                                                              const w = parseFloat(match[1])
                                                              const h = parseFloat(match[2])
-                                                             
-                                                             // Detect if it is in inches
-                                                             const isInch = dimStr.includes('"') || 
-                                                                            /(?:^|\d|\s)(in|inch|inches|inc|inç)(?:\b|$)/i.test(dimStr);
-                                                             
-                                                             let m2 = 0
-                                                             if (isInch) {
-                                                                 // 1 inch = 0.0254 meters
-                                                                 m2 = (w * 0.0254) * (h * 0.0254)
-                                                             } else {
-                                                                 // Assuming cm, convert to m²
-                                                                 m2 = (w * h) / 10000
-                                                             }
+                                                             let m2 = isInch ? (w * 0.0254) * (h * 0.0254) : (w * h) / 10000;
                                                              extraM2 = ` (${m2.toFixed(2)} m²)`;
                                                          }
                                                          
+                                                         const formattedDim = formatDimensions(dimStr, formData?.source, formData?.barcode);
+                                                         
                                                          return (
-                                                             <span className={item.dimensions === 'SAMPLE' ? "inline-flex items-center text-[10px] bg-pink-50 dark:bg-pink-900/30 px-2 py-0.5 rounded text-pink-700 dark:text-pink-400 font-bold border border-pink-100 dark:border-pink-800 animate-pulse" : "inline-flex items-center text-[10px] font-bold bg-slate-100 dark:bg-slate-700/50 px-2 py-0.5 rounded text-slate-700 dark:text-slate-300 border dark:border-slate-600/50"}>
-                                                                 {item.dimensions === 'SAMPLE' ? '✨ SAMPLE' : `📏 ${dimStr}${extraM2}`}
+                                                             <span className={item.dimensions === 'SAMPLE' ? "inline-flex items-center text-xs sm:text-[13px] bg-pink-50 dark:bg-pink-900/30 px-2.5 py-1 rounded-md text-pink-700 dark:text-pink-400 font-bold border border-pink-200 dark:border-pink-800 animate-pulse shadow-xs" : "inline-flex items-center text-xs sm:text-[13px] font-bold bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-md text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 shadow-xs"}>
+                                                                 {item.dimensions === 'SAMPLE' ? '✨ SAMPLE' : `📏 ${formattedDim}${extraM2}`}
                                                              </span>
                                                          );
                                                      })()}
-                                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs sm:text-[13px] font-bold bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800 shadow-xs">
                                                         ADET: {item.quantity}
                                                     </span>
                                                 </div>

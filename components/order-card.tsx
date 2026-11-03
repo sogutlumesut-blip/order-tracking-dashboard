@@ -5,6 +5,23 @@ import Image from "next/image"
 import { Calendar, Package, AlertCircle, User, Truck, Clock, AlertTriangle, Scissors, ExternalLink, ScrollText, Droplet, Printer } from "lucide-react"
 import { getColorClasses } from "@/lib/colors"
 
+// Wayfair ölçüleri genelde inç olarak gelir; açıkça inç olarak belirt
+export function formatDimensions(dimensions: string | null | undefined, source?: string | null, barcode?: string | null): string {
+    const dim = (dimensions || "").trim()
+    if (!dim || dim === '-') return dim
+    const isWayfair = (source || "").toLowerCase() === 'wayfair' || (barcode || "").toUpperCase().startsWith('WF-')
+    if (isWayfair) {
+        const hasUnit = dim.includes('"') || /(cm|mm|m²|m2|\bm\b|in|inch|inches|inç|ft)/i.test(dim)
+        if (!hasUnit) {
+            return `${dim} inç`
+        }
+        if (/\b(in|inch|inches)\b/i.test(dim) && !dim.includes('inç')) {
+            return dim.replace(/\b(in|inch|inches)\b/gi, 'inç')
+        }
+    }
+    return dim
+}
+
 function getPersonnelColorClass(name: string): string {
     const cleanName = (name || "Sistem").trim().toLocaleUpperCase('tr-TR');
     
@@ -477,14 +494,14 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                     }
                                 }
                                 return (
-                                    <span className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300 font-medium">
+                                    <span className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-slate-800 dark:text-slate-200 text-xs font-bold border border-slate-200 dark:border-slate-700">
                                         Kod: {displaySku}
                                     </span>
                                 );
                             })()}
                             {order.items && order.items.length > 0 && order.items[0].dimensions && order.items[0].dimensions !== '-' && (
-                                <span className={order.items[0].dimensions === 'SAMPLE' ? "bg-pink-50 dark:bg-pink-900/30 px-1.5 py-0.5 rounded text-pink-700 dark:text-pink-400 font-bold border border-pink-100 dark:border-pink-800 animate-pulse flex items-center gap-1" : "bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300 font-medium flex items-center gap-1"}>
-                                    <span>{order.items[0].dimensions === 'SAMPLE' ? '✨ SAMPLE' : `📏 ${order.items[0].dimensions}`}</span>
+                                <span className={order.items[0].dimensions === 'SAMPLE' ? "bg-pink-50 dark:bg-pink-900/30 px-2 py-1 rounded text-pink-700 dark:text-pink-400 font-bold border border-pink-100 dark:border-pink-800 animate-pulse flex items-center gap-1 text-xs" : "bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-slate-800 dark:text-slate-200 font-bold border border-slate-200 dark:border-slate-700 flex items-center gap-1 text-xs"}>
+                                    <span>{order.items[0].dimensions === 'SAMPLE' ? '✨ SAMPLE' : `📏 ${formatDimensions(order.items[0].dimensions, order.source, order.barcode)}`}</span>
                                     {/* Auto M2 Calculation */}
                                     {(() => {
                                         const dimStr = order.items[0].dimensions!;
@@ -497,7 +514,8 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                             const h = parseFloat(match[2])
                                             
                                             // Detect if it is in inches
-                                            const isInch = order.source === 'wayfair' || 
+                                            const isInch = (order.source || '').toLowerCase() === 'wayfair' || 
+                                                           (order.barcode && order.barcode.toUpperCase().startsWith('WF-')) ||
                                                            dimStr.includes('"') || 
                                                            /(?:^|\d|\s)(in|inch|inches|inc|inç)(?:\b|$)/i.test(dimStr);
                                             
@@ -509,7 +527,7 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                                 // Assuming cm, convert to m²
                                                 m2 = (w * h) / 10000
                                             }
-                                            return <span className="text-slate-400">({m2.toFixed(2)} m²)</span>
+                                            return <span className="text-slate-400 font-normal">({m2.toFixed(2)} m²)</span>
                                         }
                                         return null
                                     })()}
@@ -518,7 +536,7 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                             {/* Category / Texture Badge */}
                             {order.items && order.items.length > 0 && order.items[0].material && (
                                 isMaterialOrder ? (
-                                    <span className={`px-2 py-0.5 rounded text-[11px] font-bold border flex items-center gap-1 shadow-2xs ${
+                                    <span className={`px-2 py-1 rounded text-xs font-bold border flex items-center gap-1 shadow-2xs ${
                                         order.items[0].material.toLowerCase().includes('hp')
                                             ? 'bg-pink-100 dark:bg-pink-950/60 text-pink-800 dark:text-pink-300 border-pink-300 dark:border-pink-800'
                                             : order.items[0].material.toLowerCase().includes('epson')
@@ -529,20 +547,20 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                         <span>{order.items[0].material}</span>
                                     </span>
                                 ) : (
-                                    <span className="bg-purple-50 px-1.5 py-0.5 rounded text-purple-700 font-medium border border-purple-100">
+                                    <span className="bg-purple-50 dark:bg-purple-950/40 px-2 py-1 rounded text-purple-700 dark:text-purple-300 font-bold border border-purple-200 dark:border-purple-800 text-xs">
                                         Doku: {order.items[0].material}
                                     </span>
                                 )
                             )}
                             {/* Sample Data Badge */}
                             {order.items && order.items.length > 0 && order.items[0].sampleData && (
-                                <span className="bg-pink-50 px-1.5 py-0.5 rounded text-pink-700 font-bold border border-pink-100 animate-pulse">
+                                <span className="bg-pink-50 dark:bg-pink-900/30 px-2 py-1 rounded text-pink-700 dark:text-pink-400 font-bold border border-pink-100 dark:border-pink-800 animate-pulse text-xs">
                                     ✨ NUMUNE: {order.items[0].sampleData}
                                 </span>
                             )}
                             {/* Quantity Badge */}
                             {order.items && order.items.length > 0 && order.items[0].quantity !== undefined && (
-                                <span className="bg-amber-100 dark:bg-amber-950/40 px-1.5 py-0.5 rounded text-amber-850 dark:text-amber-300 font-bold border border-amber-200 dark:border-amber-900/50">
+                                <span className="bg-amber-100 dark:bg-amber-950/40 px-2 py-1 rounded text-amber-900 dark:text-amber-300 font-bold border border-amber-200 dark:border-amber-900/50 text-xs">
                                     ADET: {order.items[0].quantity}
                                 </span>
                             )}
