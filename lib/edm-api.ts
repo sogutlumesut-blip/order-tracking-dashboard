@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { db } from "./prisma";
 
 const EDM_SERVICE_URL = "https://portal2.edmbilisim.com.tr/EFaturaEDM/EFaturaEDM.svc";
 
@@ -185,41 +186,119 @@ export async function loginToEdm(settings: Record<string, string | undefined> = 
     return sessionId;
 }
 
+export async function checkEdmInvoiceExists(sessionId: string, invoiceId: string): Promise<boolean> {
+    try {
+        const res = await edmSoapCall("GetInvoiceRequest", `<GetInvoiceRequest xmlns="http://tempuri.org/">
+          <REQUEST_HEADER xmlns="">
+            <SESSION_ID>${sessionId}</SESSION_ID>
+            <CLIENT_TXN_ID>${crypto.randomUUID()}</CLIENT_TXN_ID>
+            <ACTION_DATE>${new Date().toISOString()}</ACTION_DATE>
+            <REASON>Check Serial Exists</REASON>
+            <APPLICATION_NAME>DKM_OMS</APPLICATION_NAME>
+            <HOSTNAME>duvarkagidimarketi.com</HOSTNAME>
+            <CHANNEL_NAME>WEB</CHANNEL_NAME>
+            <COMPRESSED>N</COMPRESSED>
+          </REQUEST_HEADER>
+          <INVOICE_SEARCH_KEY xmlns="">
+            <LIMIT>1</LIMIT>
+            <ID>${escapeXml(invoiceId)}</ID>
+          </INVOICE_SEARCH_KEY>
+          <HEADER_ONLY xmlns="">Y</HEADER_ONLY>
+        </GetInvoiceRequest>`);
+
+        return res.status === 200 && res.text.includes("<INVOICE ") && res.text.includes(`ID="${invoiceId}"`);
+    } catch {
+        return false;
+    }
+}
+
 export async function getEdmNextInvoiceSerial(
     sessionId: string,
     prefix: string,
     year: number = new Date().getFullYear()
 ): Promise<string> {
-    const now = new Date().toISOString();
-    const res = await edmSoapCall("GetInvoiceSerialRequest", `<GetInvoiceSerialRequest xmlns="http://tempuri.org/">
-      <REQUEST_HEADER xmlns="">
-        <SESSION_ID>${sessionId}</SESSION_ID>
-        <CLIENT_TXN_ID>${crypto.randomUUID()}</CLIENT_TXN_ID>
-        <ACTION_DATE>${now}</ACTION_DATE>
-        <REASON>Seri Numarasi</REASON>
-        <APPLICATION_NAME>DKM_OMS</APPLICATION_NAME>
-        <HOSTNAME>duvarkagidimarketi.com</HOSTNAME>
-        <CHANNEL_NAME>WEB</CHANNEL_NAME>
-        <COMPRESSED>N</COMPRESSED>
-      </REQUEST_HEADER>
-      <INVOICE_SERIAL xmlns="">
-        <YEAR>${year}</YEAR>
-      </INVOICE_SERIAL>
-    </GetInvoiceSerialRequest>`);
+    // 1. Query EDM static serial config
+    let edmLastUsed = 0;
+    try {
+        const now = new Date().toISOString();
+        const res = await edmSoapCall("GetInvoiceSerialRequest", `<GetInvoiceSerialRequest xmlns="http://tempuri.org/">
+          <REQUEST_HEADER xmlns="">
+            <SESSION_ID>${sessionId}</SESSION_ID>
+            <CLIENT_TXN_ID>${crypto.randomUUID()}</CLIENT_TXN_ID>
+            <ACTION_DATE>${now}</ACTION_DATE>
+            <REASON>Seri Numarasi</REASON>
+            <APPLICATION_NAME>DKM_OMS</APPLICATION_NAME>
+            <HOSTNAME>duvarkagidimarketi.com</HOSTNAME>
+            <CHANNEL_NAME>WEB</CHANNEL_NAME>
+            <COMPRESSED>N</COMPRESSED>
+          </REQUEST_HEADER>
+          <INVOICE_SERIAL xmlns="">
+            <YEAR>${year}</YEAR>
+          </INVOICE_SERIAL>
+        </GetInvoiceSerialRequest>`);
 
-    const itemBlocks = [...res.text.matchAll(/<Items[^>]*>([\s\S]*?)<\/Items>/g)].map(m => m[1]);
-    for (const block of itemBlocks) {
-        const code = block.match(/<INVOICESERIALCODE[^>]*>([^<]+)<\/INVOICESERIALCODE>/)?.[1];
-        const itemYear = block.match(/<YEAR[^>]*>([^<]+)<\/YEAR>/)?.[1];
-        if (code === prefix && (!itemYear || itemYear === String(year))) {
-            const lastUsedStr = block.match(/<LASTSERIALUSED[^>]*>([^<]+)<\/LASTSERIALUSED>/)?.[1];
-            const lastUsed = parseInt(lastUsedStr || "0", 10) || 0;
-            const nextSeq = lastUsed + 1;
-            return `${prefix}${year}${String(nextSeq).padStart(9, "0")}`;
+        const itemBlocks = [...res.text.matchAll(/<Items[^>]*>([\s\S]*?)<\/Items>/g)].map(m => m[1]);
+        for (const block of itemBlocks) {
+            const code = block.match(/<INVOICESERIALCODE[^>]*>([^<]+)<\/INVOICESERIALCODE>/)?.[1];
+            const itemYear = block.match(/<YEAR[^>]*>([^<]+)<\/YEAR>/)?.[1];
+            if (code === prefix && (!itemYear || itemYear === String(year))) {
+                const lastUsedStr = block.match(/<LASTSERIALUSED[^>]*>([^<]+)<\/LASTSERIALUSED>/)?.[1];
+                edmLastUsed = parseInt(lastUsedStr || "0", 10) || 0;
+                break;
+            }
         }
+    } catch (e) {
+        console.warn("[EDM_SERIAL] GetInvoiceSerialRequest query error:", e);
     }
 
-    return `${prefix}${year}000000001`;
+    // 2. Query SystemSetting for our internal tracked last serial
+    const settingKey = `edm_last_serial_${prefix}_${year}`;
+    let settingLastUsed = 0;
+    try {
+        const row = await db.systemSetting.findUnique({ where: { key: settingKey } });
+        if (row?.value) {
+            settingLastUsed = parseInt(row.value, 10) || 0;
+        }
+    } catch {}
+
+    // 3. Scan orders in database for any existing invoiceUrl with this prefix+year
+    let dbOrdersMax = 0;
+    try {
+        const pattern = `${prefix}${year}`;
+        const ordersWithSerial = await db.order.findMany({
+            where: { invoiceUrl: { contains: pattern } },
+            select: { invoiceUrl: true }
+        });
+        for (const o of ordersWithSerial) {
+            const match = o.invoiceUrl?.match(new RegExp(`${pattern}(\\d{9})`));
+            if (match && match[1]) {
+                const num = parseInt(match[1], 10) || 0;
+                if (num > dbOrdersMax) dbOrdersMax = num;
+            }
+        }
+    } catch {}
+
+    let candidateNum = Math.max(edmLastUsed, settingLastUsed, dbOrdersMax) + 1;
+
+    // 4. Verify candidate against EDM to ensure no collision exists
+    for (let attempts = 0; attempts < 30; attempts++) {
+        const candidateId = `${prefix}${year}${String(candidateNum).padStart(9, "0")}`;
+        const exists = await checkEdmInvoiceExists(sessionId, candidateId);
+        if (!exists) {
+            try {
+                await db.systemSetting.upsert({
+                    where: { key: settingKey },
+                    update: { value: String(candidateNum) },
+                    create: { key: settingKey, value: String(candidateNum) }
+                });
+            } catch {}
+            return candidateId;
+        }
+        console.log(`[EDM_SERIAL] Candidate ${candidateId} already exists in EDM, trying next number...`);
+        candidateNum++;
+    }
+
+    return `${prefix}${year}${String(candidateNum).padStart(9, "0")}`;
 }
 
 export async function checkEdmGibUser(sessionId: string, taxNumber: string): Promise<{ isEFatura: boolean; alias: string; title?: string }> {
