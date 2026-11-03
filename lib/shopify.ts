@@ -769,3 +769,216 @@ export async function upsertShopifyOrder(shopifyOrder: any, storeConfig?: Shopif
 
     return { success: true, isNew: true, order: newOrder };
 }
+
+/**
+ * Fulfill an order in Shopify and attach cargo tracking number
+ */
+export async function fulfillShopifyOrder(
+    orderId: number,
+    options?: {
+        trackingNumber?: string;
+        company?: string;
+        trackingUrl?: string;
+        notifyCustomer?: boolean;
+    }
+) {
+    try {
+        const order = await db.order.findUnique({
+            where: { id: orderId },
+            include: { items: true },
+        });
+
+        if (!order) {
+            return { error: 'Sipariş bulunamadı.' };
+        }
+
+        const isStore2 = order.source === 'shopify_2';
+        const isStore1 = order.source === 'shopify';
+
+        if (!isStore1 && !isStore2) {
+            return { error: 'Bu sipariş bir Shopify siparişi değil.' };
+        }
+
+        const settings = await db.systemSetting.findMany({
+            where: {
+                key: {
+                    in: [
+                        'shopify_shop_domain',
+                        'shopify_access_token',
+                        'shopify_shop_domain_2',
+                        'shopify_access_token_2',
+                    ],
+                },
+            },
+        });
+        const settingsMap = settings.reduce((acc, curr) => ({ ...acc, [curr.key]: curr.value }), {} as Record<string, string>);
+
+        const domain = isStore2 ? settingsMap['shopify_shop_domain_2'] : settingsMap['shopify_shop_domain'];
+        const token = isStore2 ? settingsMap['shopify_access_token_2'] : settingsMap['shopify_access_token'];
+
+        if (!domain || !token) {
+            return { error: 'Shopify mağaza bağlantı bilgileri eksik.' };
+        }
+
+        const trackingNumber = (options?.trackingNumber || order.cargoBarcode || order.cargoTrackingNumber || order.trackingNumber || '').trim();
+        if (!trackingNumber) {
+            return { error: 'Kargo takip numarası veya barkod bulunamadı.' };
+        }
+
+        const effectiveToken = await getShopifyAccessToken(domain, token);
+        const cleanDomain = cleanShopifyDomain(domain);
+
+        // 1. Find the Shopify order by externalId or name
+        let shopifyOrderId = order.externalId;
+        let orderData: any = null;
+
+        if (shopifyOrderId) {
+            try {
+                const getOrderRes = await fetch(`https://${cleanDomain}/admin/api/2024-01/orders/${shopifyOrderId}.json`, {
+                    headers: {
+                        'X-Shopify-Access-Token': effectiveToken,
+                        'Content-Type': 'application/json',
+                    },
+                });
+                if (getOrderRes.ok) {
+                    const json = await getOrderRes.json();
+                    orderData = json.order;
+                }
+            } catch {}
+
+            if (!orderData) {
+                // Try searching by order name (e.g. #1008 or 1008)
+                const searchName = encodeURIComponent(`#${shopifyOrderId}`);
+                const searchRes = await fetch(`https://${cleanDomain}/admin/api/2024-01/orders.json?status=any&name=${searchName}`, {
+                    headers: {
+                        'X-Shopify-Access-Token': effectiveToken,
+                        'Content-Type': 'application/json',
+                    },
+                });
+                if (searchRes.ok) {
+                    const searchJson = await searchRes.json();
+                    if (Array.isArray(searchJson.orders) && searchJson.orders.length > 0) {
+                        orderData = searchJson.orders[0];
+                    }
+                }
+            }
+        }
+
+        if (!orderData || !orderData.id) {
+            return { error: `Shopify üzerinde #${order.externalId} siparişi bulunamadı.` };
+        }
+
+        shopifyOrderId = String(orderData.id);
+
+        // 2. Fetch Fulfillment Orders
+        const foRes = await fetch(`https://${cleanDomain}/admin/api/2024-01/orders/${shopifyOrderId}/fulfillment_orders.json`, {
+            headers: {
+                'X-Shopify-Access-Token': effectiveToken,
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!foRes.ok) {
+            const errBody = await foRes.text();
+            console.error('[SHOPIFY_FULFILL_ERR] Failed to fetch fulfillment orders:', errBody);
+            return { error: `Shopify Kargo İzin Hatası: ${errBody}` };
+        }
+
+        const foJson = await foRes.json();
+        const fulfillmentOrders = foJson.fulfillment_orders || [];
+
+        // Find open or in-progress fulfillment order
+        const openFo = fulfillmentOrders.find((fo: any) => fo.status === 'open' || fo.status === 'in_progress');
+
+        const company = options?.company || 'DHL eCommerce';
+        const trackingUrl = options?.trackingUrl || `https://kargotakip.dhl.com/?barkod=${trackingNumber}`;
+        const notifyCustomer = options?.notifyCustomer !== false;
+
+        if (!openFo) {
+            // If already fulfilled, attempt to update tracking info on existing fulfillments
+            const fulfillments = orderData.fulfillments || [];
+            if (fulfillments.length > 0) {
+                const fulfillmentId = fulfillments[0].id;
+                const updateTrackingRes = await fetch(`https://${cleanDomain}/admin/api/2024-01/fulfillments/${fulfillmentId}/update_tracking.json`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Shopify-Access-Token': effectiveToken,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        fulfillment: {
+                            notify_customer: notifyCustomer,
+                            tracking_info: {
+                                number: trackingNumber,
+                                company,
+                                url: trackingUrl,
+                            },
+                        },
+                    }),
+                });
+                if (updateTrackingRes.ok) {
+                    await db.orderActivity.create({
+                        data: {
+                            orderId: order.id,
+                            author: 'Shopify Kargo Entegrasyonu',
+                            action: 'CARGO_SUCCESS',
+                            details: `Shopify'daki kargo takip bilgisi güncellendi: ${trackingNumber} (${company})`,
+                        },
+                    });
+                    return { success: true, message: `Shopify'daki kargo takip numarası güncellendi: ${trackingNumber}` };
+                }
+            }
+            return { success: true, message: 'Bu sipariş Shopify üzerinde zaten gönderildi olarak işaretlenmiş.' };
+        }
+
+        // 3. Create fulfillment via Fulfillment Order
+        const fulfillPayload = {
+            fulfillment: {
+                message: 'Siparişiniz kargoya verildi.',
+                notify_customer: notifyCustomer,
+                tracking_info: {
+                    number: trackingNumber,
+                    company,
+                    url: trackingUrl,
+                },
+                line_items_by_fulfillment_order: [
+                    {
+                        fulfillment_order_id: openFo.id,
+                    },
+                ],
+            },
+        };
+
+        const createFulfillRes = await fetch(`https://${cleanDomain}/admin/api/2024-01/fulfillments.json`, {
+            method: 'POST',
+            headers: {
+                'X-Shopify-Access-Token': effectiveToken,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(fulfillPayload),
+        });
+
+        if (!createFulfillRes.ok) {
+            const errText = await createFulfillRes.text();
+            console.error('[SHOPIFY_FULFILL_ERR] Failed to create fulfillment:', errText);
+            return { error: `Shopify Gönderim Hatası: ${errText}` };
+        }
+
+        await db.orderActivity.create({
+            data: {
+                orderId: order.id,
+                author: 'Shopify Kargo Entegrasyonu',
+                action: 'CARGO_SUCCESS',
+                details: `Sipariş Shopify'da Gönderildi (Fulfilled) yapıldı. Takip No: ${trackingNumber} (${company})`,
+            },
+        });
+
+        return {
+            success: true,
+            message: `Sipariş #${order.externalId} Shopify'da başarıyla Gönderildi olarak işaretlendi ve kargo takip numarası (${trackingNumber}) eklendi!`,
+        };
+    } catch (err: any) {
+        console.error('[SHOPIFY_FULFILL_EXCEPTION]', err);
+        return { error: err.message };
+    }
+}

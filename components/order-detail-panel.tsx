@@ -8,7 +8,7 @@ import { NoteLog } from "./note-log"
 import { ChatSection } from "./chat-section"
 import { ActivityLog } from "./activity-log"
 import { getColorClasses } from "@/lib/colors"
-import { logManualActivity, uploadCargoLabel, deleteCargoLabel, getOrderDetails, fetchOrderForCargo, createInvoiceAction, createCargoLabelAction, createDHLShipmentAction, markOrderAsPaidAction, updateOrderDetails } from "../app/actions"
+import { logManualActivity, uploadCargoLabel, deleteCargoLabel, getOrderDetails, fetchOrderForCargo, createInvoiceAction, createCargoLabelAction, createDHLShipmentAction, markOrderAsPaidAction, updateOrderDetails, syncOrderCargoToShopifyAction } from "../app/actions"
 import { parseTurkishCityAndDistrict } from "@/lib/turkish-cities"
 import { LocalBarcodeModal } from "./local-barcode-modal"
 import Barcode from "react-barcode"
@@ -1769,6 +1769,28 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                         <X className="w-5 h-5" />
                                                     </button>
                                                 </div>
+
+                                                {formData.source?.startsWith('shopify') && (
+                                                    <button
+                                                        onClick={async () => {
+                                                            const toastId = toast.loading("Kargo takip bilgisi Shopify'a iletiliyor...");
+                                                            try {
+                                                                const res = await syncOrderCargoToShopifyAction(formData.id);
+                                                                if (res.error) {
+                                                                    toast.error(res.error, { id: toastId });
+                                                                } else {
+                                                                    toast.success(res.message || "Shopify siparişi gönderildi olarak işaretlendi!", { id: toastId });
+                                                                }
+                                                            } catch (err: any) {
+                                                                toast.error(err.message, { id: toastId });
+                                                            }
+                                                        }}
+                                                        className="w-full py-2 px-3 border border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 rounded-lg flex items-center justify-center gap-1.5 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 font-bold text-xs transition-all shadow-xs"
+                                                    >
+                                                        <Truck className="w-3.5 h-3.5 text-emerald-600" />
+                                                        Shopify'a Kargo Bildir (Gönderildi Yap)
+                                                    </button>
+                                                )}
                                                 <p className="text-[10px] text-center text-slate-400">Yüklü Belge Var</p>
                                             </div>
                                         );

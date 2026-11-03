@@ -437,6 +437,13 @@ export async function updateOrderStatusV2(rawOrderId: any, status: string) {
                     serverLog(`[ETSY_PUSH] Error pushing tracking: ${err.message}`);
                 }
             }
+
+            // SHOPIFY PUSH: If shipped, try to push tracking information back to Shopify
+            if (order && order.source?.startsWith('shopify')) {
+                import("@/lib/shopify").then(({ fulfillShopifyOrder }) => {
+                    fulfillShopifyOrder(order.id).catch(e => console.warn('[SHOPIFY_SHIP_PUSH_ERR]', e.message));
+                }).catch(() => {});
+            }
         }
 
         // DB-BASED DEBUG LOG
@@ -899,6 +906,18 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
     try {
         const actorName = bypassAuth || !session ? "TEST_SYSTEM" : session.user.name;
         return await generateDHLShipment(orderId, actorName, bypassAuth);
+    } catch (e: any) {
+        return { error: e.message };
+    }
+}
+
+export async function syncOrderCargoToShopifyAction(orderId: number) {
+    noStore();
+    const session = await getSession();
+    if (!session) return { error: "Oturum kapalı" };
+    try {
+        const { fulfillShopifyOrder } = await import("@/lib/shopify");
+        return await fulfillShopifyOrder(orderId);
     } catch (e: any) {
         return { error: e.message };
     }
