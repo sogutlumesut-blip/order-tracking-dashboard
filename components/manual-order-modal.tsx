@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useRef } from "react"
-import { X, Upload, Loader2, Plus, FileText, Image as ImageIcon } from "lucide-react"
+import { useState, useRef, useEffect } from "react"
+import { X, Upload, Loader2, Plus, FileText, Image as ImageIcon, Clipboard, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
 import { createDHLShipmentAction } from "@/app/actions"
 
@@ -41,96 +41,207 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
 
     if (!isOpen) return null
 
+    const [isDragging, setIsDragging] = useState(false)
+
+    const processFile = (file: File) => {
+        const isImage = file.type.startsWith('image/')
+        const isPdf = file.type === 'application/pdf'
+
+        if (!isImage && !isPdf) {
+            toast.error("Sadece resim veya PDF yükleyebilirsiniz.")
+            return
+        }
+
+        if (isImage) {
+            const reader = new FileReader()
+            reader.onload = (event) => {
+                const rawResult = event.target?.result as string
+                const img = new Image()
+                img.onload = () => {
+                    const canvas = document.createElement('canvas')
+                    const MAX_WIDTH = 2560
+                    const MAX_HEIGHT = 2560
+                    let width = img.width
+                    let height = img.height
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width
+                            width = MAX_WIDTH
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height
+                            height = MAX_HEIGHT
+                        }
+                    }
+                    canvas.width = width
+                    canvas.height = height
+                    const ctx = canvas.getContext('2d')
+                    if (ctx) {
+                        ctx.imageSmoothingEnabled = true
+                        ctx.imageSmoothingQuality = 'high'
+                        ctx.drawImage(img, 0, 0, width, height)
+                        const isPng = file.type === 'image/png'
+                        const finalBase64 = isPng ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.92)
+                        setFiles(prev => [...prev, {
+                            name: file.name || "yapistirilan-gorsel.jpg",
+                            type: 'image',
+                            content: finalBase64
+                        }])
+                        toast.success("Görsel başarıyla eklendi!")
+                    } else {
+                        setFiles(prev => [...prev, {
+                            name: file.name || "yapistirilan-gorsel.jpg",
+                            type: 'image',
+                            content: rawResult
+                        }])
+                        toast.success("Görsel eklendi!")
+                    }
+                }
+                img.onerror = () => {
+                    setFiles(prev => [...prev, {
+                        name: file.name || "gorsel.jpg",
+                        type: 'image',
+                        content: rawResult
+                    }])
+                    toast.success("Görsel eklendi!")
+                }
+                img.src = rawResult
+            }
+            reader.readAsDataURL(file)
+        } else {
+            if (file.size > 1024 * 1024) {
+                toast.error("PDF dosyası çok büyük (Max 1MB). Lütfen 'Kargo Barkodu (PDF Linki)' alanını kullanın.")
+                return
+            }
+            const reader = new FileReader()
+            reader.onload = (event) => {
+                if (event.target?.result) {
+                    setFiles(prev => [...prev, {
+                        name: file.name,
+                        type: 'pdf',
+                        content: event.target!.result as string
+                    }])
+                    toast.success("PDF başarıyla eklendi!")
+                }
+            }
+            reader.readAsDataURL(file)
+        }
+    }
+
+    // Window paste handler (e.g. copying image from Gemini/browser and pressing Cmd+V)
+    useEffect(() => {
+        if (!isOpen) return
+
+        const onWindowPaste = (e: ClipboardEvent) => {
+            const items = e.clipboardData?.items
+            if (items) {
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i]
+                    if (item.type.startsWith('image/')) {
+                        const blob = item.getAsFile()
+                        if (blob) {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            processFile(blob)
+                            return
+                        }
+                    }
+                }
+            }
+
+            const text = e.clipboardData?.getData('text/plain') || ''
+            if (text.trim().startsWith('blob:')) {
+                e.preventDefault()
+                toast.error("Tarayıcı 'blob:' linkleri geçicidir ve dışarıdan açılamaz. Lütfen görseli sağ tıklayıp 'Resmi Kopyala' (Copy image) yapın ve doğrudan Cmd+V ile buraya yapıştırın!", {
+                    duration: 8000
+                })
+            }
+        }
+
+        window.addEventListener('paste', onWindowPaste)
+        return () => window.removeEventListener('paste', onWindowPaste)
+    }, [isOpen])
+
+    const handlePasteFromClipboard = async () => {
+        try {
+            if (navigator.clipboard && navigator.clipboard.read) {
+                const items = await navigator.clipboard.read()
+                let foundImage = false
+                for (const item of items) {
+                    const imageType = item.types.find(t => t.startsWith('image/'))
+                    if (imageType) {
+                        const blob = await item.getType(imageType)
+                        const file = new File([blob], "pano-gorsel.jpg", { type: imageType })
+                        processFile(file)
+                        foundImage = true
+                        break
+                    }
+                }
+                if (!foundImage) {
+                    toast.info("Panoda kopyalanmış bir görsel bulunamadı. Lütfen önce görseli sağ tıklayıp 'Resmi Kopyala' yapınız.")
+                }
+            } else {
+                toast.info("Görseli yapıştırmak için klavyenizden Cmd+V (veya Ctrl+V) tuşlarına basınız.")
+            }
+        } catch (err) {
+            toast.info("Görseli yapıştırmak için klavyenizden Cmd+V (veya Ctrl+V) tuşlarına basınız.")
+        }
+    }
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target
         setFormData(prev => ({ ...prev, [name]: value }))
     }
 
+    const handleImageLinkChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        let val = e.target.value.trim()
+        if (val.startsWith('blob:')) {
+            toast.error("Tarayıcı 'blob:' linkleri (blob:https://...) dışarıdan açılamaz. Lütfen görseli kopyalayıp (Cmd+V) buraya yapıştırın veya 'Yükle' butonunu kullanın!", {
+                duration: 8000
+            })
+            setFormData(prev => ({ ...prev, imageLink: "" }))
+            return
+        }
+
+        const driveMatch = val.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([a-zA-Z0-9_-]+)/)
+        if (driveMatch && driveMatch[1]) {
+            val = `https://lh3.googleusercontent.com/d/${driveMatch[1]}`
+            toast.info("Google Drive bağlantısı doğrudan görsel formatına dönüştürüldü.")
+        } else if (val.includes('dropbox.com') && val.includes('dl=0')) {
+            val = val.replace('dl=0', 'raw=1')
+        }
+
+        setFormData(prev => ({ ...prev, imageLink: val }))
+    }
+
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0]
-            const isImage = file.type.startsWith('image/')
-            const isPdf = file.type === 'application/pdf'
+            processFile(e.target.files[0])
+        }
+    }
 
-            if (!isImage && !isPdf) {
-                toast.error("Sadece resim veya PDF yükleyebilirsiniz.")
-                return
-            }
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        setIsDragging(true)
+    }
 
-            if (isImage) {
-                const reader = new FileReader()
-                reader.onload = (event) => {
-                    const rawResult = event.target?.result as string
-                    if (file.size <= 3.5 * 1024 * 1024) {
-                        setFiles(prev => [...prev, {
-                            name: file.name,
-                            type: 'image',
-                            content: rawResult
-                        }])
-                        return
-                    }
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        setIsDragging(false)
+    }
 
-                    const img = new Image()
-                    img.onload = () => {
-                        const canvas = document.createElement('canvas')
-                        const MAX_WIDTH = 4096
-                        const MAX_HEIGHT = 4096
-                        let width = img.width
-                        let height = img.height
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        setIsDragging(false)
 
-                        if (width > height) {
-                            if (width > MAX_WIDTH) {
-                                height *= MAX_WIDTH / width
-                                width = MAX_WIDTH
-                            }
-                        } else {
-                            if (height > MAX_HEIGHT) {
-                                width *= MAX_HEIGHT / height
-                                height = MAX_HEIGHT
-                            }
-                        }
-                        canvas.width = width
-                        canvas.height = height
-                        const ctx = canvas.getContext('2d')
-                        if (ctx) {
-                            ctx.imageSmoothingEnabled = true
-                            ctx.imageSmoothingQuality = 'high'
-                            ctx.drawImage(img, 0, 0, width, height)
-                            const isPng = file.type === 'image/png'
-                            const finalBase64 = isPng ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.95)
-                            setFiles(prev => [...prev, {
-                                name: file.name,
-                                type: 'image',
-                                content: finalBase64
-                            }])
-                        } else {
-                            setFiles(prev => [...prev, {
-                                name: file.name,
-                                type: 'image',
-                                content: rawResult
-                            }])
-                        }
-                    }
-                    img.src = rawResult
-                }
-                reader.readAsDataURL(file)
-            } else {
-                // For PDF, we just read it (restrict size heavily to avoid Server Action base64 limits)
-                if (file.size > 500 * 1024) {
-                    toast.error("PDF dosyası çok büyük (Max 500KB). Lütfen 'Kargo Barkodu (PDF Linki)' alanını kullanın.")
-                    return
-                }
-                const reader = new FileReader()
-                reader.onload = (event) => {
-                    if (event.target?.result) {
-                        setFiles(prev => [...prev, {
-                            name: file.name,
-                            type: 'pdf',
-                            content: event.target!.result as string
-                        }])
-                    }
-                }
-                reader.readAsDataURL(file)
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            for (let i = 0; i < e.dataTransfer.files.length; i++) {
+                processFile(e.dataTransfer.files[i])
             }
         }
     }
@@ -166,9 +277,23 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                 }
             }
 
-            // Find image src (all images joined by |)
+            // Find image src (uploaded files and valid imageLink)
             const imageFiles = files.filter(f => f.type === 'image').map(f => f.content)
-            const mainImage = formData.imageLink || (imageFiles.length > 0 ? imageFiles.join('|') : "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=300")
+            let validImageLink = formData.imageLink?.trim() || ""
+            if (validImageLink.startsWith('blob:')) {
+                validImageLink = ""
+            }
+
+            const driveMatch = validImageLink.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([a-zA-Z0-9_-]+)/)
+            if (driveMatch && driveMatch[1]) {
+                validImageLink = `https://lh3.googleusercontent.com/d/${driveMatch[1]}`
+            } else if (validImageLink.includes('dropbox.com') && validImageLink.includes('dl=0')) {
+                validImageLink = validImageLink.replace('dl=0', 'raw=1')
+            }
+
+            const allImages = [...(validImageLink ? [validImageLink] : []), ...imageFiles]
+            const mainImage = allImages.length > 0 ? allImages.join('|') : "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=300"
+
             // Find special url (first pdf or file)
             const specialUrl = formData.pdfLink || files.find(f => f.type === 'pdf')?.content || null
 
@@ -182,10 +307,10 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                 ...formData,
                 note: finalNote,
                 dimensions,
-                area, // Will be appended to dimensions or stored separately
+                area,
                 image_src: mainImage,
-                url: specialUrl, // Base64 for now, or cloud link
-                status: 'pending_woo', // Default status ID
+                url: specialUrl,
+                status: 'pending_woo',
                 items: [{
                     name: formData.productName,
                     sku: formData.sku,
@@ -397,17 +522,23 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
 
                         {/* Section: Files */}
                         <div className="space-y-4">
-                            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200 border-b dark:border-slate-800 pb-1">📎 Dosyalar (Görsel & PDF Linki)</h3>
+                            <div className="flex items-center justify-between border-b dark:border-slate-800 pb-1">
+                                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200">📎 Dosyalar (Görsel & PDF Linki)</h3>
+                                <span className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold flex items-center gap-1">
+                                    <Clipboard className="w-3.5 h-3.5" />
+                                    Cmd+V ile doğrudan yapıştırabilirsiniz
+                                </span>
+                            </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-1">
-                                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Ürün Görseli (Link)</label>
+                                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Ürün Görseli (Web / Drive Linki)</label>
                                     <input
                                         name="imageLink"
                                         value={formData.imageLink}
-                                        onChange={handleChange}
+                                        onChange={handleImageLinkChange}
                                         className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
-                                        placeholder="https://..."
+                                        placeholder="https://... (veya Google Drive linki)"
                                     />
                                 </div>
                                 <div className="space-y-1">
@@ -422,46 +553,80 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                                 </div>
                             </div>
 
-                            <p className="text-xs font-semibold text-slate-700 dark:text-slate-400 mt-2 mb-1">Veya Dosya Yükle:</p>
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-400">Veya Görsel Yükle / Panodan Yapıştır:</p>
+                                    <button
+                                        type="button"
+                                        onClick={handlePasteFromClipboard}
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 rounded-md hover:bg-blue-100 transition-colors shadow-xs"
+                                    >
+                                        <Clipboard className="w-3.5 h-3.5" />
+                                        Panodan Görsel Yapıştır (Cmd+V)
+                                    </button>
+                                </div>
 
-                            <div className="flex flex-wrap gap-3">
-                                {files.map((file, idx) => (
-                                    <div key={idx} className="relative group border dark:border-slate-700 rounded-lg p-2 w-20 h-20 flex items-center justify-center bg-slate-50 dark:bg-slate-800 overflow-hidden">
-                                        <button
-                                            type="button"
-                                            onClick={() => removeFile(idx)}
-                                            className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        >
-                                            <X className="w-3 h-3" />
-                                        </button>
-                                        {file.type === 'image' ? (
-                                            <img src={file.content} alt="preview" className="w-full h-full object-cover rounded" />
-                                        ) : (
-                                            <div className="flex flex-col items-center">
-                                                <FileText className="w-8 h-8 text-red-500" />
-                                                <span className="text-[9px] text-slate-500 truncate max-w-full">{file.name}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-
-                                <button
-                                    type="button"
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="border-2 border-dashed border-slate-300 rounded-lg w-20 h-20 flex flex-col items-center justify-center text-slate-400 hover:border-blue-500 hover:text-blue-500 transition-colors"
+                                <div 
+                                    onDragOver={handleDragOver}
+                                    onDragLeave={handleDragLeave}
+                                    onDrop={handleDrop}
+                                    className={`p-3 rounded-xl border-2 border-dashed transition-all flex flex-wrap gap-3 items-center ${
+                                        isDragging 
+                                            ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 ring-2 ring-blue-300' 
+                                            : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50'
+                                    }`}
                                 >
-                                    <Upload className="w-6 h-6" />
-                                    <span className="text-[10px] mt-1">Yükle</span>
-                                </button>
-                                <input
-                                    type="file"
-                                    ref={fileInputRef}
-                                    className="hidden"
-                                    accept="image/*,.pdf"
-                                    onChange={handleFileChange}
-                                />
+                                    {files.map((file, idx) => (
+                                        <div key={idx} className="relative group border dark:border-slate-700 rounded-lg p-1.5 w-20 h-20 flex items-center justify-center bg-white dark:bg-slate-800 overflow-hidden shadow-xs">
+                                            <button
+                                                type="button"
+                                                onClick={() => removeFile(idx)}
+                                                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-sm"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                            {file.type === 'image' ? (
+                                                <img src={file.content} alt="preview" className="w-full h-full object-cover rounded" />
+                                            ) : (
+                                                <div className="flex flex-col items-center">
+                                                    <FileText className="w-8 h-8 text-red-500" />
+                                                    <span className="text-[9px] text-slate-500 truncate max-w-full">{file.name}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+
+                                    <button
+                                        type="button"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 rounded-lg w-20 h-20 flex flex-col items-center justify-center text-slate-400 hover:text-blue-500 transition-all bg-white dark:bg-slate-900"
+                                    >
+                                        <Upload className="w-6 h-6" />
+                                        <span className="text-[10px] mt-1 font-semibold">Dosya Seç</span>
+                                    </button>
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        className="hidden"
+                                        accept="image/*,.pdf"
+                                        onChange={handleFileChange}
+                                    />
+
+                                    {files.length === 0 && (
+                                        <div className="text-xs text-slate-400 dark:text-slate-500 flex flex-col gap-0.5 ml-2">
+                                            <span className="font-semibold text-slate-600 dark:text-slate-300">Görseli buraya sürükleyip bırakabilirsiniz</span>
+                                            <span className="text-[11px]">veya herhangi bir yerden resmi kopyalayıp klavyeden <b>Cmd+V / Ctrl+V</b> yapabilirsiniz.</span>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                            <p className="text-[10px] text-slate-500">* PDF veya Görsel yükleyebilirsiniz. Yüklenen ilk görsel ürün görseli olarak kullanılacaktır. PDF dosyaları max 500KB olmalıdır.</p>
+
+                            <div className="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-[11px] text-amber-800 dark:text-amber-300 flex items-start gap-2">
+                                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                                <div>
+                                    <span className="font-bold">Önemli Not:</span> Gemini, Google veya web sayfalarındaki görselleri eklemek için resme sağ tıklayıp <b>"Resmi Kopyala"</b> (Copy Image) seçeneğini kullanıp bu ekranda <b>Cmd+V (Ctrl+V)</b> ile yapıştırınız. "Resim bağlantısını kopyala" seçildiğinde oluşan geçici <code>blob:</code> linkleri kaydedilemez.
+                                </div>
+                            </div>
                         </div>
                     </form>
                 </div>

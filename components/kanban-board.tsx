@@ -1646,7 +1646,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 updatedAt: new Date().toISOString(),
                                 labels: ['Manuel'],
                                 items: data.items || [],
-                                total: "0.00 ₺",
+                                total: data.total ? `${data.total} ₺` : "0.00 ₺",
                                 commentCount: 0,
                                 hasNotification: false
                             };
@@ -1699,7 +1699,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 updatedAt: new Date().toISOString(),
                                 labels: ['Malzeme', 'DKM'],
                                 items: data.items || [],
-                                total: "0.00 ₺",
+                                total: data.total ? `${data.total} ₺` : "0.00 ₺",
                                 note: data.note || "",
                                 commentCount: 0,
                                 hasNotification: true

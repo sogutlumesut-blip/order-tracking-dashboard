@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 
 import { Order } from "../data/mock-orders"
 import Image from "next/image"
@@ -180,7 +180,19 @@ interface OrderCardProps {
 
 export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, onSelect, selectionMode = false }: OrderCardProps) {
     // We use the first item's image as the main visual
-    const mainImage = order.items[0]?.image_src?.split('|')[0]
+    const rawImage = order.items[0]?.image_src?.split('|')[0]
+    const [imgError, setImgError] = useState(false)
+    const mainImage = useMemo(() => {
+        if (!rawImage || rawImage.startsWith('blob:')) return null
+        const driveMatch = rawImage.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([a-zA-Z0-9_-]+)/)
+        if (driveMatch && driveMatch[1]) {
+            return `https://lh3.googleusercontent.com/d/${driveMatch[1]}`
+        }
+        if (rawImage.includes('dropbox.com') && rawImage.includes('dl=0')) {
+            return rawImage.replace('dl=0', 'raw=1')
+        }
+        return rawImage
+    }, [rawImage])
 
     // Check for "Stale" printing orders (User Request: 2 days in "BASKI")
     // Use state to avoid hydration mismatch (server time vs client time)
@@ -233,17 +245,19 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
             <div className="aspect-video relative bg-slate-100 dark:bg-slate-900 border-b dark:border-slate-800 z-10">
                 {isMaterialOrder ? (
                     <MaterialHeroBanner item={order.items[0]} totalItems={order.items.length} />
-                ) : mainImage ? (
+                ) : (mainImage && !imgError) ? (
                     <Image
                         src={mainImage}
                         alt="Sipariş Görseli"
                         fill
                         unoptimized
+                        onError={() => setImgError(true)}
                         className={`object-cover group-hover:scale-105 transition-transform duration-500 ${(isPaymentFailed || isCancelled || isDeleted) ? 'grayscale' : ''}`}
                     />
                 ) : (
-                    <div className="flex items-center justify-center h-full text-slate-400">
-                        <Package className="w-8 h-8" />
+                    <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-1.5 p-4 text-center">
+                        <Package className="w-8 h-8 opacity-40" />
+                        <span className="text-[11px] font-medium text-slate-400">Görsel Yok</span>
                     </div>
                 )}
 

@@ -2,7 +2,7 @@
 
 import { Order, OrderStatus, Comment } from "../data/mock-orders"
 import { APP_CONFIG } from "../data/settings"
-import { X, Save, Truck, User, Tag, FileText, Upload, Printer, FileDown, History, ChevronDown, ChevronRight, ExternalLink, Receipt, ShieldCheck, Download, Package, Scissors, ScrollText, Droplet, CheckCircle2 } from "lucide-react"
+import { X, Save, Truck, User, Tag, FileText, Upload, Printer, FileDown, History, ChevronDown, ChevronRight, ExternalLink, Receipt, ShieldCheck, Download, Package, Scissors, ScrollText, Droplet, CheckCircle2, Camera, Image as ImageIcon } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import { NoteLog } from "./note-log"
 import { ChatSection } from "./chat-section"
@@ -253,6 +253,63 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
         } catch (e: any) {
             toast.error("Silme işlemi sırasında bir hata oluştu.")
             setLazyComments(previousComments)
+        }
+    }
+
+    const handleItemImageUpload = (itemId: number, e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!formData) return
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0]
+            const reader = new FileReader()
+            reader.onload = (event) => {
+                const rawResult = event.target?.result as string
+                const img = new Image()
+                img.onload = () => {
+                    const canvas = document.createElement('canvas')
+                    const MAX_WIDTH = 2560
+                    const MAX_HEIGHT = 2560
+                    let width = img.width
+                    let height = img.height
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width
+                            width = MAX_WIDTH
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height
+                            height = MAX_HEIGHT
+                        }
+                    }
+                    canvas.width = width
+                    canvas.height = height
+                    const ctx = canvas.getContext('2d')
+                    if (ctx) {
+                        ctx.imageSmoothingEnabled = true
+                        ctx.imageSmoothingQuality = 'high'
+                        ctx.drawImage(img, 0, 0, width, height)
+                        const isPng = file.type === 'image/png'
+                        const finalBase64 = isPng ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.92)
+                        const updated = formData.items.map((i: any) => i.id === itemId ? { ...i, image_src: finalBase64 } : i)
+                        setFormData({ ...formData, items: updated })
+                        setIsModified(true)
+                        toast.success("Görsel yüklendi! Kaydetmek için 'Değişiklikleri Kaydet' butonuna basınız.")
+                    } else {
+                        const updated = formData.items.map((i: any) => i.id === itemId ? { ...i, image_src: rawResult } : i)
+                        setFormData({ ...formData, items: updated })
+                        setIsModified(true)
+                        toast.success("Görsel yüklendi! Kaydetmek için 'Değişiklikleri Kaydet' butonuna basınız.")
+                    }
+                }
+                img.onerror = () => {
+                    const updated = formData.items.map((i: any) => i.id === itemId ? { ...i, image_src: rawResult } : i)
+                    setFormData({ ...formData, items: updated })
+                    setIsModified(true)
+                    toast.success("Görsel eklendi! Kaydetmek için 'Değişiklikleri Kaydet' butonuna basınız.")
+                }
+                img.src = rawResult
+            }
+            reader.readAsDataURL(file)
         }
     }
 
@@ -1324,45 +1381,76 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                         );
                                                     }
 
-                                                    const imgUrls = (item.image_src || "").split('|').filter(Boolean);
+                                                    const rawImgUrls = (item.image_src || "").split('|').filter(Boolean);
+                                                    const imgUrls = rawImgUrls.map((u: string) => {
+                                                        if (u.startsWith('blob:')) return "";
+                                                        const driveMatch = u.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([a-zA-Z0-9_-]+)/);
+                                                        if (driveMatch && driveMatch[1]) {
+                                                            return `https://lh3.googleusercontent.com/d/${driveMatch[1]}`;
+                                                        }
+                                                        if (u.includes('dropbox.com') && u.includes('dl=0')) {
+                                                            return u.replace('dl=0', 'raw=1');
+                                                        }
+                                                        return u;
+                                                    }).filter(Boolean);
+
                                                     return (
-                                                        <>
-                                                            {imgUrls.map((imgSrc: string, idx: number) => {
-                                                                const isThisCropped = item.croppedImage && imgSrc === item.croppedImage;
-                                                                return (
-                                                                    <div key={idx} className={`w-24 h-24 shrink-0 bg-slate-100 dark:bg-slate-700 rounded-md overflow-hidden border ${isThisCropped ? 'border-2 border-emerald-500 shadow-xs' : 'dark:border-slate-600'} relative group/img`}>
-                                                                        {/* Use real img tag for printing support */}
-                                                                        <img
-                                                                            src={imgSrc}
-                                                                            alt={`${item.name} ${idx + 1}`}
-                                                                            className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                                                                            onClick={() => setPreviewImage(imgSrc)}
-                                                                        />
-                                                                        {isThisCropped && (
-                                                                            <div className="absolute top-0 inset-x-0 bg-emerald-600 text-white text-[9px] font-black py-0.5 text-center flex items-center justify-center gap-0.5 shadow-xs">
-                                                                                <Scissors className="w-2.5 h-2.5" />
-                                                                                <span>KIRPILAN</span>
+                                                        <div className="flex flex-col items-center gap-1.5 shrink-0">
+                                                            <div className="flex flex-wrap gap-2 items-center">
+                                                                {imgUrls.length > 0 ? (
+                                                                    imgUrls.map((imgSrc: string, idx: number) => {
+                                                                        const isThisCropped = item.croppedImage && imgSrc === item.croppedImage;
+                                                                        return (
+                                                                            <div key={idx} className={`w-24 h-24 shrink-0 bg-slate-100 dark:bg-slate-700 rounded-md overflow-hidden border ${isThisCropped ? 'border-2 border-emerald-500 shadow-xs' : 'dark:border-slate-600'} relative group/img`}>
+                                                                                {/* Use real img tag for printing support */}
+                                                                                <img
+                                                                                    src={imgSrc}
+                                                                                    alt={`${item.name} ${idx + 1}`}
+                                                                                    className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                                                                    onClick={() => setPreviewImage(imgSrc)}
+                                                                                />
+                                                                                {isThisCropped && (
+                                                                                    <div className="absolute top-0 inset-x-0 bg-emerald-600 text-white text-[9px] font-black py-0.5 text-center flex items-center justify-center gap-0.5 shadow-xs">
+                                                                                        <Scissors className="w-2.5 h-2.5" />
+                                                                                        <span>KIRPILAN</span>
+                                                                                    </div>
+                                                                                )}
                                                                             </div>
-                                                                        )}
+                                                                        );
+                                                                    })
+                                                                ) : (
+                                                                    <div className="w-24 h-24 shrink-0 bg-slate-100 dark:bg-slate-800 rounded-md border border-dashed border-slate-300 dark:border-slate-700 flex flex-col items-center justify-center text-slate-400 p-2 text-center">
+                                                                        <ImageIcon className="w-6 h-6 opacity-40 mb-1" />
+                                                                        <span className="text-[10px] font-medium leading-tight">Görsel Yok</span>
                                                                     </div>
-                                                                );
-                                                            })}
-                                                            {/* If croppedImage is not in image_src list, also render it */}
-                                                            {item.croppedImage && !imgUrls.includes(item.croppedImage) && (
-                                                                <div className="w-24 h-24 shrink-0 bg-slate-100 dark:bg-slate-700 rounded-md overflow-hidden border-2 border-emerald-500 relative group/img shadow-xs">
-                                                                    <img
-                                                                        src={item.croppedImage}
-                                                                        alt={`${item.name} Kırpılan`}
-                                                                        className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                                                                        onClick={() => setPreviewImage(item.croppedImage!)}
-                                                                    />
-                                                                    <div className="absolute top-0 inset-x-0 bg-emerald-600 text-white text-[9px] font-black py-0.5 text-center flex items-center justify-center gap-0.5 shadow-xs">
-                                                                        <Scissors className="w-2.5 h-2.5" />
-                                                                        <span>KIRPILAN</span>
+                                                                )}
+                                                                {/* If croppedImage is not in image_src list, also render it */}
+                                                                {item.croppedImage && !imgUrls.includes(item.croppedImage) && (
+                                                                    <div className="w-24 h-24 shrink-0 bg-slate-100 dark:bg-slate-700 rounded-md overflow-hidden border-2 border-emerald-500 relative group/img shadow-xs">
+                                                                        <img
+                                                                            src={item.croppedImage}
+                                                                            alt={`${item.name} Kırpılan`}
+                                                                            className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                                                            onClick={() => setPreviewImage(item.croppedImage!)}
+                                                                        />
+                                                                        <div className="absolute top-0 inset-x-0 bg-emerald-600 text-white text-[9px] font-black py-0.5 text-center flex items-center justify-center gap-0.5 shadow-xs">
+                                                                            <Scissors className="w-2.5 h-2.5" />
+                                                                            <span>KIRPILAN</span>
+                                                                        </div>
                                                                     </div>
-                                                                </div>
-                                                            )}
-                                                        </>
+                                                                )}
+                                                            </div>
+                                                            <label className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded border border-blue-200 dark:border-blue-800 cursor-pointer transition-colors shadow-xs">
+                                                                <Camera className="w-3 h-3" />
+                                                                <span>{imgUrls.length > 0 ? "Görsel Değiştir" : "Görsel Yükle"}</span>
+                                                                <input
+                                                                    type="file"
+                                                                    accept="image/*"
+                                                                    className="hidden"
+                                                                    onChange={(e) => handleItemImageUpload(item.id, e)}
+                                                                />
+                                                            </label>
+                                                        </div>
                                                     );
                                                 })()}
                                             </div>
