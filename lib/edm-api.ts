@@ -185,6 +185,43 @@ export async function loginToEdm(settings: Record<string, string | undefined> = 
     return sessionId;
 }
 
+export async function getEdmNextInvoiceSerial(
+    sessionId: string,
+    prefix: string,
+    year: number = new Date().getFullYear()
+): Promise<string> {
+    const now = new Date().toISOString();
+    const res = await edmSoapCall("GetInvoiceSerialRequest", `<GetInvoiceSerialRequest xmlns="http://tempuri.org/">
+      <REQUEST_HEADER xmlns="">
+        <SESSION_ID>${sessionId}</SESSION_ID>
+        <CLIENT_TXN_ID>${crypto.randomUUID()}</CLIENT_TXN_ID>
+        <ACTION_DATE>${now}</ACTION_DATE>
+        <REASON>Seri Numarasi</REASON>
+        <APPLICATION_NAME>DKM_OMS</APPLICATION_NAME>
+        <HOSTNAME>duvarkagidimarketi.com</HOSTNAME>
+        <CHANNEL_NAME>WEB</CHANNEL_NAME>
+        <COMPRESSED>N</COMPRESSED>
+      </REQUEST_HEADER>
+      <INVOICE_SERIAL xmlns="">
+        <YEAR>${year}</YEAR>
+      </INVOICE_SERIAL>
+    </GetInvoiceSerialRequest>`);
+
+    const itemBlocks = [...res.text.matchAll(/<Items[^>]*>([\s\S]*?)<\/Items>/g)].map(m => m[1]);
+    for (const block of itemBlocks) {
+        const code = block.match(/<INVOICESERIALCODE[^>]*>([^<]+)<\/INVOICESERIALCODE>/)?.[1];
+        const itemYear = block.match(/<YEAR[^>]*>([^<]+)<\/YEAR>/)?.[1];
+        if (code === prefix && (!itemYear || itemYear === String(year))) {
+            const lastUsedStr = block.match(/<LASTSERIALUSED[^>]*>([^<]+)<\/LASTSERIALUSED>/)?.[1];
+            const lastUsed = parseInt(lastUsedStr || "0", 10) || 0;
+            const nextSeq = lastUsed + 1;
+            return `${prefix}${year}${String(nextSeq).padStart(9, "0")}`;
+        }
+    }
+
+    return `${prefix}${year}000000001`;
+}
+
 export async function checkEdmGibUser(sessionId: string, taxNumber: string): Promise<{ isEFatura: boolean; alias: string; title?: string }> {
     if (!taxNumber || taxNumber === "11111111111") {
         return { isEFatura: false, alias: "" };
@@ -399,6 +436,9 @@ export async function createEdmInvoiceDirect(
         const orderDateObj = order.date ? new Date(order.date) : new Date();
         const orderIstanbul = formatIstanbulDateTime(isNaN(orderDateObj.getTime()) ? new Date() : orderDateObj);
 
+        const currentYear = parseInt(nowIstanbul.dateStr.split("-")[0], 10) || new Date().getFullYear();
+        const nextInvoiceId = await getEdmNextInvoiceSerial(sessionId, serialPrefix, currentYear);
+
         const invoiceUuid = crypto.randomUUID();
         const xsltDocUuid = crypto.randomUUID();
 
@@ -500,13 +540,19 @@ export async function createEdmInvoiceDirect(
          xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
          xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"
          xmlns:ds="http://www.w3.org/2000/09/xmldsig#"
-         xmlns:ext="http://www.w3.org/2000/09/xmldsig#"
+         xmlns:ext="urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2"
          xmlns:xades="http://uri.etsi.org/01903/v1.3.2#"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2 UBL-Invoice-2.1.xsd">
+    <ext:UBLExtensions>
+        <ext:UBLExtension>
+            <ext:ExtensionContent/>
+        </ext:UBLExtension>
+    </ext:UBLExtensions>
     <cbc:UBLVersionID>2.1</cbc:UBLVersionID>
     <cbc:CustomizationID>TR1.2</cbc:CustomizationID>
     <cbc:ProfileID>${profileId}</cbc:ProfileID>
+    <cbc:ID>${nextInvoiceId}</cbc:ID>
     <cbc:CopyIndicator>false</cbc:CopyIndicator>
     <cbc:UUID>${invoiceUuid}</cbc:UUID>
     <cbc:IssueDate>${nowIstanbul.dateStr}</cbc:IssueDate>
@@ -683,7 +729,7 @@ export async function createEdmInvoiceDirect(
           </REQUEST_HEADER>
           <SENDER vkn="${DEFAULT_EDM_CONFIG.supplierVkn}" alias="${escapeXml(gbTag)}" xmlns=""/>
           <RECEIVER vkn="${escapeXml(taxNumber)}" alias="${escapeXml(gibUser.alias)}" xmlns=""/>
-          <INVOICE TRXID="0" UUID="${invoiceUuid}" xmlns="">
+          <INVOICE TRXID="0" UUID="${invoiceUuid}" ID="${nextInvoiceId}" xmlns="">
             <HEADER>
               <SENDER>${DEFAULT_EDM_CONFIG.supplierVkn}</SENDER>
               <RECEIVER>${escapeXml(taxNumber)}</RECEIVER>
@@ -719,8 +765,10 @@ export async function createEdmInvoiceDirect(
             return { error: `EDM Hatası: ${faultMsg}` };
         }
 
-        const assignedId = sendRes.text.match(/ID="([^"]+)"/)?.[1] || null;
-        const assignedUuid = sendRes.text.match(/UUID="([^"]+)"/)?.[1] || invoiceUuid;
+        const invoiceTagMatch = sendRes.text.match(/<INVOICE[^>]*\sID="([^"]+)"/)?.[1];
+        const gibSerialMatch = sendRes.text.match(/ID="([A-Z0-9]{16})"/)?.[1];
+        const assignedId = (invoiceTagMatch && invoiceTagMatch.length === 16) ? invoiceTagMatch : (gibSerialMatch || nextInvoiceId);
+        const assignedUuid = sendRes.text.match(/UUID="([a-f0-9\-]{36})"/i)?.[1] || invoiceUuid;
 
         const pdfRouteUrl = `/api/invoice-pdf/${order.id}?edmUuid=${encodeURIComponent(assignedUuid)}${assignedId ? `&edmId=${encodeURIComponent(assignedId)}` : ""}`;
 
