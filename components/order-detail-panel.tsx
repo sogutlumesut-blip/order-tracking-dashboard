@@ -2,7 +2,7 @@
 
 import { Order, OrderStatus, Comment } from "../data/mock-orders"
 import { APP_CONFIG } from "../data/settings"
-import { X, Save, Truck, User, Tag, FileText, Upload, Printer, FileDown, History, ChevronDown, ChevronRight, ExternalLink, Receipt, ShieldCheck, Download, Package, Scissors, ScrollText, Droplet } from "lucide-react"
+import { X, Save, Truck, User, Tag, FileText, Upload, Printer, FileDown, History, ChevronDown, ChevronRight, ExternalLink, Receipt, ShieldCheck, Download, Package, Scissors, ScrollText, Droplet, CheckCircle2 } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import { NoteLog } from "./note-log"
 import { ChatSection } from "./chat-section"
@@ -1197,8 +1197,15 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                             {/* Fatura Bilgileri Card (NEW) */}
                             <div className="bg-blue-50/50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-900/30">
-                                <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-3 flex items-center gap-2">
-                                    <Receipt className="w-4 h-4" /> Fatura Bilgileri
+                                <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-3 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Receipt className="w-4 h-4" /> Fatura Bilgileri
+                                    </div>
+                                    {(formData.invoiceUrl || formData.invoiceStatus === 'created') && (
+                                        <span className="bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
+                                            <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> Fatura Kesildi
+                                        </span>
+                                    )}
                                 </h3>
                                 <div className="space-y-3">
                                     <div className="grid grid-cols-2 gap-2">
@@ -1558,41 +1565,100 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                                 {/* DIRECT ACTIONS: Fatura & Kargo (NEW) */}
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                    <button
-                                        onClick={async () => {
-                                            const effectiveTaxNumber = (formData.taxNumber || "11111111111").trim();
-                                            const effectiveTaxOffice = (formData.taxOffice || "").trim();
-                                            if (isModified) {
-                                                await updateOrderDetails({
-                                                    ...formData,
-                                                    taxNumber: effectiveTaxNumber,
-                                                    taxOffice: effectiveTaxOffice
-                                                });
-                                                setIsModified(false);
-                                            }
-                                            toast.promise(createInvoiceAction(formData.id, effectiveTaxNumber, effectiveTaxOffice), {
-                                                loading: "EDM Bilişim üzerinden fatura oluşturuluyor...",
-                                                success: (res: any) => {
-                                                    if (res.error) throw new Error(res.error);
-                                                    const updated = {
+                                    {Boolean(formData.invoiceUrl || formData.invoiceStatus === 'created') ? (
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                onClick={() => {
+                                                    const pdfUrl = formData.invoiceUrl?.includes("faturaentegrator.com/download/invoice/")
+                                                        ? `/api/invoice-pdf/${formData.id}`
+                                                        : (formData.invoiceUrl || `/api/invoice-pdf/${formData.id}`);
+                                                    window.open(pdfUrl, '_blank');
+                                                }}
+                                                className="flex-1 py-3 bg-emerald-600 text-white rounded-xl flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all font-bold shadow-lg shadow-emerald-200 dark:shadow-none text-xs"
+                                                title="Fatura başarıyla kesildi. Tıklayarak PDF'i açın veya indirin."
+                                            >
+                                                <CheckCircle2 className="w-5 h-5 text-white shrink-0" />
+                                                <div className="flex flex-col items-start leading-tight">
+                                                    <span>Fatura Kesildi</span>
+                                                    <span className="text-[9px] font-normal opacity-90">İndir / Görüntüle</span>
+                                                </div>
+                                            </button>
+                                            <button
+                                                onClick={async () => {
+                                                    if (!window.confirm("Bu siparişin faturası zaten kesilmiş. Tekrar yeni bir fatura kesmek istediğinize emin misiniz? (Yeni bir fatura seri numarası kullanılacaktır)")) {
+                                                        return;
+                                                    }
+                                                    const effectiveTaxNumber = (formData.taxNumber || "11111111111").trim();
+                                                    const effectiveTaxOffice = (formData.taxOffice || "").trim();
+                                                    if (isModified) {
+                                                        await updateOrderDetails({
+                                                            ...formData,
+                                                            taxNumber: effectiveTaxNumber,
+                                                            taxOffice: effectiveTaxOffice
+                                                        });
+                                                        setIsModified(false);
+                                                    }
+                                                    toast.promise(createInvoiceAction(formData.id, effectiveTaxNumber, effectiveTaxOffice), {
+                                                        loading: "EDM Bilişim üzerinden fatura oluşturuluyor...",
+                                                        success: (res: any) => {
+                                                            if (res.error) throw new Error(res.error);
+                                                            const updated = {
+                                                                ...formData,
+                                                                taxNumber: effectiveTaxNumber,
+                                                                taxOffice: effectiveTaxOffice,
+                                                                invoiceStatus: 'created',
+                                                                invoiceUrl: res.url
+                                                            };
+                                                            setFormData(updated);
+                                                            if (onUpdate) onUpdate(updated);
+                                                            return "Fatura başarıyla oluşturuldu!";
+                                                        },
+                                                        error: (err) => err.message || "Hata oluştu"
+                                                    });
+                                                }}
+                                                className="px-2 py-3 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-[10px] font-semibold transition-all shrink-0"
+                                                title="Faturayı Tekrar Kes"
+                                            >
+                                                Yeniden Kes
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={async () => {
+                                                const effectiveTaxNumber = (formData.taxNumber || "11111111111").trim();
+                                                const effectiveTaxOffice = (formData.taxOffice || "").trim();
+                                                if (isModified) {
+                                                    await updateOrderDetails({
                                                         ...formData,
                                                         taxNumber: effectiveTaxNumber,
-                                                        taxOffice: effectiveTaxOffice,
-                                                        invoiceStatus: 'created',
-                                                        invoiceUrl: res.url
-                                                    };
-                                                    setFormData(updated);
-                                                    if (onUpdate) onUpdate(updated);
-                                                    return "Fatura başarıyla oluşturuldu!";
-                                                },
-                                                error: (err) => err.message || "Hata oluştu"
-                                            });
-                                        }}
-                                        className="py-3 bg-indigo-600 text-white rounded-xl flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all font-bold shadow-lg shadow-indigo-200 dark:shadow-none text-xs"
-                                    >
-                                        <Receipt className="w-5 h-5" />
-                                        Fatura Kes
-                                    </button>
+                                                        taxOffice: effectiveTaxOffice
+                                                    });
+                                                    setIsModified(false);
+                                                }
+                                                toast.promise(createInvoiceAction(formData.id, effectiveTaxNumber, effectiveTaxOffice), {
+                                                    loading: "EDM Bilişim üzerinden fatura oluşturuluyor...",
+                                                    success: (res: any) => {
+                                                        if (res.error) throw new Error(res.error);
+                                                        const updated = {
+                                                            ...formData,
+                                                            taxNumber: effectiveTaxNumber,
+                                                            taxOffice: effectiveTaxOffice,
+                                                            invoiceStatus: 'created',
+                                                            invoiceUrl: res.url
+                                                        };
+                                                        setFormData(updated);
+                                                        if (onUpdate) onUpdate(updated);
+                                                        return "Fatura başarıyla oluşturuldu!";
+                                                    },
+                                                    error: (err) => err.message || "Hata oluştu"
+                                                });
+                                            }}
+                                            className="py-3 bg-indigo-600 text-white rounded-xl flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all font-bold shadow-lg shadow-indigo-200 dark:shadow-none text-xs"
+                                        >
+                                            <Receipt className="w-5 h-5" />
+                                            Fatura Kes
+                                        </button>
+                                    )}
 
                                     <button
                                         onClick={async () => {

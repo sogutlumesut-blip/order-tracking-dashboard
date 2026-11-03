@@ -669,6 +669,22 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                     <span className="translate-y-[0.5px]">🏷️</span> Etiket
                                 </button>
                             )}
+                            {/* INVOICE PDF LINK */}
+                            {(order.invoiceStatus === 'created' || !!order.invoiceUrl) && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const pdfUrl = order.invoiceUrl?.includes("faturaentegrator.com/download/invoice/")
+                                            ? `/api/invoice-pdf/${order.id}`
+                                            : (order.invoiceUrl || `/api/invoice-pdf/${order.id}`);
+                                        window.open(pdfUrl, '_blank');
+                                    }}
+                                    className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800 px-1.5 py-0.5 rounded transition-colors shadow-sm z-10 relative"
+                                    title="Fatura Kesildi (Görüntüle / İndir)"
+                                >
+                                    <span className="translate-y-[0.5px]">🧾</span> Fatura
+                                </button>
+                            )}
                             {/* SHARE TO CHAT BUTTON */}
                             <button
                                 onClick={async (e) => {
