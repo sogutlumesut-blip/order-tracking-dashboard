@@ -36,6 +36,7 @@ export const MATERIAL_CATALOG: MaterialItemDefinition[] = [
     { id: "hp-light-magenta", category: "hp", group: "HP Makina", name: "Light Macenta", colorHex: "#F472B6", unit: "Kutu" },
     { id: "hp-optimizer", category: "hp", group: "HP Makina", name: "Optimizer", colorHex: "#94A3B8", unit: "Kutu" },
     { id: "hp-overcoat", category: "hp", group: "HP Makina", name: "Overcoat", colorHex: "#CBD5E1", unit: "Kutu" },
+    { id: "hp-universal-kafa", category: "hp", group: "HP Makina", name: "Universal Kafa", colorHex: "#6366F1", unit: "Adet" },
     { id: "hp-maint-cart", category: "hp", group: "HP Makina", name: "Maintenance Cartridge", colorHex: "#64748B", unit: "Adet" },
     { id: "hp-ink-collection", category: "hp", group: "HP Makina", name: "Ink Collection Unit", colorHex: "#475569", unit: "Adet" },
 
@@ -50,6 +51,7 @@ export const MATERIAL_CATALOG: MaterialItemDefinition[] = [
     { id: "epson-light-cyan", category: "epson", group: "Epson Makina", name: "Light Cyan", colorHex: "#38BDF8", unit: "Kutu" },
     { id: "epson-light-magenta", category: "epson", group: "Epson Makina", name: "Light Magenta", colorHex: "#F472B6", unit: "Kutu" },
     { id: "epson-cleaning", category: "epson", group: "Epson Makina", name: "Cleaning", colorHex: "#06B6D4", unit: "Kutu" },
+    { id: "epson-temizlik-kiti", category: "epson", group: "Epson Makina", name: "Temizlik Kiti", colorHex: "#0D9488", unit: "Set" },
     { id: "epson-stick", category: "epson", group: "Epson Makina", name: "Stick (Temizleme Çubuğu)", colorHex: "#8B5CF6", unit: "Paket" },
 ]
 

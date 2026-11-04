@@ -1351,7 +1351,9 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                         else if (lowerName.includes('optimizer')) colorHex = '#94A3B8';
                                                         else if (lowerName.includes('overcoat')) colorHex = '#CBD5E1';
                                                         else if (lowerName.includes('cleaning')) colorHex = '#06B6D4';
+                                                        else if (lowerName.includes('temizlik kiti') || lowerName.includes('kiti')) colorHex = '#0D9488';
                                                         else if (lowerName.includes('stick')) colorHex = '#8B5CF6';
+                                                        else if (lowerName.includes('universal') || lowerName.includes('kafa')) colorHex = '#6366F1';
 
                                                         return (
                                                             <div className="w-24 h-24 shrink-0 rounded-xl overflow-hidden border border-slate-700 bg-slate-950 flex flex-col items-center justify-center p-2 text-center shadow-md relative select-none">

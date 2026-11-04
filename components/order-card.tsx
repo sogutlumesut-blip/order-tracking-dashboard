@@ -93,7 +93,9 @@ function MaterialHeroBanner({ item, totalItems }: { item?: any; totalItems: numb
     else if (lowerName.includes('optimizer')) colorHex = '#94A3B8'
     else if (lowerName.includes('overcoat')) colorHex = '#CBD5E1'
     else if (lowerName.includes('cleaning')) colorHex = '#06B6D4'
+    else if (lowerName.includes('temizlik kiti') || lowerName.includes('kiti')) colorHex = '#0D9488'
     else if (lowerName.includes('stick')) colorHex = '#8B5CF6'
+    else if (lowerName.includes('universal') || lowerName.includes('kafa')) colorHex = '#6366F1'
     else if (lowerName.includes('maintenance')) colorHex = '#64748B'
     else if (lowerName.includes('collection')) colorHex = '#475569'
 
