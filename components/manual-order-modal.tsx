@@ -39,8 +39,6 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
         pdfLink: ""
     })
 
-    if (!isOpen) return null
-
     const [isDragging, setIsDragging] = useState(false)
 
     const processFile = (file: File) => {
@@ -340,6 +338,8 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
             setIsLoading(false)
         }
     }
+
+    if (!isOpen) return null
 
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
