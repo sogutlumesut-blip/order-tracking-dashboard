@@ -1775,9 +1775,11 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                                             const toastId = toast.loading("DHL oluşturuluyor...");
                                             try {
-                                                await updateOrderDetails({ ...formData, city: currentCity });
-                                                setIsModified(false);
-                                                // Use standard fetch instead of Server Action to prevent Next.js connection hanging bugs
+                                                if (isModified) {
+                                                    updateOrderDetails({ ...formData, city: currentCity }).catch(() => {});
+                                                    setIsModified(false);
+                                                }
+                                                // Use standard fetch instead of Server Action to prevent Next.js connection hanging / action-hash bugs
                                                 const timeoutPromise = new Promise<{error: string}>((_, reject) => 
                                                     setTimeout(() => reject(new Error("Kargo Entegratör yanıt vermedi (Zaman Aşımı). Lütfen tekrar deneyin.")), 25000)
                                                 );
@@ -1785,7 +1787,13 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                 const fetchPromise = fetch('/api/dhl-create', {
                                                     method: 'POST',
                                                     headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({ orderId: formData.id })
+                                                    body: JSON.stringify({ 
+                                                        orderId: formData.id,
+                                                        city: currentCity,
+                                                        address: formData.address,
+                                                        customer: formData.customer,
+                                                        phone: formData.phone
+                                                    })
                                                 }).then(r => r.json());
 
                                                 const res = await Promise.race([

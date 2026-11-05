@@ -70,7 +70,7 @@ export async function generateDHLShipment(orderId: number, actorName: string, by
         };
 
         const parsedLoc = parseTurkishCityAndDistrict(order.city, order.address);
-        if (parsedLoc?.formattedCity && (!order.city || !order.city.includes('/'))) {
+        if (parsedLoc?.formattedCity && parsedLoc.formattedCity !== order.city) {
             updateData.city = parsedLoc.formattedCity;
         }
 

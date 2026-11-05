@@ -99,11 +99,47 @@ export const TURKISH_PROVINCES: Record<string, string> = {
     'ZONGULDAK': 'Zonguldak'
 };
 
+// 30 Metropolitan Cities in Turkey do NOT have a "Merkez" district in DHL / MNG Cargo!
+// If "Merkez" is passed for these cities, MNG API throws "Alıcı ilçe: Merkez için kod tespiti yapılamadı."
+// We provide their primary central district fallback.
+export const METROPOLITAN_DEFAULT_DISTRICT: Record<string, string> = {
+    'Adana': 'Seyhan',
+    'Ankara': 'Çankaya',
+    'Antalya': 'Muratpaşa',
+    'Aydın': 'Efeler',
+    'Balıkesir': 'Karesi',
+    'Bursa': 'Osmangazi',
+    'Denizli': 'Pamukkale',
+    'Diyarbakır': 'Yenişehir',
+    'Erzurum': 'Yakutiye',
+    'Eskişehir': 'Odunpazarı',
+    'Gaziantep': 'Şahinbey',
+    'Hatay': 'Antakya',
+    'İstanbul': 'Kadıköy',
+    'İzmir': 'Konak',
+    'Kahramanmaraş': 'Onikişubat',
+    'Kayseri': 'Melikgazi',
+    'Kocaeli': 'İzmit',
+    'Konya': 'Selçuklu',
+    'Malatya': 'Battalgazi',
+    'Manisa': 'Şehzadeler',
+    'Mardin': 'Artuklu',
+    'Mersin': 'Akdeniz',
+    'Muğla': 'Menteşe',
+    'Ordu': 'Altınordu',
+    'Sakarya': 'Adapazarı',
+    'Samsun': 'İlkadım',
+    'Şanlıurfa': 'Haliliye',
+    'Tekirdağ': 'Süleymanpaşa',
+    'Trabzon': 'Ortahisar',
+    'Van': 'İpekyolu'
+};
+
 // ISO TR codes mapping
 export const TR_CODE_PROVINCES: Record<string, string> = {
     'TR01': 'Adana', 'TR02': 'Adıyaman', 'TR03': 'Afyonkarahisar', 'TR04': 'Ağrı', 'TR05': 'Amasya',
     'TR06': 'Ankara', 'TR07': 'Antalya', 'TR08': 'Artvin', 'TR09': 'Aydın', 'TR10': 'Balıkesir',
-    'TR11': 'Bilecik', 'TR12': 'Bİngöl', 'TR13': 'Bitlis', 'TR14': 'Bolu', 'TR15': 'Burdur',
+    'TR11': 'Bilecik', 'TR12': 'Bingöl', 'TR13': 'Bitlis', 'TR14': 'Bolu', 'TR15': 'Burdur',
     'TR16': 'Bursa', 'TR17': 'Çanakkale', 'TR18': 'Çankırı', 'TR19': 'Çorum', 'TR20': 'Denizli',
     'TR21': 'Diyarbakır', 'TR22': 'Edirne', 'TR23': 'Elazığ', 'TR24': 'Erzincan', 'TR25': 'Erzurum',
     'TR26': 'Eskişehir', 'TR27': 'Gaziantep', 'TR28': 'Giresun', 'TR29': 'Gümüşhane', 'TR30': 'Hakkari',
@@ -120,115 +156,140 @@ export const TR_CODE_PROVINCES: Record<string, string> = {
     'TR81': 'Düzce'
 };
 
-// Popular district to province mapping for smart fallback
-export const POPULAR_DISTRICT_TO_PROVINCE: Record<string, string> = {
-    'KADIKOY': 'İstanbul',
-    'USKUDAR': 'İstanbul',
-    'BESIKTAS': 'İstanbul',
-    'ATASEHIR': 'İstanbul',
-    'UMRANIYE': 'İstanbul',
-    'BAKIRKOY': 'İstanbul',
-    'SISLI': 'İstanbul',
-    'MALTEPE': 'İstanbul',
-    'KARTAL': 'İstanbul',
-    'PENDIK': 'İstanbul',
-    'TUZLA': 'İstanbul',
-    'BEYOGLU': 'İstanbul',
-    'FATIH': 'İstanbul',
-    'SARIYER': 'İstanbul',
-    'BEYKOZ': 'İstanbul',
-    'CEKMEKOY': 'İstanbul',
-    'SANCAKTEPE': 'İstanbul',
-    'SULTANBEYLI': 'İstanbul',
-    'BASAKSEHIR': 'İstanbul',
-    'BEYLIKDUZU': 'İstanbul',
-    'ESENYURT': 'İstanbul',
-    'AVCILAR': 'İstanbul',
-    'KUCUKCEKMECE': 'İstanbul',
-    'BUYUKCEKMECE': 'İstanbul',
-    'BAGCILAR': 'İstanbul',
-    'BAHCELIEVLER': 'İstanbul',
-    'GUNGOREN': 'İstanbul',
-    'ZEYTINBURNU': 'İstanbul',
-    'GAZIOSMANPASA': 'İstanbul',
-    'SULTANGAZI': 'İstanbul',
-    'EYUPSULTAN': 'İstanbul',
-    'EYUP': 'İstanbul',
-    'BAYRAMPASA': 'İstanbul',
-    'ESENLER': 'İstanbul',
-    'KAGITHANE': 'İstanbul',
-    'SILIVRI': 'İstanbul',
-    'CATALCA': 'İstanbul',
-    'ARNAVUTKOY': 'İstanbul',
-    'SILE': 'İstanbul',
-    'ADALAR': 'İstanbul',
-    
-    // Ankara
-    'CANKAYA': 'Ankara',
-    'KECIOREN': 'Ankara',
-    'YENIMAHALLE': 'Ankara',
-    'MAMAK': 'Ankara',
-    'ETIMESGUT': 'Ankara',
-    'SINCAN': 'Ankara',
-    'GOLBASI': 'Ankara',
-    'ALTINDAG': 'Ankara',
-    'PURSAKLAR': 'Ankara',
-    
-    // İzmir
-    'KONAK': 'İzmir',
-    'KARSIYAKA': 'İzmir',
-    'BORNOVA': 'İzmir',
-    'BUCA': 'İzmir',
-    'CIGLI': 'İzmir',
-    'GAZIEMIR': 'İzmir',
-    'KARABAGLAR': 'İzmir',
-    'BAYRAKLI': 'İzmir',
-    'BALCOVA': 'İzmir',
-    'NARLIDERE': 'İzmir',
-    'GUZELBAHCE': 'İzmir',
-    'URLA': 'İzmir',
-    'CESME': 'İzmir',
-    'TORBALI': 'İzmir',
-    'MENEMEN': 'İzmir',
-    'ALIAGA': 'İzmir',
-    
-    // Antalya
-    'MURATPASA': 'Antalya',
-    'KEPEZ': 'Antalya',
-    'KONYAALTI': 'Antalya',
-    'ALANYA': 'Antalya',
-    'MANAVGAT': 'Antalya',
-    'SERIK': 'Antalya',
-    'KEMER': 'Antalya',
-    'KAS': 'Antalya',
-    'KUMLUCA': 'Antalya',
+// Popular district / neighborhood to { province, district } mapping for smart fallback
+export const POPULAR_DISTRICT_TO_PROVINCE: Record<string, { city: string; district: string }> = {
+    // İstanbul
+    'KADIKOY': { city: 'İstanbul', district: 'Kadıköy' },
+    'USKUDAR': { city: 'İstanbul', district: 'Üsküdar' },
+    'BESIKTAS': { city: 'İstanbul', district: 'Beşiktaş' },
+    'ATASEHIR': { city: 'İstanbul', district: 'Ataşehir' },
+    'UMRANIYE': { city: 'İstanbul', district: 'Ümraniye' },
+    'BAKIRKOY': { city: 'İstanbul', district: 'Bakırköy' },
+    'SISLI': { city: 'İstanbul', district: 'Şişli' },
+    'MALTEPE': { city: 'İstanbul', district: 'Maltepe' },
+    'KARTAL': { city: 'İstanbul', district: 'Kartal' },
+    'PENDIK': { city: 'İstanbul', district: 'Pendik' },
+    'TUZLA': { city: 'İstanbul', district: 'Tuzla' },
+    'BEYOGLU': { city: 'İstanbul', district: 'Beyoğlu' },
+    'FATIH': { city: 'İstanbul', district: 'Fatih' },
+    'SARIYER': { city: 'İstanbul', district: 'Sarıyer' },
+    'BEYKOZ': { city: 'İstanbul', district: 'Beykoz' },
+    'CEKMEKOY': { city: 'İstanbul', district: 'Çekmeköy' },
+    'SANCAKTEPE': { city: 'İstanbul', district: 'Sancaktepe' },
+    'SULTANBEYLI': { city: 'İstanbul', district: 'Sultanbeyli' },
+    'BASAKSEHIR': { city: 'İstanbul', district: 'Başakşehir' },
+    'BEYLIKDUZU': { city: 'İstanbul', district: 'Beylikdüzü' },
+    'ESENYURT': { city: 'İstanbul', district: 'Esenyurt' },
+    'AVCILAR': { city: 'İstanbul', district: 'Avcılar' },
+    'KUCUKCEKMECE': { city: 'İstanbul', district: 'Küçükçekmece' },
+    'BUYUKCEKMECE': { city: 'İstanbul', district: 'Büyükçekmece' },
+    'BAGCILAR': { city: 'İstanbul', district: 'Bağcılar' },
+    'BAHCELIEVLER': { city: 'İstanbul', district: 'Bahçelievler' },
+    'GUNGOREN': { city: 'İstanbul', district: 'Güngören' },
+    'ZEYTINBURNU': { city: 'İstanbul', district: 'Zeytinburnu' },
+    'GAZIOSMANPASA': { city: 'İstanbul', district: 'Gaziosmanpaşa' },
+    'SULTANGAZI': { city: 'İstanbul', district: 'Sultangazi' },
+    'EYUPSULTAN': { city: 'İstanbul', district: 'Eyüpsultan' },
+    'EYUP': { city: 'İstanbul', district: 'Eyüpsultan' },
+    'BAYRAMPASA': { city: 'İstanbul', district: 'Bayrampaşa' },
+    'ESENLER': { city: 'İstanbul', district: 'Esenler' },
+    'KAGITHANE': { city: 'İstanbul', district: 'Kağıthane' },
+    'SILIVRI': { city: 'İstanbul', district: 'Silivri' },
+    'CATALCA': { city: 'İstanbul', district: 'Çatalca' },
+    'ARNAVUTKOY': { city: 'İstanbul', district: 'Arnavutköy' },
+    'SILE': { city: 'İstanbul', district: 'Şile' },
+    'ADALAR': { city: 'İstanbul', district: 'Adalar' },
     
     // Bursa
-    'NILUFER': 'Bursa',
-    'OSMANGAZI': 'Bursa',
-    'YILDIRIM': 'Bursa',
-    'INEGOL': 'Bursa',
-    'GEMLIK': 'Bursa',
-    'MUDANYA': 'Bursa',
+    'NILUFER': { city: 'Bursa', district: 'Nilüfer' },
+    'ATAEVLER': { city: 'Bursa', district: 'Nilüfer' },
+    'IHSANIYE': { city: 'Bursa', district: 'Nilüfer' },
+    'OZLUCE': { city: 'Bursa', district: 'Nilüfer' },
+    'GORUKLE': { city: 'Bursa', district: 'Nilüfer' },
+    'BESEVLER': { city: 'Bursa', district: 'Nilüfer' },
+    'BALAT': { city: 'Bursa', district: 'Nilüfer' },
+    'OSMANGAZI': { city: 'Bursa', district: 'Osmangazi' },
+    'YILDIRIM': { city: 'Bursa', district: 'Yıldırım' },
+    'INEGOL': { city: 'Bursa', district: 'İnegöl' },
+    'GEMLIK': { city: 'Bursa', district: 'Gemlik' },
+    'MUDANYA': { city: 'Bursa', district: 'Mudanya' },
+    'GURSU': { city: 'Bursa', district: 'Gürsu' },
+    'KESTEL': { city: 'Bursa', district: 'Kestel' },
+    'ORHANGAZI': { city: 'Bursa', district: 'Orhangazi' },
+    'IZNIK': { city: 'Bursa', district: 'İznik' },
+    'MUSTAFAKEMALPASA': { city: 'Bursa', district: 'Mustafakemalpaşa' },
+    'KARACABEY': { city: 'Bursa', district: 'Karacabey' },
+    'YENISEHIR': { city: 'Bursa', district: 'Yenişehir' },
+
+    // Ankara
+    'CANKAYA': { city: 'Ankara', district: 'Çankaya' },
+    'KECIOREN': { city: 'Ankara', district: 'Keçiören' },
+    'YENIMAHALLE': { city: 'Ankara', district: 'Yenimahalle' },
+    'MAMAK': { city: 'Ankara', district: 'Mamak' },
+    'ETIMESGUT': { city: 'Ankara', district: 'Etimesgut' },
+    'SINCAN': { city: 'Ankara', district: 'Sincan' },
+    'GOLBASI': { city: 'Ankara', district: 'Gölbaşı' },
+    'ALTINDAG': { city: 'Ankara', district: 'Altındağ' },
+    'PURSAKLAR': { city: 'Ankara', district: 'Pursaklar' },
+    'BATIKENT': { city: 'Ankara', district: 'Yenimahalle' },
+    'CAYYOLU': { city: 'Ankara', district: 'Çankaya' },
+    'UMITKOY': { city: 'Ankara', district: 'Çankaya' },
+    
+    // İzmir
+    'KONAK': { city: 'İzmir', district: 'Konak' },
+    'KARSIYAKA': { city: 'İzmir', district: 'Karşıyaka' },
+    'BORNOVA': { city: 'İzmir', district: 'Bornova' },
+    'BUCA': { city: 'İzmir', district: 'Buca' },
+    'CIGLI': { city: 'İzmir', district: 'Çiğli' },
+    'GAZIEMIR': { city: 'İzmir', district: 'Gaziemir' },
+    'KARABAGLAR': { city: 'İzmir', district: 'Karabağlar' },
+    'BAYRAKLI': { city: 'İzmir', district: 'Bayraklı' },
+    'BALCOVA': { city: 'İzmir', district: 'Balçova' },
+    'NARLIDERE': { city: 'İzmir', district: 'Narlıdere' },
+    'GUZELBAHCE': { city: 'İzmir', district: 'Güzelbahçe' },
+    'URLA': { city: 'İzmir', district: 'Urla' },
+    'CESME': { city: 'İzmir', district: 'Çeşme' },
+    'TORBALI': { city: 'İzmir', district: 'Torbalı' },
+    'MENEMEN': { city: 'İzmir', district: 'Menemen' },
+    'ALIAGA': { city: 'İzmir', district: 'Aliağa' },
+    'SEFERIHISAR': { city: 'İzmir', district: 'Seferihisar' },
+    'MENDERES': { city: 'İzmir', district: 'Menderes' },
+    'ALACATI': { city: 'İzmir', district: 'Çeşme' },
+    
+    // Antalya
+    'MURATPASA': { city: 'Antalya', district: 'Muratpaşa' },
+    'KEPEZ': { city: 'Antalya', district: 'Kepez' },
+    'KONYAALTI': { city: 'Antalya', district: 'Konyaaltı' },
+    'ALANYA': { city: 'Antalya', district: 'Alanya' },
+    'MANAVGAT': { city: 'Antalya', district: 'Manavgat' },
+    'SERIK': { city: 'Antalya', district: 'Serik' },
+    'KEMER': { city: 'Antalya', district: 'Kemer' },
+    'KAS': { city: 'Antalya', district: 'Kaş' },
+    'KUMLUCA': { city: 'Antalya', district: 'Kumluca' },
+    'DOSEMEALTI': { city: 'Antalya', district: 'Döşemealtı' },
+    'AKSU': { city: 'Antalya', district: 'Aksu' },
+    'LARA': { city: 'Antalya', district: 'Muratpaşa' },
     
     // Kocaeli
-    'GEBZE': 'Kocaeli',
-    'DARICA': 'Kocaeli',
-    'CAYIROVA': 'Kocaeli',
-    'KORFEZ': 'Kocaeli',
-    'GOLCUK': 'Kocaeli',
-    'KARTEPE': 'Kocaeli',
-    'DERINCE': 'Kocaeli',
-    'DILOVASI': 'Kocaeli',
+    'IZMIT': { city: 'Kocaeli', district: 'İzmit' },
+    'GEBZE': { city: 'Kocaeli', district: 'Gebze' },
+    'DARICA': { city: 'Kocaeli', district: 'Darıca' },
+    'CAYIROVA': { city: 'Kocaeli', district: 'Çayırova' },
+    'KORFEZ': { city: 'Kocaeli', district: 'Körfez' },
+    'GOLCUK': { city: 'Kocaeli', district: 'Gölcük' },
+    'KARTEPE': { city: 'Kocaeli', district: 'Kartepe' },
+    'DERINCE': { city: 'Kocaeli', district: 'Derince' },
+    'DILOVASI': { city: 'Kocaeli', district: 'Dilovası' },
+    'BASISKELE': { city: 'Kocaeli', district: 'Başiskele' },
     
     // Muğla
-    'BODRUM': 'Muğla',
-    'FETHIYE': 'Muğla',
-    'MARMARIS': 'Muğla',
-    'MENTESE': 'Muğla',
-    'MILAS': 'Muğla',
-    'ORTACA': 'Muğla',
-    'DATCA': 'Muğla'
+    'BODRUM': { city: 'Muğla', district: 'Bodrum' },
+    'FETHIYE': { city: 'Muğla', district: 'Fethiye' },
+    'MARMARIS': { city: 'Muğla', district: 'Marmaris' },
+    'MENTESE': { city: 'Muğla', district: 'Menteşe' },
+    'MILAS': { city: 'Muğla', district: 'Milas' },
+    'ORTACA': { city: 'Muğla', district: 'Ortaca' },
+    'DATCA': { city: 'Muğla', district: 'Datça' }
 };
 
 export function normalizeTurkish(text: string): string {
@@ -261,6 +322,7 @@ export function toTitleCaseTr(text: string): string {
 /**
  * Intelligent parser that splits any combined city/district string into { city, district }
  * Handles formats like:
+ * - "Merkez / Bursa" (Metropolitan fix: replaces invalid 'Merkez' with 'Nilüfer' or 'Osmangazi')
  * - "istanbul  kadıköy"
  * - "kadıköy istanbul"
  * - "kadıköy / istanbul"
@@ -274,10 +336,12 @@ export function parseTurkishCityAndDistrict(cityInput?: string | null, addressIn
 
     // Check for TR code first (e.g. TR34)
     if (TR_CODE_PROVINCES[rawCity.toUpperCase()]) {
+        const prov = TR_CODE_PROVINCES[rawCity.toUpperCase()];
+        const dist = METROPOLITAN_DEFAULT_DISTRICT[prov] || 'Merkez';
         return {
-            city: TR_CODE_PROVINCES[rawCity.toUpperCase()],
-            district: 'Merkez',
-            formattedCity: `Merkez / ${TR_CODE_PROVINCES[rawCity.toUpperCase()]}`
+            city: prov,
+            district: dist,
+            formattedCity: `${dist} / ${prov}`
         };
     }
 
@@ -296,54 +360,57 @@ export function parseTurkishCityAndDistrict(cityInput?: string | null, addressIn
     let detectedCity: string | null = null;
     let detectedDistrict: string | null = null;
 
-    // 1. Try to find a province name in the words of cleanedCity
-    // We check multi-word provinces first (e.g. KAHRAMANMARAS, AFYONKARAHISAR) then single words
-    const normCityStr = normalizeTurkish(cleanedCity);
-
-    for (const [key, val] of Object.entries(TURKISH_PROVINCES)) {
-        // Exact match of word boundary
-        const regex = new RegExp(`\\b${key}\\b`, 'i');
-        if (regex.test(normCityStr)) {
-            detectedCity = val;
-            // The remaining text is likely the district
-            const remaining = normCityStr.replace(regex, '').trim().replace(/\s+/g, ' ');
-            if (remaining) {
-                // Find matching original casing in words
-                const districtWords = words.filter(w => normalizeTurkish(w) !== key);
-                detectedDistrict = toTitleCaseTr(districtWords.join(' '));
-            }
+    // 1. Check if any word or token in cityInput is a known district or neighborhood
+    for (const w of words) {
+        const normW = normalizeTurkish(w);
+        if (normW !== 'MERKEZ' && POPULAR_DISTRICT_TO_PROVINCE[normW]) {
+            detectedCity = POPULAR_DISTRICT_TO_PROVINCE[normW].city;
+            detectedDistrict = POPULAR_DISTRICT_TO_PROVINCE[normW].district;
             break;
         }
     }
 
-    // 2. If no province found directly, check if any word is a known popular district
+    // 2. Try to find a province name in the words of cleanedCity
     if (!detectedCity) {
-        for (const w of words) {
-            const normW = normalizeTurkish(w);
-            if (POPULAR_DISTRICT_TO_PROVINCE[normW]) {
-                detectedCity = POPULAR_DISTRICT_TO_PROVINCE[normW];
-                detectedDistrict = toTitleCaseTr(w);
+        const normCityStr = normalizeTurkish(cleanedCity);
+        for (const [key, val] of Object.entries(TURKISH_PROVINCES)) {
+            const regex = new RegExp(`\\b${key}\\b`, 'i');
+            if (regex.test(normCityStr)) {
+                detectedCity = val;
+                // The remaining text is likely the district
+                const remaining = normCityStr.replace(regex, '').trim().replace(/\s+/g, ' ');
+                if (remaining && normalizeTurkish(remaining) !== 'MERKEZ') {
+                    const districtWords = words.filter(w => normalizeTurkish(w) !== key && normalizeTurkish(w) !== 'MERKEZ');
+                    if (districtWords.length > 0) {
+                        detectedDistrict = toTitleCaseTr(districtWords.join(' '));
+                    }
+                }
                 break;
             }
         }
     }
 
-    // 3. If still no province found, scan rawAddress for a province
-    if (!detectedCity && rawAddress) {
+    // 3. Scan rawAddress for known districts or neighborhoods (e.g. "Ataevler mah...")
+    if (rawAddress) {
         const normAddr = normalizeTurkish(cleanTokens(rawAddress));
-        for (const [key, val] of Object.entries(TURKISH_PROVINCES)) {
-            const regex = new RegExp(`\\b${key}\\b`, 'i');
+        for (const [distKey, distVal] of Object.entries(POPULAR_DISTRICT_TO_PROVINCE)) {
+            const regex = new RegExp(`\\b${distKey}\\b`, 'i');
             if (regex.test(normAddr)) {
-                detectedCity = val;
-                break;
+                // If city is already known, check if this district belongs to that city
+                if (!detectedCity || detectedCity === distVal.city) {
+                    detectedCity = distVal.city;
+                    detectedDistrict = distVal.district;
+                    break;
+                }
             }
         }
+
+        // If city still not found, check rawAddress for province name
         if (!detectedCity) {
-            for (const [distKey, provVal] of Object.entries(POPULAR_DISTRICT_TO_PROVINCE)) {
-                const regex = new RegExp(`\\b${distKey}\\b`, 'i');
+            for (const [key, val] of Object.entries(TURKISH_PROVINCES)) {
+                const regex = new RegExp(`\\b${key}\\b`, 'i');
                 if (regex.test(normAddr)) {
-                    detectedCity = provVal;
-                    if (!detectedDistrict) detectedDistrict = toTitleCaseTr(distKey);
+                    detectedCity = val;
                     break;
                 }
             }
@@ -354,24 +421,10 @@ export function parseTurkishCityAndDistrict(cityInput?: string | null, addressIn
     if (detectedCity && !detectedDistrict) {
         if (words.length > 0) {
             const normCityKey = normalizeTurkish(detectedCity);
-            const remainingWords = words.filter(w => normalizeTurkish(w) !== normCityKey);
+            const remainingWords = words.filter(w => normalizeTurkish(w) !== normCityKey && normalizeTurkish(w) !== 'MERKEZ');
             if (remainingWords.length > 0) {
                 detectedDistrict = toTitleCaseTr(remainingWords.join(' '));
             }
-        }
-        if (!detectedDistrict && rawAddress) {
-            // Check address for known districts
-            const normAddr = normalizeTurkish(rawAddress);
-            for (const distKey of Object.keys(POPULAR_DISTRICT_TO_PROVINCE)) {
-                const regex = new RegExp(`\\b${distKey}\\b`, 'i');
-                if (regex.test(normAddr)) {
-                    detectedDistrict = toTitleCaseTr(distKey);
-                    break;
-                }
-            }
-        }
-        if (!detectedDistrict) {
-            detectedDistrict = 'Merkez';
         }
     }
 
@@ -384,22 +437,26 @@ export function parseTurkishCityAndDistrict(cityInput?: string | null, addressIn
                 detectedCity = toTitleCaseTr(parts[1]);
             } else if (parts.length === 1) {
                 detectedCity = toTitleCaseTr(parts[0]);
-                detectedDistrict = 'Merkez';
             }
         } else if (words.length >= 2) {
             detectedCity = toTitleCaseTr(words[0]);
             detectedDistrict = toTitleCaseTr(words.slice(1).join(' '));
         } else if (words.length === 1) {
             detectedCity = toTitleCaseTr(words[0]);
-            detectedDistrict = 'Merkez';
-        } else {
-            detectedCity = 'İstanbul';
-            detectedDistrict = 'Merkez';
         }
     }
 
-    const finalCity = detectedCity || 'İstanbul';
-    const finalDistrict = detectedDistrict || 'Merkez';
+    let finalCity = detectedCity || 'İstanbul';
+    let finalDistrict = detectedDistrict || '';
+
+    // CRITICAL FIX: If district is empty or "Merkez" for a Metropolitan city, replace with primary district
+    if (!finalDistrict || finalDistrict.toLowerCase() === 'merkez') {
+        if (METROPOLITAN_DEFAULT_DISTRICT[finalCity]) {
+            finalDistrict = METROPOLITAN_DEFAULT_DISTRICT[finalCity];
+        } else {
+            finalDistrict = 'Merkez';
+        }
+    }
 
     return {
         city: finalCity,
