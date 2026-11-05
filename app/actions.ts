@@ -2005,10 +2005,15 @@ export async function syncWooCommerceOrders(force: boolean = false) {
 
 
 export async function createManualOrder(orderData: any) {
-    const { items, customer, phone, email, address, city, note, status, clientBarcode, total } = orderData
+    const { items, customer, phone, email, address, city, note, status, clientBarcode, total, taxNumber, taxOffice, needsInvoice } = orderData
 
     // Use a manual barcode prefix or the client-generated one for perfect optimistic UI sync
     const barcode = clientBarcode || `MANUAL-${Date.now()}`
+
+    const labelsList = ['Manuel']
+    if (needsInvoice || taxNumber) {
+        labelsList.push('Fatura')
+    }
 
     try {
         serverLog(`[CREATE_MANUAL] Starting for customer: ${customer}`);
@@ -2023,8 +2028,11 @@ export async function createManualOrder(orderData: any) {
                 total: total ? `${total} ₺` : "0.00 ₺",
                 status: status || "pending_woo",
                 barcode,
-                labels: JSON.stringify(['Manuel']),
+                labels: JSON.stringify(labelsList),
                 hasNotification: true,
+                taxNumber: taxNumber ? String(taxNumber).trim() : null,
+                taxOffice: taxOffice ? String(taxOffice).trim() : null,
+                invoiceStatus: (needsInvoice || taxNumber) ? "pending" : "draft",
                 items: {
                     create: items
                 }

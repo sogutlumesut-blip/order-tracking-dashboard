@@ -1636,6 +1636,11 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                             const tempId = -Math.floor(Math.random() * 100000); // Negative integer temp ID
                             const clientBarcode = `MANUAL-${Date.now()}`;
                             
+                            const labelsList = ['Manuel'];
+                            if (data.needsInvoice || data.taxNumber) {
+                                labelsList.push('Fatura');
+                            }
+
                             const optimisticOrder = {
                                 id: tempId,
                                 barcode: clientBarcode,
@@ -1644,9 +1649,12 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 date: new Date().toISOString(),
                                 createdAt: new Date().toISOString(),
                                 updatedAt: new Date().toISOString(),
-                                labels: ['Manuel'],
+                                labels: labelsList,
                                 items: data.items || [],
                                 total: data.total ? `${data.total} ₺` : "0.00 ₺",
+                                taxNumber: data.taxNumber || null,
+                                taxOffice: data.taxOffice || null,
+                                invoiceStatus: (data.needsInvoice || data.taxNumber) ? "pending" : "draft",
                                 commentCount: 0,
                                 hasNotification: false
                             };
