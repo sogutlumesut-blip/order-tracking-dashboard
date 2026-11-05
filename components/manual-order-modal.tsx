@@ -25,6 +25,7 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
 
         // Product
         productName: "",
+        quantity: "1",
         width: "",
         height: "",
         unit: "cm",
@@ -301,8 +302,11 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                 finalNote = (finalNote ? finalNote + "\n\n" : "") + "📌 NUMUNE İSTEĞİ: " + (formData as any).sample
             }
 
+            const qty = Math.max(1, parseInt(String(formData.quantity || 1), 10) || 1)
+
             const orderPayload = {
                 ...formData,
+                quantity: qty,
                 note: finalNote,
                 dimensions,
                 area,
@@ -312,7 +316,7 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                 items: [{
                     name: formData.productName,
                     sku: formData.sku,
-                    quantity: 1,
+                    quantity: qty,
                     image_src: mainImage,
                     material: formData.material,
                     dimensions: dimensions + (area ? ` (${area})` : ""),
@@ -423,8 +427,8 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                         <div className="space-y-4">
                             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200 border-b dark:border-slate-800 pb-1">📦 Ürün Bilgileri</h3>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                                <div className="md:col-span-6 space-y-1">
                                     <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Ürün Adı *</label>
                                     <input
                                         name="productName"
@@ -434,7 +438,19 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                                         placeholder="Özel Duvar Kağıdı - Orman Temalı"
                                     />
                                 </div>
-                                <div className="space-y-1">
+                                <div className="md:col-span-3 space-y-1">
+                                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Adet</label>
+                                    <input
+                                        type="number"
+                                        name="quantity"
+                                        min="1"
+                                        value={formData.quantity}
+                                        onChange={handleChange}
+                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
+                                        placeholder="1"
+                                    />
+                                </div>
+                                <div className="md:col-span-3 space-y-1">
                                     <label className="text-xs font-semibold text-slate-700 dark:text-slate-400">Fiyat</label>
                                     <div className="relative">
                                         <input
@@ -642,6 +658,7 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                             address: "Örnek Mahallesi, Test Sokak No:1",
                             city: "İstanbul",
                             productName: "Orman Temalı Duvar Kağıdı",
+                            quantity: "1",
                             width: "350",
                             height: "260",
                             unit: "cm",
