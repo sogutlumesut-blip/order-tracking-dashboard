@@ -1145,7 +1145,12 @@ export async function updateStatusOrder(items: { id: string; order: number }[]) 
 // ... getLabels
 
 export async function getLabels() {
-    return await db.orderLabel.findMany()
+    try {
+        return await db.orderLabel.findMany()
+    } catch (e) {
+        console.error("Failed to fetch labels in getLabels:", e)
+        return []
+    }
 }
 
 export async function createLabel(formData: FormData) {

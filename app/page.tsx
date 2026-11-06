@@ -20,19 +20,31 @@ export default async function Dashboard() {
   let labels: any[] = []
   let dbError = null
 
-  try {
-    orders = await getOrders()
-    statuses = await getStatuses()
-    labels = await getLabels()
-  } catch (e: any) {
-    console.error("Dashboard Data Fetch Error:", e)
-    dbError = "Veritabanı bağlantısı kurulamadı. Detay: " + (e?.message || String(e))
-    // Provide fallback statuses so UI doesn't crash completely
-    statuses = [
-      { id: "pending_woo", title: "Bekliyor (DKM)", color: "bg-slate-100", order: 0 },
-      { id: "pending_pm", title: "Bekliyor (PrintMarkt)", color: "bg-slate-100", order: 1 },
-      { id: "error", title: "Sistem Hatası", color: "bg-red-100", order: 2 }
-    ]
+  // Retry up to 2 times with a slight delay in case of transient pool contention or database wakeup
+  let retries = 2;
+  while (retries >= 0) {
+    try {
+      orders = await getOrders()
+      statuses = await getStatuses()
+      labels = await getLabels()
+      dbError = null
+      break;
+    } catch (e: any) {
+      if (retries > 0) {
+        retries--;
+        await new Promise((res) => setTimeout(res, 800));
+        continue;
+      }
+      console.error("Dashboard Data Fetch Error:", e)
+      dbError = "Veritabanı bağlantısı kurulamadı. Detay: " + (e?.message || String(e))
+      // Provide fallback statuses so UI doesn't crash completely
+      statuses = [
+        { id: "pending_woo", title: "Bekliyor (DKM)", color: "bg-slate-100", order: 0 },
+        { id: "pending_pm", title: "Bekliyor (PrintMarkt)", color: "bg-slate-100", order: 1 },
+        { id: "error", title: "Sistem Hatası", color: "bg-red-100", order: 2 }
+      ]
+      break;
+    }
   }
 
   // PERMISSION CHECK

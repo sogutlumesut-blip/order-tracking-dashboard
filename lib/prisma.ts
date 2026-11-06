@@ -16,17 +16,21 @@ const getPrismaClient = () => {
                 urlObj.hostname = urlObj.hostname.replace("-pooler", "");
             }
             
-            // Set connection_limit defensively. On persistent single-replica servers, 
-            // a limit of 10 connections is perfect to handle concurrency while staying below Neon's 20 limit.
-            const connLimit = process.env.DATABASE_CONNECTION_LIMIT || "10";
+            // Set connection_limit defensively. 
+            // 15 connections allows concurrency during sync & dashboard loads while staying safely below Neon direct limit (20).
+            const connLimit = process.env.DATABASE_CONNECTION_LIMIT || "15";
             urlObj.searchParams.set("connection_limit", connLimit);
             
-            // Set connection establishment timeout
-            urlObj.searchParams.set("connect_timeout", "10");
+            // Set connection establishment timeout (20s gives Neon compute enough time to wake up if cold)
+            const connectTimeout = process.env.DATABASE_CONNECT_TIMEOUT || "20";
+            urlObj.searchParams.set("connect_timeout", connectTimeout);
+            
+            // Set connection pool acquisition timeout (30s prevents 'Timed out fetching a new connection from the connection pool')
+            const poolTimeout = process.env.DATABASE_POOL_TIMEOUT || "30";
+            urlObj.searchParams.set("pool_timeout", poolTimeout);
             
             // Ensure pgbouncer is NOT set, since we are connecting directly
             urlObj.searchParams.delete("pgbouncer");
-            urlObj.searchParams.delete("pool_timeout");
             
             databaseUrl = urlObj.toString();
         } catch (e) {
@@ -34,13 +38,17 @@ const getPrismaClient = () => {
             if (databaseUrl.includes("-pooler")) {
                 databaseUrl = databaseUrl.replace("-pooler", "");
             }
+            const connLimit = process.env.DATABASE_CONNECTION_LIMIT || "15";
+            const connectTimeout = process.env.DATABASE_CONNECT_TIMEOUT || "20";
+            const poolTimeout = process.env.DATABASE_POOL_TIMEOUT || "30";
             if (!databaseUrl.includes("connection_limit=")) {
                 const separator = databaseUrl.includes("?") ? "&" : "?";
-                databaseUrl = `${databaseUrl}${separator}connection_limit=10&connect_timeout=10`;
+                databaseUrl = `${databaseUrl}${separator}connection_limit=${connLimit}&connect_timeout=${connectTimeout}&pool_timeout=${poolTimeout}`;
             }
             // Strip pgbouncer parameters if present in fallback
             databaseUrl = databaseUrl.replace(/[&?]pgbouncer=[^&]*/g, "");
             databaseUrl = databaseUrl.replace(/[&?]pool_timeout=[^&]*/g, "");
+            databaseUrl = `${databaseUrl}&pool_timeout=${poolTimeout}`;
         }
         
         return new PrismaClient({
