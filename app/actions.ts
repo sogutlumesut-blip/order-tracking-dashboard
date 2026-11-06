@@ -3210,6 +3210,7 @@ async function resolveWfCatalogImage(
                         "Content-Type": "application/json",
                         "X-SELECTED-SUPPLIER-ID": sId
                     },
+                    signal: AbortSignal.timeout(5000),
                     body: JSON.stringify({
                         query,
                         variables: {
@@ -3755,10 +3756,15 @@ if (typeof window === 'undefined' && process.env.NODE_ENV === 'production' && pr
             console.log("[BACKGROUND_SYNC] Starting scheduled order sync on server...");
             try {
                 const wc = await syncWooCommerceOrders(false).catch(e => ({ error: e.message }));
+                await new Promise(r => setTimeout(r, 1000));
                 const pm = await syncPrintMarktOrders(false).catch(e => ({ error: e.message }));
+                await new Promise(r => setTimeout(r, 1000));
                 const etsy = await syncEtsyOrders().catch(e => ({ error: e.message }));
+                await new Promise(r => setTimeout(r, 1000));
                 const cargo = await syncCargoKargoEntegrator().catch(e => ({ error: e.message }));
+                await new Promise(r => setTimeout(r, 1000));
                 const wf = await syncWayfairOrders(false).catch(e => ({ error: e.message }));
+                await new Promise(r => setTimeout(r, 1000));
                 const shopify = await syncShopifyOrders(false).catch(e => ({ error: e.message }));
                 console.log("[BACKGROUND_SYNC] Scheduled sync completed:", { wc, pm, etsy, cargo, wf, shopify });
             } catch (error) {
