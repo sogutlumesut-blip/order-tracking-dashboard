@@ -17,38 +17,39 @@ const getPrismaClient = () => {
             }
             
             // Set connection_limit defensively. 
-            // 15 connections allows concurrency during sync & dashboard loads while staying safely below Neon direct limit (20).
-            const connLimit = process.env.DATABASE_CONNECTION_LIMIT || "15";
+            // 20 connections allows high concurrency during sync & dashboard loads while staying safely within Neon limit.
+            const rawConnLimit = parseInt(process.env.DATABASE_CONNECTION_LIMIT || "20", 10);
+            const connLimit = String(isNaN(rawConnLimit) || rawConnLimit < 20 ? 20 : rawConnLimit);
             urlObj.searchParams.set("connection_limit", connLimit);
             
-            // Set connection establishment timeout (20s gives Neon compute enough time to wake up if cold)
-            const connectTimeout = process.env.DATABASE_CONNECT_TIMEOUT || "20";
-            urlObj.searchParams.set("connect_timeout", connectTimeout);
+            // Set connection establishment timeout (30s gives Neon compute enough time to wake up if cold)
+            urlObj.searchParams.set("connect_timeout", "30");
             
-            // Set connection pool acquisition timeout (30s prevents 'Timed out fetching a new connection from the connection pool')
-            const poolTimeout = process.env.DATABASE_POOL_TIMEOUT || "30";
-            urlObj.searchParams.set("pool_timeout", poolTimeout);
+            // Set connection pool acquisition timeout to 0 (no timeout / wait indefinitely for connection)
+            // Setting pool_timeout=0 instructs Prisma's connection pool to wait for an available connection rather than crashing after 10s
+            urlObj.searchParams.set("pool_timeout", "0");
             
             // Ensure pgbouncer is NOT set, since we are connecting directly
             urlObj.searchParams.delete("pgbouncer");
             
             databaseUrl = urlObj.toString();
+            // CRITICAL: Overwrite process.env.DATABASE_URL so the underlying Prisma Rust query engine
+            // also picks up pool_timeout=0 and connection_limit=20!
+            process.env.DATABASE_URL = databaseUrl;
         } catch (e) {
             // Fallback string manipulation if URL parsing fails
             if (databaseUrl.includes("-pooler")) {
                 databaseUrl = databaseUrl.replace("-pooler", "");
             }
-            const connLimit = process.env.DATABASE_CONNECTION_LIMIT || "15";
-            const connectTimeout = process.env.DATABASE_CONNECT_TIMEOUT || "20";
-            const poolTimeout = process.env.DATABASE_POOL_TIMEOUT || "30";
-            if (!databaseUrl.includes("connection_limit=")) {
-                const separator = databaseUrl.includes("?") ? "&" : "?";
-                databaseUrl = `${databaseUrl}${separator}connection_limit=${connLimit}&connect_timeout=${connectTimeout}&pool_timeout=${poolTimeout}`;
-            }
-            // Strip pgbouncer parameters if present in fallback
-            databaseUrl = databaseUrl.replace(/[&?]pgbouncer=[^&]*/g, "");
+            // Strip any existing connection_limit, pool_timeout, and pgbouncer
+            databaseUrl = databaseUrl.replace(/[&?]connection_limit=[^&]*/g, "");
             databaseUrl = databaseUrl.replace(/[&?]pool_timeout=[^&]*/g, "");
-            databaseUrl = `${databaseUrl}&pool_timeout=${poolTimeout}`;
+            databaseUrl = databaseUrl.replace(/[&?]connect_timeout=[^&]*/g, "");
+            databaseUrl = databaseUrl.replace(/[&?]pgbouncer=[^&]*/g, "");
+            
+            const separator = databaseUrl.includes("?") ? "&" : "?";
+            databaseUrl = `${databaseUrl}${separator}connection_limit=20&connect_timeout=30&pool_timeout=0`;
+            process.env.DATABASE_URL = databaseUrl;
         }
         
         return new PrismaClient({

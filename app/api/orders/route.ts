@@ -104,8 +104,8 @@ export async function GET(req: NextRequest) {
         const { searchParams } = new URL(req.url);
         const search = searchParams.get("search") || "";
 
-        let activeOrdersPromise;
-        let terminalOrdersPromise;
+        let activeOrders: any[] = [];
+        let terminalOrders: any[] = [];
 
         if (search) {
             const searchFilter = {
@@ -123,39 +123,69 @@ export async function GET(req: NextRequest) {
                 (searchFilter.OR as any).push({ id: Number(search) });
             }
 
-            activeOrdersPromise = targetActive.length > 0 ? db.order.findMany({
-                where: {
-                    status: { in: targetActive },
-                    ...searchFilter
-                },
-                orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
-                select: orderSelect
-            }) : Promise.resolve([]);
+            if (targetActive.length > 0) {
+                try {
+                    activeOrders = await db.order.findMany({
+                        where: {
+                            status: { in: targetActive },
+                            ...searchFilter
+                        },
+                        orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
+                        select: orderSelect
+                    });
+                } catch (e) {
+                    console.error("API activeOrders search error:", e);
+                }
+            }
 
-            terminalOrdersPromise = targetTerminal.length > 0 ? db.order.findMany({
-                where: {
-                    status: { in: targetTerminal },
-                    ...searchFilter
-                },
-                orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
-                select: orderSelect
-            }) : Promise.resolve([]);
+            if (targetTerminal.length > 0) {
+                try {
+                    terminalOrders = await db.order.findMany({
+                        where: {
+                            status: { in: targetTerminal },
+                            ...searchFilter
+                        },
+                        orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
+                        select: orderSelect
+                    });
+                } catch (e) {
+                    console.error("API terminalOrders search error:", e);
+                }
+            }
         } else {
-            activeOrdersPromise = targetActive.length > 0 ? db.order.findMany({
-                where: { status: { in: targetActive } },
-                orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
-                select: orderSelect
-            }) : Promise.resolve([]);
+            if (targetActive.length > 0) {
+                try {
+                    activeOrders = await db.order.findMany({
+                        where: { status: { in: targetActive } },
+                        orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
+                        select: orderSelect
+                    });
+                } catch (e) {
+                    console.error("API activeOrders error, retrying once...", e);
+                    await new Promise(r => setTimeout(r, 600));
+                    activeOrders = await db.order.findMany({
+                        where: { status: { in: targetActive } },
+                        orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
+                        select: orderSelect
+                    });
+                }
+            }
 
-            terminalOrdersPromise = targetTerminal.length > 0 ? db.order.findMany({
-                where: { status: { in: targetTerminal } },
-                orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
-                take: 400,
-                select: orderSelect
-            }) : Promise.resolve([]);
+            if (targetTerminal.length > 0) {
+                try {
+                    terminalOrders = await db.order.findMany({
+                        where: { status: { in: targetTerminal } },
+                        orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
+                        take: 400,
+                        select: orderSelect
+                    });
+                } catch (e) {
+                    console.error("API terminalOrders non-critical error:", e);
+                    terminalOrders = [];
+                }
+            }
         }
 
-        const [activeOrders, terminalOrders] = await Promise.all([activeOrdersPromise, terminalOrdersPromise]);
         const orders = [...activeOrders, ...terminalOrders];
 
         const serialized = orders.map(order => ({

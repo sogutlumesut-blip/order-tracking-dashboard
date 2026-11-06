@@ -163,51 +163,81 @@ export async function getOrders(timestamp?: number) {
         }
     };
 
-    // Query 1: Fetch all active orders (no limit, since they are active!)
-    const activeOrdersPromise = targetActive.length > 0 ? db.order.findMany({
-        where: { status: { in: targetActive } },
-        orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
-        select: orderSelect
-    }) : Promise.resolve([]);
+    // Sequential queries instead of Promise.all to avoid connection pool exhaustion
+    let activeOrders: any[] = [];
+    if (targetActive.length > 0) {
+        try {
+            activeOrders = await db.order.findMany({
+                where: { status: { in: targetActive } },
+                orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
+                select: orderSelect
+            });
+        } catch (e) {
+            console.error("Transient error fetching active orders, retrying once...", e);
+            await new Promise(r => setTimeout(r, 600));
+            activeOrders = await db.order.findMany({
+                where: { status: { in: targetActive } },
+                orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
+                select: orderSelect
+            });
+        }
+    }
 
-    // Query 2: Fetch latest 200 terminal orders to show recent history
-    const terminalOrdersPromise = targetTerminal.length > 0 ? db.order.findMany({
-        where: { status: { in: targetTerminal } },
-        orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
-        take: 200,
-        select: orderSelect
-    }) : Promise.resolve([]);
+    let terminalOrders: any[] = [];
+    if (targetTerminal.length > 0) {
+        try {
+            terminalOrders = await db.order.findMany({
+                where: { status: { in: targetTerminal } },
+                orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
+                take: 200,
+                select: orderSelect
+            });
+        } catch (e) {
+            console.error("Non-critical error fetching terminal orders:", e);
+            terminalOrders = [];
+        }
+    }
 
-    const [activeOrders, terminalOrders] = await Promise.all([activeOrdersPromise, terminalOrdersPromise]);
     const orders = [...activeOrders, ...terminalOrders];
 
     // Serializing dates to strings to match interface and avoid hydration issues
     const returnedOrderIds = orders.map(o => o.id);
-    const ordersWithPdfPromise = returnedOrderIds.length > 0 ? db.order.findMany({
-        where: {
-            id: { in: returnedOrderIds },
-            cargoLabelPdf: { not: null }
-        },
-        select: { id: true }
-    }) : Promise.resolve([]);
+    let ordersWithPdf: { id: number }[] = [];
+    if (returnedOrderIds.length > 0) {
+        try {
+            ordersWithPdf = await db.order.findMany({
+                where: {
+                    id: { in: returnedOrderIds },
+                    cargoLabelPdf: { not: null }
+                },
+                select: { id: true }
+            });
+        } catch (e) {
+            console.error("Non-critical error fetching ordersWithPdf:", e);
+        }
+    }
 
     // Fetch available warehouse stocks to match against active orders
-    const availableStocksPromise = db.warehouseStock.findMany({
-        where: { status: "available" },
-        select: {
-            id: true,
-            sku: true,
-            dimensions: true,
-            material: true,
-            source: true,
-            orderNo: true,
-            returnReason: true,
-            pdfPath: true,
-            imageUrl: true
-        }
-    }).catch(() => []);
+    let availableStocks: any[] = [];
+    try {
+        availableStocks = await db.warehouseStock.findMany({
+            where: { status: "available" },
+            select: {
+                id: true,
+                sku: true,
+                dimensions: true,
+                material: true,
+                source: true,
+                orderNo: true,
+                returnReason: true,
+                pdfPath: true,
+                imageUrl: true
+            }
+        });
+    } catch (e) {
+        console.error("Non-critical error fetching availableStocks:", e);
+    }
 
-    const [ordersWithPdf, availableStocks] = await Promise.all([ordersWithPdfPromise, availableStocksPromise]);
     const pdfIds = new Set(ordersWithPdf.map(o => o.id));
 
     return orders.map(order => {
