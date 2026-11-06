@@ -3,7 +3,7 @@
 import { Order, OrderStatus, Comment } from "../data/mock-orders"
 import { APP_CONFIG } from "../data/settings"
 import { X, Save, Truck, User, Tag, FileText, Upload, Printer, FileDown, History, ChevronDown, ChevronRight, ExternalLink, Receipt, ShieldCheck, Download, Package, Scissors, ScrollText, Droplet, CheckCircle2, Camera, Image as ImageIcon } from "lucide-react"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { NoteLog } from "./note-log"
 import { ChatSection } from "./chat-section"
 import { ActivityLog } from "./activity-log"
@@ -53,6 +53,42 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
     const [isLoadingDetails, setIsLoadingDetails] = useState(false)
 
     const activeOrderIdRef = useRef<number | null>(null)
+
+    const parsedNote = useMemo(() => {
+        if (!formData?.note) return { cleanNote: "", invoiceTitle: "", invoiceAddress: "", extraInfo: "" };
+        
+        let text = formData.note;
+        let invoiceTitle = "";
+        let invoiceAddress = "";
+        let extraInfo = "";
+
+        if (text.includes("FATURA İSTENDİ") || text.includes("FATURA BİLGİLERİ")) {
+            const titleMatch = text.match(/•?\s*(?:Fatura Unvanı|Unvan):\s*([^\n•📦]+)/i);
+            if (titleMatch) invoiceTitle = titleMatch[1].trim();
+
+            const addrMatch = text.match(/•?\s*(?:Fatura Adresi|Adres):\s*([^\n•📦]+)/i);
+            if (addrMatch) invoiceAddress = addrMatch[1].trim();
+
+            const pkgMatch = text.match(/(📦\s*Toplam[^\n•]+)/i);
+            if (pkgMatch) extraInfo = pkgMatch[1].trim();
+
+            text = text
+                .replace(/🧾\s*FATURA\s*(?:İSTENDİ|BİLGİLERİ):?[\s\S]*?(?=📦|$)/i, "")
+                .replace(/📦\s*Toplam[^\n]+/gi, "")
+                .trim();
+        } else if (text.includes("📦 Toplam")) {
+            const pkgMatch = text.match(/(📦\s*Toplam[^\n•]+)/i);
+            if (pkgMatch) extraInfo = pkgMatch[1].trim();
+            text = text.replace(/📦\s*Toplam[^\n]+/gi, "").trim();
+        }
+
+        return {
+            cleanNote: text.trim(),
+            invoiceTitle,
+            invoiceAddress,
+            extraInfo
+        };
+    }, [formData?.note]);
     const abortControllerRef = useRef<AbortController | null>(null)
     const printSlipRef = useRef<HTMLDivElement>(null)
 
@@ -957,7 +993,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
             </div>
 
             {/* Panel */}
-            <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 print:hidden">
+            <div className="relative w-full max-w-3xl lg:max-w-4xl bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 print:hidden">
 
                 {/* Header */}
                 <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
@@ -1244,15 +1280,18 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                         </div>
                                     )}
 
-                                    {formData.note && (
-                                        <p className="text-amber-700 text-xs border border-amber-200 bg-amber-50 p-2 rounded mt-2 font-medium">
-                                            📝 <span className="font-bold">Müşteri Notu:</span> {formData.note}
-                                        </p>
+                                    {parsedNote.cleanNote && (
+                                        <div className="text-amber-800 dark:text-amber-300 text-xs border border-amber-200 dark:border-amber-800/80 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-lg mt-2 font-medium whitespace-pre-wrap break-words leading-relaxed shadow-xs">
+                                            <div className="font-bold mb-1 flex items-center gap-1 text-amber-900 dark:text-amber-200">
+                                                <span>📝</span> <span>Müşteri Notu:</span>
+                                            </div>
+                                            <p>{parsedNote.cleanNote}</p>
+                                        </div>
                                     )}
                                 </div>
                             </div>
 
-                            {/* Fatura Bilgileri Card (NEW) */}
+                            {/* Fatura Bilgileri Card */}
                             <div className="bg-blue-50/50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-900/30">
                                 <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-3 flex items-center justify-between">
                                     <div className="flex items-center gap-2">
@@ -1270,7 +1309,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                             <label className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">TCKN / VKN</label>
                                             <input
                                                 type="text"
-                                                className="w-full p-2 text-xs border dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold"
+                                                className="w-full p-2 text-xs border dark:border-slate-700 rounded bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-mono font-bold"
                                                 placeholder="11111111111"
                                                 value={formData.taxNumber || ""}
                                                 onChange={(e) => {
@@ -1293,6 +1332,27 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                             />
                                         </div>
                                     </div>
+
+                                    {/* Fatura Unvanı */}
+                                    {(parsedNote.invoiceTitle || formData.taxNumber) && (
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Fatura Unvanı / Şirket Adı</label>
+                                            <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 bg-white/70 dark:bg-slate-900/60 p-2 rounded border dark:border-slate-700">
+                                                {parsedNote.invoiceTitle || formData.customer}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Fatura Adresi */}
+                                    {(parsedNote.invoiceAddress || formData.taxNumber) && (
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Fatura Adresi</label>
+                                            <div className="text-xs text-slate-700 dark:text-slate-300 bg-white/70 dark:bg-slate-900/60 p-2 rounded border dark:border-slate-700 leading-relaxed">
+                                                {parsedNote.invoiceAddress || (formData.address ? `${formData.address} ${formData.city ? `(${formData.city})` : ''}` : "Kargo adresi ile aynı")}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {formData.invoiceUrl && (
                                         <div className="pt-2 border-t border-blue-100 dark:border-blue-900/30">
                                             <a
@@ -1315,7 +1375,17 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
                             {/* Product Details (Enhanced) */}
                             <div>
-                                <h3 className="font-semibold text-slate-700 mb-3">Ürünler</h3>
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                                        <Package className="w-4 h-4 text-amber-500" />
+                                        <span>Ürünler ({formData.items.length})</span>
+                                    </h3>
+                                    {formData.items.length > 1 && (
+                                        <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shadow-xs">
+                                            {parsedNote.extraInfo || `Çoklu Ürün (${formData.items.length} Kalem)`}
+                                        </span>
+                                    )}
+                                </div>
                                 <div className="space-y-4">
                                     {formData.items.map(item => (
                                         <div key={item.id} className="flex flex-col gap-3 border dark:border-slate-700 p-3 rounded-lg bg-white dark:bg-slate-800 shadow-sm overflow-hidden">
