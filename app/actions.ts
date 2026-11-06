@@ -2490,7 +2490,7 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
         
         let cleanUrl = settings['pm_url'].trim().replace(/\/+$/, '');
         let pmKey = settings['pm_key'].trim();
-        const limit = force ? 1200 : 500; // Limit raised to 500/1200 to catch older drafts that got submitted (PrintMarkt API ignores id param and sorts by ID desc)
+        const limit = force ? 1200 : (targetOrderId ? 1 : 100); // 100 in background to save memory and CPU, 1200 when manual/force
         let fetchUrl = targetOrderId 
             ? `${cleanUrl}/api/orders?id=${targetOrderId}&_t=${Date.now()}`
             : `${cleanUrl}/api/orders?limit=${limit}&_t=${Date.now()}`;
@@ -3744,7 +3744,7 @@ if (typeof window === 'undefined' && process.env.NODE_ENV === 'production' && pr
         globalForSync.syncIntervalStarted = true;
         globalForSync.syncInProgress = false;
         
-        const GLOBAL_SYNC_INTERVAL = 3 * 60 * 1000; // 3 minutes
+        const GLOBAL_SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes (balanced to prevent server CPU/RAM overload)
         
         setInterval(async () => {
             if (globalForSync.syncInProgress) {

@@ -94,31 +94,8 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         }
     }, [])
 
-    // Background polling sync for WooCommerce, PrintMarkt, and Wayfair
-    useEffect(() => {
-        const interval = setInterval(async () => {
-            if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
-            try {
-                console.log("[BACKGROUND_POLL] Starting background syncs...");
-                await syncWooCommerceOrders(false);
-                await syncPrintMarktOrders(false);
-                await syncWayfairOrders(false);
-                await syncShopifyOrders(false);
-                
-                // Fetch fresh local state and update orders directly
-                const latest = await getOrders(Date.now());
-                setOrders(latest as any);
-                setLastSynced(new Date());
-                
-                router.refresh();
-                console.log("[BACKGROUND_POLL] Background sync completed successfully.");
-            } catch (error) {
-                console.error("[BACKGROUND_POLL] Error in background sync:", error);
-            }
-        }, 150000); // 2.5 minutes
-
-        return () => clearInterval(interval);
-    }, [router]);
+    // Client-side UI polling is handled via /api/orders (line ~385).
+    // Heavy marketplace synchronization runs centrally on the server background worker.
 
     const hasMovePermission = (statusId: string) => {
         if (currentUser.role === 'admin') return true
