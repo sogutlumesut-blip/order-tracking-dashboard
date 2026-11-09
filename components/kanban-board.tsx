@@ -94,8 +94,27 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         }
     }, [])
 
-    // Client-side UI polling is handled via /api/orders (line ~385).
-    // Heavy marketplace synchronization runs centrally on the server background worker.
+    // Automatic Background Sync Trigger:
+    // Periodically pings /api/cron/sync every 60 seconds in the background.
+    // The server protects itself with a 60-second cooldown so even if 10 tabs are open,
+    // the sync executes at most once every 60 seconds globally.
+    // When new orders arrive, pollInterval (/api/orders) picks them up within 10s and notifies the user.
+    useEffect(() => {
+        const triggerSync = () => {
+            if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+            fetch('/api/cron/sync').catch(err => console.debug("Auto-sync ping failed", err));
+        };
+
+        // Ping once on mount after 3 seconds
+        const initialTimer = setTimeout(triggerSync, 3000);
+        // Then every 60 seconds
+        const autoSyncInterval = setInterval(triggerSync, 60000);
+
+        return () => {
+            clearTimeout(initialTimer);
+            clearInterval(autoSyncInterval);
+        };
+    }, []);
 
     const hasMovePermission = (statusId: string) => {
         if (currentUser.role === 'admin') return true
