@@ -480,6 +480,8 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                         const tagDef = tags.find(t => t.name === labelName)
                         const colors = labelName === 'Malzeme'
                             ? { bg: 'bg-amber-100 dark:bg-amber-950/60', text: 'text-amber-800 dark:text-amber-300', border: 'border-amber-300 dark:border-amber-700' }
+                            : (labelName === 'Numune' || labelName === 'Örnek')
+                            ? { bg: 'bg-purple-100 dark:bg-purple-950/60', text: 'text-purple-800 dark:text-purple-300', border: 'border-purple-300 dark:border-purple-700' }
                             : getColorClasses(tagDef?.color)
 
                         return (

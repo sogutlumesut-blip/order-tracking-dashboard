@@ -21,9 +21,10 @@ export async function decrypt(input: string): Promise<any> {
 }
 
 export async function getSession() {
-    const session = (await cookies()).get("session")?.value;
-    if (!session) return null;
     try {
+        const cookieStore = await cookies();
+        const session = cookieStore.get("session")?.value;
+        if (!session) return null;
         const payload = await decrypt(session);
         // Serialize dates to strings
         if (payload?.expires && payload.expires instanceof Date) {

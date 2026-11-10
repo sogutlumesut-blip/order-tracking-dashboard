@@ -1,13 +1,14 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { X, Upload, Loader2, Plus, FileText, Clipboard, Copy, Trash2, Package } from "lucide-react"
+import { X, Upload, Loader2, Plus, FileText, Clipboard, Copy, Trash2, Package, Sparkles } from "lucide-react"
 import { toast } from "sonner"
 
 interface ManualOrderModalProps {
     isOpen: boolean
     onClose: () => void
     onCreate: (orderData: any) => Promise<void>
+    initialMode?: 'standard' | 'sample'
 }
 
 interface ProductItem {
@@ -34,6 +35,18 @@ function generateId(): string {
     return Date.now().toString(36) + Math.random().toString(36).substring(2, 5)
 }
 
+export const PAPER_TYPES = [
+    "Dokusuz Duvar Kağıdı",
+    "Dokulu Duvar Kağıdı",
+    "Tekstil Duvar Kağıdı",
+    "Kendiliğinden Yapışkanlı Folyo",
+    "Premium Tekstil Duvar Kağıdı",
+    "Dokulu Kendiliğinden Yapışkanlı Duvar Kağıdı",
+    "Hasır Dokulu Duvar Kağıdı",
+    "Gümüş Duvar Kağıdı",
+    "Gold Duvar Kağıdı"
+]
+
 const createDefaultProduct = (idx: number = 1): ProductItem => ({
     id: generateId(),
     productName: "",
@@ -50,12 +63,19 @@ const createDefaultProduct = (idx: number = 1): ProductItem => ({
     files: []
 })
 
-export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModalProps) {
+export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'standard' }: ManualOrderModalProps) {
     const [isLoading, setIsLoading] = useState(false)
+    const [orderType, setOrderType] = useState<'standard' | 'sample'>(initialMode || 'standard')
     const [activeProductIndex, setActiveProductIndex] = useState(0)
     const [draggingProductIndex, setDraggingProductIndex] = useState<number | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const pendingProductIndexRef = useRef<number>(0)
+
+    useEffect(() => {
+        if (isOpen) {
+            setOrderType(initialMode || 'standard')
+        }
+    }, [isOpen, initialMode])
 
     const [customerData, setCustomerData] = useState({
         customer: "",
@@ -121,7 +141,7 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
         const newProd = createDefaultProduct(products.length + 1)
         setProducts(prev => [...prev, newProd])
         setActiveProductIndex(products.length)
-        toast.success(`${products.length + 1}. ürün eklendi!`)
+        toast.success(orderType === 'sample' ? `${products.length + 1}. numune eklendi!` : `${products.length + 1}. ürün eklendi!`)
     }
 
     const duplicateProduct = (index: number) => {
@@ -135,12 +155,12 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
         }
         setProducts(prev => [...prev, clone])
         setActiveProductIndex(products.length)
-        toast.success(`Ürün kopyalandı (${products.length + 1}. ürün oluşturuldu).`)
+        toast.success(orderType === 'sample' ? `Numune kopyalandı (${products.length + 1}. numune oluşturuldu).` : `Ürün kopyalandı (${products.length + 1}. ürün oluşturuldu).`)
     }
 
     const removeProduct = (index: number) => {
         if (products.length <= 1) {
-            toast.info("En az 1 ürün bulunmalıdır.")
+            toast.info(orderType === 'sample' ? "En az 1 numune bulunmalıdır." : "En az 1 ürün bulunmalıdır.")
             return
         }
         setProducts(prev => prev.filter((_, i) => i !== index))
@@ -148,7 +168,7 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
             if (prev >= index && prev > 0) return prev - 1
             return 0
         })
-        toast.success("Ürün kaldırıldı.")
+        toast.success(orderType === 'sample' ? "Numune kaldırıldı." : "Ürün kaldırıldı.")
     }
 
     const removeFile = (productIndex: number, fileIndex: number) => {
@@ -338,22 +358,33 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
             return
         }
 
-        for (let i = 0; i < products.length; i++) {
-            if (!products[i].productName.trim()) {
-                toast.error(`${i + 1}. ürünün adı zorunludur.`)
-                return
+        const isSample = orderType === 'sample'
+
+        if (isSample) {
+            for (let i = 0; i < products.length; i++) {
+                if (!products[i].material?.trim()) {
+                    toast.error(`${i + 1}. numune için lütfen Kağıt Türü seçiniz.`)
+                    return
+                }
+            }
+        } else {
+            for (let i = 0; i < products.length; i++) {
+                if (!products[i].productName.trim()) {
+                    toast.error(`${i + 1}. ürünün adı zorunludur.`)
+                    return
+                }
             }
         }
 
         setIsLoading(true)
         try {
             const items = products.map((p, idx) => {
-                const dimensions = p.width && p.height
-                    ? `${p.width} x ${p.height} ${p.unit}`
-                    : ""
+                const dimensions = isSample
+                    ? "SAMPLE"
+                    : (p.width && p.height ? `${p.width} x ${p.height} ${p.unit}` : "")
 
                 let area = ""
-                if (p.width && p.height) {
+                if (!isSample && p.width && p.height) {
                     const w = parseFloat(p.width)
                     const h = parseFloat(p.height)
                     if (!isNaN(w) && !isNaN(h)) {
@@ -391,9 +422,14 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                     ...(validImageLink && isDirectImage(validImageLink) ? [validImageLink] : [])
                 ];
 
+                const samplePlaceholder = "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=300"
+                const defaultMainPlaceholder = isSample
+                    ? samplePlaceholder
+                    : "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=300"
+
                 const mainImage = allImages.length > 0 
                     ? allImages.join('|') 
-                    : (validImageLink || "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=300");
+                    : (validImageLink || defaultMainPlaceholder);
 
                 const specialUrl = p.pdfLink || 
                     (validImageLink && !isDirectImage(validImageLink) ? validImageLink : null) ||
@@ -401,25 +437,38 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                     customerData.cargoBarcodeLink || null;
 
                 let finalNote = p.note || ""
-                if (p.sample) {
+                if (isSample) {
+                    finalNote = (finalNote ? finalNote + "\n" : "") + `⚡ NUMUNE: ${p.material}`
+                } else if (p.sample) {
                     finalNote = (finalNote ? finalNote + "\n" : "") + "📌 NUMUNE İSTEĞİ: " + p.sample
                 }
 
                 const pQty = Math.max(1, parseInt(String(p.quantity || 1), 10) || 1)
 
+                const finalName = isSample
+                    ? (p.productName.trim() ? `${p.productName.trim()} (Numune - ${p.material})` : `Numune - ${p.material || 'Kağıt Numunesi'}`)
+                    : p.productName.trim()
+
+                const defaultSku = isSample
+                    ? `NU-${Math.floor(100000 + Math.random() * 900000)}`
+                    : `PM-${Math.floor(100000 + Math.random() * 900000)}`
+
                 return {
-                    name: p.productName.trim(),
-                    sku: p.sku || `PM-${Math.floor(100000 + Math.random() * 900000)}`,
+                    name: finalName,
+                    sku: p.sku || defaultSku,
                     quantity: pQty,
                     image_src: mainImage,
                     material: p.material || null,
                     dimensions: dimensions + (area ? ` (${area})` : ""),
                     productNote: finalNote || null,
+                    sampleData: isSample ? (p.material || 'Numune') : (p.sample || null),
                     url: specialUrl
                 }
             })
 
-            const mainImage = items[0]?.image_src || "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=300"
+            const samplePlaceholder = "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=300"
+            const defaultMain = isSample ? samplePlaceholder : "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=300"
+            const mainImage = items[0]?.image_src || defaultMain
             const mainSpecialUrl = customerData.cargoBarcodeLink || items[0]?.url || null
 
             const invoiceNote = needsInvoice ? [
@@ -430,10 +479,15 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                 `• Fatura Adresi: ${sameAsShippingAddress ? (customerData.address.trim() + (customerData.city ? ` / ${customerData.city.trim()}` : "")) : (invoiceData.address.trim() || customerData.address.trim() || "-")}`
             ].filter(Boolean).join("\n") : ""
 
+            const sampleHeaderNote = isSample 
+                ? `⚡ ÖRNEK / NUMUNE SİPARİŞİ (Toplam ${products.length} Numune Kalemi)`
+                : ""
+
             const combinedNotes = [
+                sampleHeaderNote,
                 customerData.generalNote?.trim(),
                 invoiceNote,
-                products.length > 1 ? `📦 Toplam ${products.length} farklı ürün kalemi içerir.` : ""
+                products.length > 1 ? `📦 Toplam ${products.length} farklı ${isSample ? 'numune' : 'ürün'} kalemi içerir.` : ""
             ].filter(Boolean).join("\n\n")
 
             const orderPayload = {
@@ -442,12 +496,13 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                 email: customerData.email.trim(),
                 address: customerData.address.trim(),
                 city: customerData.city.trim(),
-                total: customerData.total.trim(),
+                total: customerData.total.trim() || (isSample ? "0" : ""),
                 taxNumber: needsInvoice && invoiceData.taxNumber.trim() ? invoiceData.taxNumber.trim() : null,
                 taxOffice: needsInvoice && invoiceData.taxOffice.trim() ? invoiceData.taxOffice.trim() : null,
                 needsInvoice: needsInvoice,
+                isSample: isSample,
                 note: combinedNotes,
-                dimensions: items[0]?.dimensions || "",
+                dimensions: items[0]?.dimensions || (isSample ? "SAMPLE" : ""),
                 image_src: mainImage,
                 url: mainSpecialUrl,
                 status: 'pending_woo',
@@ -458,13 +513,11 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
             onClose()
             setIsLoading(false)
 
-            // 2. Start upload in background
-            setTimeout(() => {
-                onCreate(orderPayload)
-                    .catch((err: any) => {
-                        toast.error(err?.message || 'Sipariş yüklenirken hata oluştu.')
-                    })
-            }, 100)
+            // 2. Start upload
+            onCreate(orderPayload)
+                .catch((err: any) => {
+                    toast.error(err?.message || 'Sipariş yüklenirken hata oluştu.')
+                })
 
         } catch (error: any) {
             console.error(error)
@@ -484,23 +537,67 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                 {/* Header */}
                 <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950/60">
                     <div className="flex items-center gap-2.5">
-                        <div className="p-1.5 bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 rounded-lg">
-                            <Plus className="w-5 h-5" />
+                        <div className={`p-1.5 rounded-lg ${
+                            orderType === 'sample'
+                                ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400'
+                                : 'bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400'
+                        }`}>
+                            {orderType === 'sample' ? <Sparkles className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
                         </div>
                         <div>
                             <h2 className="text-base font-bold dark:text-slate-100 flex items-center gap-2">
-                                Manuel Sipariş Oluştur
-                                {products.length > 1 && (
-                                    <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded-full font-semibold">
-                                        {products.length} Ürün Kalemi
+                                {orderType === 'sample' ? "Örnek (Numune) Siparişi Oluştur" : "Manuel Sipariş Oluştur"}
+                                {orderType === 'sample' ? (
+                                    <span className="text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">
+                                        <Sparkles className="w-3 h-3" />
+                                        {products.length} Numune Kalemi
                                     </span>
+                                ) : (
+                                    products.length > 1 && (
+                                        <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 px-2 py-0.5 rounded-full font-semibold">
+                                            {products.length} Ürün Kalemi
+                                        </span>
+                                    )
                                 )}
                             </h2>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">Müşteri bilgileri tek, ürünler ve görseller ayrı eklenebilir.</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                                {orderType === 'sample'
+                                    ? "Ölçü girilmez. Müşteri bilgilerini girip sadece kağıt türü, adet ve istenirse görsel seçerek oluşturun."
+                                    : "Müşteri bilgileri tek, ürünler ve görseller ayrı eklenebilir."}
+                            </p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-500">
                         <X className="w-5 h-5" />
+                    </button>
+                </div>
+
+                {/* Mode Switcher Tabs */}
+                <div className="flex border-b dark:border-slate-800 bg-slate-100/80 dark:bg-slate-950/50 p-1.5 gap-1.5 shrink-0">
+                    <button
+                        type="button"
+                        onClick={() => setOrderType('standard')}
+                        className={`flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${
+                            orderType === 'standard'
+                                ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs border border-slate-200 dark:border-slate-800'
+                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/50'
+                        }`}
+                    >
+                        <Package className="w-4 h-4" />
+                        <span>📦 Standart Sipariş (Ölçülü Duvar Kağıdı)</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setOrderType('sample')}
+                        className={`flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${
+                            orderType === 'sample'
+                                ? 'bg-purple-600 text-white shadow-xs'
+                                : 'text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/40'
+                        }`}
+                    >
+                        <Sparkles className="w-4 h-4" />
+                        <span>⚡ Örnek Al (Numune - Sadece Kağıt Türü)</span>
                     </button>
                 </div>
 
@@ -550,14 +647,16 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                             </div>
 
                             <div className="space-y-1">
-                                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Toplam Fiyat (₺)</label>
+                                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                    Toplam Fiyat (₺) {orderType === 'sample' && <span className="text-[10px] text-slate-400 font-normal">(Boşsa 0 ₺)</span>}
+                                </label>
                                 <div className="relative">
                                     <input
                                         name="total"
                                         value={customerData.total}
                                         onChange={handleCustomerChange}
                                         className="w-full pl-2 pr-7 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-900 transition-all font-bold text-blue-600 dark:text-blue-400"
-                                        placeholder="Örn: 11745"
+                                        placeholder={orderType === 'sample' ? "0 (Ücretsiz Numune)" : "Örn: 11745"}
                                     />
                                     <span className="absolute right-2.5 top-2 text-sm font-bold text-slate-400">₺</span>
                                 </div>
@@ -735,26 +834,53 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                         )}
                     </div>
 
-                    {/* Section: Products List */}
+                    {/* Section: Products or Samples List */}
                     <div className="space-y-4">
                         <div className="flex items-center justify-between border-b dark:border-slate-800 pb-2">
                             <div className="flex items-center gap-2">
-                                <Package className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                                    Sipariş Edilen Ürünler ({products.length})
-                                </h3>
+                                {orderType === 'sample' ? (
+                                    <>
+                                        <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                                        <div>
+                                            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                                                Numune Kağıt Türleri ({products.length})
+                                                <span className="text-[10px] bg-purple-100 text-purple-800 dark:bg-purple-950/70 dark:text-purple-300 px-2 py-0.5 rounded font-semibold">
+                                                    Ölçüsüz
+                                                </span>
+                                            </h3>
+                                            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                                Örnek alırken ölçü girilmez; kağıt türü, adet ve gerekirse görsel ekleyebilirsiniz.
+                                            </p>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Package className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                                        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                                            Sipariş Edilen Ürünler ({products.length})
+                                        </h3>
+                                    </>
+                                )}
                             </div>
                             <button
                                 type="button"
                                 onClick={addProduct}
-                                className="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-xs transition-colors flex items-center gap-1.5"
+                                className={`px-3 py-1.5 text-xs font-bold text-white rounded-lg shadow-xs transition-colors flex items-center gap-1.5 ${
+                                    orderType === 'sample'
+                                        ? 'bg-purple-600 hover:bg-purple-700'
+                                        : 'bg-blue-600 hover:bg-blue-700'
+                                }`}
                             >
                                 <Plus className="w-4 h-4" />
-                                + 2. Ürün Ekle (Farklı Ölçü / Doku / Görsel)
+                                {orderType === 'sample' ? (
+                                    <span>+ Farklı Kağıt Türü / Numune Ekle</span>
+                                ) : (
+                                    <span>+ 2. Ürün Ekle (Farklı Ölçü / Doku / Görsel)</span>
+                                )}
                             </button>
                         </div>
 
-                        {/* Product Cards */}
+                        {/* Product / Sample Cards */}
                         <div className="space-y-5">
                             {products.map((prod, idx) => {
                                 const isCurrentActive = activeProductIndex === idx
@@ -767,23 +893,35 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                                         onClick={() => setActiveProductIndex(idx)}
                                         className={`border rounded-xl p-4 transition-all duration-200 ${
                                             isCurrentActive
-                                                ? 'border-blue-400 dark:border-blue-600 ring-2 ring-blue-500/10 bg-white dark:bg-slate-900/90 shadow-sm'
+                                                ? (orderType === 'sample'
+                                                    ? 'border-purple-400 dark:border-purple-600 ring-2 ring-purple-500/10 bg-white dark:bg-slate-900/90 shadow-sm'
+                                                    : 'border-blue-400 dark:border-blue-600 ring-2 ring-blue-500/10 bg-white dark:bg-slate-900/90 shadow-sm')
                                                 : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 hover:border-slate-300'
                                         }`}
                                     >
                                         {/* Card Top Banner */}
                                         <div className="flex items-center justify-between mb-3.5 pb-2 border-b dark:border-slate-800">
                                             <div className="flex items-center gap-2">
-                                                <span className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold shadow-xs">
+                                                <span className={`w-6 h-6 rounded-full text-white flex items-center justify-center text-xs font-bold shadow-xs ${
+                                                    orderType === 'sample' ? 'bg-purple-600' : 'bg-blue-600'
+                                                }`}>
                                                     {idx + 1}
                                                 </span>
                                                 <span className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                                                    {idx + 1}. Ürün Detayları
+                                                    {orderType === 'sample' ? `${idx + 1}. Numune Kağıdı` : `${idx + 1}. Ürün Detayları`}
                                                 </span>
-                                                {prod.productName && (
-                                                    <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 max-w-[200px] truncate hidden sm:inline">
-                                                        — {prod.productName}
-                                                    </span>
+                                                {orderType === 'sample' ? (
+                                                    prod.material && (
+                                                        <span className="text-xs font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50 px-2 py-0.5 rounded border border-purple-200 dark:border-purple-800">
+                                                            {prod.material}
+                                                        </span>
+                                                    )
+                                                ) : (
+                                                    prod.productName && (
+                                                        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 max-w-[200px] truncate hidden sm:inline">
+                                                            — {prod.productName}
+                                                        </span>
+                                                    )
                                                 )}
                                             </div>
 
@@ -795,10 +933,10 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                                                         duplicateProduct(idx)
                                                     }}
                                                     className="px-2.5 py-1 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-md transition-colors flex items-center gap-1"
-                                                    title="Bu ürünün özelliklerini kopyalayarak yeni ürün oluştur"
+                                                    title={orderType === 'sample' ? "Bu numuneyi çoğalt" : "Bu ürünün özelliklerini kopyalayarak yeni ürün oluştur"}
                                                 >
                                                     <Copy className="w-3.5 h-3.5" />
-                                                    <span className="hidden sm:inline">Bu Ürünü Çoğalt</span>
+                                                    <span className="hidden sm:inline">{orderType === 'sample' ? 'Numuneyi Çoğalt' : 'Bu Ürünü Çoğalt'}</span>
                                                 </button>
 
                                                 {products.length > 1 && (
@@ -809,7 +947,7 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                                                             removeProduct(idx)
                                                         }}
                                                         className="px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-md transition-colors flex items-center gap-1 border border-red-200 dark:border-red-900/50"
-                                                        title="Bu ürünü siparişten kaldır"
+                                                        title={orderType === 'sample' ? "Bu numuneyi kaldır" : "Bu ürünü siparişten kaldır"}
                                                     >
                                                         <Trash2 className="w-3.5 h-3.5" />
                                                         <span>Kaldır</span>
@@ -818,222 +956,397 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                                             </div>
                                         </div>
 
-                                        {/* Product Fields */}
-                                        <div className="space-y-3.5">
-                                            {/* Row 1: Name and Quantity */}
-                                            <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                                                <div className="md:col-span-9 space-y-1">
-                                                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                                                        Ürün Adı / Modeli *
+                                        {orderType === 'sample' ? (
+                                            /* ================= SAMPLE MODE FIELDS: NO DIMENSIONS ================= */
+                                            <div className="space-y-3.5">
+                                                {/* Row 1: Paper Type (REQUIRED) & Quantity */}
+                                                <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                                                    <div className="md:col-span-8 space-y-1">
+                                                        <label className="text-xs font-bold text-purple-800 dark:text-purple-300 flex items-center gap-1.5">
+                                                            <span>📄 Kağıt Cinsi / Doku *</span>
+                                                            <span className="text-[10px] bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded font-bold">Zorunlu</span>
+                                                        </label>
+                                                        <select
+                                                            value={prod.material}
+                                                            onChange={(e) => handleProductChange(idx, 'material', e.target.value)}
+                                                            className="w-full p-2.5 border-2 border-purple-300 dark:border-purple-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none bg-white dark:bg-slate-950 transition-all font-bold"
+                                                        >
+                                                            <option value="">-- Kağıt Türü Seçiniz * --</option>
+                                                            {PAPER_TYPES.map(paper => (
+                                                                <option key={paper} value={paper}>{paper}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+
+                                                    <div className="md:col-span-4 space-y-1">
+                                                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                                            Kaç Adet İsteniyor?
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            value={prod.quantity}
+                                                            onChange={(e) => handleProductChange(idx, 'quantity', e.target.value)}
+                                                            className="w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none bg-white dark:bg-slate-950 transition-all font-bold"
+                                                            placeholder="1"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Row 2: Desired Model / Pattern Name (Optional) */}
+                                                <div className="space-y-1">
+                                                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                                                        <span>İstenen Model / Desen Adı (opsiyonel)</span>
+                                                        <span className="text-[10px] text-slate-400 font-normal">Boş bırakılırsa &quot;Numune - {prod.material || 'Kağıt Türü'}&quot; adı verilir</span>
                                                     </label>
                                                     <input
                                                         value={prod.productName}
                                                         onChange={(e) => handleProductChange(idx, 'productName', e.target.value)}
-                                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all font-medium"
-                                                        placeholder="Örn: Nötr Tonlu Vintage Ağaçlı Orman Manzarası"
+                                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none bg-white dark:bg-slate-950 transition-all"
+                                                        placeholder="Örn: Nötr Tonlu Vintage Orman Manzarası (isteğe bağlı)"
                                                     />
                                                 </div>
 
-                                                <div className="md:col-span-3 space-y-1">
+                                                {/* Row 3: Product Note (Optional) */}
+                                                <div className="space-y-1">
                                                     <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                                                        Adet
+                                                        Bu Numuneye Özel Not (opsiyonel)
                                                     </label>
                                                     <input
-                                                        type="number"
-                                                        min="1"
-                                                        value={prod.quantity}
-                                                        onChange={(e) => handleProductChange(idx, 'quantity', e.target.value)}
-                                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all font-bold"
-                                                        placeholder="1"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            {/* Row 2: Dimensions & Texture */}
-                                            <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                                                <div className="md:col-span-3 space-y-1">
-                                                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Genişlik</label>
-                                                    <input
-                                                        type="number"
-                                                        value={prod.width}
-                                                        onChange={(e) => handleProductChange(idx, 'width', e.target.value)}
-                                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
-                                                        placeholder="Örn: 290"
+                                                        value={prod.note}
+                                                        onChange={(e) => handleProductChange(idx, 'note', e.target.value)}
+                                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none bg-white dark:bg-slate-950 transition-all"
+                                                        placeholder="Örn: A4 numune kesim / Özel renk doğrulaması..."
                                                     />
                                                 </div>
 
-                                                <div className="md:col-span-3 space-y-1">
-                                                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Yükseklik</label>
-                                                    <input
-                                                        type="number"
-                                                        value={prod.height}
-                                                        onChange={(e) => handleProductChange(idx, 'height', e.target.value)}
-                                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
-                                                        placeholder="Örn: 270"
-                                                    />
-                                                </div>
-
-                                                <div className="md:col-span-2 space-y-1">
-                                                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Birim</label>
-                                                    <select
-                                                        value={prod.unit}
-                                                        onChange={(e) => handleProductChange(idx, 'unit', e.target.value)}
-                                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
-                                                    >
-                                                        <option value="cm">cm</option>
-                                                        <option value="inch">inç</option>
-                                                    </select>
-                                                </div>
-
-                                                <div className="md:col-span-4 space-y-1">
-                                                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Kağıt Cinsi / Doku</label>
-                                                    <select
-                                                        value={prod.material}
-                                                        onChange={(e) => handleProductChange(idx, 'material', e.target.value)}
-                                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all font-medium"
-                                                    >
-                                                        <option value="">Kağıt Türü Seç</option>
-                                                        <option value="Dokusuz Duvar Kağıdı">Dokusuz Duvar Kağıdı</option>
-                                                        <option value="Dokulu Duvar Kağıdı">Dokulu Duvar Kağıdı</option>
-                                                        <option value="Tekstil Duvar Kağıdı">Tekstil Duvar Kağıdı</option>
-                                                        <option value="Kendiliğinden Yapışkanlı Folyo">Kendiliğinden Yapışkanlı Folyo</option>
-                                                        <option value="Premium Tekstil Duvar Kağıdı">Premium Tekstil Duvar Kağıdı</option>
-                                                        <option value="Dokulu Kendiliğinden Yapışkanlı Duvar Kağıdı">Dokulu Kendiliğinden Yapışkanlı Duvar Kağıdı</option>
-                                                        <option value="Hasır Dokulu Duvar Kağıdı">Hasır Dokulu Duvar Kağıdı</option>
-                                                        <option value="Gümüş Duvar Kağıdı">Gümüş Duvar Kağıdı</option>
-                                                        <option value="Gold Duvar Kağıdı">Gold Duvar Kağıdı</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-
-                                            {/* Row 3: Product Note */}
-                                            <div className="space-y-1">
-                                                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                                                    Bu Ürüne Özel Not (opsiyonel)
-                                                </label>
-                                                <input
-                                                    value={prod.note}
-                                                    onChange={(e) => handleProductChange(idx, 'note', e.target.value)}
-                                                    className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
-                                                    placeholder="Örn: 2 parça halinde basılacak / Özel renk tonu / Numune..."
-                                                />
-                                            </div>
-
-                                            {/* Row 4: Images & Links for this Product */}
-                                            <div className="p-3 rounded-lg bg-slate-100/70 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800/80 space-y-3">
-                                                <div className="flex items-center justify-between">
-                                                    <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                                                        <span>🖼️</span>
-                                                        <span>Bu Ürünün Görseli ve Dosyaları</span>
-                                                    </label>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handlePasteFromClipboard(idx)}
-                                                        className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold text-blue-700 dark:text-blue-300 bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 rounded hover:bg-blue-50 transition-colors shadow-2xs"
-                                                    >
-                                                        <Clipboard className="w-3 h-3" />
-                                                        Panodan Yapıştır (Cmd+V)
-                                                    </button>
-                                                </div>
-
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                    <div className="space-y-1">
-                                                        <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                                                            Görsel Linki (Web / Google Drive)
+                                                {/* Row 4: Visuals & Files (Optional) */}
+                                                <div className="p-3 rounded-lg bg-purple-50/40 dark:bg-slate-950/50 border border-purple-200/70 dark:border-slate-800/80 space-y-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                                                            <span>🖼️</span>
+                                                            <span>Bu Numunenin Görseli ve Dosyaları (opsiyonel)</span>
                                                         </label>
-                                                        <input
-                                                            value={prod.imageLink}
-                                                            onChange={(e) => handleProductImageLinkChange(idx, e.target.value)}
-                                                            className="w-full p-1.5 border border-slate-300 dark:border-slate-700 rounded-md text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-1 focus:ring-blue-500 outline-none bg-white dark:bg-slate-950"
-                                                            placeholder="https://... (veya Google Drive linki)"
-                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handlePasteFromClipboard(idx)}
+                                                            className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold text-purple-700 dark:text-purple-300 bg-white dark:bg-slate-900 border border-purple-200 dark:border-purple-800 rounded hover:bg-purple-50 transition-colors shadow-2xs"
+                                                        >
+                                                            <Clipboard className="w-3 h-3" />
+                                                            Panodan Yapıştır (Cmd+V)
+                                                        </button>
                                                     </div>
 
-                                                    <div className="space-y-1">
-                                                        <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                                                            Tasarım / Baskı PDF Linki (varsa)
-                                                        </label>
-                                                        <input
-                                                            value={prod.pdfLink}
-                                                            onChange={(e) => handleProductChange(idx, 'pdfLink', e.target.value)}
-                                                            className="w-full p-1.5 border border-slate-300 dark:border-slate-700 rounded-md text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-1 focus:ring-blue-500 outline-none bg-white dark:bg-slate-950"
-                                                            placeholder="https://...pdf"
-                                                        />
-                                                    </div>
-                                                </div>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                        <div className="space-y-1">
+                                                            <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                                                                Görsel Linki (Web / Google Drive)
+                                                            </label>
+                                                            <input
+                                                                value={prod.imageLink}
+                                                                onChange={(e) => handleProductImageLinkChange(idx, e.target.value)}
+                                                                className="w-full p-1.5 border border-slate-300 dark:border-slate-700 rounded-md text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-1 focus:ring-purple-500 outline-none bg-white dark:bg-slate-950"
+                                                                placeholder="https://... (veya Google Drive linki)"
+                                                            />
+                                                        </div>
 
-                                                {/* Upload / Drag / Thumbnails */}
-                                                <div
-                                                    onDragOver={(e) => {
-                                                        e.preventDefault()
-                                                        e.stopPropagation()
-                                                        setDraggingProductIndex(idx)
-                                                    }}
-                                                    onDragLeave={(e) => {
-                                                        e.preventDefault()
-                                                        e.stopPropagation()
-                                                        setDraggingProductIndex(null)
-                                                    }}
-                                                    onDrop={(e) => {
-                                                        e.preventDefault()
-                                                        e.stopPropagation()
-                                                        setDraggingProductIndex(null)
-                                                        setActiveProductIndex(idx)
-                                                        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                                                            for (let fi = 0; fi < e.dataTransfer.files.length; fi++) {
-                                                                processFileForProduct(e.dataTransfer.files[fi], idx)
+                                                        <div className="space-y-1">
+                                                            <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                                                                Tasarım / Baskı PDF Linki (varsa)
+                                                            </label>
+                                                            <input
+                                                                value={prod.pdfLink}
+                                                                onChange={(e) => handleProductChange(idx, 'pdfLink', e.target.value)}
+                                                                className="w-full p-1.5 border border-slate-300 dark:border-slate-700 rounded-md text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-1 focus:ring-purple-500 outline-none bg-white dark:bg-slate-950"
+                                                                placeholder="https://...pdf"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Upload / Drag / Thumbnails */}
+                                                    <div
+                                                        onDragOver={(e) => {
+                                                            e.preventDefault()
+                                                            e.stopPropagation()
+                                                            setDraggingProductIndex(idx)
+                                                        }}
+                                                        onDragLeave={(e) => {
+                                                            e.preventDefault()
+                                                            e.stopPropagation()
+                                                            setDraggingProductIndex(null)
+                                                        }}
+                                                        onDrop={(e) => {
+                                                            e.preventDefault()
+                                                            e.stopPropagation()
+                                                            setDraggingProductIndex(null)
+                                                            setActiveProductIndex(idx)
+                                                            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                                                for (let fi = 0; fi < e.dataTransfer.files.length; fi++) {
+                                                                    processFileForProduct(e.dataTransfer.files[fi], idx)
+                                                                }
                                                             }
-                                                        }
-                                                    }}
-                                                    className={`p-2.5 rounded-lg border-2 border-dashed transition-all flex flex-wrap gap-2.5 items-center ${
-                                                        isDropTarget
-                                                            ? 'border-blue-500 bg-blue-50/80 dark:bg-blue-950/40 ring-2 ring-blue-300'
-                                                            : 'border-slate-300 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60'
-                                                    }`}
-                                                >
-                                                    {prod.files.map((file, fi) => (
-                                                        <div key={fi} className="relative group border dark:border-slate-700 rounded-md p-1 w-16 h-16 flex items-center justify-center bg-white dark:bg-slate-800 overflow-hidden shadow-2xs">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => removeFile(idx, fi)}
-                                                                className="absolute top-0.5 right-0.5 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-sm"
-                                                                title="Dosyayı kaldır"
-                                                            >
-                                                                <X className="w-2.5 h-2.5" />
-                                                            </button>
-                                                            {file.type === 'image' ? (
-                                                                <img src={file.content} alt="preview" className="w-full h-full object-cover rounded" />
-                                                            ) : (
-                                                                <div className="flex flex-col items-center">
-                                                                    <FileText className="w-6 h-6 text-red-500" />
-                                                                    <span className="text-[8px] text-slate-500 truncate max-w-full">{file.name}</span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    ))}
-
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => triggerFileInput(idx)}
-                                                        className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 rounded-md w-16 h-16 flex flex-col items-center justify-center text-slate-400 hover:text-blue-500 transition-all bg-white dark:bg-slate-900"
+                                                        }}
+                                                        className={`p-2.5 rounded-lg border-2 border-dashed transition-all flex flex-wrap gap-2.5 items-center ${
+                                                            isDropTarget
+                                                                ? 'border-purple-500 bg-purple-50/80 dark:bg-purple-950/40 ring-2 ring-purple-300'
+                                                                : 'border-slate-300 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60'
+                                                        }`}
                                                     >
-                                                        <Upload className="w-4 h-4" />
-                                                        <span className="text-[9px] mt-0.5 font-semibold">Görsel Yükle</span>
-                                                    </button>
+                                                        {prod.files.map((file, fi) => (
+                                                            <div key={fi} className="relative group border dark:border-slate-700 rounded-md p-1 w-16 h-16 flex items-center justify-center bg-white dark:bg-slate-800 overflow-hidden shadow-2xs">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => removeFile(idx, fi)}
+                                                                    className="absolute top-0.5 right-0.5 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-sm"
+                                                                    title="Dosyayı kaldır"
+                                                                >
+                                                                    <X className="w-2.5 h-2.5" />
+                                                                </button>
+                                                                {file.type === 'image' ? (
+                                                                    <img src={file.content} alt="preview" className="w-full h-full object-cover rounded" />
+                                                                ) : (
+                                                                    <div className="flex flex-col items-center">
+                                                                        <FileText className="w-6 h-6 text-red-500" />
+                                                                        <span className="text-[8px] text-slate-500 truncate max-w-full">{file.name}</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
 
-                                                    {prod.files.length === 0 && (
-                                                        <div className="text-[11px] text-slate-400 dark:text-slate-500 flex flex-col ml-1">
-                                                            <span className="font-semibold text-slate-600 dark:text-slate-300">
-                                                                Görseli bu kutuya sürükleyip bırakabilirsiniz
-                                                            </span>
-                                                            <span className="text-[10px]">
-                                                                veya resmi kopyalayıp klavyeden <b>Cmd+V / Ctrl+V</b> ile doğrudan yapıştırın.
-                                                            </span>
-                                                        </div>
-                                                    )}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => triggerFileInput(idx)}
+                                                            className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-purple-500 rounded-md w-16 h-16 flex flex-col items-center justify-center text-slate-400 hover:text-purple-500 transition-all bg-white dark:bg-slate-900"
+                                                        >
+                                                            <Upload className="w-4 h-4" />
+                                                            <span className="text-[9px] mt-0.5 font-semibold">Görsel Yükle</span>
+                                                        </button>
+
+                                                        {prod.files.length === 0 && (
+                                                            <div className="text-[11px] text-slate-400 dark:text-slate-500 flex flex-col ml-1">
+                                                                <span className="font-semibold text-slate-600 dark:text-slate-300">
+                                                                    Numune görselini bu kutuya sürükleyip bırakabilirsiniz
+                                                                </span>
+                                                                <span className="text-[10px]">
+                                                                    veya resmi kopyalayıp klavyeden <b>Cmd+V / Ctrl+V</b> ile doğrudan yapıştırın.
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
+                                        ) : (
+                                            /* ================= STANDARD PRODUCT FIELDS (WITH DIMENSIONS) ================= */
+                                            <div className="space-y-3.5">
+                                                {/* Row 1: Name and Quantity */}
+                                                <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                                                    <div className="md:col-span-9 space-y-1">
+                                                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                                            Ürün Adı / Modeli *
+                                                        </label>
+                                                        <input
+                                                            value={prod.productName}
+                                                            onChange={(e) => handleProductChange(idx, 'productName', e.target.value)}
+                                                            className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all font-medium"
+                                                            placeholder="Örn: Nötr Tonlu Vintage Ağaçlı Orman Manzarası"
+                                                        />
+                                                    </div>
+
+                                                    <div className="md:col-span-3 space-y-1">
+                                                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                                            Adet
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            value={prod.quantity}
+                                                            onChange={(e) => handleProductChange(idx, 'quantity', e.target.value)}
+                                                            className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all font-bold"
+                                                            placeholder="1"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Row 2: Dimensions & Texture */}
+                                                <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                                                    <div className="md:col-span-3 space-y-1">
+                                                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Genişlik</label>
+                                                        <input
+                                                            type="number"
+                                                            value={prod.width}
+                                                            onChange={(e) => handleProductChange(idx, 'width', e.target.value)}
+                                                            className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
+                                                            placeholder="Örn: 290"
+                                                        />
+                                                    </div>
+
+                                                    <div className="md:col-span-3 space-y-1">
+                                                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Yükseklik</label>
+                                                        <input
+                                                            type="number"
+                                                            value={prod.height}
+                                                            onChange={(e) => handleProductChange(idx, 'height', e.target.value)}
+                                                            className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
+                                                            placeholder="Örn: 270"
+                                                        />
+                                                    </div>
+
+                                                    <div className="md:col-span-2 space-y-1">
+                                                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Birim</label>
+                                                        <select
+                                                            value={prod.unit}
+                                                            onChange={(e) => handleProductChange(idx, 'unit', e.target.value)}
+                                                            className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
+                                                        >
+                                                            <option value="cm">cm</option>
+                                                            <option value="inch">inç</option>
+                                                        </select>
+                                                    </div>
+
+                                                    <div className="md:col-span-4 space-y-1">
+                                                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Kağıt Cinsi / Doku</label>
+                                                        <select
+                                                            value={prod.material}
+                                                            onChange={(e) => handleProductChange(idx, 'material', e.target.value)}
+                                                            className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all font-medium"
+                                                        >
+                                                            <option value="">Kağıt Türü Seç</option>
+                                                            {PAPER_TYPES.map(paper => (
+                                                                <option key={paper} value={paper}>{paper}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                </div>
+
+                                                {/* Row 3: Product Note */}
+                                                <div className="space-y-1">
+                                                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                                        Bu Ürüne Özel Not (opsiyonel)
+                                                    </label>
+                                                    <input
+                                                        value={prod.note}
+                                                        onChange={(e) => handleProductChange(idx, 'note', e.target.value)}
+                                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all"
+                                                        placeholder="Örn: 2 parça halinde basılacak / Özel renk tonu / Numune..."
+                                                    />
+                                                </div>
+
+                                                {/* Row 4: Images & Links for this Product */}
+                                                <div className="p-3 rounded-lg bg-slate-100/70 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800/80 space-y-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                                                            <span>🖼️</span>
+                                                            <span>Bu Ürünün Görseli ve Dosyaları</span>
+                                                        </label>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handlePasteFromClipboard(idx)}
+                                                            className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold text-blue-700 dark:text-blue-300 bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 rounded hover:bg-blue-50 transition-colors shadow-2xs"
+                                                        >
+                                                            <Clipboard className="w-3 h-3" />
+                                                            Panodan Yapıştır (Cmd+V)
+                                                        </button>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                        <div className="space-y-1">
+                                                            <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                                                                Görsel Linki (Web / Google Drive)
+                                                            </label>
+                                                            <input
+                                                                value={prod.imageLink}
+                                                                onChange={(e) => handleProductImageLinkChange(idx, e.target.value)}
+                                                                className="w-full p-1.5 border border-slate-300 dark:border-slate-700 rounded-md text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-1 focus:ring-blue-500 outline-none bg-white dark:bg-slate-950"
+                                                                placeholder="https://... (veya Google Drive linki)"
+                                                            />
+                                                        </div>
+
+                                                        <div className="space-y-1">
+                                                            <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                                                                Tasarım / Baskı PDF Linki (varsa)
+                                                            </label>
+                                                            <input
+                                                                value={prod.pdfLink}
+                                                                onChange={(e) => handleProductChange(idx, 'pdfLink', e.target.value)}
+                                                                className="w-full p-1.5 border border-slate-300 dark:border-slate-700 rounded-md text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-1 focus:ring-blue-500 outline-none bg-white dark:bg-slate-950"
+                                                                placeholder="https://...pdf"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Upload / Drag / Thumbnails */}
+                                                    <div
+                                                        onDragOver={(e) => {
+                                                            e.preventDefault()
+                                                            e.stopPropagation()
+                                                            setDraggingProductIndex(idx)
+                                                        }}
+                                                        onDragLeave={(e) => {
+                                                            e.preventDefault()
+                                                            e.stopPropagation()
+                                                            setDraggingProductIndex(null)
+                                                        }}
+                                                        onDrop={(e) => {
+                                                            e.preventDefault()
+                                                            e.stopPropagation()
+                                                            setDraggingProductIndex(null)
+                                                            setActiveProductIndex(idx)
+                                                            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                                                for (let fi = 0; fi < e.dataTransfer.files.length; fi++) {
+                                                                    processFileForProduct(e.dataTransfer.files[fi], idx)
+                                                                }
+                                                            }
+                                                        }}
+                                                        className={`p-2.5 rounded-lg border-2 border-dashed transition-all flex flex-wrap gap-2.5 items-center ${
+                                                            isDropTarget
+                                                                ? 'border-blue-500 bg-blue-50/80 dark:bg-blue-950/40 ring-2 ring-blue-300'
+                                                                : 'border-slate-300 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60'
+                                                        }`}
+                                                    >
+                                                        {prod.files.map((file, fi) => (
+                                                            <div key={fi} className="relative group border dark:border-slate-700 rounded-md p-1 w-16 h-16 flex items-center justify-center bg-white dark:bg-slate-800 overflow-hidden shadow-2xs">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => removeFile(idx, fi)}
+                                                                    className="absolute top-0.5 right-0.5 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-sm"
+                                                                    title="Dosyayı kaldır"
+                                                                >
+                                                                    <X className="w-2.5 h-2.5" />
+                                                                </button>
+                                                                {file.type === 'image' ? (
+                                                                    <img src={file.content} alt="preview" className="w-full h-full object-cover rounded" />
+                                                                ) : (
+                                                                    <div className="flex flex-col items-center">
+                                                                        <FileText className="w-6 h-6 text-red-500" />
+                                                                        <span className="text-[8px] text-slate-500 truncate max-w-full">{file.name}</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => triggerFileInput(idx)}
+                                                            className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 rounded-md w-16 h-16 flex flex-col items-center justify-center text-slate-400 hover:text-blue-500 transition-all bg-white dark:bg-slate-900"
+                                                        >
+                                                            <Upload className="w-4 h-4" />
+                                                            <span className="text-[9px] mt-0.5 font-semibold">Görsel Yükle</span>
+                                                        </button>
+
+                                                        {prod.files.length === 0 && (
+                                                            <div className="text-[11px] text-slate-400 dark:text-slate-500 flex flex-col ml-1">
+                                                                <span className="font-semibold text-slate-600 dark:text-slate-300">
+                                                                    Görseli bu kutuya sürükleyip bırakabilirsiniz
+                                                                </span>
+                                                                <span className="text-[10px]">
+                                                                    veya resmi kopyalayıp klavyeden <b>Cmd+V / Ctrl+V</b> ile doğrudan yapıştırın.
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 )
                             })}
@@ -1043,10 +1356,19 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                         <button
                             type="button"
                             onClick={addProduct}
-                            className="w-full py-2.5 border-2 border-dashed border-blue-400 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all hover:scale-[1.005]"
+                            className={`w-full py-2.5 border-2 border-dashed rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all hover:scale-[1.005] ${
+                                orderType === 'sample'
+                                    ? 'border-purple-400 dark:border-purple-700 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/30'
+                                    : 'border-blue-400 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30'
+                            }`}
                         >
                             <Plus className="w-4 h-4" />
-                            <span>+ {products.length + 1}. Farklı Ürün Ekle (Yeni Ölçü / Doku / Görsel)</span>
+                            <span>
+                                {orderType === 'sample'
+                                    ? `+ ${products.length + 1}. Farklı Kağıt Türü / Numune Ekle`
+                                    : `+ ${products.length + 1}. Farklı Ürün Ekle (Yeni Ölçü / Doku / Görsel)`
+                                }
+                            </span>
                         </button>
                     </div>
 
@@ -1066,66 +1388,31 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
 
                 {/* Footer */}
                 <div className="p-3 md:p-4 border-t dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 flex items-center justify-between gap-3">
-                    <button
-                        type="button"
-                        onClick={() => {
-                            setCustomerData({
-                                customer: "PERLOS GIDA LİMİTED ŞİRKETİ",
-                                phone: "0 543 591 62 40",
-                                email: "ornek@mail.com",
-                                address: "ADNAN KAHVECİ MAH. OSMANLI CAD. BEYAZ PALAS B BLOK NO: 63 /2 İÇ KAPI NO: 3",
-                                city: "BEYLİKDÜZÜ/ İSTANBUL",
-                                total: "14500",
-                                generalNote: "Aynı müşteriye tek pakette kargolanacak.",
-                                cargoBarcodeLink: ""
-                            })
-                            setNeedsInvoice(true)
-                            setSameAsShippingAddress(true)
-                            setInvoiceData({
-                                title: "PERLOS GIDA LİMİTED ŞİRKETİ",
-                                taxNumber: "7280456123",
-                                taxOffice: "Beylikdüzü",
-                                address: ""
-                            })
-                            setProducts([
-                                {
-                                    id: "sample-1",
-                                    productName: "Nötr Tonlu Vintage Ağaçlı Orman Manzarası",
-                                    quantity: "1",
-                                    width: "290",
-                                    height: "270",
-                                    unit: "cm",
-                                    material: "Premium Tekstil Duvar Kağıdı",
-                                    sample: "",
-                                    note: "Salon için",
-                                    sku: "PM-112233",
-                                    imageLink: "",
-                                    pdfLink: "",
-                                    files: []
-                                },
-                                {
-                                    id: "sample-2",
-                                    productName: "Modern Soyut Geometrik Duvar Kağıdı",
-                                    quantity: "2",
-                                    width: "150",
-                                    height: "260",
-                                    unit: "cm",
-                                    material: "Dokulu Kendiliğinden Yapışkanlı Duvar Kağıdı",
-                                    sample: "",
-                                    note: "Yatak odası için",
-                                    sku: "PM-445566",
-                                    imageLink: "",
-                                    pdfLink: "",
-                                    files: []
-                                }
-                            ])
-                            setActiveProductIndex(0)
-                            toast.info("Örnek 2 ürünlü sipariş bilgileri dolduruldu!")
-                        }}
-                        className="px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-lg transition-colors font-semibold border border-blue-200 dark:border-blue-800 flex items-center gap-1.5"
-                    >
-                        ⚡ Örnek Al
-                    </button>
+                    {orderType === 'standard' ? (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setOrderType('sample')
+                                toast.info("Örnek (Numune) Siparişi moduna geçildi. Ölçü alanları gizlendi, sadece kağıt türü ve müşteri bilgileri seçilecek.")
+                            }}
+                            className="px-3 py-1.5 text-xs text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/50 rounded-lg transition-colors font-semibold border border-purple-200 dark:border-purple-800 flex items-center gap-1.5"
+                        >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>⚡ Örnek Al (Numune Modu)</span>
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setOrderType('standard')
+                                toast.info("Standart Sipariş moduna geçildi.")
+                            }}
+                            className="px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-lg transition-colors font-semibold border border-blue-200 dark:border-blue-800 flex items-center gap-1.5"
+                        >
+                            <Package className="w-3.5 h-3.5" />
+                            <span>📦 Standart Sipariş Moduna Geç</span>
+                        </button>
+                    )}
 
                     <div className="flex items-center gap-2.5">
                         <button
@@ -1139,10 +1426,17 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                             type="button"
                             onClick={handleSubmit}
                             disabled={isLoading}
-                            className="px-5 py-2 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm transition-all font-bold flex items-center gap-2 disabled:opacity-50 hover:scale-[1.02]"
+                            className={`px-5 py-2 text-xs text-white rounded-lg shadow-sm transition-all font-bold flex items-center gap-2 disabled:opacity-50 hover:scale-[1.02] ${
+                                orderType === 'sample' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'
+                            }`}
                         >
-                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                            <span>Siparişi Oluştur ({products.length} Ürün)</span>
+                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : (orderType === 'sample' ? <Sparkles className="w-4 h-4" /> : <Plus className="w-4 h-4" />)}
+                            <span>
+                                {orderType === 'sample'
+                                    ? `⚡ Örnek Siparişini Oluştur (${products.length} Numune)`
+                                    : `Siparişi Oluştur (${products.length} Ürün)`
+                                }
+                            </span>
                         </button>
                     </div>
                 </div>

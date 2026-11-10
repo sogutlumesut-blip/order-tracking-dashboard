@@ -3,7 +3,7 @@
 import { Order, OrderStatus, Comment } from "../data/mock-orders"
 import { OrderCard } from "./order-card"
 import { useState, useEffect, useRef, useMemo } from "react"
-import { ChevronDown, ChevronUp, ChevronRight, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck, ScanBarcode, Clock, CheckCircle, Lock, Unlock, Package, Boxes } from "lucide-react"
+import { ChevronDown, ChevronUp, ChevronRight, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck, ScanBarcode, Clock, CheckCircle, Lock, Unlock, Package, Boxes, Sparkles } from "lucide-react"
 import { Html5QrcodeScanner } from "html5-qrcode"
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, TouchSensor, MouseSensor, useSensor, useSensors, useDraggable, useDroppable, closestCorners, defaultDropAnimationSideEffects } from "@dnd-kit/core"
 import { arrayMove, SortableContext, horizontalListSortingStrategy, useSortable } from "@dnd-kit/sortable"
@@ -65,6 +65,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
     const [isPanelOpen, setIsPanelOpen] = useState(false)
     const [isManualOrderOpen, setIsManualOrderOpen] = useState(false)
+    const [manualOrderInitialMode, setManualOrderInitialMode] = useState<'standard' | 'sample'>('standard')
     const [isMaterialOrderOpen, setIsMaterialOrderOpen] = useState(false)
     const [isWarehouseStockOpen, setIsWarehouseStockOpen] = useState(false)
     const [isSyncing, setIsSyncing] = useState(false)
@@ -1276,12 +1277,28 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
                         {/* Manuel Sipariş - Everyone can see */}
                         <button
-                            onClick={() => setIsManualOrderOpen(true)}
-                            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
+                            onClick={() => {
+                                setManualOrderInitialMode('standard')
+                                setIsManualOrderOpen(true)
+                            }}
+                            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1 shadow-xs"
                             title="Manuel sipariş oluştur"
                         >
                             <Plus className="w-4 h-4" />
                             <span>Manuel Sipariş</span>
+                        </button>
+
+                        {/* Örnek Al (Numune) Siparişi */}
+                        <button
+                            onClick={() => {
+                                setManualOrderInitialMode('sample')
+                                setIsManualOrderOpen(true)
+                            }}
+                            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 shadow-xs"
+                            title="Örnek / Numune siparişi oluştur (Ölçüsüz, sadece kağıt türü)"
+                        >
+                            <Sparkles className="w-4 h-4" />
+                            <span>Örnek Al</span>
                         </button>
 
                         {/* Malzemeler Siparişi */}
@@ -1398,11 +1415,26 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         </button>
 
                         <button
-                            onClick={() => setIsManualOrderOpen(true)}
-                            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1"
+                            onClick={() => {
+                                setManualOrderInitialMode('standard')
+                                setIsManualOrderOpen(true)
+                            }}
+                            className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1 shadow-xs"
                         >
                             <Plus className="w-4 h-4" />
                             <span>Ekle</span>
+                        </button>
+
+                        <button
+                            onClick={() => {
+                                setManualOrderInitialMode('sample')
+                                setIsManualOrderOpen(true)
+                            }}
+                            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1 shadow-xs"
+                            title="Örnek / Numune Al"
+                        >
+                            <Sparkles className="w-4 h-4" />
+                            <span>Örnek</span>
                         </button>
 
                         <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 text-slate-700 hover:bg-slate-100 rounded-md">
@@ -1626,13 +1658,17 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
                     <ManualOrderModal
                         isOpen={isManualOrderOpen}
+                        initialMode={manualOrderInitialMode}
                         onClose={() => setIsManualOrderOpen(false)}
                         onCreate={async (data) => {
                             // 1. Optimistic UI Update (Instant feedback)
                             const tempId = -Math.floor(Math.random() * 100000); // Negative integer temp ID
-                            const clientBarcode = `MANUAL-${Date.now()}`;
+                            const clientBarcode = data.isSample ? `SAMPLE-${Date.now()}` : `MANUAL-${Date.now()}`;
                             
                             const labelsList = ['Manuel'];
+                            if (data.isSample) {
+                                labelsList.push('Numune');
+                            }
                             if (data.needsInvoice || data.taxNumber) {
                                 labelsList.push('Fatura');
                             }
@@ -1663,7 +1699,12 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                             
                             createManualOrder(payload)
                                 .then(async (res) => {
-                                    if (res && res.orderId) {
+                                    if (!res || !res.success) {
+                                        setOrders(prev => prev.filter(o => o.id !== tempId) as any);
+                                        toast.error("Sipariş yüklenemedi: " + (res?.error || "Sunucu hatası"));
+                                        return;
+                                    }
+                                    if (res.orderId) {
                                         setOrders(prev => prev.map(o => o.id === tempId ? {
                                             ...(res.order || o),
                                             id: res.orderId,
@@ -1680,7 +1721,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 .catch((e: any) => {
                                     // Revert optimistic update on failure
                                     setOrders(prev => prev.filter(o => o.id !== tempId) as any);
-                                    toast.error("Sipariş yüklenemedi: " + (e.message || "Bağlantı hatası"));
+                                    toast.error("Sipariş yüklenemedi: " + (e?.message || "Bağlantı hatası"));
                                 });
                         }}
                     />
@@ -1725,7 +1766,13 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                     clientBarcode
                                 });
 
-                                if (res && res.orderId) {
+                                if (!res || !res.success) {
+                                    setOrders(prev => prev.filter(o => o.id !== tempId) as any);
+                                    toast.error("Malzeme siparişi yüklenemedi: " + (res?.error || "Sunucu hatası"));
+                                    return;
+                                }
+
+                                if (res.orderId) {
                                     setOrders(prev => prev.map(o => o.id === tempId ? { ...o, id: res.orderId } : o) as any);
                                 }
                             } catch (e: any) {

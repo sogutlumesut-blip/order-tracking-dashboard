@@ -628,10 +628,13 @@ export async function bulkUpdateOrderStatus(orderIds: number[], status: string) 
 
 // Public action for client-side events (Print, PDF, etc.)
 export async function logManualActivity(orderId: number, action: string, details: string) {
-    const session = await getSession()
-    const user = session ? session.user.name : "Sistem"
-    await logActivity(orderId, user, action, details)
-    // revalidatePath("/")
+    try {
+        const session = await getSession().catch(() => null)
+        const user = session ? session.user.name : "Sistem"
+        await logActivity(orderId, user, action, details)
+    } catch (e) {
+        console.error("Non-critical logManualActivity error:", e)
+    }
 }
 
 export async function updateOrderDetails(rawOrder: any) {
@@ -2149,15 +2152,28 @@ export async function createManualOrder(orderData: any) {
     }
 
     try {
+        const sanitizedItems = (items || []).map((item: any) => ({
+            name: String(item.name || "Özel Ürün").trim(),
+            sku: item.sku ? String(item.sku).trim() : null,
+            quantity: Math.max(1, parseInt(String(item.quantity || 1), 10) || 1),
+            image_src: item.image_src ? String(item.image_src) : "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=300",
+            material: item.material ? String(item.material).trim() : null,
+            dimensions: item.dimensions ? String(item.dimensions).trim() : null,
+            productNote: item.productNote ? String(item.productNote).trim() : null,
+            sampleData: item.sampleData ? String(item.sampleData).trim() : null,
+            url: item.url ? String(item.url).trim() : null,
+            croppedImage: item.croppedImage ? String(item.croppedImage).trim() : null
+        }));
+
         serverLog(`[CREATE_MANUAL] Starting for customer: ${customer} (isSample: ${Boolean(isSample)})`);
         await db.order.create({
             data: {
-                customer,
-                phone,
-                email,
-                address,
-                city,
-                note,
+                customer: String(customer || "").trim(),
+                phone: phone ? String(phone).trim() : null,
+                email: email ? String(email).trim() : null,
+                address: address ? String(address).trim() : null,
+                city: city ? String(city).trim() : null,
+                note: note ? String(note).trim() : null,
                 total: total ? `${total} ₺` : "0.00 ₺",
                 status: status || "pending_woo",
                 barcode,
@@ -2167,7 +2183,7 @@ export async function createManualOrder(orderData: any) {
                 taxOffice: taxOffice ? String(taxOffice).trim() : null,
                 invoiceStatus: (needsInvoice || taxNumber) ? "pending" : "draft",
                 items: {
-                    create: items
+                    create: sanitizedItems
                 }
             }
         })
@@ -2180,7 +2196,11 @@ export async function createManualOrder(orderData: any) {
         serverLog(`[CREATE_MANUAL] Order retrieved from DB: ${newOrder?.id}`);
         if (newOrder) {
             const logText = isSample ? "Örnek (Numune) siparişi oluşturuldu." : "Manuel sipariş oluşturuldu."
-            await logManualActivity(newOrder.id, "ORDER_CREATED", logText)
+            try {
+                await logManualActivity(newOrder.id, "ORDER_CREATED", logText)
+            } catch (logErr) {
+                console.error("Activity log error:", logErr);
+            }
         }
 
         const serializedItems = (newOrder?.items || []).map(item => {
@@ -2198,27 +2218,49 @@ export async function createManualOrder(orderData: any) {
                 serializedImageSrc = transformed.join('|');
             }
             return {
-                ...item,
-                image_src: serializedImageSrc
+                id: item.id,
+                name: item.name,
+                sku: item.sku,
+                quantity: item.quantity,
+                image_src: serializedImageSrc,
+                material: item.material,
+                dimensions: item.dimensions,
+                productNote: item.productNote,
+                sampleData: item.sampleData,
+                url: item.url,
+                croppedImage: item.croppedImage,
+                orderId: item.orderId
             };
         });
 
         const serializedOrder = newOrder ? {
-            ...newOrder,
+            id: newOrder.id,
+            barcode: newOrder.barcode,
+            customer: newOrder.customer,
+            phone: newOrder.phone,
+            email: newOrder.email,
+            address: newOrder.address,
+            city: newOrder.city,
+            total: newOrder.total,
+            status: newOrder.status,
             date: newOrder.date.toISOString(),
             createdAt: newOrder.createdAt.toISOString(),
             updatedAt: newOrder.updatedAt.toISOString(),
             labels: labelsList,
-            items: serializedItems
+            items: serializedItems,
+            hasNotification: newOrder.hasNotification,
+            taxNumber: newOrder.taxNumber,
+            taxOffice: newOrder.taxOffice,
+            invoiceStatus: newOrder.invoiceStatus,
+            invoiceUrl: newOrder.invoiceUrl
         } : null;
 
         return { success: true, orderId: newOrder?.id, order: serializedOrder }
 
     } catch (error: any) {
         serverLog(`[CREATE_MANUAL_ERR] Failed: ${error?.message || error}`);
-        serverLog("Failed to create manual order: " + (error?.message || error));
         console.error("Failed to create manual order:", error)
-        throw new Error("Sipariş oluşturulamadı: " + (error?.message || String(error)))
+        return { success: false, error: error?.message || "Sipariş oluşturulamadı." }
     }
 }
 
@@ -2276,13 +2318,17 @@ export async function createMaterialOrder(orderData: any) {
 
         serverLog(`[CREATE_MATERIAL] Material order created in DB: ${newOrder.id}`);
 
-        await logManualActivity(newOrder.id, "ORDER_CREATED", `Malzeme siparişi oluşturuldu: ${(items || []).map((i: any) => `${i.name} (x${i.quantity || 1})`).join(', ')}`);
+        try {
+            await logManualActivity(newOrder.id, "ORDER_CREATED", `Malzeme siparişi oluşturuldu: ${(items || []).map((i: any) => `${i.name} (x${i.quantity || 1})`).join(', ')}`);
+        } catch (logErr) {
+            console.error("Material order log error:", logErr);
+        }
 
         return { success: true, orderId: newOrder.id };
     } catch (error: any) {
         serverLog(`[CREATE_MATERIAL_ERR] Failed: ${error?.message || error}`);
         console.error("Failed to create material order:", error);
-        throw new Error("Malzeme siparişi oluşturulamadı: " + (error?.message || String(error)));
+        return { success: false, error: error?.message || "Malzeme siparişi oluşturulamadı." };
     }
 }
 
