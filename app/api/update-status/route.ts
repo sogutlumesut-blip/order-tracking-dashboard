@@ -211,24 +211,80 @@ export async function POST(request: Request) {
                     invoiceStatus: order.invoiceStatus,
                     invoiceUrl: order.invoiceUrl,
                     hasNotification: true,
-                    updatedAt: new Date(),
-                    items: order.items ? {
-                        deleteMany: {},
-                        create: order.items.map((item: any) => ({
-                            name: item.name,
-                            quantity: item.quantity,
-                            image_src: item.image_src,
-                            sku: item.sku,
-                            url: item.url,
-                            material: item.material,
-                            dimensions: item.dimensions,
-                            productNote: item.productNote,
-                            sampleData: item.sampleData,
-                            croppedImage: item.croppedImage
-                        }))
-                    } : undefined
+                    updatedAt: new Date()
                 }
             });
+
+            // Smart Item Preservation & Sync (Do not wipe images!)
+            if (order.items && Array.isArray(order.items) && oldOrder) {
+                const incomingIds = new Set(order.items.map((i: any) => Number(i.id)).filter((id: number) => !isNaN(id) && id > 0));
+
+                // Delete only items removed by user
+                const toDelete = oldOrder.items.filter((i: any) => !incomingIds.has(i.id)).map((i: any) => i.id);
+                if (toDelete.length > 0) {
+                    await db.orderItem.deleteMany({
+                        where: { id: { in: toDelete } }
+                    });
+                }
+
+                const resolveItemImageSrc = (incomingSrc: string | undefined | null, existingItem: any) => {
+                    if (!incomingSrc) return existingItem?.image_src || "";
+                    if (incomingSrc.includes('/api/order-image/')) {
+                        if (existingItem?.image_src && !existingItem.image_src.includes('/api/order-image/')) {
+                            return existingItem.image_src;
+                        }
+                        const refMatch = incomingSrc.match(/\/api\/order-image\/(\d+)/);
+                        if (refMatch) {
+                            const refId = parseInt(refMatch[1], 10);
+                            const foundInOld = oldOrder.items.find((i: any) => i.id === refId);
+                            if (foundInOld?.image_src && !foundInOld.image_src.includes('/api/order-image/')) {
+                                return foundInOld.image_src;
+                            }
+                        }
+                        return existingItem?.image_src || incomingSrc;
+                    }
+                    return incomingSrc;
+                };
+
+                for (const item of order.items) {
+                    const existingItem = item.id ? oldOrder.items.find((i: any) => i.id === Number(item.id)) : null;
+                    const finalImageSrc = resolveItemImageSrc(item.image_src, existingItem);
+
+                    if (existingItem) {
+                        await db.orderItem.update({
+                            where: { id: existingItem.id },
+                            data: {
+                                name: item.name,
+                                quantity: Number(item.quantity) || 1,
+                                image_src: finalImageSrc,
+                                sku: item.sku || null,
+                                url: item.url || null,
+                                material: item.material || null,
+                                dimensions: item.dimensions || null,
+                                productNote: item.productNote || null,
+                                sampleData: item.sampleData || null,
+                                croppedImage: item.croppedImage || null
+                            }
+                        });
+                    } else {
+                        await db.orderItem.create({
+                            data: {
+                                orderId: id,
+                                name: item.name,
+                                quantity: Number(item.quantity) || 1,
+                                image_src: finalImageSrc,
+                                sku: item.sku || null,
+                                url: item.url || null,
+                                material: item.material || null,
+                                dimensions: item.dimensions || null,
+                                productNote: item.productNote || null,
+                                sampleData: item.sampleData || null,
+                                croppedImage: item.croppedImage || null
+                            }
+                        });
+                    }
+                }
+            }
         }
 
         logToFile("SUCCESS");

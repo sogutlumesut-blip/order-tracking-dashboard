@@ -377,10 +377,28 @@ export function ManualOrderModal({ isOpen, onClose, onCreate }: ManualOrderModal
                     validImageLink = validImageLink.replace('dl=0', 'raw=1')
                 }
 
-                const allImages = [...(validImageLink ? [validImageLink] : []), ...imageFiles]
-                const mainImage = allImages.length > 0 ? allImages.join('|') : "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=300"
+                // Check if validImageLink is a direct image vs a product page URL
+                const isDirectImage = (u: string) => {
+                    if (!u) return false;
+                    if (u.startsWith('data:image')) return true;
+                    if (u.includes('googleusercontent.com') || u.includes('dropbox.com') || u.includes('printmarkt.co') || u.includes('cdn.shopify.com')) return true;
+                    return /\.(jpg|jpeg|png|webp|gif|svg)(\?.*)?$/i.test(u);
+                };
 
-                const specialUrl = p.pdfLink || p.files.find(f => f.type === 'pdf')?.content || customerData.cargoBarcodeLink || null
+                // Prioritize uploaded image file over text link
+                const allImages = [
+                    ...imageFiles,
+                    ...(validImageLink && isDirectImage(validImageLink) ? [validImageLink] : [])
+                ];
+
+                const mainImage = allImages.length > 0 
+                    ? allImages.join('|') 
+                    : (validImageLink || "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=300");
+
+                const specialUrl = p.pdfLink || 
+                    (validImageLink && !isDirectImage(validImageLink) ? validImageLink : null) ||
+                    p.files.find(f => f.type === 'pdf')?.content || 
+                    customerData.cargoBarcodeLink || null;
 
                 let finalNote = p.note || ""
                 if (p.sample) {

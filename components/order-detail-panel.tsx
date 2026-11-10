@@ -320,25 +320,37 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                     canvas.width = width
                     canvas.height = height
                     const ctx = canvas.getContext('2d')
+                    const matchesItem = (i: any, idx: number) => {
+                        if (itemId && i.id === itemId) return true;
+                        if (!itemId && idx === 0) return true;
+                        if (formData.items.length === 1) return true;
+                        return false;
+                    };
                     if (ctx) {
                         ctx.imageSmoothingEnabled = true
                         ctx.imageSmoothingQuality = 'high'
                         ctx.drawImage(img, 0, 0, width, height)
                         const isPng = file.type === 'image/png'
                         const finalBase64 = isPng ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.92)
-                        const updated = formData.items.map((i: any) => i.id === itemId ? { ...i, image_src: finalBase64 } : i)
+                        const updated = formData.items.map((i: any, idx: number) => matchesItem(i, idx) ? { ...i, image_src: finalBase64 } : i)
                         setFormData({ ...formData, items: updated })
                         setIsModified(true)
                         toast.success("Görsel yüklendi! Kaydetmek için 'Değişiklikleri Kaydet' butonuna basınız.")
                     } else {
-                        const updated = formData.items.map((i: any) => i.id === itemId ? { ...i, image_src: rawResult } : i)
+                        const updated = formData.items.map((i: any, idx: number) => matchesItem(i, idx) ? { ...i, image_src: rawResult } : i)
                         setFormData({ ...formData, items: updated })
                         setIsModified(true)
                         toast.success("Görsel yüklendi! Kaydetmek için 'Değişiklikleri Kaydet' butonuna basınız.")
                     }
                 }
                 img.onerror = () => {
-                    const updated = formData.items.map((i: any) => i.id === itemId ? { ...i, image_src: rawResult } : i)
+                    const matchesItem = (i: any, idx: number) => {
+                        if (itemId && i.id === itemId) return true;
+                        if (!itemId && idx === 0) return true;
+                        if (formData.items.length === 1) return true;
+                        return false;
+                    };
+                    const updated = formData.items.map((i: any, idx: number) => matchesItem(i, idx) ? { ...i, image_src: rawResult } : i)
                     setFormData({ ...formData, items: updated })
                     setIsModified(true)
                     toast.success("Görsel eklendi! Kaydetmek için 'Değişiklikleri Kaydet' butonuna basınız.")
@@ -1480,6 +1492,17 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                                                     alt={`${item.name} ${idx + 1}`}
                                                                                     className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
                                                                                     onClick={() => setPreviewImage(imgSrc)}
+                                                                                    onError={(e) => {
+                                                                                        // Graceful fallback for broken image
+                                                                                        (e.currentTarget as HTMLElement).style.display = 'none';
+                                                                                        const parent = e.currentTarget.parentElement;
+                                                                                        if (parent && !parent.querySelector('.fallback-err')) {
+                                                                                            const div = document.createElement('div');
+                                                                                            div.className = 'fallback-err w-full h-full flex flex-col items-center justify-center text-[10px] text-amber-500 font-semibold p-1 text-center bg-amber-50 dark:bg-amber-950/30';
+                                                                                            div.innerHTML = '<span>⚠️ Görsel</span><span>Yüklenemedi</span>';
+                                                                                            parent.appendChild(div);
+                                                                                        }
+                                                                                    }}
                                                                                 />
                                                                                 {isThisCropped && (
                                                                                     <div className="absolute top-0 inset-x-0 bg-emerald-600 text-white text-[9px] font-black py-0.5 text-center flex items-center justify-center gap-0.5 shadow-xs">

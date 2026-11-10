@@ -1664,6 +1664,12 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                             createManualOrder(payload)
                                 .then(async (res) => {
                                     if (res && res.orderId) {
+                                        setOrders(prev => prev.map(o => o.id === tempId ? {
+                                            ...(res.order || o),
+                                            id: res.orderId,
+                                            items: res.order?.items || o.items
+                                        } : o) as any);
+
                                         try {
                                             await createDHLShipmentAction(res.orderId, false);
                                         } catch (err) {

@@ -194,18 +194,33 @@ export async function GET(req: NextRequest) {
             createdAt: order.createdAt.toISOString(),
             updatedAt: order.updatedAt.toISOString(),
             total: order.total || "0 ₺",
-            items: order.items.map(item => ({
-                ...item,
-                sku: item.sku || null,
-                image_src: item.image_src?.startsWith('data:image') 
-                    ? `/api/order-image/${item.id}` 
-                    : (item.image_src && (item.image_src.startsWith('/api/uploads/') || item.image_src.startsWith('/uploads/') || item.image_src.startsWith('uploads/'))
-                        ? `https://printmarkt.co${item.image_src.startsWith('/') ? '' : '/'}${item.image_src}`
-                        : item.image_src),
-                url: item.url?.startsWith('data:') ? `/api/order-url/${item.id}` : item.url,
-                material: item.material || null,
-                dimensions: item.dimensions || null,
-            })),
+            items: order.items.map(item => {
+                let serializedImageSrc = item.image_src;
+                if (item.image_src) {
+                    if (item.image_src.includes('data:image')) {
+                        const parts = item.image_src.split('|').map((s: string) => s.trim()).filter(Boolean);
+                        const transformed = parts.map((part: string, idx: number) => {
+                            if (part.startsWith('data:image')) {
+                                return idx === 0 
+                                    ? `/api/order-image/${item.id}` 
+                                    : `/api/order-image/${item.id}?index=${idx}`;
+                            }
+                            return part;
+                        });
+                        serializedImageSrc = transformed.join('|');
+                    } else if (item.image_src.startsWith('/api/uploads/') || item.image_src.startsWith('/uploads/') || item.image_src.startsWith('uploads/')) {
+                        serializedImageSrc = `https://printmarkt.co${item.image_src.startsWith('/') ? '' : '/'}${item.image_src}`;
+                    }
+                }
+                return {
+                    ...item,
+                    sku: item.sku || null,
+                    image_src: serializedImageSrc,
+                    url: item.url?.startsWith('data:') ? `/api/order-url/${item.id}` : item.url,
+                    material: item.material || null,
+                    dimensions: item.dimensions || null,
+                };
+            }),
             comments: (order as any).comments ? (order as any).comments.map((c: any) => ({
                 id: c.id,
                 message: c.message,

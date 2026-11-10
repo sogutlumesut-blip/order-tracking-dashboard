@@ -275,18 +275,33 @@ export async function getOrders(timestamp?: number) {
             createdAt: order.createdAt.toISOString(),
             updatedAt: order.updatedAt.toISOString(),
             total: order.total || "0 ₺",
-            items: order.items.map(item => ({
-                ...item,
-                sku: item.sku || null,
-                image_src: item.image_src?.startsWith('data:image') 
-                    ? `/api/order-image/${item.id}` 
-                    : (item.image_src && (item.image_src.startsWith('/api/uploads/') || item.image_src.startsWith('/uploads/') || item.image_src.startsWith('uploads/'))
-                        ? `https://printmarkt.co${item.image_src.startsWith('/') ? '' : '/'}${item.image_src}`
-                        : item.image_src),
-                url: item.url?.startsWith('data:') ? `/api/order-url/${item.id}` : item.url,
-                material: item.material || null,
-                dimensions: item.dimensions || null,
-            })),
+            items: order.items.map(item => {
+                let serializedImageSrc = item.image_src;
+                if (item.image_src) {
+                    if (item.image_src.includes('data:image')) {
+                        const parts = item.image_src.split('|').map((s: string) => s.trim()).filter(Boolean);
+                        const transformed = parts.map((part: string, idx: number) => {
+                            if (part.startsWith('data:image')) {
+                                return idx === 0 
+                                    ? `/api/order-image/${item.id}` 
+                                    : `/api/order-image/${item.id}?index=${idx}`;
+                            }
+                            return part;
+                        });
+                        serializedImageSrc = transformed.join('|');
+                    } else if (item.image_src.startsWith('/api/uploads/') || item.image_src.startsWith('/uploads/') || item.image_src.startsWith('uploads/')) {
+                        serializedImageSrc = `https://printmarkt.co${item.image_src.startsWith('/') ? '' : '/'}${item.image_src}`;
+                    }
+                }
+                return {
+                    ...item,
+                    sku: item.sku || null,
+                    image_src: serializedImageSrc,
+                    url: item.url?.startsWith('data:') ? `/api/order-url/${item.id}` : item.url,
+                    material: item.material || null,
+                    dimensions: item.dimensions || null,
+                };
+            }),
             comments: (order as any).comments ? (order as any).comments.map((c: any) => ({
                 id: c.id,
                 message: c.message,
@@ -681,6 +696,78 @@ export async function updateOrderDetails(rawOrder: any) {
             }
         }
 
+        // Smart Item Sync: Update existing items in place to preserve IDs and base64 images
+        if (order.items && Array.isArray(order.items) && oldOrder) {
+            const incomingIds = new Set(order.items.map((i: any) => Number(i.id)).filter((id: number) => !isNaN(id) && id > 0));
+
+            // Delete only items removed by the user
+            const toDelete = oldOrder.items.filter(i => !incomingIds.has(i.id)).map(i => i.id);
+            if (toDelete.length > 0) {
+                await db.orderItem.deleteMany({
+                    where: { id: { in: toDelete } }
+                });
+            }
+
+            // Helper to preserve real base64 / external image and never overwrite with /api/order-image/
+            const resolveItemImageSrc = (incomingSrc: string | undefined | null, existingItem: any) => {
+                if (!incomingSrc) return existingItem?.image_src || "";
+                if (incomingSrc.includes('/api/order-image/')) {
+                    if (existingItem?.image_src && !existingItem.image_src.includes('/api/order-image/')) {
+                        return existingItem.image_src;
+                    }
+                    const refMatch = incomingSrc.match(/\/api\/order-image\/(\d+)/);
+                    if (refMatch) {
+                        const refId = parseInt(refMatch[1], 10);
+                        const foundInOld = oldOrder.items.find(i => i.id === refId);
+                        if (foundInOld?.image_src && !foundInOld.image_src.includes('/api/order-image/')) {
+                            return foundInOld.image_src;
+                        }
+                    }
+                    return existingItem?.image_src || incomingSrc;
+                }
+                return incomingSrc;
+            };
+
+            for (const item of order.items) {
+                const existingItem = item.id ? oldOrder.items.find(i => i.id === Number(item.id)) : null;
+                const finalImageSrc = resolveItemImageSrc(item.image_src, existingItem);
+
+                if (existingItem) {
+                    await db.orderItem.update({
+                        where: { id: existingItem.id },
+                        data: {
+                            name: item.name,
+                            quantity: Number(item.quantity) || 1,
+                            image_src: finalImageSrc,
+                            sku: item.sku || null,
+                            url: item.url || null,
+                            material: item.material || null,
+                            dimensions: item.dimensions || null,
+                            productNote: item.productNote || null,
+                            sampleData: item.sampleData || null,
+                            croppedImage: item.croppedImage || null
+                        }
+                    });
+                } else {
+                    await db.orderItem.create({
+                        data: {
+                            orderId: order.id,
+                            name: item.name,
+                            quantity: Number(item.quantity) || 1,
+                            image_src: finalImageSrc,
+                            sku: item.sku || null,
+                            url: item.url || null,
+                            material: item.material || null,
+                            dimensions: item.dimensions || null,
+                            productNote: item.productNote || null,
+                            sampleData: item.sampleData || null,
+                            croppedImage: item.croppedImage || null
+                        }
+                    });
+                }
+            }
+        }
+
         const result = await db.order.update({
             where: { id: order.id },
             data: {
@@ -695,20 +782,6 @@ export async function updateOrderDetails(rawOrder: any) {
                 city: order.city,
                 hasNotification: true,
                 updatedAt: new Date(),
-                items: order.items ? {
-                    deleteMany: {},
-                    create: order.items.map((item: any) => ({
-                        name: item.name,
-                        quantity: item.quantity,
-                        image_src: item.image_src,
-                        sku: item.sku,
-                        url: item.url,
-                        material: item.material,
-                        dimensions: item.dimensions,
-                        productNote: item.productNote,
-                        sampleData: item.sampleData
-                    }))
-                } : undefined,
                 taxOffice: order.taxOffice,
                 invoiceStatus: order.invoiceStatus,
                 invoiceUrl: order.invoiceUrl
@@ -2075,13 +2148,45 @@ export async function createManualOrder(orderData: any) {
         })
         serverLog(`[CREATE_MANUAL] Order created in DB.`);
 
-        const newOrder = await db.order.findUnique({ where: { barcode } })
+        const newOrder = await db.order.findUnique({ 
+            where: { barcode },
+            include: { items: true }
+        })
         serverLog(`[CREATE_MANUAL] Order retrieved from DB: ${newOrder?.id}`);
         if (newOrder) {
             await logManualActivity(newOrder.id, "ORDER_CREATED", "Manuel sipariş oluşturuldu.")
         }
 
-        return { success: true, orderId: newOrder?.id }
+        const serializedItems = (newOrder?.items || []).map(item => {
+            let serializedImageSrc = item.image_src;
+            if (item.image_src?.includes('data:image')) {
+                const parts = item.image_src.split('|').map((s: string) => s.trim()).filter(Boolean);
+                const transformed = parts.map((part: string, idx: number) => {
+                    if (part.startsWith('data:image')) {
+                        return idx === 0 
+                            ? `/api/order-image/${item.id}` 
+                            : `/api/order-image/${item.id}?index=${idx}`;
+                    }
+                    return part;
+                });
+                serializedImageSrc = transformed.join('|');
+            }
+            return {
+                ...item,
+                image_src: serializedImageSrc
+            };
+        });
+
+        const serializedOrder = newOrder ? {
+            ...newOrder,
+            date: newOrder.date.toISOString(),
+            createdAt: newOrder.createdAt.toISOString(),
+            updatedAt: newOrder.updatedAt.toISOString(),
+            labels: labelsList,
+            items: serializedItems
+        } : null;
+
+        return { success: true, orderId: newOrder?.id, order: serializedOrder }
 
     } catch (error: any) {
         serverLog(`[CREATE_MANUAL_ERR] Failed: ${error?.message || error}`);
