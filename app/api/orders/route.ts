@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { parseUserPermissions } from "@/lib/permissions";
 
 export const dynamic = 'force-dynamic';
@@ -81,7 +82,21 @@ export async function GET(req: NextRequest) {
             hasCargoPdf: true,
             externalId: true,
             source: true,
-            items: true,
+            items: {
+                select: {
+                    id: true,
+                    name: true,
+                    sku: true,
+                    url: true,
+                    quantity: true,
+                    material: true,
+                    dimensions: true,
+                    productNote: true,
+                    sampleData: true,
+                    croppedImage: true,
+                    orderId: true
+                }
+            },
             comments: {
                 orderBy: { timestamp: "desc" as const },
                 take: 1,
@@ -187,6 +202,31 @@ export async function GET(req: NextRequest) {
         }
 
         const orders = [...activeOrders, ...terminalOrders];
+        const returnedOrderIds = orders.map(o => o.id);
+
+        const itemImageMap = new Map<number, string>();
+        if (returnedOrderIds.length > 0) {
+            try {
+                const itemImages = await db.$queryRaw<Array<{ id: number, image_src: string | null }>>`
+                    SELECT id, 
+                      CASE 
+                        WHEN image_src LIKE 'data:image%' THEN '/api/order-image/' || id
+                        WHEN image_src LIKE '%|data:image%' THEN '/api/order-image/' || id
+                        WHEN image_src LIKE '/uploads/%' THEN 'https://printmarkt.co' || image_src
+                        WHEN image_src LIKE 'uploads/%' THEN 'https://printmarkt.co/' || image_src
+                        WHEN length(image_src) > 500 THEN '/api/order-image/' || id
+                        ELSE image_src 
+                      END AS image_src
+                    FROM "OrderItem"
+                    WHERE "orderId" IN (${Prisma.join(returnedOrderIds)})
+                `;
+                for (const img of itemImages) {
+                    if (img.image_src) itemImageMap.set(img.id, img.image_src);
+                }
+            } catch (err) {
+                console.error("Non-critical error fetching item images in API:", err);
+            }
+        }
 
         const serialized = orders.map(order => ({
             ...order,
@@ -194,33 +234,14 @@ export async function GET(req: NextRequest) {
             createdAt: order.createdAt.toISOString(),
             updatedAt: order.updatedAt.toISOString(),
             total: order.total || "0 ₺",
-            items: order.items.map(item => {
-                let serializedImageSrc = item.image_src;
-                if (item.image_src) {
-                    if (item.image_src.includes('data:image')) {
-                        const parts = item.image_src.split('|').map((s: string) => s.trim()).filter(Boolean);
-                        const transformed = parts.map((part: string, idx: number) => {
-                            if (part.startsWith('data:image')) {
-                                return idx === 0 
-                                    ? `/api/order-image/${item.id}` 
-                                    : `/api/order-image/${item.id}?index=${idx}`;
-                            }
-                            return part;
-                        });
-                        serializedImageSrc = transformed.join('|');
-                    } else if (item.image_src.startsWith('/api/uploads/') || item.image_src.startsWith('/uploads/') || item.image_src.startsWith('uploads/')) {
-                        serializedImageSrc = `https://printmarkt.co${item.image_src.startsWith('/') ? '' : '/'}${item.image_src}`;
-                    }
-                }
-                return {
-                    ...item,
-                    sku: item.sku || null,
-                    image_src: serializedImageSrc,
-                    url: item.url?.startsWith('data:') ? `/api/order-url/${item.id}` : item.url,
-                    material: item.material || null,
-                    dimensions: item.dimensions || null,
-                };
-            }),
+            items: order.items.map(item => ({
+                ...item,
+                sku: item.sku || null,
+                image_src: itemImageMap.get(item.id) || null,
+                url: item.url?.startsWith('data:') ? `/api/order-url/${item.id}` : item.url,
+                material: item.material || null,
+                dimensions: item.dimensions || null,
+            })),
             comments: (order as any).comments ? (order as any).comments.map((c: any) => ({
                 id: c.id,
                 message: c.message,

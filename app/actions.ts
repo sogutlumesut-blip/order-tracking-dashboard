@@ -1,5 +1,6 @@
 "use server"
 import { db } from "@/lib/prisma"
+import { Prisma } from "@prisma/client"
 import { autoCompleteOldOrders } from "@/lib/auto-complete"
 import { login, getSession, logout as authLogout } from "@/lib/auth"
 import { parseUserPermissions } from "@/lib/permissions"
@@ -142,7 +143,21 @@ export async function getOrders(timestamp?: number) {
         hasNotification: true,
         externalId: true,
         source: true,
-        items: true,
+        items: {
+            select: {
+                id: true,
+                name: true,
+                sku: true,
+                url: true,
+                quantity: true,
+                material: true,
+                dimensions: true,
+                productNote: true,
+                sampleData: true,
+                croppedImage: true,
+                orderId: true
+            }
+        },
         comments: {
             orderBy: { timestamp: "desc" as const },
             take: 1,
@@ -202,6 +217,32 @@ export async function getOrders(timestamp?: number) {
 
     // Serializing dates to strings to match interface and avoid hydration issues
     const returnedOrderIds = orders.map(o => o.id);
+
+    // Efficiently map image_src in database without transmitting huge base64 blobs into Node.js memory!
+    const itemImageMap = new Map<number, string>();
+    if (returnedOrderIds.length > 0) {
+        try {
+            const itemImages = await db.$queryRaw<Array<{ id: number, image_src: string | null }>>`
+                SELECT id, 
+                  CASE 
+                    WHEN image_src LIKE 'data:image%' THEN '/api/order-image/' || id
+                    WHEN image_src LIKE '%|data:image%' THEN '/api/order-image/' || id
+                    WHEN image_src LIKE '/uploads/%' THEN 'https://printmarkt.co' || image_src
+                    WHEN image_src LIKE 'uploads/%' THEN 'https://printmarkt.co/' || image_src
+                    WHEN length(image_src) > 500 THEN '/api/order-image/' || id
+                    ELSE image_src 
+                  END AS image_src
+                FROM "OrderItem"
+                WHERE "orderId" IN (${Prisma.join(returnedOrderIds)})
+            `;
+            for (const img of itemImages) {
+                if (img.image_src) itemImageMap.set(img.id, img.image_src);
+            }
+        } catch (err) {
+            console.error("Non-critical error fetching lightweight item images:", err);
+        }
+    }
+
     let ordersWithPdf: { id: number }[] = [];
     if (returnedOrderIds.length > 0) {
         try {
@@ -275,33 +316,14 @@ export async function getOrders(timestamp?: number) {
             createdAt: order.createdAt.toISOString(),
             updatedAt: order.updatedAt.toISOString(),
             total: order.total || "0 ₺",
-            items: order.items.map(item => {
-                let serializedImageSrc = item.image_src;
-                if (item.image_src) {
-                    if (item.image_src.includes('data:image')) {
-                        const parts = item.image_src.split('|').map((s: string) => s.trim()).filter(Boolean);
-                        const transformed = parts.map((part: string, idx: number) => {
-                            if (part.startsWith('data:image')) {
-                                return idx === 0 
-                                    ? `/api/order-image/${item.id}` 
-                                    : `/api/order-image/${item.id}?index=${idx}`;
-                            }
-                            return part;
-                        });
-                        serializedImageSrc = transformed.join('|');
-                    } else if (item.image_src.startsWith('/api/uploads/') || item.image_src.startsWith('/uploads/') || item.image_src.startsWith('uploads/')) {
-                        serializedImageSrc = `https://printmarkt.co${item.image_src.startsWith('/') ? '' : '/'}${item.image_src}`;
-                    }
-                }
-                return {
-                    ...item,
-                    sku: item.sku || null,
-                    image_src: serializedImageSrc,
-                    url: item.url?.startsWith('data:') ? `/api/order-url/${item.id}` : item.url,
-                    material: item.material || null,
-                    dimensions: item.dimensions || null,
-                };
-            }),
+            items: order.items.map(item => ({
+                ...item,
+                sku: item.sku || null,
+                image_src: itemImageMap.get(item.id) || null,
+                url: item.url?.startsWith('data:') ? `/api/order-url/${item.id}` : item.url,
+                material: item.material || null,
+                dimensions: item.dimensions || null,
+            })),
             comments: (order as any).comments ? (order as any).comments.map((c: any) => ({
                 id: c.id,
                 message: c.message,
@@ -2113,18 +2135,21 @@ export async function syncWooCommerceOrders(force: boolean = false) {
 
 
 export async function createManualOrder(orderData: any) {
-    const { items, customer, phone, email, address, city, note, status, clientBarcode, total, taxNumber, taxOffice, needsInvoice } = orderData
+    const { items, customer, phone, email, address, city, note, status, clientBarcode, total, taxNumber, taxOffice, needsInvoice, isSample } = orderData
 
     // Use a manual barcode prefix or the client-generated one for perfect optimistic UI sync
-    const barcode = clientBarcode || `MANUAL-${Date.now()}`
+    const barcode = clientBarcode || (isSample ? `SAMPLE-${Date.now()}` : `MANUAL-${Date.now()}`)
 
     const labelsList = ['Manuel']
+    if (isSample) {
+        labelsList.push('Numune')
+    }
     if (needsInvoice || taxNumber) {
         labelsList.push('Fatura')
     }
 
     try {
-        serverLog(`[CREATE_MANUAL] Starting for customer: ${customer}`);
+        serverLog(`[CREATE_MANUAL] Starting for customer: ${customer} (isSample: ${Boolean(isSample)})`);
         await db.order.create({
             data: {
                 customer,
@@ -2154,7 +2179,8 @@ export async function createManualOrder(orderData: any) {
         })
         serverLog(`[CREATE_MANUAL] Order retrieved from DB: ${newOrder?.id}`);
         if (newOrder) {
-            await logManualActivity(newOrder.id, "ORDER_CREATED", "Manuel sipariş oluşturuldu.")
+            const logText = isSample ? "Örnek (Numune) siparişi oluşturuldu." : "Manuel sipariş oluşturuldu."
+            await logManualActivity(newOrder.id, "ORDER_CREATED", logText)
         }
 
         const serializedItems = (newOrder?.items || []).map(item => {
