@@ -23,6 +23,60 @@ import { useRouter } from "next/navigation"
 
 import { ThemeToggle } from "@/components/theme-toggle"
 
+async function submitManualOrder(payload: any) {
+    try {
+        const response = await fetch('/api/orders/create-manual', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (response.ok) {
+            return await response.json();
+        }
+        
+        const errData = await response.json().catch(() => null);
+        throw new Error(errData?.error || `Sunucu hatası (HTTP ${response.status})`);
+    } catch (fetchErr: any) {
+        console.warn("API route createManualOrder failed, falling back to Server Action:", fetchErr);
+        try {
+            return await createManualOrder(payload);
+        } catch (actionErr: any) {
+            if (actionErr?.message?.includes("was not found on the server")) {
+                throw new Error("Sayfa oturumu güncel değil. Lütfen sayfayı yenileyip (F5) tekrar deneyiniz.");
+            }
+            throw actionErr;
+        }
+    }
+}
+
+async function submitMaterialOrder(payload: any) {
+    try {
+        const response = await fetch('/api/orders/create-material', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (response.ok) {
+            return await response.json();
+        }
+        
+        const errData = await response.json().catch(() => null);
+        throw new Error(errData?.error || `Sunucu hatası (HTTP ${response.status})`);
+    } catch (fetchErr: any) {
+        console.warn("API route createMaterialOrder failed, falling back to Server Action:", fetchErr);
+        try {
+            return await createMaterialOrder(payload);
+        } catch (actionErr: any) {
+            if (actionErr?.message?.includes("was not found on the server")) {
+                throw new Error("Sayfa oturumu güncel değil. Lütfen sayfayı yenileyip (F5) tekrar deneyiniz.");
+            }
+            throw actionErr;
+        }
+    }
+}
+
 interface KanbanBoardProps {
     initialOrders: Order[]
     currentUser: { 
@@ -1692,12 +1746,12 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                             };
 
                             setOrders(prev => [optimisticOrder, ...prev] as any);
-                            toast.success("Sipariş başarıyla oluşturuldu!");
+                            toast.success(data.isSample ? "Numune siparişi başarıyla oluşturuldu!" : "Sipariş başarıyla oluşturuldu!");
 
                             // 2. Actual server upload (Fire and forget!)
                             const payload = { ...data, clientBarcode };
                             
-                            createManualOrder(payload)
+                            submitManualOrder(payload)
                                 .then(async (res) => {
                                     if (!res || !res.success) {
                                         setOrders(prev => prev.filter(o => o.id !== tempId) as any);
@@ -1721,7 +1775,10 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 .catch((e: any) => {
                                     // Revert optimistic update on failure
                                     setOrders(prev => prev.filter(o => o.id !== tempId) as any);
-                                    toast.error("Sipariş yüklenemedi: " + (e?.message || "Bağlantı hatası"));
+                                    const errMsg = e?.message?.includes("was not found on the server")
+                                        ? "Sipariş yüklenemedi: Sayfa sürümü eski kaldı. Lütfen sayfayı yenileyip (F5) tekrar deneyin."
+                                        : "Sipariş yüklenemedi: " + (e?.message || "Bağlantı hatası");
+                                    toast.error(errMsg);
                                 });
                         }}
                     />
@@ -1760,7 +1817,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                             toast.success("Malzeme siparişi başarıyla oluşturuldu! Bekliyor (DKM) paneline eklendi.");
 
                             try {
-                                const res = await createMaterialOrder({
+                                const res = await submitMaterialOrder({
                                     ...data,
                                     requestedBy: currentUser?.name || "Atölye",
                                     clientBarcode
@@ -1777,7 +1834,10 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 }
                             } catch (e: any) {
                                 setOrders(prev => prev.filter(o => o.id !== tempId) as any);
-                                toast.error("Malzeme siparişi yüklenemedi: " + (e.message || "Bağlantı hatası"));
+                                const errMsg = e?.message?.includes("was not found on the server")
+                                    ? "Malzeme siparişi yüklenemedi: Sayfa sürümü eski kaldı. Lütfen sayfayı yenileyip (F5) tekrar deneyin."
+                                    : "Malzeme siparişi yüklenemedi: " + (e?.message || "Bağlantı hatası");
+                                toast.error(errMsg);
                             }
                         }}
                     />
