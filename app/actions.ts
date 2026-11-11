@@ -2450,6 +2450,39 @@ export async function syncCargoKargoEntegrator(force: boolean = false) {
     }
 }
 
+async function fetchPrintMarktOrdersPage(cleanUrl: string, pmKey: string, limit: number, offset: number): Promise<{ orders?: any[]; error?: string }> {
+    const fetchUrl = `${cleanUrl}/api/orders?limit=${limit}&offset=${offset}&_t=${Date.now()}`;
+    let response = await fetch(fetchUrl, {
+        headers: { "X-API-Key": pmKey },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(25000)
+    });
+
+    if (response.status === 401 || response.status === 403) {
+        response = await fetch(fetchUrl, {
+            headers: { "Authorization": `Bearer ${pmKey}` },
+            cache: 'no-store',
+            signal: AbortSignal.timeout(25000)
+        });
+    }
+
+    if (!response.ok) {
+        const errText = await response.text().catch(() => "");
+        return { error: `PrintMarkt sitesine bağlanılamadı (HTTP ${response.status}). Yanıt: ${errText.substring(0, 50)}` };
+    }
+
+    let pmOrders = await response.json();
+    if (pmOrders && !Array.isArray(pmOrders) && Array.isArray(pmOrders.orders)) {
+        pmOrders = pmOrders.orders;
+    }
+
+    if (!Array.isArray(pmOrders)) {
+        return { error: "PrintMarkt API'si beklenen listeyi (Array) döndürmedi." };
+    }
+
+    return { orders: pmOrders };
+}
+
 export async function syncPrintMarktOrders(force: boolean = false, targetOrderId?: string | number, bypassRateLimit: boolean = false) {
     const settings = (await getSystemSettings()) as Record<string, string>
 
@@ -2482,96 +2515,124 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
         
         let cleanUrl = settings['pm_url'].trim().replace(/\/+$/, '');
         let pmKey = settings['pm_key'].trim();
-        const limit = force ? 1200 : (targetOrderId ? 1 : 100); // 100 in background to save memory and CPU, 1200 when manual/force
-        let fetchUrl = targetOrderId 
-            ? `${cleanUrl}/api/orders?id=${targetOrderId}&_t=${Date.now()}`
-            : `${cleanUrl}/api/orders?limit=${limit}&_t=${Date.now()}`;
-            
-        let response = await fetch(fetchUrl, {
-            headers: { "X-API-Key": pmKey },
-            cache: 'no-store'
-        })
 
-        if (response.status === 401 || response.status === 403) {
-            response = await fetch(fetchUrl, {
-                headers: { "Authorization": `Bearer ${pmKey}` },
-                cache: 'no-store'
-            })
-        }
+        // PrintMarkt API ignores ?id= and ?status= params and sorts strictly by ID desc.
+        // Paginate in 100-order chunks via offset so delayed Etsy/integration drafts paid later are still caught without OOM spikes.
+        const pageSize = 100;
+        const targetIdStr = targetOrderId !== undefined && targetOrderId !== null ? String(targetOrderId).trim() : "";
+        const targetIdNum = /^\d+$/.test(targetIdStr) ? Number(targetIdStr) : null;
 
-        if (!response.ok) {
-            const errText = await response.text().catch(() => "");
-            return { error: `PrintMarkt sitesine bağlanılamadı (HTTP ${response.status}). Yanıt: ${errText.substring(0, 50)}` }
-        }
-
-        let pmOrders = await response.json()
-        console.log("[DEBUG] PrintMarkt Sync Response:", JSON.stringify(pmOrders, null, 2).substring(0, 500))
-
-        if (pmOrders && !Array.isArray(pmOrders) && Array.isArray(pmOrders.orders)) {
-            pmOrders = pmOrders.orders;
-        }
-
-        if (!Array.isArray(pmOrders)) {
-            return { error: "PrintMarkt API'si beklenen listeyi (Array) döndürmedi." }
-        }
-
-        if (pmOrders.length === 0) {
-            return { success: true, message: `Bağlantı BAŞARILI! Ancak PrintMarkt üzerinde çekilecek yeni sipariş bulunamadı.`, count: 0 }
+        let maxPages = 3; // Default 300 newest orders in background
+        if (force) {
+            maxPages = 12; // 1200 orders in manual/force sync
+        } else if (targetIdStr) {
+            maxPages = 6; // Up to 600 orders when hunting a webhook target ID (stops early once found)
+        } else {
+            const lastDeepSync = parseInt(settings['last_pm_deep_sync_time'] || "0");
+            if (!lastDeepSync || (Date.now() - lastDeepSync >= 15 * 60 * 1000)) {
+                maxPages = 6; // Periodic 600-order deep scan every 15 minutes
+                await db.systemSetting.upsert({
+                    where: { key: 'last_pm_deep_sync_time' },
+                    update: { value: Date.now().toString() },
+                    create: { key: 'last_pm_deep_sync_time', value: Date.now().toString() }
+                });
+            }
         }
 
         let importedCount = 0;
+        let totalFetched = 0;
 
-        // Fetch all existing PrintMarkt externalIds in a single query to avoid N+1 query performance bottleneck
-        const externalIdsToCheck = pmOrders
-            .map((pmOrder: any) => {
-                const externalId = pmOrder.id?.toString() || pmOrder.external_id || pmOrder.order_number?.toString() || pmOrder.number?.toString();
-                return externalId ? `pm_${externalId}` : null;
-            })
-            .filter(Boolean) as string[];
+        for (let page = 0; page < maxPages; page++) {
+            const offset = page * pageSize;
+            const pageRes = await fetchPrintMarktOrdersPage(cleanUrl, pmKey, pageSize, offset);
 
-        const existingOrders = await db.order.findMany({
-            where: {
-                externalId: {
-                    in: externalIdsToCheck
+            if (pageRes.error) {
+                if (page === 0) {
+                    return { error: pageRes.error };
                 }
-            },
-            select: {
-                id: true,
-                externalId: true,
-                status: true,
-                customer: true,
-                email: true,
-                phone: true,
-                address: true,
-                total: true,
-                labels: true,
-                note: true,
-                cargoBarcode: true,
-                cargoTrackingNumber: true,
-                cargoLabelPdf: true,
-                paymentMethod: true,
-                assignedTo: true,
-                updatedAt: true,
-                items: {
-                    select: {
-                        name: true,
-                        sku: true,
-                        quantity: true,
-                        dimensions: true,
-                        material: true,
-                        productNote: true
+                console.error(`[PM_SYNC] Page offset=${offset} failed, stopping pagination:`, pageRes.error);
+                break;
+            }
+
+            const pmOrders = pageRes.orders || [];
+            console.log(`[DEBUG] PrintMarkt Sync Page offset=${offset}, count=${pmOrders.length}`);
+
+            if (pmOrders.length === 0) {
+                if (page === 0) {
+                    return { success: true, message: `Bağlantı BAŞARILI! Ancak PrintMarkt üzerinde çekilecek yeni sipariş bulunamadı.`, count: 0 };
+                }
+                break;
+            }
+
+            totalFetched += pmOrders.length;
+
+            // Fetch all existing PrintMarkt externalIds in a single query to avoid N+1 query performance bottleneck
+            const externalIdsToCheck = pmOrders
+                .map((pmOrder: any) => {
+                    const externalId = pmOrder.id?.toString() || pmOrder.external_id || pmOrder.order_number?.toString() || pmOrder.number?.toString();
+                    return externalId ? `pm_${externalId}` : null;
+                })
+                .filter(Boolean) as string[];
+
+            const existingOrders = await db.order.findMany({
+                where: {
+                    externalId: {
+                        in: externalIdsToCheck
+                    }
+                },
+                select: {
+                    id: true,
+                    externalId: true,
+                    status: true,
+                    customer: true,
+                    email: true,
+                    phone: true,
+                    address: true,
+                    total: true,
+                    labels: true,
+                    note: true,
+                    cargoBarcode: true,
+                    cargoTrackingNumber: true,
+                    cargoLabelPdf: true,
+                    paymentMethod: true,
+                    assignedTo: true,
+                    updatedAt: true,
+                    items: {
+                        select: {
+                            name: true,
+                            sku: true,
+                            quantity: true,
+                            dimensions: true,
+                            material: true,
+                            productNote: true
+                        }
                     }
                 }
-            }
-        });
+            });
 
-        const existingOrdersMap = new Map(existingOrders.map(o => [o.externalId, o]));
+            const existingOrdersMap = new Map(existingOrders.map(o => [o.externalId, o]));
 
-        for (const pmOrder of pmOrders) {
-            try {
-                // Determine order number
-                const externalId = pmOrder.id?.toString() || pmOrder.external_id || pmOrder.order_number?.toString() || pmOrder.number?.toString();
-                if (!externalId) continue; // Skip if no ID
+            let foundTargetInPage = false;
+            let minNumericIdInPage: number | null = null;
+
+            for (const pmOrder of pmOrders) {
+                const numericId = Number(pmOrder.id);
+                if (!Number.isNaN(numericId) && (minNumericIdInPage === null || numericId < minNumericIdInPage)) {
+                    minNumericIdInPage = numericId;
+                }
+                if (targetIdStr && (
+                    pmOrder.id?.toString() === targetIdStr ||
+                    pmOrder.external_id?.toString() === targetIdStr ||
+                    pmOrder.order_number?.toString() === targetIdStr ||
+                    pmOrder.number?.toString() === targetIdStr
+                )) {
+                    foundTargetInPage = true;
+                }
+
+                try {
+                    // Determine order number
+                    const externalId = pmOrder.id?.toString() || pmOrder.external_id || pmOrder.order_number?.toString() || pmOrder.number?.toString();
+                    if (!externalId) continue; // Skip if no ID
 
                 // Skip unplaced integration orders (e.g. Etsy/WooCommerce integration orders that have not been submitted/paid on PrintMarkt yet)
                 const source = pmOrder.source || "";
@@ -2838,12 +2899,26 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
 
                     importedCount++;
                 }
-            } catch (err) {
-                console.error(`Error mapping PrintMarkt order:`, err);
+                } catch (err) {
+                    console.error(`Error mapping PrintMarkt order:`, err);
+                }
+            }
+
+            if (foundTargetInPage) {
+                break;
+            }
+            if (targetIdNum !== null && minNumericIdInPage !== null && minNumericIdInPage < targetIdNum) {
+                break;
+            }
+            if (pmOrders.length < pageSize) {
+                break;
+            }
+            if (page + 1 < maxPages) {
+                await new Promise(resolve => setTimeout(resolve, 150));
             }
         }
 
-        return { success: true, message: `Bağlantı BAŞARILI! ${importedCount} sipariş sisteme eklendi veya güncellendi. (Toplam kuyruk: ${pmOrders.length})`, count: importedCount }
+        return { success: true, message: `Bağlantı BAŞARILI! ${importedCount} sipariş sisteme eklendi veya güncellendi. (Toplam kuyruk: ${totalFetched})`, count: importedCount }
 
     } catch (e: any) {
         console.error("PrintMarkt Sync Error:", e)
