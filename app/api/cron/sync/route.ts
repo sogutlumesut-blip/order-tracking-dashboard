@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { syncWooCommerceOrders, syncPrintMarktOrders, syncEtsyOrders, syncWayfairOrders, syncShopifyOrders, syncCargoKargoEntegrator } from "@/app/actions";
+import { syncWooCommerceOrders, syncPrintMarktOrders, syncEtsyOrders, syncWayfairOrders, syncShopifyOrders, syncCargoKargoEntegrator, syncOzonOrders } from "@/app/actions";
 
 export const dynamic = 'force-dynamic';
 
@@ -42,9 +42,12 @@ export async function GET(req: Request) {
 
         // 6. Run Cargo sync
         const cargoRes = await syncCargoKargoEntegrator(false).catch(err => ({ error: err.message }));
+
+        // 7. Run Ozon sync
+        const ozonRes = await syncOzonOrders(false).catch(err => ({ error: err.message }));
         
         globalForCron.cronLastSyncTime = Date.now();
-        console.log("[CRON] Periodic Sync finished:", { pmRes, shopifyRes, wcRes, wfRes, etsyRes, cargoRes });
+        console.log("[CRON] Periodic Sync finished:", { pmRes, shopifyRes, wcRes, wfRes, etsyRes, cargoRes, ozonRes });
         
         return NextResponse.json({
             success: true,
@@ -55,7 +58,8 @@ export async function GET(req: Request) {
                 woocommerce: wcRes,
                 wayfair: wfRes,
                 etsy: etsyRes,
-                cargo: cargoRes
+                cargo: cargoRes,
+                ozon: ozonRes
             }
         });
     } catch (e: any) {

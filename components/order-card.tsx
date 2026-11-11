@@ -389,7 +389,7 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                 {order.barcode}
                             </span>
                             <h3 className="font-bold text-slate-900 dark:text-slate-100">
-                                {(order.source === 'woo' || order.source === 'wayfair' || order.source === 'shopify' || order.source === 'shopify_2') && order.externalId ? `#${order.externalId}` : (order.id > 0 ? `#${order.id}` : null)}
+                                {(order.source === 'woo' || order.source === 'wayfair' || order.source === 'shopify' || order.source === 'shopify_2' || order.source === 'ozon') && order.externalId ? `#${order.externalId}` : (order.id > 0 ? `#${order.id}` : null)}
                             </h3>
                             {(order.source === 'shopify' || order.source === 'shopify_2') && (
                                 <div className="flex items-center gap-1">
@@ -410,6 +410,11 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                             {order.source === 'wayfair' && (
                                 <span className="bg-purple-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm">
                                     WAYFAIR
+                                </span>
+                            )}
+                            {order.source === 'ozon' && (
+                                <span className="bg-[#005BFF] text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm">
+                                    OZON
                                 </span>
                             )}
                             {order.source === 'malzeme' && (

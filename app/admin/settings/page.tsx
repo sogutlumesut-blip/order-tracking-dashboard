@@ -18,6 +18,7 @@ import { CronTrigger } from "@/components/settings/cron-trigger"
 import { DHLSettingsForm } from "@/components/settings/dhl-settings-form"
 import { WayfairSettingsForm } from "@/components/settings/wayfair-settings-form"
 import { ShopifySettingsForm } from "@/components/settings/shopify-settings-form"
+import { OzonSettingsForm } from "@/components/settings/ozon-settings-form"
 
 
 export const dynamic = 'force-dynamic'
@@ -182,6 +183,23 @@ export default async function SettingsPage() {
                         wf_client_id: systemSettings.wf_client_id,
                         wf_client_secret: systemSettings.wf_client_secret,
                         wf_mode: systemSettings.wf_mode
+                    }} />
+                </div>
+
+                {/* OZON MARKETPLACE INTEGRATION */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-900">
+                        <span className="bg-[#005BFF] text-white p-1 px-2 rounded text-sm font-bold">OZON</span>
+                        Ozon (seller.ozon.ru) Entegrasyonu
+                    </h2>
+                    <p className="text-sm text-slate-600 mb-6">
+                        Ozon satıcı panelinizden aldığınız Client ID ve API Anahtarını girerek siparişlerin panele otomatik düşmesini sağlayın.
+                    </p>
+
+                    <OzonSettingsForm initialSettings={{
+                        ozon_client_id: systemSettings.ozon_client_id,
+                        ozon_api_key: systemSettings.ozon_api_key,
+                        last_ozon_sync_time: systemSettings.last_ozon_sync_time
                     }} />
                 </div>
 

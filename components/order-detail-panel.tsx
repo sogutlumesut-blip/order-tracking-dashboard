@@ -393,12 +393,14 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
         if (src === 'woo' || src === 'woocommerce') return 'WOO'
         if (src === 'printmarkt') return 'PRINTMARKT'
         if (src === 'wayfair') return 'WAYFAIR'
+        if (src === 'ozon') return 'OZON'
         if (src === 'shopify') return 'SHOPIFY'
         if (src === 'shopify_2') return 'SHOPIFY 2'
         if (src === 'etsy') return 'ETSY'
 
         if (barcode.startsWith('WC-') || barcode.startsWith('WOO-')) return 'WOO'
         if (barcode.startsWith('WF-') || barcode.startsWith('WAYFAIR-')) return 'WAYFAIR'
+        if (barcode.startsWith('OZON-')) return 'OZON'
         if (barcode.startsWith('PM-') || barcode.startsWith('PRINTMARKT-')) return 'PRINTMARKT'
         if (barcode.startsWith('SHOP2-')) return 'SHOPIFY 2'
         if (barcode.startsWith('SH-') || barcode.startsWith('SHOPIFY-') || barcode.startsWith('SHOP-')) return 'SHOPIFY'
@@ -407,6 +409,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
         if (labelsStr.some(l => l.includes('WOO'))) return 'WOO'
         if (labelsStr.some(l => l.includes('PRINTMARKT'))) return 'PRINTMARKT'
         if (labelsStr.some(l => l.includes('WAYFAIR'))) return 'WAYFAIR'
+        if (labelsStr.some(l => l.includes('OZON'))) return 'OZON'
         if (labelsStr.some(l => l.includes('SHOPIFY 2') || l.includes('SHOPIFY2'))) return 'SHOPIFY 2'
         if (labelsStr.some(l => l.includes('SHOPIFY'))) return 'SHOPIFY'
         if (labelsStr.some(l => l.includes('ETSY'))) return 'ETSY'
@@ -422,7 +425,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
     const getSlipDisplayOrderNo = () => {
         if (!formData) return ''
-        if ((formData.source === 'woo' || formData.source === 'wayfair' || formData.source === 'shopify' || formData.source === 'shopify_2' || formData.source === 'PrintMarkt') && formData.externalId) {
+        if ((formData.source === 'woo' || formData.source === 'wayfair' || formData.source === 'shopify' || formData.source === 'shopify_2' || formData.source === 'PrintMarkt' || formData.source === 'ozon') && formData.externalId) {
             const clean = formData.externalId.replace(/^pm_/, '')
             return clean.startsWith('#') ? clean : `#${clean}`
         }
@@ -1030,6 +1033,11 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     WAYFAIR
                                 </span>
                             )}
+                            {((formData.source || '').toLowerCase() === 'ozon' || (formData.barcode || '').startsWith('OZON-')) && (
+                                <span className="bg-[#005BFF] text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
+                                    OZON
+                                </span>
+                            )}
                             {(((formData.source || '').toLowerCase() === 'woo' || (formData.source || '').toLowerCase() === 'woocommerce') || (!formData.source && (formData.barcode || '').startsWith('WC-'))) && (
                                 <span className="bg-[#96588A] text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
                                     WOO
@@ -1048,7 +1056,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     {line}
                                 </span>
                             ))}
-                            {(formData.source === 'woo' || formData.source === 'wayfair' || formData.source === 'shopify' || formData.source === 'shopify_2' || formData.source === 'PrintMarkt') && formData.externalId && (
+                            {(formData.source === 'woo' || formData.source === 'wayfair' || formData.source === 'shopify' || formData.source === 'shopify_2' || formData.source === 'PrintMarkt' || formData.source === 'ozon') && formData.externalId && (
                                 <span className="ml-2 text-xs text-slate-400 font-mono inline-block">(Sistem ID: #{formData.id})</span>
                             )}
                         </div>

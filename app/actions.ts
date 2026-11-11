@@ -10,6 +10,7 @@ import bcrypt from "bcryptjs"
 import { OrderStatus } from "@/data/mock-orders"
 import WooCommerceRestApi from "@woocommerce/woocommerce-rest-api"
 import { fetchShopifyOrders, upsertShopifyOrder, cleanShopifyDomain } from "@/lib/shopify"
+import { testOzonConnection, fetchOzonOrders, fetchOzonProductImages, upsertOzonPosting } from "@/lib/ozon"
 import { isStockMatch, checkStockMatch } from "@/lib/warehouse-matcher"
 import { createEdmInvoiceDirect } from "@/lib/edm-api"
 import fs from "fs"
@@ -3099,6 +3100,73 @@ export async function wipeWayfairOrders() {
     }
 }
 
+// OZON SETTINGS SAVE ACTION
+export async function saveOzonSettings(formData: FormData) {
+    const clientId = (formData.get("ozon_client_id") as string)?.trim()
+    const apiKey = (formData.get("ozon_api_key") as string)?.trim()
+
+    if (!clientId || !apiKey) {
+        return { error: "Lütfen Ozon Client ID ve API Anahtarını giriniz." }
+    }
+
+    try {
+        await db.systemSetting.upsert({
+            where: { key: 'ozon_client_id' },
+            update: { value: clientId },
+            create: { key: 'ozon_client_id', value: clientId }
+        })
+        await db.systemSetting.upsert({
+            where: { key: 'ozon_api_key' },
+            update: { value: apiKey },
+            create: { key: 'ozon_api_key', value: apiKey }
+        })
+
+        revalidatePath("/admin/settings")
+        return { success: true, message: "Ozon ayarları başarıyla kaydedildi." }
+    } catch (e: any) {
+        console.error("Save Ozon Settings Error:", e)
+        return { error: "Ayarlar kaydedilirken hata oluştu: " + e.message }
+    }
+}
+
+// OZON TEST CONNECTION ACTION
+export async function testOzonSettings(formData?: FormData) {
+    let clientId = (formData?.get("ozon_client_id") as string)?.trim()
+    let apiKey = (formData?.get("ozon_api_key") as string)?.trim()
+
+    if (!clientId || !apiKey) {
+        const settings = await getSystemSettings()
+        clientId = clientId || settings['ozon_client_id']
+        apiKey = apiKey || settings['ozon_api_key']
+    }
+
+    if (!clientId || !apiKey) {
+        return { success: false, error: "Test için Client ID ve API Anahtarı girilmelidir." }
+    }
+
+    return await testOzonConnection(clientId, apiKey)
+}
+
+// OZON WIPE ACTION
+export async function wipeOzonOrders() {
+    try {
+        const session = await getSession();
+        if (!session || session.user.role !== "admin") {
+            return { error: "Yetkisiz işlem: Sadece yöneticiler silebilir." };
+        }
+
+        const result = await db.order.deleteMany({
+            where: { source: 'ozon' }
+        });
+
+        revalidatePath("/")
+        return { success: true, message: `${result.count} adet Ozon siparişi başarıyla silindi.` };
+    } catch (e: any) {
+        console.error("Ozon Wipe Error:", e);
+        return { error: "Silme hatası: " + e.message };
+    }
+}
+
 // SHOPIFY SETTINGS SAVE ACTION
 export async function saveShopifySettings(formData: FormData) {
     const domain = (formData.get("shopify_shop_domain") as string)?.trim() || ""
@@ -3911,6 +3979,102 @@ export async function syncWayfairOrders(force: boolean = false) {
     }
 }
 
+// OZON SYNC ACTION
+export async function syncOzonOrders(force: boolean = false) {
+    const settings = (await getSystemSettings()) as Record<string, string>
+
+    const clientId = settings['ozon_client_id']
+    const apiKey = settings['ozon_api_key']
+
+    if (!clientId || !apiKey) {
+        return { error: "Ozon ayarları eksik. Lütfen Ayarlar sayfasından Client ID ve API Anahtarını tamamlayınız." }
+    }
+
+    // RATE LIMIT CHECK (1 minute cooldown for auto background sync)
+    if (!force) {
+        const lastSyncStr = settings['last_ozon_sync_time']
+        if (lastSyncStr) {
+            const lastSync = parseInt(lastSyncStr)
+            const now = Date.now()
+            if (now - lastSync < 60000) {
+                return { skipped: true, message: "Sync skipped (Rate Limit)" }
+            }
+        }
+    }
+
+    try {
+        // UPDATE TIMESTAMP
+        await db.systemSetting.upsert({
+            where: { key: 'last_ozon_sync_time' },
+            update: { value: Date.now().toString() },
+            create: { key: 'last_ozon_sync_time', value: Date.now().toString() }
+        })
+
+        // Fetch Orders from Ozon
+        const fetchRes = await fetchOzonOrders(clientId, apiKey, 30)
+        if (fetchRes.error && fetchRes.postings.length === 0) {
+            return { error: fetchRes.error }
+        }
+
+        const postings = fetchRes.postings
+        if (postings.length === 0) {
+            return { success: true, message: "Bağlantı başarılı! Ancak aktarılacak yeni Ozon siparişi bulunamadı.", count: 0 }
+        }
+
+        // Collect offer_ids to fetch high quality product images in batch
+        const offerIds: string[] = []
+        for (const p of postings) {
+            for (const prod of p.products || []) {
+                if (prod.offer_id) offerIds.push(prod.offer_id)
+            }
+        }
+
+        let imageMap = new Map<string, string>()
+        if (offerIds.length > 0) {
+            imageMap = await fetchOzonProductImages(clientId, apiKey, offerIds).catch(() => new Map())
+        }
+
+        // Determine default status
+        const statuses = await db.statusColumn.findMany({ orderBy: { order: 'asc' } })
+        let defaultStatus = statuses.length > 0 ? statuses[0].id : "pending"
+        const incoming = statuses.find(s =>
+            s.title.toLowerCase().includes("gelen") ||
+            s.title.toLowerCase().includes("yeni") ||
+            s.title.toLowerCase().includes("sipariş") ||
+            s.id === "pending"
+        )
+        if (incoming) defaultStatus = incoming.id
+
+        let importedCount = 0
+        let updatedCount = 0
+
+        for (const posting of postings) {
+            try {
+                const res = await upsertOzonPosting(posting, {
+                    defaultStatus,
+                    imageMap
+                })
+                if (res.success) {
+                    if (res.isNew) importedCount++
+                    else updatedCount++
+                }
+            } catch (err: any) {
+                console.error(`[OZON_SYNC_ORDER_ERR] #${posting.posting_number}:`, err.message)
+            }
+        }
+
+        revalidatePath("/")
+        return {
+            success: true,
+            message: `Ozon senkronizasyonu tamamlandı. ${importedCount} yeni sipariş eklendi, ${updatedCount} sipariş güncellendi/kontrol edildi.`,
+            count: importedCount
+        }
+    } catch (e: any) {
+        console.error("Ozon Sync Error:", e)
+        return { error: "Ozon senkronizasyon hatası: " + e.message }
+    }
+}
+
 // Background periodic sync for persistent Node.js servers (DigitalOcean App Platform, VPS, etc.)
 const globalForSync = globalThis as unknown as {
     syncIntervalStarted: boolean | undefined;
@@ -3943,7 +4107,9 @@ if (typeof window === 'undefined' && process.env.NODE_ENV === 'production' && pr
                 const wf = await syncWayfairOrders(false).catch(e => ({ error: e.message }));
                 await new Promise(r => setTimeout(r, 1000));
                 const shopify = await syncShopifyOrders(false).catch(e => ({ error: e.message }));
-                console.log("[BACKGROUND_SYNC] Scheduled sync completed:", { wc, pm, etsy, cargo, wf, shopify });
+                await new Promise(r => setTimeout(r, 1000));
+                const ozon = await syncOzonOrders(false).catch(e => ({ error: e.message }));
+                console.log("[BACKGROUND_SYNC] Scheduled sync completed:", { wc, pm, etsy, cargo, wf, shopify, ozon });
             } catch (error) {
                 console.error("[BACKGROUND_SYNC] Fatal error in scheduled sync:", error);
             } finally {
