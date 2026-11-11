@@ -2843,8 +2843,10 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                         let sm = String(item.shipping_method).toLowerCase();
                         if (sm === 'ups' || sm.includes('ups')) pmCargoName = "usa ups";
                         else if (sm === 'fedex' || sm.includes('fedex')) pmCargoName = "fedex ship";
+                        else if (sm.includes('shipentegra')) pmCargoName = "shipentegra";
                         else if (sm === 'custom_label' || sm.includes('özel etiket') || sm.includes('custom')) pmCargoName = "özel etiket";
                         else if (sm.includes('carrier') || sm.includes('turkey') || sm.includes('mng') || sm.includes('aras') || sm.includes('yurtiçi') || sm.includes('sendeo')) pmCargoName = "turkey ship";
+                        else if (sm.includes(':')) pmCargoName = sm.split(':')[0].trim();
                         else pmCargoName = String(item.shipping_method);
                     }
                     if (pmCargoName) {

@@ -423,6 +423,27 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
         return null
     }
 
+    const getSlipCargoBadge = (): string | null => {
+        if (!formData) return null
+        const labelsStr = (formData.labels || []).map((l: string) => l.toUpperCase().trim())
+        for (const l of labelsStr) {
+            if (l.includes("SHIPENTEGRA")) return "SHIPENTEGRA"
+            if (l.includes("FEDEX")) return "FEDEX SHIP"
+            if (l.includes("USA UPS") || l.includes("UPS")) return "USA UPS"
+            if (l.includes("USA DEPO") || l === "USA" || l.startsWith("USA ")) return "USA DEPO"
+            if (l.includes("DHL")) return "DHL"
+            if (l.includes("MNG")) return "MNG KARGO"
+            if (l.includes("YURTİÇİ") || l.includes("YURTICI")) return "YURTİÇİ KARGO"
+            if (l.includes("ARAS")) return "ARAS KARGO"
+            if (l.includes("SENDEO")) return "SENDEO"
+            if (l.includes("PTT")) return "PTT KARGO"
+            if (l.includes("SÜRAT") || l.includes("SURAT")) return "SÜRAT KARGO"
+            if (l.includes("TURKEY") || l.includes("TR SHIP")) return "TURKEY SHIP"
+            if (l.includes("OZEL") || l.includes("ÖZEL") || l.includes("CUSTOM")) return "ÖZEL ETİKET"
+        }
+        return null
+    }
+
     const getSlipDisplayOrderNo = () => {
         if (!formData) return ''
         if ((formData.source === 'woo' || formData.source === 'wayfair' || formData.source === 'shopify' || formData.source === 'shopify_2' || formData.source === 'PrintMarkt' || formData.source === 'ozon') && formData.externalId) {
@@ -648,6 +669,19 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                             letterSpacing: "0.5px"
                                         }}>
                                             {getSlipPlatformBadge()}
+                                        </span>
+                                    )}
+                                    {getSlipCargoBadge() && getSlipCargoBadge() !== getSlipPlatformBadge() && (
+                                        <span style={{
+                                            fontSize: "8.5px",
+                                            fontWeight: "900",
+                                            backgroundColor: "#000000",
+                                            color: "#ffffff",
+                                            padding: "1px 4px",
+                                            borderRadius: "2px",
+                                            letterSpacing: "0.5px"
+                                        }}>
+                                            {getSlipCargoBadge()}
                                         </span>
                                     )}
                                     <span style={{ fontSize: "15px", fontWeight: "900" }}>

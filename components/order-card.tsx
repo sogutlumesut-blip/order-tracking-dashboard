@@ -482,11 +482,21 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                 {/* LABELS ROW */}
                 <div className="flex flex-wrap gap-1">
                     {order.labels.map(labelName => {
-                        const tagDef = tags.find(t => t.name === labelName)
-                        const colors = labelName === 'Malzeme'
+                        let displayLabel = labelName;
+                        if (displayLabel.toUpperCase().includes('SHIPENTEGRA')) {
+                            displayLabel = 'SHIPENTEGRA';
+                        } else if (displayLabel.includes(':')) {
+                            const prefix = displayLabel.split(':')[0].trim();
+                            if (prefix) displayLabel = prefix.toUpperCase();
+                        }
+
+                        const tagDef = tags.find(t => t.name === labelName || t.name === displayLabel)
+                        const colors = displayLabel === 'Malzeme'
                             ? { bg: 'bg-amber-100 dark:bg-amber-950/60', text: 'text-amber-800 dark:text-amber-300', border: 'border-amber-300 dark:border-amber-700' }
-                            : (labelName === 'Numune' || labelName === 'Örnek')
+                            : (displayLabel === 'Numune' || displayLabel === 'Örnek')
                             ? { bg: 'bg-purple-100 dark:bg-purple-950/60', text: 'text-purple-800 dark:text-purple-300', border: 'border-purple-300 dark:border-purple-700' }
+                            : (displayLabel === 'SHIPENTEGRA')
+                            ? { bg: 'bg-blue-50 dark:bg-blue-950/60', text: 'text-blue-700 dark:text-blue-300', border: 'border-blue-300 dark:border-blue-700' }
                             : getColorClasses(tagDef?.color)
 
                         return (
@@ -494,7 +504,7 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                 key={labelName}
                                 className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-sm border ${colors.bg} ${colors.text} ${colors.border}`}
                             >
-                                {labelName}
+                                {displayLabel}
                             </span>
                         )
                     })}

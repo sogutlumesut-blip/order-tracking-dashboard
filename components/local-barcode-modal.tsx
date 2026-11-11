@@ -27,6 +27,7 @@ interface LocalBarcodeModalProps {
             dimensions?: string | null
             image_src?: string | null
             sampleData?: string | null
+            shipping_method?: string | null
         }>
         labels?: string | string[]
         cargoTrackingNumber?: string | null
@@ -110,27 +111,73 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
     };
 
     const orderLabels = getLabels(order.labels);
-    const findActiveBadge = () => {
-        const keywords = [
-            "USA DEPO", "USA UPS", "USA", 
-            "TURKEY SHIP", "TURKEY", "TR SHIP", 
-            "FEDEX SHIP", "FEDEX", 
-            "OZEL ETİKET", "ÖZEL ETİKET", "OZEL", "ÖZEL"
-        ];
+    const findActiveBadges = (): string[] => {
+        const badges: string[] = [];
+        const seen = new Set<string>();
+
+        const addBadge = (b: string | null | undefined) => {
+            if (b && !seen.has(b)) {
+                seen.add(b);
+                badges.push(b);
+            }
+        };
+
         for (const label of orderLabels) {
-            const upper = label.toUpperCase();
-            const matchedKeyword = keywords.find(keyword => upper.includes(keyword));
-            if (matchedKeyword) {
-                if (matchedKeyword.startsWith("USA")) return "USA DEPO";
-                if (matchedKeyword.startsWith("TURKEY") || matchedKeyword === "TR SHIP") return "TURKEY SHIP";
-                if (matchedKeyword.startsWith("FEDEX")) return "FEDEX SHIP";
-                if (matchedKeyword.startsWith("OZEL") || matchedKeyword.startsWith("ÖZEL")) return "ÖZEL ETİKET";
-                return label.toUpperCase();
+            const upper = label.toUpperCase().trim();
+            if (upper.includes("SHIPENTEGRA")) {
+                addBadge("SHIPENTEGRA");
+            } else if (upper.includes("FEDEX")) {
+                addBadge("FEDEX SHIP");
+            } else if (upper.includes("USA UPS") || upper.includes("UPS")) {
+                addBadge("USA UPS");
+            } else if (upper.includes("USA DEPO") || upper === "USA" || upper.startsWith("USA ")) {
+                addBadge("USA DEPO");
+            } else if (upper.includes("DHL")) {
+                addBadge("DHL");
+            } else if (upper.includes("MNG")) {
+                addBadge("MNG KARGO");
+            } else if (upper.includes("YURTİÇİ") || upper.includes("YURTICI")) {
+                addBadge("YURTİÇİ KARGO");
+            } else if (upper.includes("ARAS")) {
+                addBadge("ARAS KARGO");
+            } else if (upper.includes("SENDEO")) {
+                addBadge("SENDEO");
+            } else if (upper.includes("PTT")) {
+                addBadge("PTT KARGO");
+            } else if (upper.includes("SÜRAT") || upper.includes("SURAT")) {
+                addBadge("SÜRAT KARGO");
+            } else if (upper.includes("TURKEY") || upper === "TR SHIP" || upper.includes("TR SHIP")) {
+                addBadge("TURKEY SHIP");
+            } else if (upper.includes("OZEL") || upper.includes("ÖZEL") || upper.includes("CUSTOM_LABEL") || upper.includes("CUSTOM LABEL")) {
+                addBadge("ÖZEL ETİKET");
             }
         }
-        return null;
+
+        // Also check order items for shipping_method if no cargo badge was found from labels
+        const hasCargo = badges.some(b => b !== "ÖZEL ETİKET");
+        if (!hasCargo && order.items && order.items.length > 0) {
+            for (const item of order.items) {
+                const sm = String((item as any)?.shipping_method || "").toUpperCase().trim();
+                if (!sm) continue;
+                if (sm.includes("SHIPENTEGRA")) addBadge("SHIPENTEGRA");
+                else if (sm.includes("FEDEX")) addBadge("FEDEX SHIP");
+                else if (sm.includes("UPS")) addBadge("USA UPS");
+                else if (sm.includes("DHL")) addBadge("DHL");
+                else if (sm.includes("MNG")) addBadge("MNG KARGO");
+                else if (sm.includes("YURTİÇİ") || sm.includes("YURTICI")) addBadge("YURTİÇİ KARGO");
+                else if (sm.includes("ARAS")) addBadge("ARAS KARGO");
+                else if (sm.includes("SENDEO")) addBadge("SENDEO");
+                else if (sm.includes("PTT")) addBadge("PTT KARGO");
+                else if (sm.includes("SÜRAT") || sm.includes("SURAT")) addBadge("SÜRAT KARGO");
+                else if (sm.includes("TURKEY") || sm.includes("TR SHIP") || sm.includes("CARRIER")) addBadge("TURKEY SHIP");
+                else if (sm.includes("CUSTOM") || sm.includes("ÖZEL") || sm.includes("OZEL")) addBadge("ÖZEL ETİKET");
+            }
+        }
+
+        return badges;
     };
-    const activeBadge = findActiveBadge();
+    const activeBadges = findActiveBadges();
+    const activeBadge = activeBadges[0] || null;
 
     const getPlatformName = (): string | null => {
         const src = (order.source || "").toLowerCase().trim();
@@ -273,7 +320,7 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                                             </span>
                                         )}
                                     </div>
-                                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", justifyContent: "flex-end" }}>
                                         {platformBadge && (
                                             <div 
                                                 style={{
@@ -293,8 +340,9 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                                                 {platformBadge}
                                             </div>
                                         )}
-                                        {activeBadge && activeBadge !== platformBadge && (
+                                        {activeBadges.filter(b => b !== platformBadge).map(badge => (
                                             <div 
+                                                key={badge}
                                                 style={{
                                                     padding: "4px 10px",
                                                     backgroundColor: '#000000',
@@ -309,9 +357,9 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                                                     lineHeight: "1.2"
                                                 }}
                                             >
-                                                {activeBadge}
+                                                {badge}
                                             </div>
-                                        )}
+                                        ))}
                                     </div>
                                 </div>
 
@@ -446,7 +494,7 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                                 <div style={{
                                     width: "100%",
                                     borderBottom: "2px solid #000000",
-                                    paddingBottom: (activeBadge || platformBadge) ? "10px" : "8px",
+                                    paddingBottom: (activeBadges.length > 0 || platformBadge) ? "10px" : "8px",
                                     marginBottom: "12px",
                                     textAlign: "center"
                                 }}>
@@ -464,7 +512,7 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                                         margin: "0",
                                         color: "#000000"
                                     }}>Duvar Kağıdı Marketi</p>
-                                    {(platformBadge || activeBadge) && (
+                                    {(platformBadge || activeBadges.length > 0) && (
                                         <div 
                                             style={{
                                                 display: "flex",
@@ -493,8 +541,9 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                                                     {platformBadge}
                                                 </div>
                                             )}
-                                            {activeBadge && activeBadge !== platformBadge && (
+                                            {activeBadges.filter(b => b !== platformBadge).map(badge => (
                                                 <div 
+                                                    key={badge}
                                                     style={{
                                                         padding: "4px 12px",
                                                         backgroundColor: '#000000',
@@ -508,9 +557,9 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
                                                         printColorAdjust: 'exact'
                                                     }}
                                                 >
-                                                    {activeBadge}
+                                                    {badge}
                                                 </div>
-                                            )}
+                                            ))}
                                         </div>
                                     )}
                                 </div>
