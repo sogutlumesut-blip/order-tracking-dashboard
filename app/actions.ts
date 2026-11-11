@@ -4034,16 +4034,14 @@ export async function syncOzonOrders(force: boolean = false) {
             imageMap = await fetchOzonProductImages(clientId, apiKey, offerIds).catch(() => new Map())
         }
 
-        // Determine default status
+        // Determine default status: target "pending_pm" (Bekliyor (PrintMarkt))
         const statuses = await db.statusColumn.findMany({ orderBy: { order: 'asc' } })
-        let defaultStatus = statuses.length > 0 ? statuses[0].id : "pending"
-        const incoming = statuses.find(s =>
-            s.title.toLowerCase().includes("gelen") ||
-            s.title.toLowerCase().includes("yeni") ||
-            s.title.toLowerCase().includes("sipariş") ||
-            s.id === "pending"
+        let defaultStatus = "pending_pm"
+        const pmStatus = statuses.find(s =>
+            s.id === "pending_pm" ||
+            s.title.toLowerCase().includes("printmarkt")
         )
-        if (incoming) defaultStatus = incoming.id
+        if (pmStatus) defaultStatus = pmStatus.id
 
         let importedCount = 0
         let updatedCount = 0

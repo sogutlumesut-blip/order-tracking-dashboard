@@ -385,6 +385,11 @@ export async function upsertOzonPosting(
             updateData.cargoTrackingNumber = posting.tracking_number;
         }
 
+        // Move to pending_pm if it was created in a generic pending status
+        if (existing.status !== "pending_pm" && (existing.status === "pending" || existing.status === "draft" || existing.status === "pending_woo")) {
+            updateData.status = "pending_pm";
+        }
+
         // If cancelled in Ozon, mark cancelled if order is still pending
         if (posting.status === "cancelled" && existing.status !== "cancelled") {
             updateData.note = (existing.note ? existing.note + " | " : "") + "[Ozon'da İptal Edildi]";
@@ -400,8 +405,8 @@ export async function upsertOzonPosting(
         return { success: true, isNew: false };
     }
 
-    // Determine status
-    let orderStatus = options.defaultStatus;
+    // Determine status (Bekliyor (PrintMarkt) - pending_pm)
+    let orderStatus = options.defaultStatus || "pending_pm";
     if (posting.status === "cancelled") {
         orderStatus = "cancelled";
     }
