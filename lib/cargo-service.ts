@@ -95,14 +95,20 @@ export async function generateDHLShipment(orderId: number, actorName: string, by
             `Kargo başarıyla oluşturuldu. (ID: ${shipmentRes.shipmentId}, Barkod: ${trackingNo})`
         );
 
-        // Auto-fulfill Shopify if order is from Shopify
-        if (order.source?.startsWith('shopify') && trackingNo) {
-            import('@/lib/shopify').then(({ fulfillShopifyOrder }) => {
-                fulfillShopifyOrder(orderId, {
+        // Fulfill Shopify ONLY when label is actively created (not bypassed) and order is from Shopify
+        if (!bypassStatusUpdate && order.source?.startsWith('shopify') && trackingNo) {
+            try {
+                const { fulfillShopifyOrder } = await import('@/lib/shopify');
+                const fulfillRes = await fulfillShopifyOrder(orderId, {
                     trackingNumber: trackingNo,
                     company: 'DHL eCommerce',
-                }).catch(e => console.warn('[AUTO_SHOPIFY_FULFILL_ERR]', e.message));
-            }).catch(() => {});
+                });
+                if (fulfillRes?.error) {
+                    console.warn('[AUTO_SHOPIFY_FULFILL_WARN]', fulfillRes.error);
+                }
+            } catch (e: any) {
+                console.warn('[AUTO_SHOPIFY_FULFILL_ERR]', e.message);
+            }
         }
 
         return { 

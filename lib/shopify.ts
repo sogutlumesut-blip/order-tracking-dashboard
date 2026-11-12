@@ -1,6 +1,5 @@
 import crypto from 'crypto';
 import { db } from './prisma';
-import { generateDHLShipment } from './cargo-service';
 import { parseTurkishCityAndDistrict } from './turkish-cities';
 
 /**
@@ -760,12 +759,8 @@ export async function upsertShopifyOrder(shopifyOrder: any, storeConfig?: Shopif
         },
     });
 
-    // Auto DHL generation if configured
-    try {
-        await generateDHLShipment(newOrder.id, 'Sistem', true);
-    } catch (dhlErr) {
-        console.error('[SHOPIFY_AUTO_DHL_ERR]', dhlErr);
-    }
+    // Not auto-generating DHL or fulfilling on order creation;
+    // DHL label generation and Shopify fulfillment occur when cargo label is explicitly created.
 
     return { success: true, isNew: true, order: newOrder };
 }
