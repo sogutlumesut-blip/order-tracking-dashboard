@@ -1766,7 +1766,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                         } : o) as any);
 
                                         try {
-                                            await createDHLShipmentAction(res.orderId, false);
+                                            await createDHLShipmentAction(res.orderId, true);
                                         } catch (err) {
                                             console.error("Kargo etiketi hatası:", err);
                                         }
