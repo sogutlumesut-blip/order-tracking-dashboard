@@ -205,6 +205,9 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
     const isCancelled = order.labels.includes('İPTAL EDİLDİ') || order.labels.includes('İptal Edildi')
     const isDeleted = order.labels.includes('SİLİNDİ') || order.labels.includes('Silindi')
     const isMaterialOrder = order.source === 'malzeme' || order.labels.includes('Malzeme') || (order.items && order.items.length > 0 && !!order.items[0]?.sku?.startsWith('MLZ'))
+    const isProofRequest = order.labels.includes('TASLAK TALEBİ VAR') || 
+                           (order.barcode && order.barcode.startsWith('PM-DRAFT-')) ||
+                           (order.externalId && order.externalId.startsWith('pm_proof_'))
 
     useEffect(() => {
         const isPrintingStatus = ['processing', 'baski', 'printing', 'printed'].includes(order.status.toLowerCase()) || order.status.toLowerCase().includes('print')
@@ -218,6 +221,7 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
             onClick={onClick}
             onMouseEnter={() => onPrefetch?.()}
             className={`bg-white dark:bg-slate-900 rounded-xl shadow-sm cursor-pointer hover:shadow-md transition-all relative group overflow-hidden border-2 ${selected ? 'border-blue-600 ring-2 ring-blue-300 transform scale-[1.02]' :
+                isProofRequest ? 'border-amber-500 bg-amber-50/15 dark:bg-amber-950/20 shadow-md ring-1 ring-amber-400' :
                 isPaymentFailed ? 'border-red-600 bg-red-50 dark:bg-red-900/20' :
                     isCancelled ? 'border-rose-500 bg-rose-50/10 dark:bg-rose-950/20' :
                         isDeleted ? 'border-slate-500 bg-slate-50/10 dark:bg-slate-950/20' :
@@ -295,6 +299,14 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
 
                 {/* Badges Container */}
                 <div className="absolute top-2 left-2 flex flex-col gap-1 z-20 items-start">
+                    {/* Proof Request Alert Badge (TASLAK TALEBİ VAR) */}
+                    {isProofRequest && !isPaymentFailed && !isCancelled && !isDeleted && (
+                        <div className="bg-amber-600 border border-amber-300 text-white text-[10px] font-black px-2 py-1 rounded-md shadow-xl flex items-center gap-1.5 uppercase tracking-wide animate-pulse">
+                            <span className="text-xs">📋</span>
+                            <span>TASLAK TALEBİ VAR</span>
+                        </div>
+                    )}
+
                     {/* Notification Badge */}
                     {order.hasNotification && !isPaymentFailed && !isCancelled && !isDeleted && (() => {
                         let badgeText = order.status === 'pending' || order.status.toLowerCase().includes('yeni') ? 'YENİ SİPARİŞ' : 'YENİ GÜNCELLEME';
@@ -389,8 +401,15 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                 {order.barcode}
                             </span>
                             <h3 className="font-bold text-slate-900 dark:text-slate-100">
-                                {(order.source === 'woo' || order.source === 'wayfair' || order.source === 'shopify' || order.source === 'shopify_2' || order.source === 'ozon') && order.externalId ? `#${order.externalId}` : (order.id > 0 ? `#${order.id}` : null)}
+                                {isProofRequest
+                                    ? `#${order.externalId ? order.externalId.replace('pm_proof_', 'TASLAK-') : order.id}`
+                                    : ((order.source === 'woo' || order.source === 'wayfair' || order.source === 'shopify' || order.source === 'shopify_2' || order.source === 'ozon') && order.externalId ? `#${order.externalId}` : (order.id > 0 ? `#${order.id}` : null))}
                             </h3>
+                            {isProofRequest && (
+                                <span className="bg-amber-500 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded shadow-sm">
+                                    TASLAK TALEBİ
+                                </span>
+                            )}
                             {(order.source === 'shopify' || order.source === 'shopify_2') && (
                                 <div className="flex items-center gap-1">
                                     <span className={`text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm ${order.source === 'shopify_2' ? 'bg-[#5c6ac4]' : 'bg-[#008060]'}`}>
@@ -448,13 +467,19 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                         </div>
                     </div>
                     <div className="flex flex-col items-end gap-1">
-                        <span className={`text-sm font-semibold px-2 py-1 rounded-md ${isPaymentFailed ? 'text-red-700 bg-red-100 line-through' : 'text-green-600 bg-green-50'}`}>
-                            {order.source === 'PrintMarkt' || order.source === 'wayfair' || (order.source?.startsWith('shopify') && order.total.includes('$'))
-                                ? `$${order.total.replace('$', '').replace('USD', '').trim()}`
-                                : (order.source?.startsWith('shopify') && order.total.includes('€'))
-                                ? `€${order.total.replace('€', '').replace('EUR', '').trim()}`
-                                : `${order.total.replace('₺', '').replace('TL', '').replace('$', '').replace('USD', '').replace('€', '').replace('EUR', '').trim()} ₺`}
-                        </span>
+                        {isProofRequest ? (
+                            <span className="text-[11px] font-black px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200 border border-amber-300 shadow-sm flex items-center gap-1">
+                                <span>SİPARİŞ DEĞİL</span>
+                            </span>
+                        ) : (
+                            <span className={`text-sm font-semibold px-2 py-1 rounded-md ${isPaymentFailed ? 'text-red-700 bg-red-100 line-through' : 'text-green-600 bg-green-50'}`}>
+                                {order.source === 'PrintMarkt' || order.source === 'wayfair' || (order.source?.startsWith('shopify') && order.total.includes('$'))
+                                    ? `$${order.total.replace('$', '').replace('USD', '').trim()}`
+                                    : (order.source?.startsWith('shopify') && order.total.includes('€'))
+                                    ? `€${order.total.replace('€', '').replace('EUR', '').trim()}`
+                                    : `${order.total.replace('₺', '').replace('TL', '').replace('$', '').replace('USD', '').replace('€', '').replace('EUR', '').trim()} ₺`}
+                            </span>
+                        )}
                         {/* Payment & Source Badges */}
                         <div className="flex items-center gap-1">
                             {order.source === 'PrintMarkt' && (
@@ -491,7 +516,13 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                         }
 
                         const tagDef = tags.find(t => t.name === labelName || t.name === displayLabel)
-                        const colors = displayLabel === 'Malzeme'
+                        const colors = displayLabel === 'TASLAK TALEBİ VAR'
+                            ? { bg: 'bg-amber-500 shadow-sm', text: 'text-white font-extrabold', border: 'border-amber-600' }
+                            : displayLabel === 'Hazır Taslak'
+                            ? { bg: 'bg-emerald-100 dark:bg-emerald-950/60', text: 'text-emerald-800 dark:text-emerald-300 font-bold', border: 'border-emerald-300 dark:border-emerald-700' }
+                            : displayLabel === 'Taslak Bekliyor'
+                            ? { bg: 'bg-orange-100 dark:bg-orange-950/60', text: 'text-orange-800 dark:text-orange-300 font-bold', border: 'border-orange-300 dark:border-orange-700' }
+                            : displayLabel === 'Malzeme'
                             ? { bg: 'bg-amber-100 dark:bg-amber-950/60', text: 'text-amber-800 dark:text-amber-300', border: 'border-amber-300 dark:border-amber-700' }
                             : (displayLabel === 'Numune' || displayLabel === 'Örnek')
                             ? { bg: 'bg-purple-100 dark:bg-purple-950/60', text: 'text-purple-800 dark:text-purple-300', border: 'border-purple-300 dark:border-purple-700' }

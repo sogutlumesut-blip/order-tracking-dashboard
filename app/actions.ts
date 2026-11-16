@@ -2918,11 +2918,183 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
             }
         }
 
-        return { success: true, message: `Bağlantı BAŞARILI! ${importedCount} sipariş sisteme eklendi veya güncellendi. (Toplam kuyruk: ${totalFetched})`, count: importedCount }
+        // Also sync PrintMarkt Proof Requests (Taslak Talepleri)
+        let proofSyncedCount = 0;
+        try {
+            const proofRes = await syncPrintMarktProofRequests(force);
+            if (proofRes && typeof proofRes.count === 'number') {
+                proofSyncedCount = proofRes.count;
+            }
+        } catch (proofErr) {
+            console.error("[PM_SYNC] Proof sync error:", proofErr);
+        }
+
+        const msgProof = proofSyncedCount > 0 ? ` (${proofSyncedCount} taslak talebi güncellendi)` : "";
+        return { success: true, message: `Bağlantı BAŞARILI! ${importedCount} sipariş sisteme eklendi veya güncellendi.${msgProof}`, count: importedCount + proofSyncedCount }
 
     } catch (e: any) {
         console.error("PrintMarkt Sync Error:", e)
         return { error: "Senkronizasyon hatası: " + e.message }
+    }
+}
+
+export async function syncPrintMarktProofRequests(force: boolean = false) {
+    const settings = (await getSystemSettings()) as Record<string, string>;
+    if (!settings['pm_url'] || !settings['pm_key']) {
+        return { error: "PrintMarkt ayarları eksik." };
+    }
+    const cleanUrl = settings['pm_url'].trim().replace(/\/+$/, '');
+    const pmKey = settings['pm_key'].trim();
+
+    try {
+        let allProofs: any[] = [];
+        const maxPages = force ? 3 : 2;
+        for (let page = 0; page < maxPages; page++) {
+            const offset = page * 50;
+            const res = await fetch(`${cleanUrl}/api/proof-requests/admin?offset=${offset}&_t=${Date.now()}`, {
+                headers: { "X-API-Key": pmKey },
+                cache: 'no-store',
+                signal: AbortSignal.timeout(20000)
+            });
+            if (!res.ok) {
+                console.error(`[PM_PROOFS] Fetch failed with status ${res.status}`);
+                break;
+            }
+            const proofs = await res.json();
+            if (!Array.isArray(proofs) || proofs.length === 0) break;
+            allProofs.push(...proofs);
+            if (proofs.length < 50) break;
+        }
+
+        if (allProofs.length === 0) {
+            return { count: 0 };
+        }
+
+        let importedProofs = 0;
+
+        for (const proof of allProofs) {
+            try {
+                const externalId = `pm_proof_${proof.id}`;
+                const barcode = `PM-DRAFT-${proof.id}`;
+
+                const existingOrder = await db.order.findUnique({
+                    where: {
+                        source_externalId: {
+                            source: "PrintMarkt",
+                            externalId: externalId
+                        }
+                    },
+                    include: { items: true }
+                });
+
+                const statusLabel = proof.status === 'ready' 
+                    ? 'Hazır Taslak' 
+                    : proof.status === 'revision_requested' 
+                    ? 'Revizyon İstendi' 
+                    : proof.status === 'approved'
+                    ? 'Taslak Onaylandı'
+                    : 'Taslak Bekliyor';
+
+                const labels = ["TASLAK TALEBİ VAR", "PRINTMARKT", statusLabel];
+                if (proof.unit) {
+                    labels.push(proof.unit.toUpperCase());
+                }
+
+                const customerName = proof.member_name || proof.member_email || 'Taslak Talebi';
+                const customerEmail = proof.member_email || null;
+                const customerNote = proof.note || proof.revision_note || '';
+
+                const dimStr = `${proof.width} x ${proof.height} ${proof.unit || 'CM'}`;
+                const hasImage = proof.has_response_file || proof.has_source_file;
+                const imageSrc = hasImage 
+                    ? `/api/printmarkt/proof-image?id=${proof.id}&kind=auto&preview=thumb`
+                    : (proof.source_url || '/placeholder.png');
+                
+                const fullImageSrc = hasImage
+                    ? `/api/printmarkt/proof-image?id=${proof.id}&kind=auto&preview=full`
+                    : (proof.source_url || null);
+
+                const itemName = proof.reference 
+                    ? `Taslak Talebi #${proof.id} (${proof.reference})`
+                    : `Taslak Talebi #${proof.id}`;
+
+                const itemData = {
+                    name: itemName,
+                    sku: `TASLAK-${proof.id}`,
+                    quantity: 1,
+                    dimensions: dimStr,
+                    image_src: imageSrc,
+                    url: fullImageSrc,
+                    material: "Duvar Kağıdı Taslağı",
+                    productNote: customerNote || null
+                };
+
+                if (existingOrder) {
+                    let existingLabels: string[] = [];
+                    try {
+                        existingLabels = JSON.parse(existingOrder.labels || '[]');
+                    } catch {
+                        existingLabels = [];
+                    }
+
+                    const mergedLabels = Array.from(new Set([
+                        ...existingLabels,
+                        "TASLAK TALEBİ VAR",
+                        "PRINTMARKT",
+                        statusLabel
+                    ])).filter(l => l !== 'Taslak Bekliyor' || statusLabel === 'Taslak Bekliyor');
+
+                    const targetStatus = existingOrder.status || 'draft';
+
+                    await db.order.update({
+                        where: { id: existingOrder.id },
+                        data: {
+                            customer: customerName,
+                            email: customerEmail,
+                            note: customerNote,
+                            labels: JSON.stringify(mergedLabels),
+                            paymentMethod: "TASLAK TALEBİ",
+                            status: targetStatus,
+                            items: {
+                                deleteMany: {},
+                                create: [itemData]
+                            }
+                        }
+                    });
+                    importedProofs++;
+                } else {
+                    await db.order.create({
+                        data: {
+                            externalId: externalId,
+                            source: "PrintMarkt",
+                            customer: customerName,
+                            email: customerEmail,
+                            phone: null,
+                            address: null,
+                            total: "0",
+                            paymentMethod: "TASLAK TALEBİ",
+                            status: "draft", // Düştüğü yer: "TASLAK" Sütunu!
+                            barcode: barcode,
+                            date: proof.created_at ? new Date(proof.created_at) : new Date(),
+                            note: customerNote,
+                            labels: JSON.stringify(labels),
+                            items: {
+                                create: [itemData]
+                            }
+                        }
+                    });
+                    importedProofs++;
+                }
+            } catch (err) {
+                console.error(`[PM_PROOFS] Error importing proof #${proof.id}:`, err);
+            }
+        }
+
+        console.log(`[PM_PROOFS] Synced ${importedProofs} proof requests.`);
+        return { success: true, count: importedProofs };
+    } catch (e: any) {
+        console.error("[PM_PROOFS] Sync error:", e);
+        return { error: e.message };
     }
 }
 
