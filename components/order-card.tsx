@@ -782,6 +782,27 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                             >
                                 <span className="translate-y-[0.5px]">💬</span> Sohbete Gönder
                             </button>
+                            {/* PRINTMARKT PROOF DIRECT LINK */}
+                            {isProofRequest && (() => {
+                                const proofId = order.externalId?.startsWith('pm_proof_') 
+                                    ? order.externalId.replace('pm_proof_', '') 
+                                    : (order.barcode?.startsWith('PM-DRAFT-') ? order.barcode.replace('PM-DRAFT-', '') : '');
+                                const pmProofUrl = proofId 
+                                    ? `https://printmarkt.co/admin/proof-requests/#:~:text=%23${proofId}`
+                                    : 'https://printmarkt.co/admin/proof-requests/';
+                                return (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            window.open(pmProofUrl, '_blank');
+                                        }}
+                                        className="flex items-center gap-1 text-[10px] font-extrabold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 dark:bg-amber-950/60 dark:text-amber-200 dark:border-amber-700 px-1.5 py-0.5 rounded transition-colors shadow-sm z-10 relative"
+                                        title={`PrintMarkt üzerinde #${proofId} talebini aç`}
+                                    >
+                                        <span className="translate-y-[0.5px]">📋</span> PM #{proofId} ↗
+                                    </button>
+                                );
+                            })()}
                             {order.assignedTo && (
                                 <div className="flex items-center gap-1 text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-full">
                                     <User className="w-3 h-3" />

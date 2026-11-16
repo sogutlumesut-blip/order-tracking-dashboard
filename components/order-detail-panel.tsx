@@ -1111,16 +1111,25 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        {((formData.labels || []).includes('TASLAK TALEBİ VAR') || (formData.barcode || '').startsWith('PM-DRAFT-')) && (
-                            <a
-                                href="https://printmarkt.co/admin/proof-requests/"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition-colors"
-                            >
-                                <span>PrintMarkt'ta Aç ↗</span>
-                            </a>
-                        )}
+                        {((formData.labels || []).includes('TASLAK TALEBİ VAR') || (formData.barcode || '').startsWith('PM-DRAFT-') || (formData.externalId || '').startsWith('pm_proof_')) && (() => {
+                            const proofId = formData.externalId?.startsWith('pm_proof_') 
+                                ? formData.externalId.replace('pm_proof_', '') 
+                                : (formData.barcode?.startsWith('PM-DRAFT-') ? formData.barcode.replace('PM-DRAFT-', '') : '');
+                            const pmProofUrl = proofId 
+                                ? `https://printmarkt.co/admin/proof-requests/#:~:text=%23${proofId}`
+                                : `https://printmarkt.co/admin/proof-requests/`;
+                            return (
+                                <a
+                                    href={pmProofUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition-colors"
+                                    title={`PrintMarkt üzerinde #${proofId} talebini aç`}
+                                >
+                                    <span>PrintMarkt'ta #{proofId} Aç ↗</span>
+                                </a>
+                            );
+                        })()}
                         <button 
                             onClick={handlePrint} 
                             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 transition-colors shadow-xs" 
@@ -1138,30 +1147,64 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                 {/* Content - Two Column Layout */}
                 <div className="flex-1 overflow-y-auto p-6">
                     {/* PROOF REQUEST PROMINENT BANNER */}
-                    {((formData.labels || []).includes('TASLAK TALEBİ VAR') || (formData.barcode || '').startsWith('PM-DRAFT-') || (formData.externalId || '').startsWith('pm_proof_')) && (
-                        <div className="mb-6 p-4 rounded-xl border-2 border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div className="flex items-start sm:items-center gap-3">
-                                <span className="text-2xl">📋</span>
-                                <div>
-                                    <h4 className="font-black text-sm uppercase tracking-wide text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
-                                        <span>BU BİR TASLAK TALEBİDİR</span>
-                                        <span className="text-xs bg-amber-600 text-white px-2 py-0.5 rounded font-bold">SİPARİŞ DEĞİLDİR</span>
-                                    </h4>
-                                    <p className="text-xs text-amber-800 dark:text-amber-300 mt-1">
-                                        Müşteri sipariş öncesinde görsel ve ölçülerle taslak talep etmiştir. PrintMarkt paneli üzerinden taslağı yükleyebilir veya onay durumunu takip edebilirsiniz.
-                                    </p>
+                    {((formData.labels || []).includes('TASLAK TALEBİ VAR') || (formData.barcode || '').startsWith('PM-DRAFT-') || (formData.externalId || '').startsWith('pm_proof_')) && (() => {
+                        const proofId = formData.externalId?.startsWith('pm_proof_') 
+                            ? formData.externalId.replace('pm_proof_', '') 
+                            : (formData.barcode?.startsWith('PM-DRAFT-') ? formData.barcode.replace('PM-DRAFT-', '') : '');
+                        const customerName = (formData.customer || '').split('\n')[0].trim();
+                        const pmProofUrl = proofId 
+                            ? `https://printmarkt.co/admin/proof-requests/#:~:text=%23${proofId}`
+                            : (customerName ? `https://printmarkt.co/admin/proof-requests/#:~:text=${encodeURIComponent(customerName)}` : `https://printmarkt.co/admin/proof-requests/`);
+                        return (
+                            <div className="mb-6 p-4 rounded-xl border-2 border-amber-500 bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 shadow-sm flex flex-col gap-3">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                    <div className="flex items-start sm:items-center gap-3">
+                                        <span className="text-2xl">📋</span>
+                                        <div>
+                                            <h4 className="font-black text-sm uppercase tracking-wide text-amber-900 dark:text-amber-200 flex items-center gap-1.5 flex-wrap">
+                                                <span>BU BİR TASLAK TALEBİDİR</span>
+                                                <span className="text-xs bg-amber-600 text-white px-2 py-0.5 rounded font-bold">SİPARİŞ DEĞİLDİR</span>
+                                                <span className="text-xs bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-200 px-2 py-0.5 rounded font-bold">#{proofId}</span>
+                                            </h4>
+                                            <p className="text-xs text-amber-800 dark:text-amber-300 mt-1">
+                                                <strong>{customerName}</strong> sipariş öncesinde duvar ölçüleriyle taslak talep etmiştir.
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <a
+                                        href={pmProofUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-4 py-2.5 text-xs font-black rounded-lg bg-amber-600 hover:bg-amber-700 text-white shadow-md transition-all shrink-0 hover:scale-[1.02]"
+                                    >
+                                        <span>PrintMarkt'ta #{proofId} ({customerName}) Paneline Git ↗</span>
+                                    </a>
+                                </div>
+                                <div className="pt-2 border-t border-amber-300/40 flex flex-wrap items-center gap-3 text-xs">
+                                    <span className="font-bold text-amber-950 dark:text-amber-100">
+                                        Müşteri: <strong>{customerName}</strong>
+                                    </span>
+                                    {formData.email && (
+                                        <span className="text-amber-800 dark:text-amber-300">
+                                            ✉️ {formData.email}
+                                        </span>
+                                    )}
+                                    {formData.items && formData.items[0]?.dimensions && (
+                                        <span className="bg-amber-200/80 dark:bg-amber-900/60 px-2 py-0.5 rounded font-bold text-amber-900 dark:text-amber-200">
+                                            📏 {formData.items[0].dimensions}
+                                        </span>
+                                    )}
+                                    <span className={`px-2 py-0.5 rounded font-extrabold text-[11px] ${
+                                        (formData.labels || []).includes('Hazır Taslak') 
+                                            ? 'bg-emerald-600 text-white' 
+                                            : 'bg-orange-500 text-white'
+                                    }`}>
+                                        {(formData.labels || []).includes('Hazır Taslak') ? '✓ HAZIR TASLAK' : '⏳ TASLAK BEKLİYOR'}
+                                    </span>
                                 </div>
                             </div>
-                            <a
-                                href="https://printmarkt.co/admin/proof-requests/"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-lg bg-amber-600 hover:bg-amber-700 text-white shadow-md transition-colors shrink-0"
-                            >
-                                <span>PrintMarkt Paneline Git ↗</span>
-                            </a>
-                        </div>
-                    )}
+                        );
+                    })()}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 
                         {/* LEFT COLUMN: Order Details */}
