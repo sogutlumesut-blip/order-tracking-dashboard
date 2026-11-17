@@ -152,13 +152,102 @@ function normalizeKey(str: string): string {
         .trim();
 }
 
+const shopifyProductImageCache = new Map<string, any>();
+
+async function getShopifyProductImage(
+    productId: string | number,
+    variantId?: string | number,
+    options?: { source?: string; shopDomain?: string; accessToken?: string }
+): Promise<string | null> {
+    const pIdStr = String(productId);
+    const vIdStr = variantId ? String(variantId) : null;
+    const cacheKey = `${options?.source || 'def'}:${pIdStr}`;
+
+    let productData = shopifyProductImageCache.get(cacheKey);
+
+    if (!productData) {
+        let domain = options?.shopDomain;
+        let token = options?.accessToken;
+
+        if (!domain || !token) {
+            const isStore2 = options?.source === 'shopify_2';
+            const settings = await db.systemSetting.findMany({
+                where: {
+                    key: {
+                        in: [
+                            'shopify_shop_domain',
+                            'shopify_access_token',
+                            'shopify_shop_domain_2',
+                            'shopify_access_token_2',
+                        ],
+                    },
+                },
+            });
+            const sMap = settings.reduce((acc, curr) => ({ ...acc, [curr.key]: curr.value }), {} as Record<string, string>);
+            domain = isStore2 ? sMap['shopify_shop_domain_2'] : sMap['shopify_shop_domain'];
+            token = isStore2 ? sMap['shopify_access_token_2'] : sMap['shopify_access_token'];
+
+            if (!domain || !token) {
+                domain = sMap['shopify_shop_domain_2'] || sMap['shopify_shop_domain'];
+                token = sMap['shopify_access_token_2'] || sMap['shopify_access_token'];
+            }
+        }
+
+        if (!domain || !token) return null;
+
+        try {
+            const effectiveToken = await getShopifyAccessToken(domain, token);
+            const cleanDomain = cleanShopifyDomain(domain);
+
+            const res = await fetch(`https://${cleanDomain}/admin/api/2024-01/products/${pIdStr}.json?fields=id,image,images,variants`, {
+                headers: {
+                    'X-Shopify-Access-Token': effectiveToken,
+                    'Content-Type': 'application/json',
+                },
+                signal: AbortSignal.timeout(5000),
+            });
+
+            if (res.ok) {
+                const json = await res.json();
+                productData = json.product;
+                if (productData) {
+                    shopifyProductImageCache.set(cacheKey, productData);
+                }
+            }
+        } catch (err: any) {
+            console.warn(`[SHOPIFY] Error fetching product ${pIdStr} image from API:`, err.message);
+        }
+    }
+
+    if (!productData) return null;
+
+    // 1. If variant has an assigned image, prefer it
+    if (vIdStr && Array.isArray(productData.variants) && Array.isArray(productData.images)) {
+        const variant = productData.variants.find((v: any) => String(v.id) === vIdStr);
+        if (variant && variant.image_id) {
+            const vImg = productData.images.find((img: any) => String(img.id) === String(variant.image_id));
+            if (vImg?.src) return vImg.src;
+        }
+    }
+
+    // 2. Primary product image
+    if (productData.image?.src) return productData.image.src;
+    if (Array.isArray(productData.images) && productData.images[0]?.src) return productData.images[0].src;
+
+    return null;
+}
+
 /**
  * Parse line items from Shopify order payload
  */
-/**
- * Parse line items from Shopify order payload
- */
-export async function parseShopifyLineItems(lineItems: any[]): Promise<any[]> {
+export async function parseShopifyLineItems(
+    lineItems: any[],
+    options?: {
+        source?: string;
+        shopDomain?: string;
+        accessToken?: string;
+    }
+): Promise<any[]> {
     if (!Array.isArray(lineItems)) return [];
 
     return Promise.all(
@@ -468,6 +557,18 @@ export async function parseShopifyLineItems(lineItems: any[]): Promise<any[]> {
                 }
             }
 
+            // C2. Fallback to Shopify Admin API product image if item has product_id
+            if (!imageSrc && item.product_id) {
+                try {
+                    const prodImg = await getShopifyProductImage(item.product_id, item.variant_id, options);
+                    if (prodImg && isActualImageUrl(prodImg)) {
+                        imageSrc = prodImg;
+                    }
+                } catch (e: any) {
+                    console.warn(`[SHOPIFY] Could not fetch product image for ${item.product_id}:`, e.message);
+                }
+            }
+
             // D. Fallback placeholder
             if (!imageSrc) {
                 imageSrc = 'https://placehold.co/600x400?text=Shopify+Urun';
@@ -637,7 +738,10 @@ export async function upsertShopifyOrder(shopifyOrder: any, storeConfig?: Shopif
     }
 
     // Line items
-    const parsedItems = await parseShopifyLineItems(shopifyOrder.line_items || []);
+    const parsedItems = await parseShopifyLineItems(shopifyOrder.line_items || [], {
+        source,
+        shopDomain: storeConfig?.shopDomain,
+    });
 
     // Labels
     let labels: string[] = ['Shopify'];
