@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { Shield, Key, Save, Loader2, Info, RefreshCw, CheckCircle2 } from "lucide-react"
 import { toast } from "sonner"
 import { saveFaireSettings, syncFaireOrders, testFaireSettings } from "@/app/actions"
@@ -14,26 +14,27 @@ interface FaireSettingsFormProps {
 }
 
 export function FaireSettingsForm({ initialSettings }: FaireSettingsFormProps) {
-    const [isPending, startTransition] = useTransition()
+    const [isSaving, setIsSaving] = useState(false)
     const [isSyncing, setIsSyncing] = useState(false)
     const [isTesting, setIsTesting] = useState(false)
     const router = useRouter()
 
     const handleSubmit = async (formData: FormData) => {
-        startTransition(async () => {
-            try {
-                const res = await saveFaireSettings(formData)
-                if (res?.success) {
-                    toast.success(res.message || "Faire ayarları başarıyla kaydedildi!")
-                    router.refresh()
-                } else if (res?.error) {
-                    toast.error(res.error)
-                }
-            } catch (error) {
-                console.error(error)
-                toast.error("Ayarlar kaydedilirken bir hata oluştu.")
+        setIsSaving(true)
+        try {
+            const res = await saveFaireSettings(formData)
+            if (res?.success) {
+                toast.success(res.message || "Faire ayarları başarıyla kaydedildi!")
+                router.refresh()
+            } else if (res?.error) {
+                toast.error(res.error)
             }
-        })
+        } catch (error) {
+            console.error(error)
+            toast.error("Ayarlar kaydedilirken bir hata oluştu.")
+        } finally {
+            setIsSaving(false)
+        }
     }
 
     const handleTest = async (e: React.MouseEvent) => {
@@ -125,7 +126,7 @@ export function FaireSettingsForm({ initialSettings }: FaireSettingsFormProps) {
                         <button
                             type="button"
                             onClick={handleTest}
-                            disabled={isTesting || isPending}
+                            disabled={isTesting || isSaving}
                             className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-lg text-sm font-medium transition shadow-xs"
                         >
                             {isTesting ? <Loader2 className="w-4 h-4 animate-spin text-emerald-600" /> : <Shield className="w-4 h-4 text-emerald-600" />}
@@ -135,7 +136,7 @@ export function FaireSettingsForm({ initialSettings }: FaireSettingsFormProps) {
                         <button
                             type="button"
                             onClick={handleSync}
-                            disabled={isSyncing || isPending}
+                            disabled={isSyncing || isSaving}
                             className="flex items-center gap-2 px-4 py-2 bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:hover:bg-emerald-900/60 text-emerald-900 dark:text-emerald-300 rounded-lg text-sm font-medium transition shadow-xs"
                         >
                             <RefreshCw className={`w-4 h-4 text-emerald-700 ${isSyncing ? "animate-spin" : ""}`} />
@@ -145,10 +146,10 @@ export function FaireSettingsForm({ initialSettings }: FaireSettingsFormProps) {
 
                     <button
                         type="submit"
-                        disabled={isPending || isSyncing}
+                        disabled={isSaving || isSyncing}
                         className="flex items-center gap-2 px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-sm font-bold transition shadow-sm"
                     >
-                        {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                         Ayarları Kaydet
                     </button>
                 </div>

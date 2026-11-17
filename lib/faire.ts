@@ -79,7 +79,7 @@ export async function testFaireConnection(apiToken: string): Promise<{ success: 
     }
 
     try {
-        const res = await fetch(`${FAIRE_API_BASE_URL}/orders?limit=1`, {
+        const res = await fetch(`${FAIRE_API_BASE_URL}/orders?limit=10`, {
             method: "GET",
             headers: {
                 "X-FAIRE-ACCESS-TOKEN": token,
