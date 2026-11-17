@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { db } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { parseUserPermissions } from "@/lib/permissions";
+import { getSearchVariants } from "@/lib/search-utils";
 
 export const dynamic = 'force-dynamic';
 
@@ -119,55 +120,86 @@ export async function GET(req: NextRequest) {
         const { searchParams } = new URL(req.url);
         const search = searchParams.get("search") || "";
 
-        let activeOrders: any[] = [];
-        let terminalOrders: any[] = [];
+        let orders: any[] = [];
 
         if (search) {
-            const searchFilter = {
-                OR: [
-                    { customer: { contains: search, mode: 'insensitive' as const } },
-                    { phone: { contains: search } },
-                    { email: { contains: search, mode: 'insensitive' as const } },
-                    { barcode: { contains: search, mode: 'insensitive' as const } },
-                    { trackingNumber: { contains: search, mode: 'insensitive' as const } },
-                    { cargoTrackingNumber: { contains: search, mode: 'insensitive' as const } },
-                ]
+            const cleanSearch = search.trim();
+            const tokens = cleanSearch.split(/\s+/).filter(Boolean);
+            const cleanId = cleanSearch.replace(/^[#\s]+/, "");
+            const digits = cleanSearch.replace(/\D/g, "");
+
+            const fullVariants = getSearchVariants(cleanSearch);
+
+            const searchFilterOR: any[] = [
+                ...fullVariants.flatMap(v => [
+                    { customer: { contains: v, mode: 'insensitive' as const } },
+                    { customer: { contains: v } }
+                ]),
+                { phone: { contains: cleanSearch } },
+                { email: { contains: cleanSearch, mode: 'insensitive' as const } },
+                { barcode: { contains: cleanSearch, mode: 'insensitive' as const } },
+                { trackingNumber: { contains: cleanSearch, mode: 'insensitive' as const } },
+                { cargoTrackingNumber: { contains: cleanSearch, mode: 'insensitive' as const } },
+            ];
+
+            if (!isNaN(Number(cleanId)) && cleanId.length > 0) {
+                searchFilterOR.push({ id: Number(cleanId) });
+            }
+
+            if (digits.length >= 3) {
+                searchFilterOR.push({ phone: { contains: digits } });
+            }
+
+            // Multi-word customer match: customer contains every token
+            if (tokens.length > 1) {
+                searchFilterOR.push({
+                    AND: tokens.map(token => ({
+                        OR: getSearchVariants(token).flatMap(v => [
+                            { customer: { contains: v, mode: 'insensitive' as const } },
+                            { customer: { contains: v } }
+                        ])
+                    }))
+                });
+            }
+
+            // Also check items (product name or sku) for any token
+            tokens.forEach(token => {
+                const itemVariants = getSearchVariants(token);
+                searchFilterOR.push({
+                    items: {
+                        some: {
+                            OR: itemVariants.flatMap(v => [
+                                { name: { contains: v, mode: 'insensitive' as const } },
+                                { sku: { contains: v, mode: 'insensitive' as const } }
+                            ])
+                        }
+                    }
+                });
+            });
+
+            const searchWhere: any = {
+                OR: searchFilterOR
             };
 
-            if (!isNaN(Number(search))) {
-                (searchFilter.OR as any).push({ id: Number(search) });
+            if (!isAdmin) {
+                searchWhere.status = { in: permissions.view };
             }
 
-            if (targetActive.length > 0) {
-                try {
-                    activeOrders = await db.order.findMany({
-                        where: {
-                            status: { in: targetActive },
-                            ...searchFilter
-                        },
-                        orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
-                        select: orderSelect
-                    });
-                } catch (e) {
-                    console.error("API activeOrders search error:", e);
-                }
-            }
-
-            if (targetTerminal.length > 0) {
-                try {
-                    terminalOrders = await db.order.findMany({
-                        where: {
-                            status: { in: targetTerminal },
-                            ...searchFilter
-                        },
-                        orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
-                        select: orderSelect
-                    });
-                } catch (e) {
-                    console.error("API terminalOrders search error:", e);
-                }
+            try {
+                orders = await db.order.findMany({
+                    where: searchWhere,
+                    orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
+                    take: 500,
+                    select: orderSelect
+                });
+            } catch (e) {
+                console.error("API orders search error:", e);
+                orders = [];
             }
         } else {
+            let activeOrders: any[] = [];
+            let terminalOrders: any[] = [];
+
             if (targetActive.length > 0) {
                 try {
                     activeOrders = await db.order.findMany({
@@ -199,9 +231,9 @@ export async function GET(req: NextRequest) {
                     terminalOrders = [];
                 }
             }
-        }
 
-        const orders = [...activeOrders, ...terminalOrders];
+            orders = [...activeOrders, ...terminalOrders];
+        }
         const returnedOrderIds = orders.map(o => o.id);
 
         const itemImageMap = new Map<number, string>();
@@ -228,13 +260,13 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        const serialized = orders.map(order => ({
+        const serialized = orders.map((order: any) => ({
             ...order,
             date: order.date.toISOString(),
             createdAt: order.createdAt.toISOString(),
             updatedAt: order.updatedAt.toISOString(),
             total: order.total || "0 ₺",
-            items: order.items.map(item => ({
+            items: (order.items || []).map((item: any) => ({
                 ...item,
                 sku: item.sku || null,
                 image_src: itemImageMap.get(item.id) || null,

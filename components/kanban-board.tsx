@@ -20,6 +20,7 @@ import { ManualOrderModal } from "./manual-order-modal"
 import { MaterialOrderModal } from "./material-order-modal"
 import { WarehouseStockModal } from "./warehouse-stock-modal"
 import { useRouter } from "next/navigation"
+import { matchOrderSearch } from "@/lib/search-utils"
 
 import { ThemeToggle } from "@/components/theme-toggle"
 
@@ -623,25 +624,14 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     }, [orders])
 
     // Filter Logic
-    const filteredOrders = orders.filter(order => {
-        // Search Filter
-        if (!searchTerm) return true
-        const lowerTerm = searchTerm.toLowerCase()
-        return (
-            order.customer.toLowerCase().includes(lowerTerm) ||
-            order.id.toString().includes(lowerTerm) ||
-            (order.externalId && order.externalId.toString().includes(lowerTerm)) ||
-            (order.barcode && order.barcode.toLowerCase().includes(lowerTerm)) ||
-            (order.phone && order.phone.includes(lowerTerm))
-        )
-    })
+    const filteredOrders = orders.filter(order => matchOrderSearch(order, searchTerm))
 
     const getOrdersByStatus = (statusId: string, statusTitle: string) => {
         let ordersInColumn = filteredOrders.filter(order => order.status === statusId || order.status === statusTitle)
 
-        // Apply Column Specific Filter
+        // Apply Column Specific Filter (bypassed when searching so all matching customer orders/products remain visible)
         const filter = columnFilters[statusId]
-        if (filter) {
+        if (filter && !searchTerm) {
             ordersInColumn = ordersInColumn.filter(o => o.items.some(i => i.material === filter))
         }
 
@@ -1868,7 +1858,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 tags={tags}
                                 selectedOrders={selectedOrders}
                                 toggleOrderSelection={toggleOrderSelection}
-                                isCollapsed={collapsedIds.includes(column.id)}
+                                isCollapsed={collapsedIds.includes(column.id) && (!searchTerm || getOrdersByStatus(column.id, column.title).length === 0)}
                                 toggleCollapse={() => {
                                     setCollapsedIds(prev => {
                                         const newSet = prev.includes(column.id)

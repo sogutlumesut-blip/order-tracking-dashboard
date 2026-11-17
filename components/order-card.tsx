@@ -403,7 +403,7 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                             <h3 className="font-bold text-slate-900 dark:text-slate-100">
                                 {isProofRequest
                                     ? `#${order.externalId ? order.externalId.replace('pm_proof_', 'TASLAK-') : order.id}`
-                                    : ((order.source === 'woo' || order.source === 'wayfair' || order.source === 'shopify' || order.source === 'shopify_2' || order.source === 'ozon') && order.externalId ? `#${order.externalId}` : (order.id > 0 ? `#${order.id}` : null))}
+                                    : ((order.source === 'woo' || order.source === 'wayfair' || order.source === 'shopify' || order.source === 'shopify_2' || order.source === 'ozon' || order.source === 'faire') && order.externalId ? `#${order.externalId}` : (order.id > 0 ? `#${order.id}` : null))}
                             </h3>
                             {isProofRequest && (
                                 <span className="bg-amber-500 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded shadow-sm">
@@ -434,6 +434,11 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                             {order.source === 'ozon' && (
                                 <span className="bg-[#005BFF] text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm">
                                     OZON
+                                </span>
+                            )}
+                            {order.source === 'faire' && (
+                                <span className="bg-[#2B4736] text-white text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm">
+                                    FAIRE
                                 </span>
                             )}
                             {order.source === 'malzeme' && (
@@ -753,7 +758,7 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                             <button
                                 onClick={async (e) => {
                                     e.stopPropagation();
-                                    const orderNo = (order.source === 'woo' || order.source === 'wayfair' || order.source === 'shopify' || order.source === 'shopify_2') && order.externalId ? `#${order.externalId}` : `#${order.id}`;
+                                    const orderNo = (order.source === 'woo' || order.source === 'wayfair' || order.source === 'shopify' || order.source === 'shopify_2' || order.source === 'ozon' || order.source === 'faire') && order.externalId ? `#${order.externalId}` : `#${order.id}`;
                                     const productName = order.items && order.items.length > 0 ? order.items[0].name : "Ürün detayı yok";
                                     const productSku = order.items && order.items.length > 0 && order.items[0].sku ? ` (Kod: ${order.items[0].sku})` : "";
                                     const text = `📦 Sipariş Paylaşıldı:\n• Sipariş No: ${orderNo}\n• Müşteri: ${order.customer}\n• Ürün: ${productName}${productSku}\n• Tutar: ${order.total}`;

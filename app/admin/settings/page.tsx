@@ -19,6 +19,7 @@ import { DHLSettingsForm } from "@/components/settings/dhl-settings-form"
 import { WayfairSettingsForm } from "@/components/settings/wayfair-settings-form"
 import { ShopifySettingsForm } from "@/components/settings/shopify-settings-form"
 import { OzonSettingsForm } from "@/components/settings/ozon-settings-form"
+import { FaireSettingsForm } from "@/components/settings/faire-settings-form"
 
 
 export const dynamic = 'force-dynamic'
@@ -200,6 +201,22 @@ export default async function SettingsPage() {
                         ozon_client_id: systemSettings.ozon_client_id,
                         ozon_api_key: systemSettings.ozon_api_key,
                         last_ozon_sync_time: systemSettings.last_ozon_sync_time
+                    }} />
+                </div>
+
+                {/* FAIRE MARKETPLACE INTEGRATION */}
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-emerald-100">
+                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-900">
+                        <span className="bg-[#2B4736] text-white p-1 px-2 rounded text-sm font-bold tracking-wide">FAIRE</span>
+                        Faire (faire.com) Toptan Satış Entegrasyonu
+                    </h2>
+                    <p className="text-sm text-slate-600 mb-6">
+                        Faire Brand Portalınızdan aldığınız API Token ile siparişleri panele çekin. Gelen siparişler otomatik olarak <strong className="text-emerald-700 font-semibold">Bekliyor (PrintMarkt)</strong> sütununa aktarılır.
+                    </p>
+
+                    <FaireSettingsForm initialSettings={{
+                        faire_api_token: systemSettings.faire_api_token,
+                        last_faire_sync_time: systemSettings.last_faire_sync_time
                     }} />
                 </div>
 

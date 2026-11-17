@@ -11,6 +11,7 @@ import { OrderStatus } from "@/data/mock-orders"
 import WooCommerceRestApi from "@woocommerce/woocommerce-rest-api"
 import { fetchShopifyOrders, upsertShopifyOrder, cleanShopifyDomain } from "@/lib/shopify"
 import { testOzonConnection, fetchOzonOrders, fetchOzonProductImages, upsertOzonPosting } from "@/lib/ozon"
+import { testFaireConnection, fetchFaireOrders, fetchFaireProductImages, upsertFaireOrder } from "@/lib/faire"
 import { isStockMatch, checkStockMatch } from "@/lib/warehouse-matcher"
 import { createEdmInvoiceDirect } from "@/lib/edm-api"
 import { executeCreateManualOrder, executeCreateMaterialOrder } from "@/lib/manual-order"
@@ -3230,6 +3231,64 @@ export async function wipeOzonOrders() {
     }
 }
 
+// FAIRE SETTINGS SAVE ACTION
+export async function saveFaireSettings(formData: FormData) {
+    const apiToken = (formData.get("faire_api_token") as string)?.trim()
+
+    if (!apiToken) {
+        return { error: "Lütfen Faire API Erişim Anahtarını (Token) giriniz." }
+    }
+
+    try {
+        await db.systemSetting.upsert({
+            where: { key: 'faire_api_token' },
+            update: { value: apiToken },
+            create: { key: 'faire_api_token', value: apiToken }
+        })
+
+        revalidatePath("/admin/settings")
+        return { success: true, message: "Faire ayarları başarıyla kaydedildi." }
+    } catch (e: any) {
+        return { error: "Ayarlar kaydedilemedi: " + e.message }
+    }
+}
+
+// FAIRE SETTINGS TEST ACTION
+export async function testFaireSettings(formData?: FormData) {
+    let apiToken = formData ? (formData.get("faire_api_token") as string)?.trim() : undefined
+
+    if (!apiToken) {
+        const settings = await getSystemSettings()
+        apiToken = apiToken || settings['faire_api_token']
+    }
+
+    if (!apiToken) {
+        return { success: false, error: "Test için Faire API Erişim Anahtarı (Token) girilmelidir." }
+    }
+
+    return await testFaireConnection(apiToken)
+}
+
+// FAIRE WIPE ACTION
+export async function wipeFaireOrders() {
+    try {
+        const session = await getSession();
+        if (!session || session.user.role !== "admin") {
+            return { error: "Yetkisiz işlem: Sadece yöneticiler silebilir." };
+        }
+
+        const result = await db.order.deleteMany({
+            where: { source: 'faire' }
+        });
+
+        revalidatePath("/")
+        return { success: true, message: `${result.count} adet Faire siparişi başarıyla silindi.` };
+    } catch (e: any) {
+        console.error("Faire Wipe Error:", e);
+        return { error: "Silme hatası: " + e.message };
+    }
+}
+
 // SHOPIFY SETTINGS SAVE ACTION
 export async function saveShopifySettings(formData: FormData) {
     const domain = (formData.get("shopify_shop_domain") as string)?.trim() || ""
@@ -4136,6 +4195,102 @@ export async function syncOzonOrders(force: boolean = false) {
     }
 }
 
+// FAIRE SYNC ACTION
+export async function syncFaireOrders(force: boolean = false) {
+    const settings = (await getSystemSettings()) as Record<string, string>
+
+    const apiToken = settings['faire_api_token']
+
+    if (!apiToken) {
+        return { error: "Faire ayarları eksik. Lütfen Ayarlar sayfasından Faire API Token'ınızı giriniz." }
+    }
+
+    // RATE LIMIT CHECK (1 minute cooldown for auto background sync)
+    if (!force) {
+        const lastSyncStr = settings['last_faire_sync_time']
+        if (lastSyncStr) {
+            const lastSync = parseInt(lastSyncStr)
+            const now = Date.now()
+            if (now - lastSync < 60000) {
+                return { skipped: true, message: "Sync skipped (Rate Limit)" }
+            }
+        }
+    }
+
+    try {
+        // UPDATE TIMESTAMP
+        await db.systemSetting.upsert({
+            where: { key: 'last_faire_sync_time' },
+            update: { value: Date.now().toString() },
+            create: { key: 'last_faire_sync_time', value: Date.now().toString() }
+        })
+
+        // Fetch Orders from Faire
+        const fetchRes = await fetchFaireOrders(apiToken, { limit: 50, page: 1 })
+        if (fetchRes.error && fetchRes.orders.length === 0) {
+            return { error: fetchRes.error }
+        }
+
+        const orders = fetchRes.orders
+        if (orders.length === 0) {
+            return { success: true, message: "Bağlantı başarılı! Ancak aktarılacak yeni Faire siparişi bulunamadı.", count: 0 }
+        }
+
+        // Collect product IDs that might need image fetching if not provided directly in line items
+        const missingImageProductIds: string[] = []
+        for (const ord of orders) {
+            for (const item of ord.items || []) {
+                const hasImg = item.product?.images?.[0]?.url || item.product_variant_image_url || item.image_url
+                if (!hasImg && item.product_id) {
+                    missingImageProductIds.push(item.product_id)
+                }
+            }
+        }
+
+        let imageMap = new Map<string, string>()
+        if (missingImageProductIds.length > 0) {
+            imageMap = await fetchFaireProductImages(apiToken, missingImageProductIds).catch(() => new Map())
+        }
+
+        // Determine default status: ALWAYS target "pending_pm" (Bekliyor (PrintMarkt))
+        const statuses = await db.statusColumn.findMany({ orderBy: { order: 'asc' } })
+        let defaultStatus = "pending_pm"
+        const pmStatus = statuses.find(s =>
+            s.id === "pending_pm" ||
+            s.title.toLowerCase().includes("printmarkt")
+        )
+        if (pmStatus) defaultStatus = pmStatus.id
+
+        let importedCount = 0
+        let updatedCount = 0
+
+        for (const order of orders) {
+            try {
+                const res = await upsertFaireOrder(order, {
+                    defaultStatus,
+                    imageMap
+                })
+                if (res.success) {
+                    if (res.isNew) importedCount++
+                    else updatedCount++
+                }
+            } catch (err: any) {
+                console.error(`[FAIRE_SYNC_ORDER_ERR] #${order.display_id || order.id}:`, err.message)
+            }
+        }
+
+        revalidatePath("/")
+        return {
+            success: true,
+            message: `Faire senkronizasyonu tamamlandı. ${importedCount} yeni sipariş Bekliyor (PrintMarkt) durumuna eklendi, ${updatedCount} sipariş güncellendi/kontrol edildi.`,
+            count: importedCount
+        }
+    } catch (e: any) {
+        console.error("Faire Sync Error:", e)
+        return { error: "Faire senkronizasyon hatası: " + e.message }
+    }
+}
+
 // Background periodic sync for persistent Node.js servers (DigitalOcean App Platform, VPS, etc.)
 const globalForSync = globalThis as unknown as {
     syncIntervalStarted: boolean | undefined;
@@ -4170,7 +4325,9 @@ if (typeof window === 'undefined' && process.env.NODE_ENV === 'production' && pr
                 const shopify = await syncShopifyOrders(false).catch(e => ({ error: e.message }));
                 await new Promise(r => setTimeout(r, 1000));
                 const ozon = await syncOzonOrders(false).catch(e => ({ error: e.message }));
-                console.log("[BACKGROUND_SYNC] Scheduled sync completed:", { wc, pm, etsy, cargo, wf, shopify, ozon });
+                await new Promise(r => setTimeout(r, 1000));
+                const faire = await syncFaireOrders(false).catch(e => ({ error: e.message }));
+                console.log("[BACKGROUND_SYNC] Scheduled sync completed:", { wc, pm, etsy, cargo, wf, shopify, ozon, faire });
             } catch (error) {
                 console.error("[BACKGROUND_SYNC] Fatal error in scheduled sync:", error);
             } finally {

@@ -189,6 +189,8 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
         if (src === 'woo' || src === 'woocommerce') return 'WOO';
         if (src === 'printmarkt') return 'PRINTMARKT';
         if (src === 'wayfair') return 'WAYFAIR';
+        if (src === 'ozon') return 'OZON';
+        if (src === 'faire') return 'FAIRE';
         if (src === 'shopify') return 'SHOPIFY';
         if (src === 'shopify_2') return 'SHOPIFY 2';
         if (src === 'etsy') return 'ETSY';
@@ -196,6 +198,8 @@ export function LocalBarcodeModal({ order, isOpen, onClose }: LocalBarcodeModalP
         // 2. Barcode prefix check
         if (barcode.startsWith('WC-') || barcode.startsWith('WOO-')) return 'WOO';
         if (barcode.startsWith('WF-') || barcode.startsWith('WAYFAIR-')) return 'WAYFAIR';
+        if (barcode.startsWith('OZON-')) return 'OZON';
+        if (barcode.startsWith('FAIRE-')) return 'FAIRE';
         if (barcode.startsWith('PM-') || barcode.startsWith('PRINTMARKT-')) return 'PRINTMARKT';
         if (barcode.startsWith('SHOP2-')) return 'SHOPIFY 2';
         if (barcode.startsWith('SH-') || barcode.startsWith('SHOPIFY-') || barcode.startsWith('SHOP-')) return 'SHOPIFY';

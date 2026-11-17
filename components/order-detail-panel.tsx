@@ -394,6 +394,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
         if (src === 'printmarkt') return 'PRINTMARKT'
         if (src === 'wayfair') return 'WAYFAIR'
         if (src === 'ozon') return 'OZON'
+        if (src === 'faire') return 'FAIRE'
         if (src === 'shopify') return 'SHOPIFY'
         if (src === 'shopify_2') return 'SHOPIFY 2'
         if (src === 'etsy') return 'ETSY'
@@ -401,6 +402,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
         if (barcode.startsWith('WC-') || barcode.startsWith('WOO-')) return 'WOO'
         if (barcode.startsWith('WF-') || barcode.startsWith('WAYFAIR-')) return 'WAYFAIR'
         if (barcode.startsWith('OZON-')) return 'OZON'
+        if (barcode.startsWith('FAIRE-')) return 'FAIRE'
         if (barcode.startsWith('PM-') || barcode.startsWith('PRINTMARKT-')) return 'PRINTMARKT'
         if (barcode.startsWith('SHOP2-')) return 'SHOPIFY 2'
         if (barcode.startsWith('SH-') || barcode.startsWith('SHOPIFY-') || barcode.startsWith('SHOP-')) return 'SHOPIFY'
@@ -410,6 +412,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
         if (labelsStr.some(l => l.includes('PRINTMARKT'))) return 'PRINTMARKT'
         if (labelsStr.some(l => l.includes('WAYFAIR'))) return 'WAYFAIR'
         if (labelsStr.some(l => l.includes('OZON'))) return 'OZON'
+        if (labelsStr.some(l => l.includes('FAIRE'))) return 'FAIRE'
         if (labelsStr.some(l => l.includes('SHOPIFY 2') || l.includes('SHOPIFY2'))) return 'SHOPIFY 2'
         if (labelsStr.some(l => l.includes('SHOPIFY'))) return 'SHOPIFY'
         if (labelsStr.some(l => l.includes('ETSY'))) return 'ETSY'
@@ -446,7 +449,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
 
     const getSlipDisplayOrderNo = () => {
         if (!formData) return ''
-        if ((formData.source === 'woo' || formData.source === 'wayfair' || formData.source === 'shopify' || formData.source === 'shopify_2' || formData.source === 'PrintMarkt' || formData.source === 'ozon') && formData.externalId) {
+        if ((formData.source === 'woo' || formData.source === 'wayfair' || formData.source === 'shopify' || formData.source === 'shopify_2' || formData.source === 'PrintMarkt' || formData.source === 'ozon' || formData.source === 'faire') && formData.externalId) {
             const clean = formData.externalId.replace(/^pm_/, '')
             return clean.startsWith('#') ? clean : `#${clean}`
         }
@@ -1087,6 +1090,11 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     OZON
                                 </span>
                             )}
+                            {((formData.source || '').toLowerCase() === 'faire' || (formData.barcode || '').startsWith('FAIRE-')) && (
+                                <span className="bg-[#2B4736] text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
+                                    FAIRE
+                                </span>
+                            )}
                             {(((formData.source || '').toLowerCase() === 'woo' || (formData.source || '').toLowerCase() === 'woocommerce') || (!formData.source && (formData.barcode || '').startsWith('WC-'))) && (
                                 <span className="bg-[#96588A] text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm">
                                     WOO
@@ -1105,7 +1113,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                     {line}
                                 </span>
                             ))}
-                            {(formData.source === 'woo' || formData.source === 'wayfair' || formData.source === 'shopify' || formData.source === 'shopify_2' || formData.source === 'PrintMarkt' || formData.source === 'ozon') && formData.externalId && (
+                            {(formData.source === 'woo' || formData.source === 'wayfair' || formData.source === 'shopify' || formData.source === 'shopify_2' || formData.source === 'PrintMarkt' || formData.source === 'ozon' || formData.source === 'faire') && formData.externalId && (
                                 <span className="ml-2 text-xs text-slate-400 font-mono inline-block">(Sistem ID: #{formData.id})</span>
                             )}
                         </div>
