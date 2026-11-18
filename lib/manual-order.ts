@@ -14,7 +14,9 @@ function serverLog(msg: string) {
 }
 
 export async function executeCreateManualOrder(orderData: any, authorName?: string) {
-    const { items, customer, phone, email, address, city, note, status, clientBarcode, total, taxNumber, taxOffice, needsInvoice, isSample, isRoll } = orderData
+    const { items, customer, phone, email, address, city, note, status, clientBarcode, total, taxNumber, taxOffice, needsInvoice, isSample, isRoll, assignedTo, createdBy } = orderData
+
+    const staffMember = (assignedTo || createdBy || authorName || "").trim() || null
 
     // Use a manual barcode prefix or the client-generated one for perfect optimistic UI sync
     const barcode = clientBarcode || (isRoll ? `ROLL-${Date.now()}` : isSample ? `SAMPLE-${Date.now()}` : `MANUAL-${Date.now()}`)
@@ -43,7 +45,7 @@ export async function executeCreateManualOrder(orderData: any, authorName?: stri
             croppedImage: item.croppedImage ? String(item.croppedImage).trim() : null
         }));
 
-        serverLog(`[CREATE_MANUAL] Starting for customer: ${customer} (isRoll: ${Boolean(isRoll)}, isSample: ${Boolean(isSample)})`);
+        serverLog(`[CREATE_MANUAL] Starting for customer: ${customer} (staff: ${staffMember}, isRoll: ${Boolean(isRoll)}, isSample: ${Boolean(isSample)})`);
         await db.order.create({
             data: {
                 customer: String(customer || "").trim(),
@@ -55,6 +57,7 @@ export async function executeCreateManualOrder(orderData: any, authorName?: stri
                 total: total ? `${total} ₺` : "0.00 ₺",
                 status: status || "pending_woo",
                 barcode,
+                assignedTo: staffMember,
                 labels: JSON.stringify(labelsList),
                 hasNotification: true,
                 taxNumber: taxNumber ? String(taxNumber).trim() : null,
@@ -84,7 +87,7 @@ export async function executeCreateManualOrder(orderData: any, authorName?: stri
                 await db.orderActivity.create({
                     data: {
                         orderId: newOrder.id,
-                        author: user || "Sistem",
+                        author: staffMember || user || "Sistem",
                         action: "ORDER_CREATED",
                         details: logText
                     }
@@ -134,6 +137,7 @@ export async function executeCreateManualOrder(orderData: any, authorName?: stri
             city: newOrder.city,
             total: newOrder.total,
             status: newOrder.status,
+            assignedTo: newOrder.assignedTo,
             date: newOrder.date.toISOString(),
             createdAt: newOrder.createdAt.toISOString(),
             updatedAt: newOrder.updatedAt.toISOString(),

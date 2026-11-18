@@ -811,9 +811,12 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                 );
                             })()}
                             {order.assignedTo && (
-                                <div className="flex items-center gap-1 text-xs text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded-full">
-                                    <User className="w-3 h-3" />
-                                    <span>{order.assignedTo.split(' ')[0]}</span>
+                                <div 
+                                    className="flex items-center gap-1 text-[11px] font-semibold text-purple-700 bg-purple-50 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800/60 px-2 py-0.5 rounded-full shadow-2xs"
+                                    title={`Siparişi Oluşturan Personel: ${order.assignedTo}`}
+                                >
+                                    <User className="w-3 h-3 text-purple-600 dark:text-purple-400 shrink-0" />
+                                    <span className="truncate max-w-[120px]">{order.assignedTo}</span>
                                 </div>
                             )}
                         </div>

@@ -1728,6 +1728,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     <ManualOrderModal
                         isOpen={isManualOrderOpen}
                         initialMode={manualOrderInitialMode}
+                        currentUser={currentUser}
                         onClose={() => setIsManualOrderOpen(false)}
                         onCreate={async (data) => {
                             // 1. Optimistic UI Update (Instant feedback)
@@ -1749,6 +1750,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 barcode: clientBarcode,
                                 customer: data.customer || "Müşteri",
                                 status: data.status || 'pending_woo',
+                                assignedTo: data.assignedTo || currentUser?.name || null,
                                 date: new Date().toISOString(),
                                 createdAt: new Date().toISOString(),
                                 updatedAt: new Date().toISOString(),
@@ -1766,7 +1768,11 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                             toast.success(data.isRoll ? "Rulo siparişi başarıyla oluşturuldu!" : data.isSample ? "Numune siparişi başarıyla oluşturuldu!" : "Sipariş başarıyla oluşturuldu!");
 
                             // 2. Actual server upload (Fire and forget!)
-                            const payload = { ...data, clientBarcode };
+                            const payload = { 
+                                ...data, 
+                                assignedTo: data.assignedTo || currentUser?.name || null,
+                                clientBarcode 
+                            };
                             
                             submitManualOrder(payload)
                                 .then(async (res) => {
@@ -1779,6 +1785,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                         setOrders(prev => prev.map(o => o.id === tempId ? {
                                             ...(res.order || o),
                                             id: res.orderId,
+                                            assignedTo: res.order?.assignedTo || data.assignedTo || currentUser?.name || null,
                                             items: res.order?.items || o.items
                                         } : o) as any);
 

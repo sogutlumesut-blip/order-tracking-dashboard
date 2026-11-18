@@ -1888,7 +1888,9 @@ export async function syncWooCommerceOrders(force: boolean = false) {
 
 
 export async function createManualOrder(orderData: any) {
-    const { items, customer, phone, email, address, city, note, status, clientBarcode, total, isSample, isRoll, needsInvoice, taxNumber } = orderData
+    const { items, customer, phone, email, address, city, note, status, clientBarcode, total, isSample, isRoll, needsInvoice, taxNumber, taxOffice, assignedTo, createdBy } = orderData
+
+    const staffMember = (assignedTo || createdBy || "").trim() || null
 
     // Use a manual barcode prefix or the client-generated one for perfect optimistic UI sync
     const barcode = clientBarcode || (isRoll ? `ROLL-${Date.now()}` : isSample ? `SAMPLE-${Date.now()}` : `MANUAL-${Date.now()}`)
@@ -1904,7 +1906,7 @@ export async function createManualOrder(orderData: any) {
     }
 
     try {
-        serverLog(`[CREATE_MANUAL] Starting for customer: ${customer} (isRoll: ${Boolean(isRoll)}, isSample: ${Boolean(isSample)})`);
+        serverLog(`[CREATE_MANUAL] Starting for customer: ${customer} (staff: ${staffMember}, isRoll: ${Boolean(isRoll)}, isSample: ${Boolean(isSample)})`);
         await db.order.create({
             data: {
                 customer,
@@ -1916,8 +1918,12 @@ export async function createManualOrder(orderData: any) {
                 total: total ? `${total} ₺` : "0.00 ₺",
                 status: status || "pending_woo",
                 barcode,
+                assignedTo: staffMember,
                 labels: JSON.stringify(labelsList),
                 hasNotification: true,
+                taxNumber: taxNumber ? String(taxNumber).trim() : null,
+                taxOffice: taxOffice ? String(taxOffice).trim() : null,
+                invoiceStatus: (needsInvoice || taxNumber) ? "pending" : "draft",
                 items: {
                     create: items
                 }

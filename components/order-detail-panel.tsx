@@ -365,7 +365,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
         if (formData) {
             const finalOrderData = {
                 ...formData,
-                assignedTo: currentUser.name, // Claim ownership
+                assignedTo: formData.assignedTo || currentUser.name, // Preserve existing creator/assignee or assign to current user
             }
 
             onUpdate(finalOrderData)
@@ -1117,6 +1117,12 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                 <span className="ml-2 text-xs text-slate-400 font-mono inline-block">(Sistem ID: #{formData.id})</span>
                             )}
                         </div>
+                        {formData.assignedTo && (
+                            <div className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-purple-700 dark:text-purple-300 bg-purple-100/90 dark:bg-purple-950/70 border border-purple-200 dark:border-purple-800/60 px-2 py-0.5 rounded-full w-fit">
+                                <User className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                                <span>Personel: <strong className="font-bold">{formData.assignedTo}</strong></span>
+                            </div>
+                        )}
                     </div>
                     <div className="flex items-center gap-2">
                         {((formData.labels || []).includes('TASLAK TALEBİ VAR') || (formData.barcode || '').startsWith('PM-DRAFT-') || (formData.externalId || '').startsWith('pm_proof_')) && (() => {
@@ -1367,6 +1373,16 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                             </span>
                                         ))}
                                     </div>
+
+                                    {formData.assignedTo && (
+                                        <div className="flex items-center gap-2 p-2 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 rounded-lg text-purple-900 dark:text-purple-200">
+                                            <User className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+                                            <div className="text-xs">
+                                                <span className="text-slate-500 dark:text-slate-400">Siparişi Oluşturan Personel: </span>
+                                                <strong className="font-bold text-purple-700 dark:text-purple-300">{formData.assignedTo}</strong>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <div className="text-slate-600 dark:text-slate-400 text-sm space-y-1.5">
                                         {formData.phone && (
@@ -2336,19 +2352,22 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                 {/* Assigned To */}
                                 <div className="space-y-2">
                                     <label className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-200">
-                                        <User className="w-4 h-4" /> {APP_CONFIG.assigneeLabel}
+                                        <User className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                                        <span>Siparişi Oluşturan / Sorumlu Personel</span>
                                     </label>
                                     <div className="relative">
                                         <input
                                             type="text"
                                             readOnly
-                                            className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-100 dark:bg-slate-800 text-black dark:text-slate-300 font-bold cursor-not-allowed"
-                                            value={currentUser.name}
+                                            className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg bg-slate-100 dark:bg-slate-800 text-purple-900 dark:text-purple-300 font-bold cursor-default"
+                                            value={formData.assignedTo || currentUser.name}
                                         />
-                                        <span className="absolute right-3 top-2.5 text-xs text-black dark:text-slate-300 font-bold">Sabit (Sen)</span>
+                                        <span className="absolute right-3 top-2.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                                            {formData.assignedTo ? "Kayıtlı Personel" : "Mevcut Kullanıcı"}
+                                        </span>
                                     </div>
-                                    <p className="text-[10px] text-slate-900 dark:text-slate-400 font-bold">
-                                        * Kaydettiğinizde siparişin sorumlusu otomatik olarak siz olursunuz.
+                                    <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                                        * Bu sipariş {formData.assignedTo ? <strong className="text-purple-600 dark:text-purple-400">{formData.assignedTo}</strong> : "personel"} tarafından sisteme işlenmiştir.
                                     </p>
                                 </div>
 

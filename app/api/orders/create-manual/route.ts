@@ -13,7 +13,8 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ success: false, error: "Geçersiz istek gövdesi" }, { status: 400 });
         }
 
-        const result = await executeCreateManualOrder(body, session?.user?.name);
+        const staffUser = body.assignedTo || body.createdBy || session?.user?.name;
+        const result = await executeCreateManualOrder(body, staffUser);
         if (!result.success) {
             return NextResponse.json(result, { status: 400 });
         }

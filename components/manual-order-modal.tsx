@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { X, Upload, Loader2, Plus, FileText, Clipboard, Copy, Trash2, Package, Sparkles, Scroll } from "lucide-react"
+import { X, Upload, Loader2, Plus, FileText, Clipboard, Copy, Trash2, Package, Sparkles, Scroll, User } from "lucide-react"
 import { toast } from "sonner"
 
 interface ManualOrderModalProps {
@@ -9,6 +9,11 @@ interface ManualOrderModalProps {
     onClose: () => void
     onCreate: (orderData: any) => Promise<void>
     initialMode?: 'standard' | 'sample' | 'roll'
+    currentUser?: {
+        name: string
+        id?: string
+        role?: string
+    }
 }
 
 interface ProductItem {
@@ -63,7 +68,7 @@ const createDefaultProduct = (idx: number = 1): ProductItem => ({
     files: []
 })
 
-export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'standard' }: ManualOrderModalProps) {
+export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'standard', currentUser }: ManualOrderModalProps) {
     const [isLoading, setIsLoading] = useState(false)
     const [orderType, setOrderType] = useState<'standard' | 'sample' | 'roll'>(initialMode || 'standard')
     const [activeProductIndex, setActiveProductIndex] = useState(0)
@@ -71,11 +76,7 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
     const fileInputRef = useRef<HTMLInputElement>(null)
     const pendingProductIndexRef = useRef<number>(0)
 
-    useEffect(() => {
-        if (isOpen) {
-            setOrderType(initialMode || 'standard')
-        }
-    }, [isOpen, initialMode])
+    const [creatorName, setCreatorName] = useState(currentUser?.name || "")
 
     const [customerData, setCustomerData] = useState({
         customer: "",
@@ -98,6 +99,47 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
     })
 
     const [products, setProducts] = useState<ProductItem[]>([createDefaultProduct(1)])
+
+    const resetForm = () => {
+        setCustomerData({
+            customer: "",
+            phone: "",
+            email: "",
+            address: "",
+            city: "",
+            total: "",
+            generalNote: "",
+            cargoBarcodeLink: ""
+        })
+        setProducts([createDefaultProduct(1)])
+        setActiveProductIndex(0)
+        setDraggingProductIndex(null)
+        setNeedsInvoice(false)
+        setSameAsShippingAddress(true)
+        setInvoiceData({
+            title: "",
+            taxNumber: "",
+            taxOffice: "",
+            address: ""
+        })
+        setCreatorName(currentUser?.name || "")
+        setIsLoading(false)
+        if (fileInputRef.current) {
+            fileInputRef.current.value = ""
+        }
+    }
+
+    const handleModalClose = () => {
+        resetForm()
+        onClose()
+    }
+
+    useEffect(() => {
+        if (isOpen) {
+            setOrderType(initialMode || 'standard')
+            resetForm()
+        }
+    }, [isOpen, initialMode])
 
     const copyShippingToInvoice = () => {
         setInvoiceData(prev => ({
@@ -517,9 +559,13 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
                 ? `⚡ ÖRNEK / NUMUNE SİPARİŞİ (Toplam ${products.length} Numune Kalemi)`
                 : ""
 
+            const creatorStaff = (creatorName || currentUser?.name || "").trim()
+            const creatorNote = creatorStaff ? `👤 Siparişi Oluşturan: ${creatorStaff}` : ""
+
             const combinedNotes = [
                 rollHeaderNote,
                 sampleHeaderNote,
+                creatorNote,
                 customerData.generalNote?.trim(),
                 invoiceNote,
                 products.length > 1 ? `📦 Toplam ${products.length} farklı ${isRoll ? 'rulo' : isSample ? 'numune' : 'ürün'} kalemi içerir.` : ""
@@ -537,6 +583,8 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
                 needsInvoice: needsInvoice,
                 isSample: isSample,
                 isRoll: isRoll,
+                assignedTo: creatorStaff || null,
+                createdBy: creatorStaff || null,
                 note: combinedNotes,
                 dimensions: items[0]?.dimensions || (isRoll ? "ROLL" : isSample ? "SAMPLE" : ""),
                 image_src: mainImage,
@@ -545,9 +593,9 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
                 items: items
             }
 
-            // 1. Close modal immediately to not block UI
+            // 1. Reset and close modal immediately so next time form is 100% clean
+            resetForm()
             onClose()
-            setIsLoading(false)
 
             // 2. Start upload
             onCreate(orderPayload)
@@ -566,7 +614,7 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
 
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 md:p-4">
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-xs" onClick={onClose} />
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-xs" onClick={handleModalClose} />
 
             <div className="relative bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 border dark:border-slate-800">
 
@@ -612,7 +660,7 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
                             </p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-500">
+                    <button onClick={handleModalClose} className="p-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-500">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
@@ -772,6 +820,33 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
                                     className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-900 transition-all"
                                     placeholder="https://...pdf"
                                 />
+                            </div>
+
+                            {/* Personel / Siparişi Oluşturan */}
+                            <div className="space-y-1 md:col-span-3 pt-2.5 mt-1 border-t border-slate-200/70 dark:border-slate-800/70 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 border border-purple-200 dark:border-purple-800/60 shadow-xs">
+                                        <User className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                                            <span>Siparişi Oluşturan Personel</span>
+                                            <span className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold bg-purple-50 dark:bg-purple-950/40 px-1.5 py-0.5 rounded">Otomatik</span>
+                                        </label>
+                                        <span className="text-[11px] text-slate-400 block">
+                                            Siparişi oluşturan personel kaydı (sipariş kartında ve detayında görünür)
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="relative w-full sm:w-64">
+                                    <input
+                                        value={creatorName}
+                                        onChange={(e) => setCreatorName(e.target.value)}
+                                        className="w-full pl-8 pr-3 py-1.5 border border-purple-300 dark:border-purple-800/80 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none bg-white dark:bg-slate-900 transition-all font-semibold"
+                                        placeholder="Personel Adı"
+                                    />
+                                    <User className="w-4 h-4 text-purple-500 absolute left-2.5 top-2.5 pointer-events-none" />
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1709,7 +1784,7 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
                     <div className="flex items-center gap-2.5">
                         <button
                             type="button"
-                            onClick={onClose}
+                            onClick={handleModalClose}
                             className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-colors"
                         >
                             İptal
