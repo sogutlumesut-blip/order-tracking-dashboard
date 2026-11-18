@@ -154,7 +154,7 @@ function MaterialHeroBanner({ item, totalItems }: { item?: any; totalItems: numb
 
                 {item.dimensions && item.dimensions !== '-' && (
                     <span className="mt-1 text-[11px] font-bold text-slate-200 bg-white/10 px-2 py-0.5 rounded-md border border-white/20">
-                        En: {item.dimensions}
+                        {item.dimensions === 'SAMPLE' ? '✨ Numune' : item.dimensions === 'ROLL' ? '📜 Rulo' : `En: ${item.dimensions}`}
                     </span>
                 )}
             </div>
@@ -531,6 +531,8 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                             ? { bg: 'bg-amber-100 dark:bg-amber-950/60', text: 'text-amber-800 dark:text-amber-300', border: 'border-amber-300 dark:border-amber-700' }
                             : (displayLabel === 'Numune' || displayLabel === 'Örnek')
                             ? { bg: 'bg-purple-100 dark:bg-purple-950/60', text: 'text-purple-800 dark:text-purple-300', border: 'border-purple-300 dark:border-purple-700' }
+                            : (displayLabel === 'Rulo')
+                            ? { bg: 'bg-emerald-100 dark:bg-emerald-950/60', text: 'text-emerald-800 dark:text-emerald-300 font-bold', border: 'border-emerald-300 dark:border-emerald-700' }
                             : (displayLabel === 'SHIPENTEGRA')
                             ? { bg: 'bg-blue-50 dark:bg-blue-950/60', text: 'text-blue-700 dark:text-blue-300', border: 'border-blue-300 dark:border-blue-700' }
                             : getColorClasses(tagDef?.color)

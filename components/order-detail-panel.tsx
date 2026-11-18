@@ -946,7 +946,7 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                             borderRadius: "2px",
                                                             fontWeight: "700"
                                                         }}>
-                                                            📏 {formatDimensions(item.dimensions, formData.source, formData.barcode)}{extraM2}
+                                                            {item.dimensions === 'SAMPLE' ? '✨ NUMUNE' : item.dimensions === 'ROLL' ? '📜 RULO' : `📏 ${formatDimensions(item.dimensions, formData.source, formData.barcode)}${extraM2}`}
                                                         </span>
                                                     )}
                                                     <span style={{
@@ -1753,8 +1753,8 @@ export function OrderDetailPanel({ order, isOpen, onClose, onUpdate, onAddCommen
                                                          const formattedDim = formatDimensions(dimStr, formData?.source, formData?.barcode);
                                                          
                                                          return (
-                                                             <span className={item.dimensions === 'SAMPLE' ? "inline-flex items-center text-xs sm:text-[13px] bg-pink-50 dark:bg-pink-900/30 px-2.5 py-1 rounded-md text-pink-700 dark:text-pink-400 font-bold border border-pink-200 dark:border-pink-800 animate-pulse shadow-xs" : "inline-flex items-center text-xs sm:text-[13px] font-bold bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-md text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 shadow-xs"}>
-                                                                 {item.dimensions === 'SAMPLE' ? '✨ SAMPLE' : `📏 ${formattedDim}${extraM2}`}
+                                                             <span className={item.dimensions === 'SAMPLE' ? "inline-flex items-center text-xs sm:text-[13px] bg-pink-50 dark:bg-pink-900/30 px-2.5 py-1 rounded-md text-pink-700 dark:text-pink-400 font-bold border border-pink-200 dark:border-pink-800 animate-pulse shadow-xs" : item.dimensions === 'ROLL' ? "inline-flex items-center text-xs sm:text-[13px] bg-emerald-50 dark:bg-emerald-900/30 px-2.5 py-1 rounded-md text-emerald-700 dark:text-emerald-400 font-bold border border-emerald-200 dark:border-emerald-800 shadow-xs" : "inline-flex items-center text-xs sm:text-[13px] font-bold bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-md text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 shadow-xs"}>
+                                                                 {item.dimensions === 'SAMPLE' ? '✨ SAMPLE' : item.dimensions === 'ROLL' ? '📜 RULO' : `📏 ${formattedDim}${extraM2}`}
                                                              </span>
                                                          );
                                                      })()}

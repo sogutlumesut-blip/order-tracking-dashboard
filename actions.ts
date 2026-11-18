@@ -1888,13 +1888,23 @@ export async function syncWooCommerceOrders(force: boolean = false) {
 
 
 export async function createManualOrder(orderData: any) {
-    const { items, customer, phone, email, address, city, note, status, clientBarcode, total } = orderData
+    const { items, customer, phone, email, address, city, note, status, clientBarcode, total, isSample, isRoll, needsInvoice, taxNumber } = orderData
 
     // Use a manual barcode prefix or the client-generated one for perfect optimistic UI sync
-    const barcode = clientBarcode || `MANUAL-${Date.now()}`
+    const barcode = clientBarcode || (isRoll ? `ROLL-${Date.now()}` : isSample ? `SAMPLE-${Date.now()}` : `MANUAL-${Date.now()}`)
+
+    const labelsList = ['Manuel']
+    if (isRoll) {
+        labelsList.push('Rulo')
+    } else if (isSample) {
+        labelsList.push('Numune')
+    }
+    if (needsInvoice || taxNumber) {
+        labelsList.push('Fatura')
+    }
 
     try {
-        serverLog(`[CREATE_MANUAL] Starting for customer: ${customer}`);
+        serverLog(`[CREATE_MANUAL] Starting for customer: ${customer} (isRoll: ${Boolean(isRoll)}, isSample: ${Boolean(isSample)})`);
         await db.order.create({
             data: {
                 customer,
@@ -1906,7 +1916,7 @@ export async function createManualOrder(orderData: any) {
                 total: total ? `${total} ₺` : "0.00 ₺",
                 status: status || "pending_woo",
                 barcode,
-                labels: JSON.stringify(['Manuel']),
+                labels: JSON.stringify(labelsList),
                 hasNotification: true,
                 items: {
                     create: items
@@ -1918,7 +1928,8 @@ export async function createManualOrder(orderData: any) {
         const newOrder = await db.order.findUnique({ where: { barcode } })
         serverLog(`[CREATE_MANUAL] Order retrieved from DB: ${newOrder?.id}`);
         if (newOrder) {
-            await logManualActivity(newOrder.id, "ORDER_CREATED", "Manuel sipariş oluşturuldu.")
+            const logText = isRoll ? "Rulo siparişi oluşturuldu." : isSample ? "Örnek (Numune) siparişi oluşturuldu." : "Manuel sipariş oluşturuldu.";
+            await logManualActivity(newOrder.id, "ORDER_CREATED", logText)
         }
 
         return { success: true, orderId: newOrder?.id }

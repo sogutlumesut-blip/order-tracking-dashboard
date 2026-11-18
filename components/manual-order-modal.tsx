@@ -1,14 +1,14 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { X, Upload, Loader2, Plus, FileText, Clipboard, Copy, Trash2, Package, Sparkles } from "lucide-react"
+import { X, Upload, Loader2, Plus, FileText, Clipboard, Copy, Trash2, Package, Sparkles, Scroll } from "lucide-react"
 import { toast } from "sonner"
 
 interface ManualOrderModalProps {
     isOpen: boolean
     onClose: () => void
     onCreate: (orderData: any) => Promise<void>
-    initialMode?: 'standard' | 'sample'
+    initialMode?: 'standard' | 'sample' | 'roll'
 }
 
 interface ProductItem {
@@ -65,7 +65,7 @@ const createDefaultProduct = (idx: number = 1): ProductItem => ({
 
 export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'standard' }: ManualOrderModalProps) {
     const [isLoading, setIsLoading] = useState(false)
-    const [orderType, setOrderType] = useState<'standard' | 'sample'>(initialMode || 'standard')
+    const [orderType, setOrderType] = useState<'standard' | 'sample' | 'roll'>(initialMode || 'standard')
     const [activeProductIndex, setActiveProductIndex] = useState(0)
     const [draggingProductIndex, setDraggingProductIndex] = useState<number | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
@@ -141,7 +141,13 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
         const newProd = createDefaultProduct(products.length + 1)
         setProducts(prev => [...prev, newProd])
         setActiveProductIndex(products.length)
-        toast.success(orderType === 'sample' ? `${products.length + 1}. numune eklendi!` : `${products.length + 1}. ürün eklendi!`)
+        toast.success(
+            orderType === 'roll'
+                ? `${products.length + 1}. rulo eklendi!`
+                : orderType === 'sample'
+                ? `${products.length + 1}. numune eklendi!`
+                : `${products.length + 1}. ürün eklendi!`
+        )
     }
 
     const duplicateProduct = (index: number) => {
@@ -353,14 +359,23 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
 
+        const isSample = orderType === 'sample'
+        const isRoll = orderType === 'roll'
+
         if (!customerData.customer.trim()) {
-            toast.error("Müşteri Ad Soyad zorunludur.")
+            toast.error(isRoll ? "Firma Adı zorunludur." : "Müşteri Ad Soyad zorunludur.")
             return
         }
 
-        const isSample = orderType === 'sample'
-
-        if (isSample) {
+        if (isRoll) {
+            for (let i = 0; i < products.length; i++) {
+                const prodCode = products[i].sku?.trim() || products[i].productName?.trim()
+                if (!prodCode) {
+                    toast.error(`${i + 1}. kalem için lütfen Ürün Kodu giriniz.`)
+                    return
+                }
+            }
+        } else if (isSample) {
             for (let i = 0; i < products.length; i++) {
                 if (!products[i].material?.trim()) {
                     toast.error(`${i + 1}. numune için lütfen Kağıt Türü seçiniz.`)
@@ -379,12 +394,14 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
         setIsLoading(true)
         try {
             const items = products.map((p, idx) => {
-                const dimensions = isSample
+                const dimensions = isRoll
+                    ? "ROLL"
+                    : isSample
                     ? "SAMPLE"
                     : (p.width && p.height ? `${p.width} x ${p.height} ${p.unit}` : "")
 
                 let area = ""
-                if (!isSample && p.width && p.height) {
+                if (!isSample && !isRoll && p.width && p.height) {
                     const w = parseFloat(p.width)
                     const h = parseFloat(p.height)
                     if (!isNaN(w) && !isNaN(h)) {
@@ -422,8 +439,11 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
                     ...(validImageLink && isDirectImage(validImageLink) ? [validImageLink] : [])
                 ];
 
+                const rollPlaceholder = "https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=300"
                 const samplePlaceholder = "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=300"
-                const defaultMainPlaceholder = isSample
+                const defaultMainPlaceholder = isRoll
+                    ? rollPlaceholder
+                    : isSample
                     ? samplePlaceholder
                     : "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=300"
 
@@ -437,7 +457,10 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
                     customerData.cargoBarcodeLink || null;
 
                 let finalNote = p.note || ""
-                if (isSample) {
+                if (isRoll) {
+                    const rollCodeStr = p.sku?.trim() || p.productName?.trim()
+                    finalNote = (finalNote ? finalNote + "\n" : "") + `📜 RULO SİPARİŞİ: Ürün Kodu: ${rollCodeStr || '-'}`
+                } else if (isSample) {
                     finalNote = (finalNote ? finalNote + "\n" : "") + `⚡ NUMUNE: ${p.material}`
                 } else if (p.sample) {
                     finalNote = (finalNote ? finalNote + "\n" : "") + "📌 NUMUNE İSTEĞİ: " + p.sample
@@ -445,11 +468,17 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
 
                 const pQty = Math.max(1, parseInt(String(p.quantity || 1), 10) || 1)
 
-                const finalName = isSample
+                const finalName = isRoll
+                    ? (p.productName.trim()
+                        ? (p.sku?.trim() ? `${p.sku.trim()} - ${p.productName.trim()} (Rulo)` : `${p.productName.trim()} (Rulo)`)
+                        : `Rulo - ${p.sku?.trim() || 'Ürün'}`)
+                    : isSample
                     ? (p.productName.trim() ? `${p.productName.trim()} (Numune - ${p.material})` : `Numune - ${p.material || 'Kağıt Numunesi'}`)
                     : p.productName.trim()
 
-                const defaultSku = isSample
+                const defaultSku = isRoll
+                    ? (p.sku?.trim() || `RL-${Math.floor(100000 + Math.random() * 900000)}`)
+                    : isSample
                     ? `NU-${Math.floor(100000 + Math.random() * 900000)}`
                     : `PM-${Math.floor(100000 + Math.random() * 900000)}`
 
@@ -458,16 +487,17 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
                     sku: p.sku || defaultSku,
                     quantity: pQty,
                     image_src: mainImage,
-                    material: p.material || null,
+                    material: isRoll ? "Rulo Duvar Kağıdı" : (p.material || null),
                     dimensions: dimensions + (area ? ` (${area})` : ""),
                     productNote: finalNote || null,
-                    sampleData: isSample ? (p.material || 'Numune') : (p.sample || null),
+                    sampleData: isRoll ? 'Rulo' : isSample ? (p.material || 'Numune') : (p.sample || null),
                     url: specialUrl
                 }
             })
 
+            const rollPlaceholder = "https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=300"
             const samplePlaceholder = "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=300"
-            const defaultMain = isSample ? samplePlaceholder : "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=300"
+            const defaultMain = isRoll ? rollPlaceholder : isSample ? samplePlaceholder : "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=300"
             const mainImage = items[0]?.image_src || defaultMain
             const mainSpecialUrl = customerData.cargoBarcodeLink || items[0]?.url || null
 
@@ -479,15 +509,20 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
                 `• Fatura Adresi: ${sameAsShippingAddress ? (customerData.address.trim() + (customerData.city ? ` / ${customerData.city.trim()}` : "")) : (invoiceData.address.trim() || customerData.address.trim() || "-")}`
             ].filter(Boolean).join("\n") : ""
 
+            const rollHeaderNote = isRoll
+                ? `📜 RULO SİPARİŞİ (Firma: ${customerData.customer.trim()} - Toplam ${products.length} Rulo Kalemi)`
+                : ""
+
             const sampleHeaderNote = isSample 
                 ? `⚡ ÖRNEK / NUMUNE SİPARİŞİ (Toplam ${products.length} Numune Kalemi)`
                 : ""
 
             const combinedNotes = [
+                rollHeaderNote,
                 sampleHeaderNote,
                 customerData.generalNote?.trim(),
                 invoiceNote,
-                products.length > 1 ? `📦 Toplam ${products.length} farklı ${isSample ? 'numune' : 'ürün'} kalemi içerir.` : ""
+                products.length > 1 ? `📦 Toplam ${products.length} farklı ${isRoll ? 'rulo' : isSample ? 'numune' : 'ürün'} kalemi içerir.` : ""
             ].filter(Boolean).join("\n\n")
 
             const orderPayload = {
@@ -501,8 +536,9 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
                 taxOffice: needsInvoice && invoiceData.taxOffice.trim() ? invoiceData.taxOffice.trim() : null,
                 needsInvoice: needsInvoice,
                 isSample: isSample,
+                isRoll: isRoll,
                 note: combinedNotes,
-                dimensions: items[0]?.dimensions || (isSample ? "SAMPLE" : ""),
+                dimensions: items[0]?.dimensions || (isRoll ? "ROLL" : isSample ? "SAMPLE" : ""),
                 image_src: mainImage,
                 url: mainSpecialUrl,
                 status: 'pending_woo',
@@ -538,16 +574,23 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
                 <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950/60">
                     <div className="flex items-center gap-2.5">
                         <div className={`p-1.5 rounded-lg ${
-                            orderType === 'sample'
+                            orderType === 'roll'
+                                ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'
+                                : orderType === 'sample'
                                 ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400'
                                 : 'bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400'
                         }`}>
-                            {orderType === 'sample' ? <Sparkles className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                            {orderType === 'roll' ? <Scroll className="w-5 h-5" /> : orderType === 'sample' ? <Sparkles className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
                         </div>
                         <div>
                             <h2 className="text-base font-bold dark:text-slate-100 flex items-center gap-2">
-                                {orderType === 'sample' ? "Örnek (Numune) Siparişi Oluştur" : "Manuel Sipariş Oluştur"}
-                                {orderType === 'sample' ? (
+                                {orderType === 'roll' ? "Rulo Siparişi Oluştur" : orderType === 'sample' ? "Örnek (Numune) Siparişi Oluştur" : "Manuel Sipariş Oluştur"}
+                                {orderType === 'roll' ? (
+                                    <span className="text-xs bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">
+                                        <Scroll className="w-3 h-3" />
+                                        {products.length} Rulo Kalemi
+                                    </span>
+                                ) : orderType === 'sample' ? (
                                     <span className="text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 px-2 py-0.5 rounded-full font-semibold flex items-center gap-1">
                                         <Sparkles className="w-3 h-3" />
                                         {products.length} Numune Kalemi
@@ -561,7 +604,9 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
                                 )}
                             </h2>
                             <p className="text-xs text-slate-500 dark:text-slate-400">
-                                {orderType === 'sample'
+                                {orderType === 'roll'
+                                    ? "Ürün kodu, firma adı, adet ve sipariş notunu ekleyerek hızlıca rulo siparişi oluşturun."
+                                    : orderType === 'sample'
                                     ? "Ölçü girilmez. Müşteri bilgilerini girip sadece kağıt türü, adet ve istenirse görsel seçerek oluşturun."
                                     : "Müşteri bilgileri tek, ürünler ve görseller ayrı eklenebilir."}
                             </p>
@@ -599,6 +644,19 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
                         <Sparkles className="w-4 h-4" />
                         <span>⚡ Örnek Al (Numune - Sadece Kağıt Türü)</span>
                     </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setOrderType('roll')}
+                        className={`flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${
+                            orderType === 'roll'
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
+                        }`}
+                    >
+                        <Scroll className="w-4 h-4" />
+                        <span>📜 Rulo Sipariş</span>
+                    </button>
                 </div>
 
                 {/* Hidden Global File Input */}
@@ -617,21 +675,31 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
                     <div className="bg-slate-50/70 dark:bg-slate-950/40 border border-slate-200/80 dark:border-slate-800/80 p-4 rounded-xl space-y-3.5">
                         <div className="flex items-center justify-between border-b dark:border-slate-800/80 pb-2">
                             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                                <span>👤</span>
-                                <span>Müşteri Bilgileri</span>
+                                <span>{orderType === 'roll' ? '🏢' : '👤'}</span>
+                                <span>{orderType === 'roll' ? 'Firma Bilgileri' : 'Müşteri Bilgileri'}</span>
                             </h3>
-                            <span className="text-[11px] text-slate-400 font-medium">Ortak Sipariş Bilgisi</span>
+                            <span className="text-[11px] text-slate-400 font-medium">
+                                {orderType === 'roll' ? 'Firma & İletişim Bilgisi' : 'Ortak Sipariş Bilgisi'}
+                            </span>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             <div className="space-y-1">
-                                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Ad Soyad *</label>
+                                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                    {orderType === 'roll' ? 'Firma Adı *' : 'Ad Soyad *'}
+                                </label>
                                 <input
                                     name="customer"
                                     value={customerData.customer}
                                     onChange={handleCustomerChange}
-                                    className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-900 transition-all font-medium"
-                                    placeholder="Örn: Ahmet Yılmaz"
+                                    className={`w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none bg-white dark:bg-slate-900 transition-all font-medium ${
+                                        orderType === 'roll'
+                                            ? 'focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500'
+                                            : orderType === 'sample'
+                                            ? 'focus:ring-2 focus:ring-purple-500 focus:border-purple-500'
+                                            : 'focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                                    }`}
+                                    placeholder={orderType === 'roll' ? "Örn: ABC Mimarlık / Bayi / Firma Adı" : "Örn: Ahmet Yılmaz"}
                                 />
                             </div>
 
@@ -656,7 +724,7 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
                                         value={customerData.total}
                                         onChange={handleCustomerChange}
                                         className="w-full pl-2 pr-7 py-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-900 transition-all font-bold text-blue-600 dark:text-blue-400"
-                                        placeholder={orderType === 'sample' ? "0 (Ücretsiz Numune)" : "Örn: 11745"}
+                                        placeholder={orderType === 'sample' ? "0 (Ücretsiz Numune)" : orderType === 'roll' ? "Örn: 24500 (opsiyonel)" : "Örn: 11745"}
                                     />
                                     <span className="absolute right-2.5 top-2 text-sm font-bold text-slate-400">₺</span>
                                 </div>
@@ -838,7 +906,22 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
                     <div className="space-y-4">
                         <div className="flex items-center justify-between border-b dark:border-slate-800 pb-2">
                             <div className="flex items-center gap-2">
-                                {orderType === 'sample' ? (
+                                {orderType === 'roll' ? (
+                                    <>
+                                        <Scroll className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                                        <div>
+                                            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                                                Rulo Kalemleri ({products.length})
+                                                <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 px-2 py-0.5 rounded font-semibold">
+                                                    Hazır Rulo
+                                                </span>
+                                            </h3>
+                                            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                                Rulo ürün kodu, adet ve sipariş notu bilgileriyle siparişinizi oluşturun.
+                                            </p>
+                                        </div>
+                                    </>
+                                ) : orderType === 'sample' ? (
                                     <>
                                         <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                                         <div>
@@ -866,13 +949,17 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
                                 type="button"
                                 onClick={addProduct}
                                 className={`px-3 py-1.5 text-xs font-bold text-white rounded-lg shadow-xs transition-colors flex items-center gap-1.5 ${
-                                    orderType === 'sample'
+                                    orderType === 'roll'
+                                        ? 'bg-emerald-600 hover:bg-emerald-700'
+                                        : orderType === 'sample'
                                         ? 'bg-purple-600 hover:bg-purple-700'
                                         : 'bg-blue-600 hover:bg-blue-700'
                                 }`}
                             >
                                 <Plus className="w-4 h-4" />
-                                {orderType === 'sample' ? (
+                                {orderType === 'roll' ? (
+                                    <span>+ Farklı Rulo / Ürün Kodu Ekle</span>
+                                ) : orderType === 'sample' ? (
                                     <span>+ Farklı Kağıt Türü / Numune Ekle</span>
                                 ) : (
                                     <span>+ 2. Ürün Ekle (Farklı Ölçü / Doku / Görsel)</span>
@@ -893,7 +980,9 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
                                         onClick={() => setActiveProductIndex(idx)}
                                         className={`border rounded-xl p-4 transition-all duration-200 ${
                                             isCurrentActive
-                                                ? (orderType === 'sample'
+                                                ? (orderType === 'roll'
+                                                    ? 'border-emerald-400 dark:border-emerald-600 ring-2 ring-emerald-500/10 bg-white dark:bg-slate-900/90 shadow-sm'
+                                                    : orderType === 'sample'
                                                     ? 'border-purple-400 dark:border-purple-600 ring-2 ring-purple-500/10 bg-white dark:bg-slate-900/90 shadow-sm'
                                                     : 'border-blue-400 dark:border-blue-600 ring-2 ring-blue-500/10 bg-white dark:bg-slate-900/90 shadow-sm')
                                                 : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30 hover:border-slate-300'
@@ -903,14 +992,20 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
                                         <div className="flex items-center justify-between mb-3.5 pb-2 border-b dark:border-slate-800">
                                             <div className="flex items-center gap-2">
                                                 <span className={`w-6 h-6 rounded-full text-white flex items-center justify-center text-xs font-bold shadow-xs ${
-                                                    orderType === 'sample' ? 'bg-purple-600' : 'bg-blue-600'
+                                                    orderType === 'roll' ? 'bg-emerald-600' : orderType === 'sample' ? 'bg-purple-600' : 'bg-blue-600'
                                                 }`}>
                                                     {idx + 1}
                                                 </span>
                                                 <span className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                                                    {orderType === 'sample' ? `${idx + 1}. Numune Kağıdı` : `${idx + 1}. Ürün Detayları`}
+                                                    {orderType === 'roll' ? `${idx + 1}. Rulo Kalemi` : orderType === 'sample' ? `${idx + 1}. Numune Kağıdı` : `${idx + 1}. Ürün Detayları`}
                                                 </span>
-                                                {orderType === 'sample' ? (
+                                                {orderType === 'roll' ? (
+                                                    prod.sku && (
+                                                        <span className="text-xs font-bold font-mono text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                                                            Kod: {prod.sku}
+                                                        </span>
+                                                    )
+                                                ) : orderType === 'sample' ? (
                                                     prod.material && (
                                                         <span className="text-xs font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/50 px-2 py-0.5 rounded border border-purple-200 dark:border-purple-800">
                                                             {prod.material}
@@ -933,10 +1028,10 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
                                                         duplicateProduct(idx)
                                                     }}
                                                     className="px-2.5 py-1 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-md transition-colors flex items-center gap-1"
-                                                    title={orderType === 'sample' ? "Bu numuneyi çoğalt" : "Bu ürünün özelliklerini kopyalayarak yeni ürün oluştur"}
+                                                    title={orderType === 'roll' ? "Bu ruloyu çoğalt" : orderType === 'sample' ? "Bu numuneyi çoğalt" : "Bu ürünün özelliklerini kopyalayarak yeni ürün oluştur"}
                                                 >
                                                     <Copy className="w-3.5 h-3.5" />
-                                                    <span className="hidden sm:inline">{orderType === 'sample' ? 'Numuneyi Çoğalt' : 'Bu Ürünü Çoğalt'}</span>
+                                                    <span className="hidden sm:inline">{orderType === 'roll' ? 'Ruloyu Çoğalt' : orderType === 'sample' ? 'Numuneyi Çoğalt' : 'Bu Ürünü Çoğalt'}</span>
                                                 </button>
 
                                                 {products.length > 1 && (
@@ -947,7 +1042,7 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
                                                             removeProduct(idx)
                                                         }}
                                                         className="px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-md transition-colors flex items-center gap-1 border border-red-200 dark:border-red-900/50"
-                                                        title={orderType === 'sample' ? "Bu numuneyi kaldır" : "Bu ürünü siparişten kaldır"}
+                                                        title={orderType === 'roll' ? "Bu ruloyu kaldır" : orderType === 'sample' ? "Bu numuneyi kaldır" : "Bu ürünü siparişten kaldır"}
                                                     >
                                                         <Trash2 className="w-3.5 h-3.5" />
                                                         <span>Kaldır</span>
@@ -956,7 +1051,184 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
                                             </div>
                                         </div>
 
-                                        {orderType === 'sample' ? (
+                                        {orderType === 'roll' ? (
+                                            /* ================= ROLL MODE FIELDS: PRODUCT CODE + QUANTITY + NOTE ================= */
+                                            <div className="space-y-3.5">
+                                                {/* Row 1: Product Code (REQUIRED) & Quantity (REQUIRED) */}
+                                                <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                                                    <div className="md:col-span-8 space-y-1">
+                                                        <label className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                                                            <Scroll className="w-3.5 h-3.5 text-emerald-600" />
+                                                            <span>Ürün Kodu *</span>
+                                                            <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded font-bold">Zorunlu</span>
+                                                        </label>
+                                                        <input
+                                                            value={prod.sku}
+                                                            onChange={(e) => handleProductChange(idx, 'sku', e.target.value)}
+                                                            className="w-full p-2.5 border-2 border-emerald-300 dark:border-emerald-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none bg-white dark:bg-slate-950 transition-all font-bold font-mono"
+                                                            placeholder="Örn: RLO-1024, MOD-552 vb."
+                                                        />
+                                                    </div>
+
+                                                    <div className="md:col-span-4 space-y-1">
+                                                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                                                            <span>Kaç Adet (Rulo)? *</span>
+                                                            <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded font-bold">Zorunlu</span>
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            value={prod.quantity}
+                                                            onChange={(e) => handleProductChange(idx, 'quantity', e.target.value)}
+                                                            className="w-full p-2.5 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none bg-white dark:bg-slate-950 transition-all font-bold"
+                                                            placeholder="1"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Row 2: Model Name / Description (Optional) */}
+                                                <div className="space-y-1">
+                                                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                                                        <span>Ürün / Model Adı veya Açıklaması (opsiyonel)</span>
+                                                        <span className="text-[10px] text-slate-400 font-normal">Boş bırakılırsa &quot;Rulo - {prod.sku || 'Ürün'}&quot; kullanılır</span>
+                                                    </label>
+                                                    <input
+                                                        value={prod.productName}
+                                                        onChange={(e) => handleProductChange(idx, 'productName', e.target.value)}
+                                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none bg-white dark:bg-slate-950 transition-all"
+                                                        placeholder="Örn: Desenli Rulo Duvar Kağıdı (isteğe bağlı)"
+                                                    />
+                                                </div>
+
+                                                {/* Row 3: Product Note (Optional) */}
+                                                <div className="space-y-1">
+                                                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                                        Bu Kaleme Özel Sipariş Notu (opsiyonel)
+                                                    </label>
+                                                    <input
+                                                        value={prod.note}
+                                                        onChange={(e) => handleProductChange(idx, 'note', e.target.value)}
+                                                        className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none bg-white dark:bg-slate-950 transition-all"
+                                                        placeholder="Örn: 1. parti boyadan kontrol edilsin / özel rulo paketleme..."
+                                                    />
+                                                </div>
+
+                                                {/* Row 4: Visuals & Files (Optional) */}
+                                                <div className="p-3 rounded-lg bg-emerald-50/40 dark:bg-slate-950/50 border border-emerald-200/70 dark:border-slate-800/80 space-y-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                                                            <span>🖼️</span>
+                                                            <span>Bu Rulonun Görseli veya Etiketi (opsiyonel)</span>
+                                                        </label>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handlePasteFromClipboard(idx)}
+                                                            className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 rounded hover:bg-emerald-50 transition-colors shadow-2xs"
+                                                        >
+                                                            <Clipboard className="w-3 h-3" />
+                                                            Panodan Yapıştır (Cmd+V)
+                                                        </button>
+                                                    </div>
+
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                        <div className="space-y-1">
+                                                            <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                                                                Görsel Linki (Web / Google Drive)
+                                                            </label>
+                                                            <input
+                                                                value={prod.imageLink}
+                                                                onChange={(e) => handleProductImageLinkChange(idx, e.target.value)}
+                                                                className="w-full p-1.5 border border-slate-300 dark:border-slate-700 rounded-md text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-1 focus:ring-emerald-500 outline-none bg-white dark:bg-slate-950"
+                                                                placeholder="https://... (veya Google Drive linki)"
+                                                            />
+                                                        </div>
+
+                                                        <div className="space-y-1">
+                                                            <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                                                                Belge / PDF Linki (varsa)
+                                                            </label>
+                                                            <input
+                                                                value={prod.pdfLink}
+                                                                onChange={(e) => handleProductChange(idx, 'pdfLink', e.target.value)}
+                                                                className="w-full p-1.5 border border-slate-300 dark:border-slate-700 rounded-md text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-1 focus:ring-emerald-500 outline-none bg-white dark:bg-slate-950"
+                                                                placeholder="https://...pdf"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Upload / Drag / Thumbnails */}
+                                                    <div
+                                                        onDragOver={(e) => {
+                                                            e.preventDefault()
+                                                            e.stopPropagation()
+                                                            setDraggingProductIndex(idx)
+                                                        }}
+                                                        onDragLeave={(e) => {
+                                                            e.preventDefault()
+                                                            e.stopPropagation()
+                                                            setDraggingProductIndex(null)
+                                                        }}
+                                                        onDrop={(e) => {
+                                                            e.preventDefault()
+                                                            e.stopPropagation()
+                                                            setDraggingProductIndex(null)
+                                                            setActiveProductIndex(idx)
+                                                            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                                                                for (let fi = 0; fi < e.dataTransfer.files.length; fi++) {
+                                                                    processFileForProduct(e.dataTransfer.files[fi], idx)
+                                                                }
+                                                            }
+                                                        }}
+                                                        className={`p-2.5 rounded-lg border-2 border-dashed transition-all flex flex-wrap gap-2.5 items-center ${
+                                                            isDropTarget
+                                                                ? 'border-emerald-500 bg-emerald-50/80 dark:bg-emerald-950/40 ring-2 ring-emerald-300'
+                                                                : 'border-slate-300 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60'
+                                                        }`}
+                                                    >
+                                                        {prod.files.map((file, fi) => (
+                                                            <div key={fi} className="relative group border dark:border-slate-700 rounded-md p-1 w-16 h-16 flex items-center justify-center bg-white dark:bg-slate-800 overflow-hidden shadow-2xs">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => removeFile(idx, fi)}
+                                                                    className="absolute top-0.5 right-0.5 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-sm"
+                                                                    title="Dosyayı kaldır"
+                                                                >
+                                                                    <X className="w-2.5 h-2.5" />
+                                                                </button>
+                                                                {file.type === 'image' ? (
+                                                                    <img src={file.content} alt="preview" className="w-full h-full object-cover rounded" />
+                                                                ) : (
+                                                                    <div className="flex flex-col items-center">
+                                                                        <FileText className="w-6 h-6 text-red-500" />
+                                                                        <span className="text-[8px] text-slate-500 truncate max-w-full">{file.name}</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ))}
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => triggerFileInput(idx)}
+                                                            className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-emerald-500 rounded-md w-16 h-16 flex flex-col items-center justify-center text-slate-400 hover:text-emerald-500 transition-all bg-white dark:bg-slate-900"
+                                                        >
+                                                            <Upload className="w-4 h-4" />
+                                                            <span className="text-[9px] mt-0.5 font-semibold">Görsel Yükle</span>
+                                                        </button>
+
+                                                        {prod.files.length === 0 && (
+                                                            <div className="text-[11px] text-slate-400 dark:text-slate-500 flex flex-col ml-1">
+                                                                <span className="font-semibold text-slate-600 dark:text-slate-300">
+                                                                    Rulo görselini veya etiketini buraya sürükleyip bırakabilirsiniz
+                                                                </span>
+                                                                <span className="text-[10px]">
+                                                                    veya resmi kopyalayıp klavyeden <b>Cmd+V / Ctrl+V</b> ile doğrudan yapıştırın.
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : orderType === 'sample' ? (
                                             /* ================= SAMPLE MODE FIELDS: NO DIMENSIONS ================= */
                                             <div className="space-y-3.5">
                                                 {/* Row 1: Paper Type (REQUIRED) & Quantity */}
@@ -1357,14 +1629,18 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
                             type="button"
                             onClick={addProduct}
                             className={`w-full py-2.5 border-2 border-dashed rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all hover:scale-[1.005] ${
-                                orderType === 'sample'
+                                orderType === 'roll'
+                                    ? 'border-emerald-400 dark:border-emerald-700 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
+                                    : orderType === 'sample'
                                     ? 'border-purple-400 dark:border-purple-700 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/30'
                                     : 'border-blue-400 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30'
                             }`}
                         >
                             <Plus className="w-4 h-4" />
                             <span>
-                                {orderType === 'sample'
+                                {orderType === 'roll'
+                                    ? `+ ${products.length + 1}. Farklı Rulo / Ürün Kodu Ekle`
+                                    : orderType === 'sample'
                                     ? `+ ${products.length + 1}. Farklı Kağıt Türü / Numune Ekle`
                                     : `+ ${products.length + 1}. Farklı Ürün Ekle (Yeni Ölçü / Doku / Görsel)`
                                 }
@@ -1381,38 +1657,54 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
                             onChange={handleCustomerChange}
                             rows={2}
                             className="w-full p-2 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white dark:bg-slate-950 transition-all resize-none"
-                            placeholder="Kargo, paketleme veya teslimat ile ilgili genel notlar..."
+                            placeholder={orderType === 'roll' ? "Rulo siparişi, firma teslimatı veya kargo ile ilgili genel notlar..." : "Kargo, paketleme veya teslimat ile ilgili genel notlar..."}
                         />
                     </div>
                 </div>
 
                 {/* Footer */}
                 <div className="p-3 md:p-4 border-t dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 flex items-center justify-between gap-3">
-                    {orderType === 'standard' ? (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setOrderType('sample')
-                                toast.info("Örnek (Numune) Siparişi moduna geçildi. Ölçü alanları gizlendi, sadece kağıt türü ve müşteri bilgileri seçilecek.")
-                            }}
-                            className="px-3 py-1.5 text-xs text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/50 rounded-lg transition-colors font-semibold border border-purple-200 dark:border-purple-800 flex items-center gap-1.5"
-                        >
-                            <Sparkles className="w-3.5 h-3.5" />
-                            <span>⚡ Örnek Al (Numune Modu)</span>
-                        </button>
-                    ) : (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setOrderType('standard')
-                                toast.info("Standart Sipariş moduna geçildi.")
-                            }}
-                            className="px-3 py-1.5 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-lg transition-colors font-semibold border border-blue-200 dark:border-blue-800 flex items-center gap-1.5"
-                        >
-                            <Package className="w-3.5 h-3.5" />
-                            <span>📦 Standart Sipariş Moduna Geç</span>
-                        </button>
-                    )}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                        {orderType !== 'standard' && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setOrderType('standard')
+                                    toast.info("Standart Sipariş moduna geçildi.")
+                                }}
+                                className="px-2.5 py-1.5 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-lg transition-colors font-semibold border border-blue-200 dark:border-blue-800 flex items-center gap-1 shadow-2xs"
+                            >
+                                <Package className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Standart Mod</span>
+                            </button>
+                        )}
+                        {orderType !== 'sample' && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setOrderType('sample')
+                                    toast.info("Örnek (Numune) Siparişi moduna geçildi.")
+                                }}
+                                className="px-2.5 py-1.5 text-xs text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/50 rounded-lg transition-colors font-semibold border border-purple-200 dark:border-purple-800 flex items-center gap-1 shadow-2xs"
+                            >
+                                <Sparkles className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Örnek Al (Numune)</span>
+                            </button>
+                        )}
+                        {orderType !== 'roll' && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setOrderType('roll')
+                                    toast.info("Rulo Sipariş moduna geçildi.")
+                                }}
+                                className="px-2.5 py-1.5 text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 rounded-lg transition-colors font-semibold border border-emerald-200 dark:border-emerald-800 flex items-center gap-1 shadow-2xs"
+                            >
+                                <Scroll className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Rulo Sipariş</span>
+                            </button>
+                        )}
+                    </div>
 
                     <div className="flex items-center gap-2.5">
                         <button
@@ -1427,12 +1719,26 @@ export function ManualOrderModal({ isOpen, onClose, onCreate, initialMode = 'sta
                             onClick={handleSubmit}
                             disabled={isLoading}
                             className={`px-5 py-2 text-xs text-white rounded-lg shadow-sm transition-all font-bold flex items-center gap-2 disabled:opacity-50 hover:scale-[1.02] ${
-                                orderType === 'sample' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'
+                                orderType === 'roll'
+                                    ? 'bg-emerald-600 hover:bg-emerald-700'
+                                    : orderType === 'sample'
+                                    ? 'bg-purple-600 hover:bg-purple-700'
+                                    : 'bg-blue-600 hover:bg-blue-700'
                             }`}
                         >
-                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : (orderType === 'sample' ? <Sparkles className="w-4 h-4" /> : <Plus className="w-4 h-4" />)}
+                            {isLoading ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : orderType === 'roll' ? (
+                                <Scroll className="w-4 h-4" />
+                            ) : orderType === 'sample' ? (
+                                <Sparkles className="w-4 h-4" />
+                            ) : (
+                                <Plus className="w-4 h-4" />
+                            )}
                             <span>
-                                {orderType === 'sample'
+                                {orderType === 'roll'
+                                    ? `📜 Rulo Siparişini Oluştur (${products.length} Kalem)`
+                                    : orderType === 'sample'
                                     ? `⚡ Örnek Siparişini Oluştur (${products.length} Numune)`
                                     : `Siparişi Oluştur (${products.length} Ürün)`
                                 }

@@ -3,7 +3,7 @@
 import { Order, OrderStatus, Comment } from "../data/mock-orders"
 import { OrderCard } from "./order-card"
 import { useState, useEffect, useRef, useMemo } from "react"
-import { ChevronDown, ChevronUp, ChevronRight, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck, ScanBarcode, Clock, CheckCircle, Lock, Unlock, Package, Boxes, Sparkles } from "lucide-react"
+import { ChevronDown, ChevronUp, ChevronRight, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck, ScanBarcode, Clock, CheckCircle, Lock, Unlock, Package, Boxes, Sparkles, Scroll } from "lucide-react"
 import { Html5QrcodeScanner } from "html5-qrcode"
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, TouchSensor, MouseSensor, useSensor, useSensors, useDraggable, useDroppable, closestCorners, defaultDropAnimationSideEffects } from "@dnd-kit/core"
 import { arrayMove, SortableContext, horizontalListSortingStrategy, useSortable } from "@dnd-kit/sortable"
@@ -120,7 +120,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
     const [isPanelOpen, setIsPanelOpen] = useState(false)
     const [isManualOrderOpen, setIsManualOrderOpen] = useState(false)
-    const [manualOrderInitialMode, setManualOrderInitialMode] = useState<'standard' | 'sample'>('standard')
+    const [manualOrderInitialMode, setManualOrderInitialMode] = useState<'standard' | 'sample' | 'roll'>('standard')
     const [isMaterialOrderOpen, setIsMaterialOrderOpen] = useState(false)
     const [isWarehouseStockOpen, setIsWarehouseStockOpen] = useState(false)
     const [isSyncing, setIsSyncing] = useState(false)
@@ -1345,6 +1345,19 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                             <span>Örnek Al</span>
                         </button>
 
+                        {/* Rulo Sipariş */}
+                        <button
+                            onClick={() => {
+                                setManualOrderInitialMode('roll')
+                                setIsManualOrderOpen(true)
+                            }}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1.5 shadow-xs"
+                            title="Rulo siparişi oluştur (Ürün kodu, firma adı, adet)"
+                        >
+                            <Scroll className="w-4 h-4" />
+                            <span>Rulo Sipariş</span>
+                        </button>
+
                         {/* Malzemeler Siparişi */}
                         <button
                             onClick={() => setIsMaterialOrderOpen(true)}
@@ -1479,6 +1492,18 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         >
                             <Sparkles className="w-4 h-4" />
                             <span>Örnek</span>
+                        </button>
+
+                        <button
+                            onClick={() => {
+                                setManualOrderInitialMode('roll')
+                                setIsManualOrderOpen(true)
+                            }}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-md transition-colors flex items-center gap-1 shadow-xs"
+                            title="Rulo Siparişi Al"
+                        >
+                            <Scroll className="w-4 h-4" />
+                            <span>Rulo</span>
                         </button>
 
                         <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 text-slate-700 hover:bg-slate-100 rounded-md">
@@ -1707,10 +1732,12 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                         onCreate={async (data) => {
                             // 1. Optimistic UI Update (Instant feedback)
                             const tempId = -Math.floor(Math.random() * 100000); // Negative integer temp ID
-                            const clientBarcode = data.isSample ? `SAMPLE-${Date.now()}` : `MANUAL-${Date.now()}`;
+                            const clientBarcode = data.isRoll ? `ROLL-${Date.now()}` : data.isSample ? `SAMPLE-${Date.now()}` : `MANUAL-${Date.now()}`;
                             
                             const labelsList = ['Manuel'];
-                            if (data.isSample) {
+                            if (data.isRoll) {
+                                labelsList.push('Rulo');
+                            } else if (data.isSample) {
                                 labelsList.push('Numune');
                             }
                             if (data.needsInvoice || data.taxNumber) {
@@ -1736,7 +1763,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                             };
 
                             setOrders(prev => [optimisticOrder, ...prev] as any);
-                            toast.success(data.isSample ? "Numune siparişi başarıyla oluşturuldu!" : "Sipariş başarıyla oluşturuldu!");
+                            toast.success(data.isRoll ? "Rulo siparişi başarıyla oluşturuldu!" : data.isSample ? "Numune siparişi başarıyla oluşturuldu!" : "Sipariş başarıyla oluşturuldu!");
 
                             // 2. Actual server upload (Fire and forget!)
                             const payload = { ...data, clientBarcode };

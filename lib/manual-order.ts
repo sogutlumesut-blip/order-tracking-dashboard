@@ -14,13 +14,15 @@ function serverLog(msg: string) {
 }
 
 export async function executeCreateManualOrder(orderData: any, authorName?: string) {
-    const { items, customer, phone, email, address, city, note, status, clientBarcode, total, taxNumber, taxOffice, needsInvoice, isSample } = orderData
+    const { items, customer, phone, email, address, city, note, status, clientBarcode, total, taxNumber, taxOffice, needsInvoice, isSample, isRoll } = orderData
 
     // Use a manual barcode prefix or the client-generated one for perfect optimistic UI sync
-    const barcode = clientBarcode || (isSample ? `SAMPLE-${Date.now()}` : `MANUAL-${Date.now()}`)
+    const barcode = clientBarcode || (isRoll ? `ROLL-${Date.now()}` : isSample ? `SAMPLE-${Date.now()}` : `MANUAL-${Date.now()}`)
 
     const labelsList = ['Manuel']
-    if (isSample) {
+    if (isRoll) {
+        labelsList.push('Rulo')
+    } else if (isSample) {
         labelsList.push('Numune')
     }
     if (needsInvoice || taxNumber) {
@@ -32,7 +34,7 @@ export async function executeCreateManualOrder(orderData: any, authorName?: stri
             name: String(item.name || "Özel Ürün").trim(),
             sku: item.sku ? String(item.sku).trim() : null,
             quantity: Math.max(1, parseInt(String(item.quantity || 1), 10) || 1),
-            image_src: item.image_src ? String(item.image_src) : "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=300",
+            image_src: item.image_src ? String(item.image_src) : (isRoll ? "https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=300" : "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=300"),
             material: item.material ? String(item.material).trim() : null,
             dimensions: item.dimensions ? String(item.dimensions).trim() : null,
             productNote: item.productNote ? String(item.productNote).trim() : null,
@@ -41,7 +43,7 @@ export async function executeCreateManualOrder(orderData: any, authorName?: stri
             croppedImage: item.croppedImage ? String(item.croppedImage).trim() : null
         }));
 
-        serverLog(`[CREATE_MANUAL] Starting for customer: ${customer} (isSample: ${Boolean(isSample)})`);
+        serverLog(`[CREATE_MANUAL] Starting for customer: ${customer} (isRoll: ${Boolean(isRoll)}, isSample: ${Boolean(isSample)})`);
         await db.order.create({
             data: {
                 customer: String(customer || "").trim(),
@@ -72,7 +74,7 @@ export async function executeCreateManualOrder(orderData: any, authorName?: stri
         serverLog(`[CREATE_MANUAL] Order retrieved from DB: ${newOrder?.id}`);
 
         if (newOrder) {
-            const logText = isSample ? "Örnek (Numune) siparişi oluşturuldu." : "Manuel sipariş oluşturuldu.";
+            const logText = isRoll ? "Rulo siparişi oluşturuldu." : isSample ? "Örnek (Numune) siparişi oluşturuldu." : "Manuel sipariş oluşturuldu.";
             try {
                 let user = authorName;
                 if (!user) {
