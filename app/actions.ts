@@ -216,7 +216,14 @@ export async function getOrders(timestamp?: number) {
         }
     }
 
-    const orders = [...activeOrders, ...terminalOrders];
+    // Deduplicate orders by id to ensure an order is never present multiple times (e.g. if an order moved between active and terminal queries)
+    const uniqueOrdersMap = new Map<number, any>();
+    for (const o of [...activeOrders, ...terminalOrders]) {
+        if (!uniqueOrdersMap.has(o.id)) {
+            uniqueOrdersMap.set(o.id, o);
+        }
+    }
+    const orders = Array.from(uniqueOrdersMap.values());
 
     // Serializing dates to strings to match interface and avoid hydration issues
     const returnedOrderIds = orders.map(o => o.id);
@@ -312,14 +319,14 @@ export async function getOrders(timestamp?: number) {
         }
 
         return {
-            hasCargoPdf: pdfIds.has(order.id),
             warehouseStockMatch,
             ...order,
+            hasCargoPdf: !!(pdfIds.has(order.id) || order.hasCargoPdf || order.cargoLabelPdf),
             date: order.date.toISOString(),
             createdAt: order.createdAt.toISOString(),
             updatedAt: order.updatedAt.toISOString(),
             total: order.total || "0 ₺",
-            items: order.items.map(item => ({
+            items: order.items.map((item: any) => ({
                 ...item,
                 sku: item.sku || null,
                 image_src: itemImageMap.get(item.id) || null,

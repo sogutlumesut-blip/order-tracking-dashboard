@@ -81,6 +81,7 @@ export async function GET(req: NextRequest) {
             updatedAt: true,
             hasNotification: true,
             hasCargoPdf: true,
+            cargoLabelPdf: true,
             externalId: true,
             source: true,
             items: {
@@ -232,7 +233,38 @@ export async function GET(req: NextRequest) {
                 }
             }
 
-            orders = [...activeOrders, ...terminalOrders];
+            const orderMap = new Map<number, any>();
+            for (const o of [...activeOrders, ...terminalOrders]) {
+                if (!orderMap.has(o.id)) {
+                    orderMap.set(o.id, o);
+                } else {
+                    const existing = orderMap.get(o.id);
+                    const existingTime = new Date(existing.updatedAt || existing.date || 0).getTime();
+                    const currentTime = new Date(o.updatedAt || o.date || 0).getTime();
+                    if (currentTime >= existingTime) {
+                        orderMap.set(o.id, o);
+                    }
+                }
+            }
+            orders = Array.from(orderMap.values());
+        }
+
+        // Genel güvenlik önlemi: Tekrarlayan sipariş ID'lerini tekilleştir
+        if (orders.length > 1) {
+            const uniqueMap = new Map<number, any>();
+            for (const o of orders) {
+                if (!uniqueMap.has(o.id)) {
+                    uniqueMap.set(o.id, o);
+                } else {
+                    const existing = uniqueMap.get(o.id);
+                    const existingTime = new Date(existing.updatedAt || existing.date || 0).getTime();
+                    const currentTime = new Date(o.updatedAt || o.date || 0).getTime();
+                    if (currentTime >= existingTime) {
+                        uniqueMap.set(o.id, o);
+                    }
+                }
+            }
+            orders = Array.from(uniqueMap.values());
         }
         const returnedOrderIds = orders.map(o => o.id);
 
@@ -262,6 +294,7 @@ export async function GET(req: NextRequest) {
 
         const serialized = orders.map((order: any) => ({
             ...order,
+            hasCargoPdf: !!(order.hasCargoPdf || order.cargoLabelPdf),
             date: order.date.toISOString(),
             createdAt: order.createdAt.toISOString(),
             updatedAt: order.updatedAt.toISOString(),

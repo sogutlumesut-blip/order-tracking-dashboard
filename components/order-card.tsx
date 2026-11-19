@@ -728,7 +728,7 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                 </a>
                             )}
                             {/* CARGO LABEL PDF LINK */}
-                            {order.hasCargoPdf && (
+                            {(order.hasCargoPdf || !!(order as any).cargoLabelPdf || !!(order as any).cargoBarcode) && (
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();

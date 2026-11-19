@@ -95,8 +95,27 @@ interface KanbanBoardProps {
     tags: { id: string; name: string; color: string | null }[]
 }
 
+function deduplicateOrders(orderList: Order[]): Order[] {
+    if (!Array.isArray(orderList) || orderList.length <= 1) return orderList || [];
+    const map = new Map<number, Order>();
+    for (const o of orderList) {
+        if (!o || typeof o.id !== 'number') continue;
+        const existing = map.get(o.id);
+        if (!existing) {
+            map.set(o.id, o);
+        } else {
+            const existingTime = new Date(existing.updatedAt || existing.date || 0).getTime();
+            const currentTime = new Date(o.updatedAt || o.date || 0).getTime();
+            if (currentTime >= existingTime) {
+                map.set(o.id, o);
+            }
+        }
+    }
+    return Array.from(map.values());
+}
+
 export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBoardProps) {
-    const [orders, setOrders] = useState<Order[]>(initialOrders)
+    const [orders, setOrders] = useState<Order[]>(() => deduplicateOrders(initialOrders))
     const [orderedCols, setOrderedCols] = useState(cols)
     const [collapsedIds, setCollapsedIds] = useState<string[]>([])
     const [searchTerm, setSearchTerm] = useState("")
@@ -237,7 +256,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
     useEffect(() => {
         setOrders(currentOrders => {
-            return initialOrders.map(initialOrder => {
+            const merged = initialOrders.map(initialOrder => {
                 const localOrder = currentOrders.find(o => o.id === initialOrder.id);
                 if (localOrder) {
                     const lockKey = String(initialOrder.id);
@@ -261,6 +280,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 }
                 return initialOrder;
             }) as any;
+            return deduplicateOrders(merged);
         });
         // Sync the detail panel if it's open
         if (isPanelOpen && selectedOrder) {
@@ -407,7 +427,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     const response = await fetch('/api/orders');
                     if (response.ok) {
                         const latestOrders = await response.json();
-                        setOrders(latestOrders);
+                        setOrders(deduplicateOrders(latestOrders));
                     }
                 } catch (e) {
                     console.error("Failed to restore list:", e);
@@ -422,7 +442,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 const response = await fetch(`/api/orders?search=${encodeURIComponent(searchTerm)}`);
                 if (response.ok) {
                     const searchedOrders = await response.json();
-                    setOrders(searchedOrders);
+                    setOrders(deduplicateOrders(searchedOrders));
                 }
             } catch (e) {
                 console.error("Failed to fetch searched orders:", e);
@@ -443,7 +463,8 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                 const url = currentSearch ? `/api/orders?search=${encodeURIComponent(currentSearch)}` : '/api/orders';
                 const response = await fetch(url);
                 if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                const latestOrders = await response.json();
+                const rawLatestOrders = await response.json();
+                const latestOrders = deduplicateOrders(rawLatestOrders);
                 
                 if (latestOrders && Array.isArray(latestOrders)) {
                     setLastSynced(new Date());
@@ -454,11 +475,12 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     // Filter out local optimistic orders (id < 0) from currentOrders for comparison
                     const currentNonOptimistic = currentOrders.filter(o => o.id >= 0);
 
-                    // Check if the set of non-optimistic IDs has changed
+                    // Check if the set of non-optimistic IDs has changed or if local duplicates exist
                     const localIds = new Set(currentNonOptimistic.map(o => o.id));
                     const serverIds = new Set(latestOrders.map((o: any) => o.id));
 
-                    let idsChanged = localIds.size !== serverIds.size;
+                    const hasLocalDuplicates = currentNonOptimistic.length !== localIds.size;
+                    let idsChanged = hasLocalDuplicates || (localIds.size !== serverIds.size);
                     if (!idsChanged) {
                         for (const id of serverIds) {
                             if (!localIds.has(id)) {
@@ -560,10 +582,10 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     const optimisticOrders = currentOrders.filter(o => o.id < 0 && !serverBarcodes.has(o.barcode));
 
                     if (hasChanges || idsChanged || optimisticOrders.length > 0) {
-                        return [...optimisticOrders, ...mergedOrders] as any;
+                        return deduplicateOrders([...optimisticOrders, ...mergedOrders]) as any;
                     }
 
-                    return currentOrders;
+                    return hasLocalDuplicates ? deduplicateOrders(currentOrders) : currentOrders;
                 });
 
                 // Sound Logic
@@ -623,8 +645,10 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         return Array.from(textures).sort()
     }, [orders])
 
-    // Filter Logic
-    const filteredOrders = orders.filter(order => matchOrderSearch(order, searchTerm))
+    // Filter Logic: ensure unique orders by ID so no order is ever rendered in multiple columns
+    const filteredOrders = useMemo(() => {
+        return deduplicateOrders(orders).filter(order => matchOrderSearch(order, searchTerm));
+    }, [orders, searchTerm]);
 
     const getOrdersByStatus = (statusId: string, statusTitle: string) => {
         let ordersInColumn = filteredOrders.filter(order => order.status === statusId || order.status === statusTitle)
@@ -718,12 +742,12 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             return
         }
 
-        const newOrders = orders.map(o => {
+        const newOrders = deduplicateOrders(orders.map(o => {
             if (o.id === activeId) {
                 return { ...o, status: overId as OrderStatus, updatedAt: new Date().toISOString() }
             }
             return o
-        })
+        }))
         interactionLocks.current[String(activeId)] = Date.now() // Lock immediately to prevent polling bounce
         setOrders(newOrders)
         setActiveId(null)
@@ -758,7 +782,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         } catch (error: any) {
             console.error("Status update failed:", error)
             toast.error(`Güncelleme başarısız: ${error.message || "Bilinmeyen hata"}`)
-            setOrders(orders) // Revert
+            setOrders(deduplicateOrders(orders)) // Revert
         }
     }
 
@@ -1218,7 +1242,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
 
             // Refresh local state immediately
             const latest = await getOrders(Date.now())
-            setOrders(latest as any)
+            setOrders(deduplicateOrders(latest as any))
             setLastSynced(new Date())
 
         } catch (e: any) {
