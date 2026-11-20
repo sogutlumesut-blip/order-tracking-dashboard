@@ -62,19 +62,28 @@ export async function POST(request: Request) {
             }
             logToFile(`Updating #${orderId} to ${status}`);
             
-            const oldOrder = await db.order.findUnique({ where: { id: Number(orderId) } });
+            const numId = Number(orderId);
+            const oldOrder = await db.order.findUnique({
+                where: { id: numId },
+                select: { status: true }
+            });
             const oldStatusTitle = oldOrder ? (statusMap.get(oldOrder.status) || oldOrder.status) : "Bilinmeyen";
             const newStatusTitle = statusMap.get(status) || status;
 
-            await db.orderActivity.create({
-                data: { 
-                    orderId: Number(orderId), 
-                    author: user, 
-                    action: "STATUS_CHANGE", 
-                    details: `Sipariş durumu değiştirildi: '${oldStatusTitle}' -> '${newStatusTitle}'` 
-                }
-            });
-            await db.order.update({ where: { id: Number(orderId) }, data: { status, updatedAt: new Date(), hasNotification: true } });
+            await db.$transaction([
+                db.order.update({
+                    where: { id: numId },
+                    data: { status, updatedAt: new Date(), hasNotification: true }
+                }),
+                db.orderActivity.create({
+                    data: { 
+                        orderId: numId, 
+                        author: user, 
+                        action: "STATUS_CHANGE", 
+                        details: `Sipariş durumu değiştirildi: '${oldStatusTitle}' -> '${newStatusTitle}'` 
+                    }
+                })
+            ]);
         }
         else if (mode === 'bulk_status') {
             if (!hasMovePermission(status)) {
@@ -83,19 +92,43 @@ export async function POST(request: Request) {
             }
             logToFile(`Bulk Update [${orderIds?.join(',')}] to ${status}`);
             const newStatusTitle = statusMap.get(status) || status;
-            for (const id of orderIds) {
-                const oldOrder = await db.order.findUnique({ where: { id: Number(id) } });
-                const oldStatusTitle = oldOrder ? (statusMap.get(oldOrder.status) || oldOrder.status) : "Bilinmeyen";
-
-                await db.orderActivity.create({
-                    data: { 
-                        orderId: Number(id), 
-                        author: user, 
-                        action: "STATUS_CHANGE", 
-                        details: `Toplu durum değişikliği: '${oldStatusTitle}' -> '${newStatusTitle}'` 
-                    }
+            
+            const numericIds = (orderIds || []).map((id: any) => Number(id)).filter((id: number) => !isNaN(id) && id > 0);
+            
+            if (numericIds.length > 0) {
+                // Batch fetch current status of all orders in 1 query
+                const oldOrders = await db.order.findMany({
+                    where: { id: { in: numericIds } },
+                    select: { id: true, status: true }
                 });
-                await db.order.update({ where: { id: Number(id) }, data: { status, updatedAt: new Date(), hasNotification: true } });
+                
+                const oldOrderMap = new Map(oldOrders.map(o => [o.id, o.status]));
+                
+                const activitiesData = numericIds.map((id: number) => {
+                    const oldSt = oldOrderMap.get(id);
+                    const oldStatusTitle = oldSt ? (statusMap.get(oldSt) || oldSt) : "Bilinmeyen";
+                    return {
+                        orderId: id,
+                        author: user,
+                        action: "STATUS_CHANGE",
+                        details: `Toplu durum değişikliği: '${oldStatusTitle}' -> '${newStatusTitle}'`
+                    };
+                });
+
+                // Batch update orders and batch insert activities in a single transaction
+                await db.$transaction([
+                    db.order.updateMany({
+                        where: { id: { in: numericIds } },
+                        data: {
+                            status,
+                            updatedAt: new Date(),
+                            hasNotification: true
+                        }
+                    }),
+                    db.orderActivity.createMany({
+                        data: activitiesData
+                    })
+                ]);
             }
         }
         else if (mode === 'full_update') {

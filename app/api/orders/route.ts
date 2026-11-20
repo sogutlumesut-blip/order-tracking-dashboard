@@ -81,7 +81,6 @@ export async function GET(req: NextRequest) {
             updatedAt: true,
             hasNotification: true,
             hasCargoPdf: true,
-            cargoLabelPdf: true,
             externalId: true,
             source: true,
             items: {
@@ -232,7 +231,7 @@ export async function GET(req: NextRequest) {
                     terminalOrders = await db.order.findMany({
                         where: { status: { in: targetTerminal } },
                         orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
-                        take: 400,
+                        take: 150,
                         select: orderSelect
                     });
                 } catch (e) {
@@ -302,7 +301,7 @@ export async function GET(req: NextRequest) {
 
         const serialized = orders.map((order: any) => ({
             ...order,
-            hasCargoPdf: !!(order.hasCargoPdf || order.cargoLabelPdf),
+            hasCargoPdf: !!order.hasCargoPdf,
             date: order.date.toISOString(),
             createdAt: order.createdAt.toISOString(),
             updatedAt: order.updatedAt.toISOString(),

@@ -135,6 +135,7 @@ export async function getOrders(timestamp?: number) {
         assignedTo: true,
         cargoBarcode: true,
         cargoTrackingNumber: true,
+        hasCargoPdf: true,
         customDesi: true,
         customWeight: true,
         taxNumber: true,
@@ -253,21 +254,6 @@ export async function getOrders(timestamp?: number) {
         }
     }
 
-    let ordersWithPdf: { id: number }[] = [];
-    if (returnedOrderIds.length > 0) {
-        try {
-            ordersWithPdf = await db.order.findMany({
-                where: {
-                    id: { in: returnedOrderIds },
-                    cargoLabelPdf: { not: null }
-                },
-                select: { id: true }
-            });
-        } catch (e) {
-            console.error("Non-critical error fetching ordersWithPdf:", e);
-        }
-    }
-
     // Fetch available warehouse stocks to match against active orders
     let availableStocks: any[] = [];
     try {
@@ -288,8 +274,6 @@ export async function getOrders(timestamp?: number) {
     } catch (e) {
         console.error("Non-critical error fetching availableStocks:", e);
     }
-
-    const pdfIds = new Set(ordersWithPdf.map(o => o.id));
 
     return orders.map(order => {
         let warehouseStockMatch: any = null;
@@ -321,7 +305,7 @@ export async function getOrders(timestamp?: number) {
         return {
             warehouseStockMatch,
             ...order,
-            hasCargoPdf: !!(pdfIds.has(order.id) || order.hasCargoPdf || order.cargoLabelPdf),
+            hasCargoPdf: !!order.hasCargoPdf,
             date: order.date.toISOString(),
             createdAt: order.createdAt.toISOString(),
             updatedAt: order.updatedAt.toISOString(),
@@ -566,70 +550,68 @@ export async function bulkUpdateOrderStatus(orderIds: number[], status: string) 
         const user = session?.user?.name || "Sistem";
         serverLog(`[BULK_MOVE] Identity: ${user}`);
 
-        let successCount = 0;
-        const results = [];
-
-        // Sequential updates are safer for DB stability and connection pool
-        for (const id of orderIds) {
-            try {
-                // 1. Update Order
-                await db.order.update({
-                    where: { id },
+        const numericIds = (orderIds || []).map(id => Number(id)).filter(id => !isNaN(id) && id > 0);
+        
+        if (numericIds.length > 0) {
+            // High performance batch execution
+            await db.$transaction([
+                db.order.updateMany({
+                    where: { id: { in: numericIds } },
                     data: {
                         status,
                         hasNotification: true,
                         assignedTo: user,
                         updatedAt: new Date()
                     }
-                });
-
-                // 2. Log Activity
-                await db.orderActivity.create({
-                    data: {
+                }),
+                db.orderActivity.createMany({
+                    data: numericIds.map(id => ({
                         orderId: id,
                         author: user,
                         action: "STATUS_CHANGE",
                         details: `Toplu durum değişikliği: ${status}`
-                    }
-                });
+                    }))
+                })
+            ]);
 
-                // 3. Etsy Push (If applicable)
-                if (status === 'shipped') {
-                    const order = await db.order.findUnique({ where: { id } });
-                    if (order && order.source === 'etsy' && order.externalId && order.trackingNumber) {
-                        try {
+            // Background Etsy tracking push for shipped orders
+            if (status === 'shipped') {
+                (async () => {
+                    try {
+                        const etsyOrders = await db.order.findMany({
+                            where: { id: { in: numericIds }, source: 'etsy', trackingNumber: { not: null } },
+                            select: { id: true, externalId: true, trackingNumber: true }
+                        });
+                        if (etsyOrders.length > 0) {
                             const shop = await db.etsyShop.findFirst();
                             if (shop) {
                                 const { fetchEtsy } = await import("@/lib/etsy");
-                                await fetchEtsy(`shops/${shop.shopId}/receipts/${order.externalId}/tracking`, shop.shopId, {
-                                    method: "POST",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({
-                                        tracking_code: order.trackingNumber,
-                                        carrier_name: "Other",
-                                        send_bcc: false
-                                    })
-                                });
+                                for (const order of etsyOrders) {
+                                    if (order.externalId && order.trackingNumber) {
+                                        try {
+                                            await fetchEtsy(`shops/${shop.shopId}/receipts/${order.externalId}/tracking`, shop.shopId, {
+                                                method: "POST",
+                                                headers: { "Content-Type": "application/json" },
+                                                body: JSON.stringify({
+                                                    tracking_code: order.trackingNumber,
+                                                    carrier_name: "Other",
+                                                    send_bcc: false
+                                                })
+                                            });
+                                        } catch (e) {}
+                                    }
+                                }
                             }
-                        } catch (etsyErr) {
-                            serverLog(`[BULK_MOVE_ETSY] Push failed for #${id}`);
                         }
-                    }
-                }
-
-                serverLog(`[BULK_MOVE] OK: #${id}`);
-                results.push({ id, success: true });
-                successCount++;
-            } catch (err: any) {
-                serverLog(`[BULK_MOVE] ERR: #${id} - ${err.message}`);
-                results.push({ id, success: false, error: err.message });
+                    } catch (e) {}
+                })();
             }
         }
 
-        serverLog(`[BULK_MOVE] END: ${successCount}/${orderIds.length} in ${Date.now() - startTime}ms`);
+        serverLog(`[BULK_MOVE] END: ${numericIds.length}/${orderIds.length} in ${Date.now() - startTime}ms`);
 
         // revalidatePath("/");
-        return { success: true, count: successCount };
+        return { success: true, count: numericIds.length };
     } catch (e: any) {
         serverLog(`[BULK_MOVE] FATAL: ${e.message}`);
         return { success: false, error: e.message || "Sunucu hatası oluştu." };

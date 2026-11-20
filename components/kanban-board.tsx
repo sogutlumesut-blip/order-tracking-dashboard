@@ -187,10 +187,10 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
         const pmTimer = setTimeout(triggerPmSync, 1500);
         const initialTimer = setTimeout(triggerSync, 3000);
 
-        // Fast PrintMarkt sync every 30 seconds
-        const pmSyncInterval = setInterval(triggerPmSync, 30000);
-        // Full multi-platform sync every 60 seconds
-        const autoSyncInterval = setInterval(triggerSync, 60000);
+        // Fast PrintMarkt sync every 60 seconds
+        const pmSyncInterval = setInterval(triggerPmSync, 60000);
+        // Full multi-platform sync every 120 seconds
+        const autoSyncInterval = setInterval(triggerSync, 120000);
 
         return () => {
             clearTimeout(pmTimer);
@@ -465,7 +465,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     useEffect(() => {
         // 2. High-frequency Polling for DB changes (Chat/Status/Internal)
         const pollInterval = setInterval(async () => {
-            if (activeId || isBulkProcessingRef.current) return;
+            if (activeId || isBulkProcessingRef.current || (typeof document !== 'undefined' && document.visibilityState !== 'visible')) return;
 
             try {
                 const currentSearch = searchTermRef.current;
