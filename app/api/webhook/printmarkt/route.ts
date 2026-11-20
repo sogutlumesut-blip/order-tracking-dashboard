@@ -20,16 +20,12 @@ export async function POST(req: Request) {
             console.log("[PM_WEBHOOK] Request has no JSON body or could not be parsed:", e.message);
         }
         
-        // 1. PrintMarkt API veri eşitleme gecikmesini (replica lag) aşmak için 3 saniye bekliyoruz
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        
-        // 2. İlk senkronizasyon denemesi (hedef sipariş ID'si varsa sayfalı arama ile bulup erken durur)
+        // 1. İlk senkronizasyon denemesi (hedef sipariş ID'si varsa doğrudan sayfalı arama ile bulur)
         let res = await syncPrintMarktOrders(false, targetOrderId, true);
         
-        // 3. Çift sigorta: Eğer ilk denemede hata olursa, atlanırsa veya yeni sipariş bulunamazsa 5 saniye bekleyip genel eşitleme yapılır
-        if (!res || res.error || res.skipped || (res.success && res.count === 0)) {
-            console.log("PrintMarkt Webhook: İlk denemede yeni sipariş bulunamadı veya hata/atlama oluştu, 5s bekleniyor ve genel eşitleme yapılıyor...");
-            await new Promise(resolve => setTimeout(resolve, 5000));
+        // 2. Çift sigorta: Hedefli aramada sonuç bulunamazsa genel eşitleme yap
+        if ((!res || res.error || (res.success && res.count === 0)) && targetOrderId) {
+            console.log("PrintMarkt Webhook: Hedefli aramada bulunamadı, genel eşitleme yapılıyor...");
             res = await syncPrintMarktOrders(false, undefined, true);
         }
         

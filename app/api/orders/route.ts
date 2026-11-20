@@ -141,10 +141,18 @@ export async function GET(req: NextRequest) {
                 { barcode: { contains: cleanSearch, mode: 'insensitive' as const } },
                 { trackingNumber: { contains: cleanSearch, mode: 'insensitive' as const } },
                 { cargoTrackingNumber: { contains: cleanSearch, mode: 'insensitive' as const } },
+                { externalId: { contains: cleanSearch, mode: 'insensitive' as const } },
+                { note: { contains: cleanSearch, mode: 'insensitive' as const } },
             ];
 
-            if (!isNaN(Number(cleanId)) && cleanId.length > 0) {
-                searchFilterOR.push({ id: Number(cleanId) });
+            const numericCleanId = Number(cleanId);
+            if (!isNaN(numericCleanId) && cleanId.length > 0) {
+                // In PostgreSQL, id is INT4 (max 2,147,483,647). Values above cause Prisma runtime overflow error.
+                if (numericCleanId > 0 && numericCleanId <= 2147483647) {
+                    searchFilterOR.push({ id: numericCleanId });
+                }
+                searchFilterOR.push({ externalId: `pm_${cleanId}` });
+                searchFilterOR.push({ externalId: { contains: cleanId, mode: 'insensitive' as const } });
             }
 
             if (digits.length >= 3) {

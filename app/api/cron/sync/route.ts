@@ -7,10 +7,33 @@ export const dynamic = 'force-dynamic';
 const globalForCron = globalThis as unknown as {
     cronSyncInProgress?: boolean;
     cronLastSyncTime?: number;
+    cronLastPmSyncTime?: number;
 };
 
 export async function GET(req: Request) {
     const now = Date.now();
+    const url = new URL(req.url);
+    const source = url.searchParams.get("source")?.toLowerCase();
+
+    // Fast-path for PrintMarkt auto-sync: executes quickly (<1s) without blocking or waiting for other slower platforms
+    if (source === "pm" || source === "printmarkt") {
+        const lastPmSync = globalForCron.cronLastPmSyncTime || 0;
+        if (now - lastPmSync < 20000) {
+            return NextResponse.json({ skipped: true, reason: "PM Cooldown active", remainingSec: Math.round((20000 - (now - lastPmSync)) / 1000) });
+        }
+        globalForCron.cronLastPmSyncTime = now;
+        try {
+            const pmRes = await syncPrintMarktOrders(false, undefined, true).catch(err => ({ error: err.message }));
+            return NextResponse.json({
+                success: true,
+                timestamp: new Date().toISOString(),
+                results: { printmarkt: pmRes }
+            });
+        } catch (e: any) {
+            return NextResponse.json({ error: e.message }, { status: 500 });
+        }
+    }
+
     const lastSync = globalForCron.cronLastSyncTime || 0;
 
     // Cooldown: ensure at least 60 seconds between sync executions across all clients

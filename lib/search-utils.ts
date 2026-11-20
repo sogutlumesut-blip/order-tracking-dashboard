@@ -70,11 +70,13 @@ export function matchOrderSearch(order: any, searchTerm: string): boolean {
     const tracking = normalizeTurkishForSearch(order.trackingNumber);
     const cargoTracking = normalizeTurkishForSearch(order.cargoTrackingNumber);
     const email = normalizeTurkishForSearch(order.email);
+    const normNote = normalizeTurkishForSearch(order.note);
 
     if (normBarcode.includes(normQuery) || 
         tracking.includes(normQuery) || 
         cargoTracking.includes(normQuery) || 
-        email.includes(normQuery)) {
+        email.includes(normQuery) ||
+        (cleanQuery && normNote.includes(cleanQuery))) {
         return true;
     }
 

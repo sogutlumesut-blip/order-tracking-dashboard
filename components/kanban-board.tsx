@@ -170,9 +170,7 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
     }, [])
 
     // Automatic Background Sync Trigger:
-    // Periodically pings /api/cron/sync every 60 seconds in the background.
-    // The server protects itself with a 60-second cooldown so even if 10 tabs are open,
-    // the sync executes at most once every 60 seconds globally.
+    // Periodically pings /api/cron/sync every 60 seconds (full sync) and /api/cron/sync?source=pm every 30 seconds (fast PrintMarkt sync).
     // When new orders arrive, pollInterval (/api/orders) picks them up within 10s and notifies the user.
     useEffect(() => {
         const triggerSync = () => {
@@ -180,13 +178,24 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             fetch('/api/cron/sync').catch(err => console.debug("Auto-sync ping failed", err));
         };
 
-        // Ping once on mount after 3 seconds
+        const triggerPmSync = () => {
+            if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+            fetch('/api/cron/sync?source=pm').catch(err => console.debug("Auto PM sync ping failed", err));
+        };
+
+        // Ping PM fast sync on mount after 1.5 seconds, full sync after 3 seconds
+        const pmTimer = setTimeout(triggerPmSync, 1500);
         const initialTimer = setTimeout(triggerSync, 3000);
-        // Then every 60 seconds
+
+        // Fast PrintMarkt sync every 30 seconds
+        const pmSyncInterval = setInterval(triggerPmSync, 30000);
+        // Full multi-platform sync every 60 seconds
         const autoSyncInterval = setInterval(triggerSync, 60000);
 
         return () => {
+            clearTimeout(pmTimer);
             clearTimeout(initialTimer);
+            clearInterval(pmSyncInterval);
             clearInterval(autoSyncInterval);
         };
     }, []);

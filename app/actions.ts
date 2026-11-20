@@ -2504,8 +2504,8 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
         if (lastSyncStr) {
             const lastSync = parseInt(lastSyncStr)
             const now = Date.now()
-            // 2 minutes rate limit for background auto-sync to prevent resource exhaustion
-            if (now - lastSync < 120000) {
+            // 30 seconds rate limit for background auto-sync to ensure quick order pickup without resource exhaustion
+            if (now - lastSync < 30000) {
                 return { skipped: true, message: "Sync skipped (Rate Limit)" }
             }
         }
@@ -2645,8 +2645,9 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                 // Skip unplaced integration orders (e.g. Etsy/WooCommerce integration orders that have not been submitted/paid on PrintMarkt yet)
                 const source = pmOrder.source || "";
                 const isIntegration = source && source !== "manual";
+                const isPaid = pmOrder.payment_status === "paid" || pmOrder.paid === true || String(pmOrder.payment_status).toLowerCase() === "paid";
                 const hasPaymentMethod = pmOrder.payment_method || pmOrder.gateway;
-                if (isIntegration && !hasPaymentMethod) {
+                if (isIntegration && !hasPaymentMethod && !isPaid) {
                     continue;
                 }
 
@@ -2793,7 +2794,11 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                 let paymentMethod = pmOrder.payment_method || pmOrder.gateway || "API";
                 if (paymentMethod.toUpperCase() === 'ON_ACCOUNT') paymentMethod = 'CARI';
 
-                const customerNote = pmOrder.note || pmOrder.customer_note || pmOrder.order_note || "";
+                const rawNote = pmOrder.note || pmOrder.customer_note || pmOrder.order_note || "";
+                let customerNote = rawNote;
+                if (pmOrder.external_id && String(pmOrder.external_id) !== String(pmOrder.id) && !rawNote.includes(String(pmOrder.external_id))) {
+                    customerNote = customerNote ? `[Sipariş: ${pmOrder.external_id}] ${customerNote}` : `Sipariş: ${pmOrder.external_id}`;
+                }
                 let trackingPdf = pmOrder.custom_shipping_label_url || pmOrder.production_file_url || null;
                 if (trackingPdf && !trackingPdf.startsWith("http") && !trackingPdf.startsWith("data:")) {
                     trackingPdf = `${cleanUrl}${trackingPdf.startsWith('/') ? '' : '/'}${trackingPdf}`;
@@ -2832,10 +2837,11 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                     const hasStatusChange = dbStatus !== finalStatus;
                     const isWorkedOnLocally = isLocalModified || !!existingOrder.assignedTo;
                     const hasNewTrackingPdf = !isManualPdf && !!trackingPdf && existingOrder.cargoLabelPdf !== trackingPdf;
+                    const hasCustomerChange = !!(shippingName && existingOrder.customer !== shippingName);
                     const hasDataChange = isWorkedOnLocally
-                        ? (hasNewTrackingPdf || existingOrder.total !== totalAmount.toFixed(2))
+                        ? (hasNewTrackingPdf || existingOrder.total !== totalAmount.toFixed(2) || hasCustomerChange)
                         : (
-                            existingOrder.customer !== shippingName ||
+                            hasCustomerChange ||
                             existingOrder.address !== shippingAddress ||
                             existingOrder.phone !== shippingPhone ||
                             existingOrder.total !== totalAmount.toFixed(2) ||
@@ -2862,7 +2868,7 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                         await db.order.update({
                             where: { id: existingOrder.id },
                             data: {
-                                customer: isWorkedOnLocally ? existingOrder.customer : shippingName,
+                                customer: shippingName || existingOrder.customer,
                                 email: shippingEmail,
                                 phone: isWorkedOnLocally ? (existingOrder.phone || shippingPhone) : shippingPhone,
                                 address: isWorkedOnLocally ? (existingOrder.address || shippingAddress) : shippingAddress,
