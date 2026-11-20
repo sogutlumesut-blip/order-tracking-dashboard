@@ -44,34 +44,9 @@ export async function POST(req: Request) {
                 }
             }
 
-            // AUTOMATION: Update status based on delivery status or general signal
-            const statusLower = (status || "").toLowerCase();
-            const isDelivered = 
-                statusLower === 'delivered' || 
-                statusLower === 'teslim_edildi' || 
-                statusLower === 'teslim edildi' || 
-                statusLower === 'teslim' ||
-                !!body.delivered_at || 
-                !!body.real_delivered_date;
-
-            let statusChanged = false;
-            let activityDetails = `Kargo entegrasyonu güncellendi.`;
-
-            if (isDelivered) {
-                if (order.status === 'shipped') {
-                    updateData.status = 'completed';
-                    updateData.updatedAt = new Date();
-                    statusChanged = true;
-                    activityDetails = `Kargo teslim edildi olarak güncellendi (Durum: ${status || 'delivered'}). Sipariş durumu otomatik olarak Tamamlandı yapıldı.`;
-                }
-            } else {
-                if (['pending', 'processing', 'baski', 'printing', 'ready', 'packed'].includes(order.status)) {
-                    updateData.status = 'shipped';
-                    updateData.updatedAt = new Date();
-                    statusChanged = true;
-                    activityDetails = `Kargo yola çıktı olarak güncellendi (Durum: ${status || 'Yola Çıktı'}). Sipariş durumu otomatik olarak Kargolandı yapıldı.`;
-                }
-            }
+            // Note: Order status is strictly controlled by manual user action in the dashboard.
+            // Do NOT auto-update order status from cargo webhook.
+            let activityDetails = `Kargo entegrasyon bilgileri güncellendi (Takip: ${trackingNumber || '-'}).`;
 
             // Generate print URL (Standardizing on what we think works or will work)
             if (shipmentId) {
@@ -89,7 +64,7 @@ export async function POST(req: Request) {
                 data: {
                     orderId: order.id,
                     author: 'Kargo Entegrator',
-                    action: statusChanged ? 'STATUS_CHANGE' : 'WEBHOOK',
+                    action: 'WEBHOOK',
                     details: activityDetails
                 }
             });

@@ -597,18 +597,22 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     return hasLocalDuplicates ? deduplicateOrders(currentOrders) : currentOrders;
                 });
 
-                // Sound Logic
-                const latestIds = new Set<number>(latestOrders.map((o: Order) => o.id));
-                const prevIds = previousOrderIds.current;
-                const newArrivals = latestOrders.filter((o: Order) => !prevIds.has(o.id));
-                if (newArrivals.length > 0) {
-                    if (audioRef.current) {
-                        audioRef.current.play()
-                            .then(() => toast.success(`${newArrivals.length} yeni sipariş! 🔔`))
-                            .catch(e => console.log("Audio failed", e));
+                // Sound Logic (Only evaluate when not searching, to avoid false alerts when clearing search)
+                if (!currentSearch) {
+                    const latestIds = new Set<number>(latestOrders.map((o: Order) => o.id));
+                    const prevIds = previousOrderIds.current;
+                    if (prevIds.size > 0) {
+                        const newArrivals = latestOrders.filter((o: Order) => !prevIds.has(o.id));
+                        if (newArrivals.length > 0) {
+                            if (audioRef.current) {
+                                audioRef.current.play()
+                                    .then(() => toast.success(`${newArrivals.length} yeni sipariş! 🔔`))
+                                    .catch(e => console.log("Audio failed", e));
+                            }
+                        }
                     }
+                    previousOrderIds.current = latestIds;
                 }
-                previousOrderIds.current = latestIds;
                 }
             } catch (error: any) {
                 console.error("Polling Error:", error);

@@ -1957,40 +1957,6 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                     const isLocalTerminal = terminalStatuses.includes(dbStatus);
 
                     // LOCAL_MODIFIED: If it's not in the default first column
-                    const isLocalModified = dbStatus !== incomingStatus;
-
-                    // KEEP_LOCAL if it's modified and WC is not terminal
-                    // OR if local is already terminal (never go back from completed)
-                    // OR if WC is completed but local is modified (since we use 'completed' in WC to trigger plugins without wanting to move it in OMS)
-                    let keepLocalStatus = (isLocalModified && !isTerminalWC) || isLocalTerminal;
-
-                    if (wcOrder.status === 'completed' && isLocalModified) {
-                        keepLocalStatus = true;
-                    }
-
-                    // ULTIMATE DIAGNOSTIC LOG
-                    const logPrefix = `[SYNC_V13] #${existingOrder.id} (WC-${wcOrder.id})`;
-                    console.log(`${logPrefix} DB:'${dbStatus}' | WC:'${wcOrder.status}' (mapped:'${finalStatus}') | Default:'${incomingStatus}' | isMod:${isLocalModified} | isTermWC:${isTerminalWC} | KEEP:${keepLocalStatus}`);
-
-                    if (keepLocalStatus) {
-                        finalStatus = existingOrder.status;
-                        // Log specifically why we kept it if it's different from what WC wanted
-                        if (finalStatus !== status) {
-                            console.log(`${logPrefix} >>> PROTECTED: Keeping local status '${finalStatus}' over WC mapped status '${status}'`);
-                        }
-                    } else {
-                        if (dbStatus !== finalStatus) {
-                            console.log(`${logPrefix} >>> UPDATING: Moving from '${dbStatus}' to '${finalStatus}'`);
-                            await logActivity(existingOrder.id, "Sistem", "STATUS_CHANGE", `Durum WooCommerce tarafından '${finalStatus}' olarak güncellendi. (v13)`);
-                        }
-                    }
-
-                    // LOG STATUS CHANGE BY SYNC:
-                    const syncUser = "WC Senkronizasyon"
-                    if (existingOrder.status !== finalStatus && !keepLocalStatus) {
-                        await logActivity(existingOrder.id, syncUser, "STATUS_CHANGE", `Durum WooCommerce tarafından '${finalStatus}' olarak güncellendi.`);
-                    }
-
                     // PRESERVE LABELS: Don't overwrite locally added labels
                     let finalLabels = labels;
                     let hadPaymentFailedLabel = false;
@@ -2010,18 +1976,17 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                         console.error("Label merge error:", e);
                     }
 
+                    const syncUser = "WC Senkronizasyon";
                     if (hadPaymentFailedLabel) {
                         await logActivity(existingOrder.id, syncUser, "PAYMENT_SUCCESS", "WooCommerce ödemesi tamamlandığı için 'Ödeme Başarısız' etiketi otomatik kaldırıldı.");
                     }
 
                     // DETECT ACTUAL CHANGES to avoid unnecessary updatedAt updates
                     const oldCustomer = existingOrder.customer;
-
-                    const hasStatusChange = existingOrder.status !== finalStatus;
                     const localLabelsStr = typeof existingOrder.labels === 'string' ? existingOrder.labels : JSON.stringify(existingOrder.labels || []);
                     const finalLabelsStr = JSON.stringify(finalLabels);
                     const hasLabelChange = localLabelsStr !== finalLabelsStr;
-                    const isWorkedOnLocally = isLocalModified || !!existingOrder.assignedTo;
+                    const isWorkedOnLocally = existingOrder.status !== incomingStatus || !!existingOrder.assignedTo;
 
                     const hasDataChange = isWorkedOnLocally
                         ? (hadPaymentFailedLabel || hasLabelChange)
@@ -2041,10 +2006,8 @@ export async function syncWooCommerceOrders(force: boolean = false) {
                         data: {
                             customer: isWorkedOnLocally ? existingOrder.customer : newCustomer,
                             total: `${wcOrder.total} ${wcOrder.currency_symbol}`,
-                            // If we identified we should keep local status, we pass undefined so Prisma doesn't update this field
-                            status: keepLocalStatus ? undefined : finalStatus,
-                            // Only update timestamp if status changed OR meaningful data changed
-                            updatedAt: (hasStatusChange || hasDataChange) ? new Date() : existingOrder.updatedAt,
+                            // Order status is strictly controlled by manual user action in dashboard
+                            updatedAt: hasDataChange ? new Date() : existingOrder.updatedAt,
                             email: email,
                             phone: isWorkedOnLocally ? (existingOrder.phone || phone) : phone,
                             address: isWorkedOnLocally ? (existingOrder.address || address) : address,
@@ -2377,46 +2340,9 @@ export async function syncCargoKargoEntegrator(force: boolean = false) {
                 let order = ordersMap.get(`WC-${platformId}`) || ordersMap.get(platformId);
 
                 if (order) {
-                    let statusChanged = false;
-                    let targetStatus = order.status;
-                    let activityDetails = "";
-
-                    const statusLower = (ship.status || "").toLowerCase();
-                    const isDelivered = 
-                        statusLower === 'delivered' || 
-                        statusLower === 'teslim_edildi' || 
-                        statusLower === 'teslim edildi' || 
-                        statusLower === 'teslim' ||
-                        !!ship.delivered_at || 
-                        !!ship.real_delivered_date;
-
-                    const isShipped = 
-                        statusLower === 'shipped' ||
-                        statusLower === 'yola_cikti' ||
-                        statusLower === 'yola çıktı' ||
-                        statusLower === 'kargolandi' ||
-                        statusLower === 'kargolandı' ||
-                        statusLower === 'in_transit' ||
-                        !!ship.shipped_at;
-
-                    if (isDelivered) {
-                        if (order.status === 'shipped') {
-                            targetStatus = 'completed';
-                            statusChanged = true;
-                            activityDetails = `Kargo teslim edildi olarak tespit edildi (Senkronizasyon, Durum: ${ship.status || 'delivered'}). Sipariş durumu otomatik olarak Tamamlandı yapıldı.`;
-                        }
-                    } else if (isShipped) {
-                        const allowAutoShipped = ['pending_woo', 'pending_pm', 'draft', 'ready', 'packed'].includes(order.status);
-                        if (allowAutoShipped) {
-                            targetStatus = 'shipped';
-                            statusChanged = true;
-                            activityDetails = `Kargo yola çıktı olarak tespit edildi (Senkronizasyon, Durum: ${ship.status || 'shipped'}). Sipariş durumu otomatik olarak Kargolandı yapıldı.`;
-                        }
-                    }
-
                     const needsTrackingUpdate = order.cargoTrackingNumber !== trackingNum || order.cargoBarcode !== barcode || order.cargoLabelPdf !== printUrl;
 
-                    if (needsTrackingUpdate || statusChanged) {
+                    if (needsTrackingUpdate) {
                         await db.order.update({
                             where: { id: order.id },
                             data: {
@@ -2424,21 +2350,9 @@ export async function syncCargoKargoEntegrator(force: boolean = false) {
                                 cargoBarcode: barcode || undefined,
                                 cargoLabelPdf: printUrl,
                                 hasCargoPdf: printUrl ? true : false,
-                                updatedAt: statusChanged ? new Date() : order.updatedAt,
-                                ...(statusChanged ? { status: targetStatus } : {})
+                                updatedAt: order.updatedAt
                             }
                         });
-
-                        if (statusChanged) {
-                            await db.orderActivity.create({
-                                data: {
-                                    orderId: order.id,
-                                    author: 'Kargo Entegratör (Oto)',
-                                    action: 'STATUS_CHANGE',
-                                    details: activityDetails
-                                }
-                            });
-                        }
 
                         updatedCount++;
                     }
@@ -2446,10 +2360,6 @@ export async function syncCargoKargoEntegrator(force: boolean = false) {
             }
         }
 
-        // Run auto-complete for old shipped orders as part of the sync process
-        await autoCompleteOldOrders().catch(err => {
-            console.error("Auto-complete old orders failed during cargo sync:", err);
-        });
         return { success: true, message: `${updatedCount} siparişin kargo bilgisi güncellendi.` };
 
     } catch (error: any) {
@@ -2767,12 +2677,10 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                     totalAmount = parseFloat(pmOrder.total_price);
                 }
 
-                // Map general fields
+                // Map general fields - new incoming orders always start at pending_pm
                 const status = (pmOrder.status || pmOrder.order_status || "pending").toLowerCase();
                 let mappedStatus = "pending_pm";
-                if (status.includes("ship") || status === "completed") {
-                    mappedStatus = "shipped";
-                } else if (status === "cancelled" || status === "deleted") {
+                if (status === "cancelled" || status === "deleted") {
                     mappedStatus = "cancelled";
                 }
 
@@ -2805,18 +2713,6 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                 }
 
                 if (existingOrder) {
-                    const dbStatus = existingOrder.status;
-                    const incomingStatus: string = mappedStatus;
-
-                    const isTerminalIncoming = incomingStatus === "shipped" || incomingStatus === "completed" || incomingStatus === "cancelled";
-                    const isLocalTerminal = dbStatus === "shipped" || dbStatus === "completed" || dbStatus === "cancelled";
-                    const isLocalModified = dbStatus !== "pending_pm";
-                    let keepLocalStatus = isLocalModified || isLocalTerminal;                    
-                    let finalStatus = incomingStatus;
-                    if (keepLocalStatus) {
-                        finalStatus = dbStatus;
-                    }
-
                     const isManualPdf = !!(existingOrder.cargoLabelPdf && (
                         existingOrder.cargoLabelPdf.startsWith('JVBERi') ||
                         existingOrder.cargoLabelPdf.startsWith('data:')
@@ -2834,8 +2730,7 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                                 dbItem.productNote !== item.productNote;
                         });
 
-                    const hasStatusChange = dbStatus !== finalStatus;
-                    const isWorkedOnLocally = isLocalModified || !!existingOrder.assignedTo;
+                    const isWorkedOnLocally = existingOrder.status !== "pending_pm" || !!existingOrder.assignedTo;
                     const hasNewTrackingPdf = !isManualPdf && !!trackingPdf && existingOrder.cargoLabelPdf !== trackingPdf;
                     const hasCustomerChange = !!(shippingName && existingOrder.customer !== shippingName);
                     const hasDataChange = isWorkedOnLocally
@@ -2848,11 +2743,7 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                             hasNewTrackingPdf ||
                             itemsChanged
                         );
-                    if (hasStatusChange || hasDataChange) {
-                        if (hasStatusChange) {
-                            await logActivity(existingOrder.id, "PrintMarkt Senkronizasyon", "STATUS_CHANGE", `Durum PrintMarkt tarafından '${finalStatus}' olarak güncellendi.`);
-                        }
-
+                    if (hasDataChange) {
                         let finalLabels = labels;
                         try {
                             const localLabels = typeof existingOrder.labels === 'string' ? JSON.parse(existingOrder.labels) : existingOrder.labels;
@@ -2873,8 +2764,7 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
                                 phone: isWorkedOnLocally ? (existingOrder.phone || shippingPhone) : shippingPhone,
                                 address: isWorkedOnLocally ? (existingOrder.address || shippingAddress) : shippingAddress,
                                 total: totalAmount.toFixed(2),
-                                status: finalStatus,
-                                updatedAt: new Date(),
+                                // Order status is strictly controlled by manual user actions in the dashboard
                                 cargoLabelPdf: finalCargoLabel,
                                 hasCargoPdf: !!finalCargoLabel,
                                 labels: JSON.stringify(finalLabels),
