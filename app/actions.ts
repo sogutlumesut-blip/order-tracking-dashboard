@@ -188,7 +188,7 @@ export async function getOrders(timestamp?: number) {
         try {
             activeOrders = await db.order.findMany({
                 where: { status: { in: targetActive } },
-                orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
+                orderBy: [{ date: "desc" }, { id: "desc" }],
                 select: orderSelect
             });
         } catch (e) {
@@ -196,7 +196,7 @@ export async function getOrders(timestamp?: number) {
             await new Promise(r => setTimeout(r, 600));
             activeOrders = await db.order.findMany({
                 where: { status: { in: targetActive } },
-                orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
+                orderBy: [{ date: "desc" }, { id: "desc" }],
                 select: orderSelect
             });
         }
@@ -207,7 +207,7 @@ export async function getOrders(timestamp?: number) {
         try {
             terminalOrders = await db.order.findMany({
                 where: { status: { in: targetTerminal } },
-                orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
+                orderBy: [{ date: "desc" }, { id: "desc" }],
                 take: 200,
                 select: orderSelect
             });
@@ -2923,31 +2923,51 @@ export async function syncPrintMarktProofRequests(force: boolean = false) {
                         existingLabels = [];
                     }
 
+                    const allProofStatusLabels = ['Hazır Taslak', 'Revizyon İstendi', 'Taslak Onaylandı', 'Taslak Bekliyor'];
+                    const filteredExisting = existingLabels.filter(l => !allProofStatusLabels.includes(l));
                     const mergedLabels = Array.from(new Set([
-                        ...existingLabels,
+                        ...filteredExisting,
                         "TASLAK TALEBİ VAR",
                         "PRINTMARKT",
                         statusLabel
-                    ])).filter(l => l !== 'Taslak Bekliyor' || statusLabel === 'Taslak Bekliyor');
+                    ]));
 
-                    const targetStatus = existingOrder.status || 'draft';
+                    const localLabelsStr = typeof existingOrder.labels === 'string' ? existingOrder.labels : JSON.stringify(existingOrder.labels || []);
+                    const newLabelsStr = JSON.stringify(mergedLabels);
+                    const labelsChanged = localLabelsStr !== newLabelsStr;
+                    const customerChanged = !!(customerName && existingOrder.customer !== customerName);
+                    const emailChanged = !!(customerEmail && existingOrder.email !== customerEmail);
+                    const noteChanged = !!customerNote && existingOrder.note !== customerNote;
 
-                    await db.order.update({
-                        where: { id: existingOrder.id },
-                        data: {
-                            customer: customerName,
-                            email: customerEmail,
-                            note: customerNote,
-                            labels: JSON.stringify(mergedLabels),
-                            paymentMethod: "TASLAK TALEBİ",
-                            status: targetStatus,
-                            items: {
-                                deleteMany: {},
-                                create: [itemData]
+                    const existingItem = existingOrder.items?.[0];
+                    const itemChanged = !existingItem ||
+                        existingItem.dimensions !== dimStr ||
+                        existingItem.image_src !== imageSrc ||
+                        existingItem.url !== fullImageSrc ||
+                        existingItem.productNote !== (customerNote || null);
+
+                    const hasChanges = labelsChanged || customerChanged || emailChanged || noteChanged || itemChanged;
+
+                    if (hasChanges) {
+                        await db.order.update({
+                            where: { id: existingOrder.id },
+                            data: {
+                                customer: customerName || existingOrder.customer,
+                                email: customerEmail || existingOrder.email,
+                                note: customerNote || existingOrder.note,
+                                labels: newLabelsStr,
+                                paymentMethod: "TASLAK TALEBİ",
+                                updatedAt: existingOrder.updatedAt, // Preserve timestamp to prevent jitter/reordering!
+                                ...(itemChanged ? {
+                                    items: {
+                                        deleteMany: {},
+                                        create: [itemData]
+                                    }
+                                } : {})
                             }
-                        }
-                    });
-                    importedProofs++;
+                        });
+                        importedProofs++;
+                    }
                 } else {
                     await db.order.create({
                         data: {

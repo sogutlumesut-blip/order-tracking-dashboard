@@ -672,23 +672,15 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             ordersInColumn = ordersInColumn.filter(o => o.items.some(i => i.material === filter))
         }
 
-        // Sort by the most recent update/revision/comment/change (updatedAt newest first)
+        // Stable sort: newest orders first by order creation date / id (strictly prevents jitter/reordering on poll)
         return ordersInColumn.sort((a, b) => {
-            const aUpdated = new Date(a.updatedAt || a.date).getTime();
-            const bUpdated = new Date(b.updatedAt || b.date).getTime();
-
-            if (aUpdated !== bUpdated) {
-                return bUpdated - aUpdated;
-            }
-
-            const aDate = new Date(a.date).getTime();
-            const bDate = new Date(b.date).getTime();
+            const aDate = new Date(a.date || a.createdAt || 0).getTime();
+            const bDate = new Date(b.date || b.createdAt || 0).getTime();
 
             if (aDate !== bDate) {
                 return bDate - aDate;
             }
 
-            // Fallback to newest orders taking precedence
             return b.id - a.id;
         });
     }

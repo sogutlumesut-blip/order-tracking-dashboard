@@ -196,7 +196,7 @@ export async function GET(req: NextRequest) {
             try {
                 orders = await db.order.findMany({
                     where: searchWhere,
-                    orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
+                    orderBy: [{ date: "desc" }, { id: "desc" }],
                     take: 500,
                     select: orderSelect
                 });
@@ -212,7 +212,7 @@ export async function GET(req: NextRequest) {
                 try {
                     activeOrders = await db.order.findMany({
                         where: { status: { in: targetActive } },
-                        orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
+                        orderBy: [{ date: "desc" }, { id: "desc" }],
                         select: orderSelect
                     });
                 } catch (e) {
@@ -220,7 +220,7 @@ export async function GET(req: NextRequest) {
                     await new Promise(r => setTimeout(r, 600));
                     activeOrders = await db.order.findMany({
                         where: { status: { in: targetActive } },
-                        orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
+                        orderBy: [{ date: "desc" }, { id: "desc" }],
                         select: orderSelect
                     });
                 }
@@ -230,7 +230,7 @@ export async function GET(req: NextRequest) {
                 try {
                     terminalOrders = await db.order.findMany({
                         where: { status: { in: targetTerminal } },
-                        orderBy: [{ updatedAt: "desc" }, { date: "desc" }, { id: "desc" }],
+                        orderBy: [{ date: "desc" }, { id: "desc" }],
                         take: 150,
                         select: orderSelect
                     });
