@@ -33,6 +33,7 @@ import { EngineError, toEngineError } from "../dkm-demo/src/engine/errors.ts";
 import { defaultPaths, ensureDemoFolders, validateOutputPath, appendLog } from "../dkm-demo/src/paths.ts";
 import { extractGoogleDriveId, fetchCustomDesignToCache, findCustomDesignUrl } from "../dkm-demo/src/engine/drive-fetch.ts";
 import { compareVisualSignatures, computeVisualSignature } from "../dkm-demo/src/engine/visual-hash.ts";
+import { getValidGoogleDriveAccessToken } from "@/lib/google-drive-auth";
 
 function resolveStorageRoot(): string {
   if (isDemoMode()) return path.resolve(process.cwd(), "DKM_DEMO");
@@ -438,8 +439,10 @@ export async function generateDraftForOrder(
       if (opts.rememberSkuMapping && rawSku) {
         await saveSkuMapping(sku, sourcePath, "visual_match");
       }
-    } else if (opts.forceDrive && customDriveUrl) {
-      const dl = await fetchCustomDesignToCache(customDriveUrl, paths.cache);
+    } else if (customDriveUrl) {
+      // Siparişte Google Drive dosya/klasör linki varsa 2.98 TB Server'ı taramadan DOĞRUDAN Drive'dan çek!
+      const gdriveToken = await getValidGoogleDriveAccessToken();
+      const dl = await fetchCustomDesignToCache(customDriveUrl, paths.cache, { sku, accessToken: gdriveToken });
       sourcePath = dl.filePath;
       sourceOrigin = dl.sourceLabel;
     } else {
@@ -468,24 +471,8 @@ export async function generateDraftForOrder(
           }
         }
         if (!sourcePath) {
-          try {
-            sourcePath = await findDesignBySku(paths.designs, sku);
-          } catch (e: any) {
-            // Eğer SKU Server'da yoksa ve siparişte Google Drive özel tasarım linki varsa Drive'dan çek!
-            if (e?.code === "DESIGN_NOT_FOUND" && customDriveUrl) {
-              const dl = await fetchCustomDesignToCache(customDriveUrl, paths.cache);
-              sourcePath = dl.filePath;
-              sourceOrigin = dl.sourceLabel;
-            } else {
-              throw e;
-            }
-          }
+          sourcePath = await findDesignBySku(paths.designs, sku);
         }
-      } else if (!sourcePath && customDriveUrl) {
-        // Server yapılandırılmamış olsa bile Google Drive özel tasarım linki varsa doğrudan Drive'dan çek
-        const dl = await fetchCustomDesignToCache(customDriveUrl, paths.cache);
-        sourcePath = dl.filePath;
-        sourceOrigin = dl.sourceLabel;
       }
 
       if (!sourcePath) {

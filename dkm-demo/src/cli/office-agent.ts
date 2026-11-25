@@ -229,27 +229,19 @@ async function handleGenerateDraft(order: any, payload: any, settings: any, skuM
   let sourcePath: string | null = null;
   if (payload.overrideSourcePath && fs.existsSync(payload.overrideSourcePath)) {
     sourcePath = payload.overrideSourcePath;
-  } else if (payload.forceDrive && customDriveUrl) {
-    const dl = await fetchCustomDesignToCache(customDriveUrl, path.join(OUT_ROOT, "CACHE"));
+  } else if (customDriveUrl) {
+    // Siparişte Google Drive dosya/klasör linki varsa 2.98 TB Server'ı boşuna taramadan DOĞRUDAN Drive'dan indir!
+    const dl = await fetchCustomDesignToCache(customDriveUrl, path.join(OUT_ROOT, "CACHE"), {
+      sku,
+      accessToken: settings.gdriveAccessToken || null,
+    });
     sourcePath = dl.filePath;
   } else {
     const saved = (skuMappings || []).find((m: any) => m.sku.toLowerCase() === sku.toLowerCase());
     if (saved && fs.existsSync(saved.filePath)) {
       sourcePath = saved.filePath;
     } else if (serverPath) {
-      try {
-        sourcePath = await findDesignBySku(serverPath, sku);
-      } catch (e: any) {
-        if (e?.code === "DESIGN_NOT_FOUND" && customDriveUrl) {
-          const dl = await fetchCustomDesignToCache(customDriveUrl, path.join(OUT_ROOT, "CACHE"));
-          sourcePath = dl.filePath;
-        } else {
-          throw e;
-        }
-      }
-    } else if (customDriveUrl) {
-      const dl = await fetchCustomDesignToCache(customDriveUrl, path.join(OUT_ROOT, "CACHE"));
-      sourcePath = dl.filePath;
+      sourcePath = await findDesignBySku(serverPath, sku);
     }
   }
   if (!sourcePath) throw new EngineError("SOURCE_UNAVAILABLE", "Ofis ajanında tasarım klasörü bulunamadı.");

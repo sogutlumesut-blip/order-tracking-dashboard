@@ -21,6 +21,7 @@ import { ShopifySettingsForm } from "@/components/settings/shopify-settings-form
 import { OzonSettingsForm } from "@/components/settings/ozon-settings-form"
 import { FaireSettingsForm } from "@/components/settings/faire-settings-form"
 import { DemoServerSettings } from "@/components/settings/demo-server-settings"
+import { GoogleDriveSettings } from "@/components/settings/google-drive-settings"
 import { isDemoMode } from "@/lib/prisma"
 
 
@@ -56,6 +57,9 @@ export default async function SettingsPage() {
 
                 {/* OTOMATİK TASLAK & WINDOWS SERVER BAĞLANTI AYARLARI */}
                 <DemoServerSettings />
+
+                {/* GOOGLE DRIVE MÜŞTERİ LİNKİ BAĞLANTISI (SALT OKUNUR) */}
+                <GoogleDriveSettings />
 
                 {/* WOOCOMMERCE INTEGRATION */}
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100">

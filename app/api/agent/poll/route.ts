@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDemoDb, getDemoSettingsMap } from "@/lib/demo-engine";
 import { verifyAgentAuth } from "@/lib/office-agent-bridge";
+import { getValidGoogleDriveAccessToken } from "@/lib/google-drive-auth";
 
 export async function GET(request: Request) {
   if (!(await verifyAgentAuth(request))) {
@@ -51,6 +52,7 @@ export async function GET(request: Request) {
   }
 
   const skuMappings = await ddb.skuMapping.findMany();
+  const gdriveAccessToken = job.type === "generate_draft" ? await getValidGoogleDriveAccessToken() : null;
 
   return NextResponse.json({
     ok: true,
@@ -61,6 +63,7 @@ export async function GET(request: Request) {
       warnPpi: Number(settings.demo_warn_ppi || 72),
       printPpiMax: Number(settings.demo_print_ppi_max || 150),
       maxFileGb: Number(settings.demo_max_file_gb || 12),
+      gdriveAccessToken,
     },
     order,
     latestDraft,
