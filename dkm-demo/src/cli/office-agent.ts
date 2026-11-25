@@ -396,6 +396,13 @@ async function loop() {
   console.log("================================================================");
 
   let connectedOnce = false;
+  // Büyük dosya işlerken veya 2.98 TB indekslerken bile bulut panelde sürekli Çevrimiçi görünmesi için arka plan kalp atışı
+  const hbTimer = setInterval(() => {
+    const qs = new URLSearchParams({ hostname: HOSTNAME, serverPath: DEFAULT_SERVER_PATH, heartbeatOnly: "1" });
+    fetch(`${CLOUD_URL}/api/agent/poll?${qs}`, { headers }).catch(() => {});
+  }, 15_000);
+  hbTimer.unref?.();
+
   while (true) {
     try {
       const qs = new URLSearchParams({ hostname: HOSTNAME, serverPath: DEFAULT_SERVER_PATH });

@@ -21,6 +21,10 @@ export async function GET(request: Request) {
       : Promise.resolve(),
   ]);
 
+  if (url.searchParams.get("heartbeatOnly") === "1") {
+    return NextResponse.json({ ok: true, heartbeat: true });
+  }
+
   // Bekleyen en eski işi al
   const job = await ddb.agentJob.findFirst({
     where: { status: "queued" },
