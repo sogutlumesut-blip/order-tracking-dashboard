@@ -391,23 +391,34 @@ export async function renderPreview(info: SourceInfo, work: WorkImage, proxy: Pr
 }
 
 export async function renderDetail(info: SourceInfo, work: WorkImage, crop: Crop, ppi: PpiResult, out: string, s: EngineSettings = DEFAULT_ENGINE, center?: { cx: number; cy: number }) {
-  // Baskı dosyasındaki pikseller 1:1 (%100) gösterilir.
-  const scale = ppi.outPpi / ppi.effectivePpi; // ≤ 1
-  const dw = Math.min(s.detailPx, ppi.outW);
-  const dh = Math.min(Math.round(s.detailPx * 0.66), ppi.outH);
-  const sw = Math.min(crop.w, Math.max(1, Math.round(dw / scale)));
-  const sh = Math.min(crop.h, Math.max(1, Math.round(dh / scale)));
+  // Gerçek baskı boyutunda ~30x20 cm (12x8 inç) fiziksel pencereyi 100 PPI referans ölçekte gösterir.
+  // Böylece düşük çözünürlüklü (örn. 9 PPI) görsellerde baskıda oluşacak gerçek bulanıklık/piksellenme müşteriye birebir görünür!
+  const refPpi = Math.min(100, s.printPpiMax || 150);
+  const wallInW = ppi.outW / Math.max(0.1, ppi.outPpi);
+  const wallInH = ppi.outH / Math.max(0.1, ppi.outPpi);
+  const winInW = Math.min(wallInW, s.detailPx / refPpi);
+  const winInH = Math.min(wallInH, (s.detailPx * 0.66) / refPpi);
+
+  const sw = Math.min(crop.w, Math.max(8, Math.round(winInW * ppi.effectivePpi)));
+  const sh = Math.min(crop.h, Math.max(8, Math.round(winInH * ppi.effectivePpi)));
+  const outW = Math.max(64, Math.min(s.detailPx, Math.round(winInW * refPpi)));
+  const outH = Math.max(64, Math.min(Math.round(s.detailPx * 0.66), Math.round(winInH * refPpi)));
+
   const cx = center ? center.cx : crop.x + crop.w / 2;
   const cy = center ? center.cy : crop.y + crop.h / 2;
   const left = Math.round(Math.max(crop.x, Math.min(crop.x + crop.w - sw, cx - sw / 2)));
   const top = Math.round(Math.max(crop.y, Math.min(crop.y + crop.h - sh, cy - sh / 2)));
   let p = sharp(work.workPath, sharpOpts(s)).extract({ left, top, width: sw, height: sh });
-  if (scale < 0.9999) p = p.resize(Math.max(1, Math.round(sw * scale)), Math.max(1, Math.round(sh * scale)), { fit: "fill", kernel: "lanczos3" });
+  if (sw !== outW || sh !== outH) {
+    p = p.resize(outW, outH, { fit: "fill", kernel: "lanczos3" });
+  }
   const img = await p.flatten({ background: "#ffffff" }).toColourspace("srgb").removeAlpha().raw().toBuffer({ resolveWithObject: true });
   const W = img.info.width;
   const H = img.info.height;
   const barH = 30;
-  const txt = `%100 DETAY • baskı dosyasındaki gerçek pikseller • ${ppi.outPpi.toFixed(1)} PPI baskı / ${ppi.effectivePpi.toFixed(1)} efektif PPI • ${W}x${H}px ≈ ${((W / ppi.outPpi) * 2.54).toFixed(1)}×${((H / ppi.outPpi) * 2.54).toFixed(1)} cm`;
+  const cmW = (winInW * 2.54).toFixed(0);
+  const cmH = (winInH * 2.54).toFixed(0);
+  const txt = `%100 BASKI DETAYI (${cmW}×${cmH} cm gerçek alan) • ${ppi.effectivePpi.toFixed(1)} efektif PPI • kaynak: ${sw}×${sh}px`;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${barH}"><rect width="${W}" height="${barH}" fill="#1e293b"/><text x="8" y="20" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#fbbf24">${esc(txt)}</text></svg>`;
   const pipeline = sharp(img.data, { raw: { width: W, height: H, channels: 3 } })
     .extend({ bottom: barH, background: "#1e293b" })

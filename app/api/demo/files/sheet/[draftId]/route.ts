@@ -105,14 +105,38 @@ export async function GET(request: Request, context: { params: Promise<{ draftId
   const prevX = Math.round(leftAreaX + (leftAreaW - pw) / 2);
   const prevY = Math.round(185 + (leftMaxH - ph) / 2);
 
-  // Sağ alan: %100 yakın çözünürlük detayı (500 x 440, alt koyu 30px şeridi temizleyerek)
+  // Sağ alan: %100 yakın çözünürlük detayı (510 x 440, alt koyu 30px şeridi temizleyerek)
+  // Düşük çözünürlüklü (örn. < 55 PPI) eski/yeni taslaklarda gerçek 30x20 cm baskı alanını büyütüp
+  // müşterinin baskıda oluşacak gerçek bulanıklığı/piksellenmeyi net görmesini sağla!
   const rightX = 1005;
   const detMaxW = 510;
   const detMaxH = 440;
   let detComp: { input: Buffer; left: number; top: number } | null = null;
   let dw = detMaxW;
   let dh = 360;
-  if (detBuf) {
+  const effPpiNum = Number(draft.effectivePpi || 0);
+  const unitFactor = UNIT_TO_INCH[(draft.unit || "cm").toLowerCase()] || 1 / 2.54;
+  const wallInW = Number(draft.width || 0) * unitFactor;
+  const wallInH = Number(draft.height || 0) * unitFactor;
+
+  if (effPpiNum > 0 && effPpiNum < 55 && wallInW > 14 && wallInH > 10 && prevResized.data) {
+    // Temiz sol taslaktan gerçek ~12x8 inç (30x20 cm) orta bölgeyi kesip sağ kutuyu dolduracak şekilde büyüt
+    const fracW = Math.min(1, 12 / wallInW);
+    const fracH = Math.min(1, 8 / wallInH);
+    const patchW = Math.max(12, Math.round(pw * fracW));
+    const patchH = Math.max(12, Math.round(ph * fracH));
+    const patchLeft = Math.max(0, Math.round((pw - patchW) / 2));
+    const patchTop = Math.max(0, Math.round((ph - patchH) / 2));
+    const zoomed = await sharp(prevResized.data)
+      .extract({ left: patchLeft, top: patchTop, width: patchW, height: patchH })
+      .resize(detMaxW, 340, { fit: "cover", kernel: "lanczos3" })
+      .toColourspace("srgb")
+      .jpeg({ quality: 92 })
+      .toBuffer({ resolveWithObject: true });
+    dw = zoomed.info.width;
+    dh = zoomed.info.height;
+    detComp = { input: zoomed.data, left: rightX + Math.round((detMaxW - dw) / 2), top: 245 };
+  } else if (detBuf) {
     const dm = await sharp(detBuf).metadata();
     let detPipe = sharp(detBuf);
     if (dm.width && dm.height && dm.height > 80) {
