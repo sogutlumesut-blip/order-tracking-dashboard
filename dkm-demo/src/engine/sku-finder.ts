@@ -123,6 +123,71 @@ export function validateSku(sku: string | null | undefined): string {
   return s;
 }
 
+const SAMPLE_DIR_RE = /(?:^|[\\/])(yurtd[ıi]s[ıi]sample|sample|samples|numune|test)(?:[\\/]|$)/i;
+
+function pickBestLiveMatch(matches: string[]): string {
+  const nonSample = matches.filter((m) => !SAMPLE_DIR_RE.test(m));
+  const pool = nonSample.length > 0 ? nonSample : matches;
+  if (pool.length === 1) return pool[0];
+  const extRank = (p: string) => {
+    const e = path.extname(p).toLowerCase();
+    if (e === ".tif" || e === ".tiff") return 4;
+    if (e === ".psb" || e === ".psd") return 3;
+    if (e === ".png") return 2;
+    return 1;
+  };
+  let best = pool[0];
+  let bestScore = -1;
+  for (const p of pool) {
+    try {
+      const sz = fs.statSync(p).size;
+      const score = extRank(p) * 1e13 + sz;
+      if (score > bestScore) {
+        bestScore = score;
+        best = p;
+      }
+    } catch {}
+  }
+  return best;
+}
+
+// Hızlı 1-seviye doğrudan kontrol: tam 2.98 TB SMB taramasına gerek kalmadan ~50ms içinde bulur
+async function quickTopLevelProbe(designsDir: string, candidates: string[]): Promise<string | null> {
+  let topEntries: fs.Dirent[];
+  try {
+    topEntries = await fs.promises.readdir(designsDir, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+  const searchDirs = [designsDir];
+  for (const ent of topEntries) {
+    if (!ent.isDirectory() || ent.name.startsWith(".") || ent.name.startsWith("~$")) continue;
+    if (SKIP_DIRS.has(ent.name.toLowerCase()) || SAMPLE_DIR_RE.test(ent.name)) continue;
+    searchDirs.push(path.join(designsDir, ent.name));
+  }
+
+  for (const cand of candidates) {
+    const hits: string[] = [];
+    const checks: Promise<void>[] = [];
+    for (const dir of searchDirs) {
+      for (const ext of SUPPORTED_EXTS) {
+        const p = path.join(dir, `${cand}${ext}`);
+        checks.push(
+          fs.promises
+            .access(p, fs.constants.R_OK)
+            .then(() => {
+              hits.push(p);
+            })
+            .catch(() => {}),
+        );
+      }
+    }
+    await Promise.all(checks);
+    if (hits.length > 0) return pickBestLiveMatch(hits);
+  }
+  return null;
+}
+
 export async function findDesignBySku(designsDir: string, rawSku: string): Promise<string> {
   const candidates = candidateSkus(rawSku);
   const sku = candidates[0];
@@ -158,23 +223,38 @@ export async function findDesignBySku(designsDir: string, rawSku: string): Promi
   };
 
   let idx = useCache ? indexCache.get(designsDir) : undefined;
+
+  // Eğer tam indeks henüz hazır değilse önce ~50ms süren hızlı 1-seviye kontrol yap (zaman aşımını önler!)
+  if (useCache && (!idx || Date.now() - idx.builtAt > INDEX_TTL_MS)) {
+    const quickHit = await quickTopLevelProbe(designsDir, candidates);
+    if (quickHit) return quickHit;
+  }
+
   if (!idx || Date.now() - idx.builtAt > INDEX_TTL_MS) {
     idx = await buildDirIndex(designsDir);
   }
 
   let { supportedByCand, unsupportedByCand } = lookupInIndex(idx);
 
-  // Önbellekte bulunamadıysa (yeni eklenmiş dosya olabilir), bir kez tazeleyip tekrar bak
+  // Önbellekte bulunamadıysa (yeni eklenmiş dosya olabilir), önce hızlı probe, yoksa tazele
   const hasAnyHit = supportedByCand.some((a) => a.length > 0) || unsupportedByCand.some((a) => a.length > 0);
-  if (!hasAnyHit && useCache && Date.now() - idx.builtAt > 10_000) {
-    idx = await buildDirIndex(designsDir);
-    ({ supportedByCand, unsupportedByCand } = lookupInIndex(idx));
+  if (!hasAnyHit && useCache) {
+    const quickHit = await quickTopLevelProbe(designsDir, candidates);
+    if (quickHit) return quickHit;
+    if (Date.now() - idx.builtAt > 10_000) {
+      idx = await buildDirIndex(designsDir);
+      ({ supportedByCand, unsupportedByCand } = lookupInIndex(idx));
+    }
   }
 
   for (let i = 0; i < candidates.length; i++) {
     const supported = supportedByCand[i];
     const unsupported = unsupportedByCand[i];
     if (supported.length > 1) {
+      if (useCache) {
+        const best = pickBestLiveMatch(supported);
+        if (fs.existsSync(best)) return best;
+      }
       const names = supported.map((m) => path.relative(designsDir, m));
       throw new EngineError(
         "MULTIPLE_MATCH",
