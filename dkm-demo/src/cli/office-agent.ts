@@ -28,7 +28,7 @@ import {
   SUPPORTED_EXTS,
 } from "../engine/index.ts";
 import type { Crop, EngineSettings, TileConfig } from "../engine/index.ts";
-import { findDesignBySku, validateSku } from "../engine/sku-finder.ts";
+import { findDesignBySku, validateSku, candidateSkus, warmSkuIndex } from "../engine/sku-finder.ts";
 import { parseDimensionString, toInches, formatDim } from "../engine/units.ts";
 import { EngineError, toEngineError } from "../engine/errors.ts";
 import { fetchCustomDesignToCache, findCustomDesignUrl } from "../engine/drive-fetch.ts";
@@ -245,7 +245,8 @@ async function handleGenerateDraft(order: any, payload: any, settings: any, skuM
     });
     sourcePath = dl.filePath;
   } else {
-    const saved = (skuMappings || []).find((m: any) => m.sku.toLowerCase() === sku.toLowerCase());
+    const cands = candidateSkus(sku).map((c) => c.toLowerCase());
+    const saved = (skuMappings || []).find((m: any) => cands.includes(String(m.sku || "").toLowerCase()));
     if (saved && fs.existsSync(saved.filePath)) {
       sourcePath = saved.filePath;
     } else if (serverPath) {
@@ -560,6 +561,14 @@ async function loop() {
   console.log(`  Baskı Çıktı    : ${path.join(OUT_ROOT, "PRINT_READY")}`);
   startLocalHelperServer();
   console.log("================================================================");
+
+  // Başlangıçta arka planda hızlı dosya adı indeksini ısıt (ilk SKU aramasının 5ms sürmesi için)
+  if (DEFAULT_SERVER_PATH && fs.existsSync(DEFAULT_SERVER_PATH)) {
+    const tWarm = Date.now();
+    warmSkuIndex(DEFAULT_SERVER_PATH)
+      .then((n) => console.log(`[agent] ⚡ Hızlı SKU indeksi hazır: ${n} tasarım (${Date.now() - tWarm}ms)`))
+      .catch(() => {});
+  }
 
   let connectedOnce = false;
   // Büyük dosya işlerken veya 2.98 TB indekslerken bile bulut panelde sürekli Çevrimiçi görünmesi için arka plan kalp atışı
