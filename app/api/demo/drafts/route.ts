@@ -144,7 +144,16 @@ export async function POST(request: Request) {
         return NextResponse.json({ ok: false, code: "NOT_APPROVED", error: "Onaysız taslak için baskı dosyası üretilemez!" }, { status: 409 });
       }
       if (agent.online && !isDemoMode()) {
-        const res = await dispatchToOfficeAgent("generate_print", { draftId, actor }, { orderId, timeoutMs: 55_000 });
+        const res = await dispatchToOfficeAgent(
+          "generate_print",
+          {
+            draftId,
+            actor,
+            targetDir: body.targetDir ? String(body.targetDir).trim() : undefined,
+            forceRegenerate: !!body.forceRegenerate,
+          },
+          { orderId, timeoutMs: 55_000 },
+        );
         return NextResponse.json(res);
       }
       const updated = await generatePrintReadyForDraft(orderId, draftId, actor);

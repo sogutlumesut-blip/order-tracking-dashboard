@@ -353,7 +353,39 @@ async function handleGenerateDraft(order: any, payload: any, settings: any, skuM
   };
 }
 
-async function handleGeneratePrint(order: any, draft: any, settings: any) {
+function resolveTargetDir(rawDir: string | null | undefined, fallbackDir: string): string {
+  const cleaned = String(rawDir || "").trim();
+  if (!cleaned) return fallbackDir;
+  if (cleaned.startsWith("~/") || cleaned === "~") {
+    return path.join(os.homedir(), cleaned.slice(2));
+  }
+  return path.resolve(cleaned);
+}
+
+async function handleGeneratePrint(order: any, draft: any, settings: any, payload: any = {}) {
+  const defaultOutDir = path.join(OUT_ROOT, "PRINT_READY");
+  const targetDir = resolveTargetDir(payload?.targetDir || settings?.printReadyFolder, defaultOutDir);
+  fs.mkdirSync(targetDir, { recursive: true });
+
+  const isSeamless = draft.layoutMode === "seamless" && !!draft.tileConfig;
+  const skuSafe = String(draft.sku).replace(/[^A-Za-z0-9_-]/g, "_");
+  const fileName = `ORD_${order.barcode || order.id}_${skuSafe}_${draft.width}x${draft.height}${draft.unit}_v${draft.version}${isSeamless ? "_SEAMLESS" : ""}_PRINT.tif`;
+  const printFile = path.join(targetDir, fileName);
+
+  // Eğer baskı dosyası daha önce bu bilgisayarda üretildiyse ve kullanıcı farklı bir klasöre kaydetmek istiyorsa anında kopyala!
+  if (!payload?.forceRegenerate && draft.printReadyPath && fs.existsSync(draft.printReadyPath)) {
+    if (path.resolve(draft.printReadyPath) !== path.resolve(printFile)) {
+      await fs.promises.copyFile(draft.printReadyPath, printFile);
+    }
+    const stat = fs.statSync(printFile);
+    return {
+      draftId: draft.id,
+      printReadyPath: printFile,
+      printReadySha256: draft.printReadySha256 || "",
+      printReadyBytes: stat.size,
+    };
+  }
+
   const engSettings: EngineSettings = {
     ...DEFAULT_ENGINE,
     minPpi: settings.minPpi || DEFAULT_ENGINE.minPpi,
@@ -365,16 +397,9 @@ async function handleGeneratePrint(order: any, draft: any, settings: any) {
   const work = await ensureWorkImage(info, path.join(OUT_ROOT, "CACHE"), engSettings);
   const crop: Crop = { x: draft.cropX, y: draft.cropY, w: draft.cropW, h: draft.cropH };
   const dim = { width: draft.width, height: draft.height, unit: draft.unit };
-  const isSeamless = draft.layoutMode === "seamless" && !!draft.tileConfig;
   const tile: TileConfig | null = isSeamless ? JSON.parse(draft.tileConfig) : null;
   const ppi = isSeamless && tile ? computeTilePpi(info, dim, tile, engSettings) : computePpi(crop, dim, engSettings);
 
-  const skuSafe = String(draft.sku).replace(/[^A-Za-z0-9_-]/g, "_");
-  const printFile = path.join(
-    OUT_ROOT,
-    "PRINT_READY",
-    `ORD_${order.id}_${skuSafe}_${draft.width}x${draft.height}${draft.unit}_v${draft.version}${isSeamless ? "_SEAMLESS" : ""}_PRINT.tif`,
-  );
   const res =
     isSeamless && tile
       ? await renderTiledPrint(info, work, dim, tile, ppi, printFile, engSettings)
@@ -457,7 +482,7 @@ async function loop() {
           });
           console.log(`[agent] ✅ Taslak #${job.orderId} gönderildi (${draftPayload.totalMs}ms, ${Math.round(draftPayload.effectivePpi)} PPI)`);
         } else if (job.type === "generate_print") {
-          const printUpdate = await handleGeneratePrint(d.order, d.latestDraft, d.settings);
+          const printUpdate = await handleGeneratePrint(d.order, d.latestDraft, d.settings, job.payload);
           await fetch(`${CLOUD_URL}/api/agent/complete`, {
             method: "POST",
             headers,

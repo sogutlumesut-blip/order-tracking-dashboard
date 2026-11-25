@@ -237,18 +237,36 @@ export function DemoDraftModal({ order, initialTab, onClose, onUpdated }: DemoDr
         }
     }
 
-    const handleGeneratePrint = async () => {
+    const [printTargetDir, setPrintTargetDir] = useState(() => {
+        if (typeof window !== "undefined") {
+            return localStorage.getItem("dkm_print_target_dir") || ""
+        }
+        return ""
+    })
+
+    const handleGeneratePrint = async (opts: { targetDir?: string; forceRegenerate?: boolean } = {}) => {
         if (!latest) return toast.error("Taslak bulunamadı.")
+        const chosenDir = (opts.targetDir ?? printTargetDir).trim()
+        if (chosenDir && typeof window !== "undefined") {
+            localStorage.setItem("dkm_print_target_dir", chosenDir)
+        }
         setBusy(true)
         try {
             const r = await fetch("/api/demo/drafts", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "print", orderId: order.id, draftId: latest.id }),
+                body: JSON.stringify({
+                    action: "print",
+                    orderId: order.id,
+                    draftId: latest.id,
+                    targetDir: chosenDir || undefined,
+                    forceRegenerate: !!opts.forceRegenerate,
+                }),
             })
-            const d = await r.json()
-            if (!r.ok) return toast.error(d.error || "Baskı dosyası oluşturulamadı")
-            toast.success("Onaylı yüksek çözünürlüklü baskı dosyası DKM_DEMO/PRINT_READY klasörüne kaydedildi!")
+            const d = await safeJson(r)
+            if (!r.ok || d.ok === false) return toast.error(d.error || "Baskı dosyası oluşturulamadı")
+            const savedPath = d.draft?.printReadyPath || d.printReadyPath || chosenDir || "varsayılan baskı klasörü"
+            toast.success(`Onaylı yüksek çözünürlüklü baskı dosyası kaydedildi: ${savedPath}`)
             await loadOrderDrafts()
             onUpdated()
         } finally {
@@ -922,29 +940,110 @@ export function DemoDraftModal({ order, initialTab, onClose, onUpdated }: DemoDr
                     {tab === "print" && (
                         <div className="space-y-3 text-xs">
                             {latest?.status === "approved" ? (
-                                <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 space-y-2">
-                                    <div className="font-bold text-emerald-800 dark:text-emerald-200">✅ Taslak v{latest.version} Müşteri Tarafından Onaylandı ({latest.approvedByName})</div>
-                                    {latest.printReadyPath ? (
-                                        <>
-                                            <div>Test Baskı Dosyası: <code>{latest.printReadyPath}</code></div>
-                                            <div>Boyut: <strong>{fmtMb(latest.printReadyBytes)}</strong> • SHA-256: <code>{latest.printReadySha256?.slice(0, 20)}...</code></div>
-                                            <a href={`/api/demo/files/print/${latest.id}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold">
-                                                <Printer className="w-3.5 h-3.5" /> Onaylı Baskı TIFF Dosyasını İndir (TEST)
-                                            </a>
-                                        </>
-                                    ) : (
-                                        <button disabled={busy} onClick={handleGeneratePrint} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-bold">
-                                            🖨️ Yüksek Çözünürlüklü Test Baskı Dosyasını Oluştur
-                                        </button>
+                                <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 space-y-3">
+                                    <div className="font-bold text-emerald-800 dark:text-emerald-200">
+                                        ✅ Taslak v{latest.version} Müşteri Tarafından Onaylandı ({latest.approvedByName})
+                                    </div>
+
+                                    {latest.printReadyPath && (
+                                        <div className="space-y-1">
+                                            <div>
+                                                {isDemoUi ? "Test Baskı Dosyası:" : "Kayıtlı Baskı Dosyası:"}{" "}
+                                                <code className="break-all">{latest.printReadyPath}</code>
+                                            </div>
+                                            <div>
+                                                Boyut: <strong>{fmtMb(latest.printReadyBytes)}</strong> • SHA-256:{" "}
+                                                <code>{latest.printReadySha256?.slice(0, 20)}...</code>
+                                            </div>
+                                        </div>
                                     )}
+
+                                    {/* Hedef Klasör Seçimi (Ofis Ajanı / Windows Server / Masaüstü) */}
+                                    {!isDemoUi && (
+                                        <div className="p-3 rounded-lg bg-white/70 dark:bg-slate-900/70 border border-emerald-200 dark:border-emerald-800 space-y-2">
+                                            <label className="font-bold block text-slate-700 dark:text-slate-200">
+                                                📁 Baskı Dosyasını Kaydedeceğiniz Klasör (Ofis Bilgisayarı / Server)
+                                            </label>
+                                            <div className="flex flex-wrap gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={printTargetDir}
+                                                    onChange={(e) => setPrintTargetDir(e.target.value)}
+                                                    placeholder="Örn: ~/Desktop/Baski veya /Volumes/DKM/BASKIYA_HAZIR (boş = varsayılan)"
+                                                    className="flex-1 min-w-[260px] px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 font-mono text-xs"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    disabled={busy}
+                                                    onClick={() => handleGeneratePrint({ targetDir: printTargetDir })}
+                                                    className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold disabled:opacity-50"
+                                                >
+                                                    {busy ? "Kaydediliyor..." : latest.printReadyPath ? "📁 Bu Klasöre Kaydet" : "🖨️ Bu Klasöre Oluştur"}
+                                                </button>
+                                            </div>
+                                            <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                                                <span className="text-slate-500">Hızlı seçim:</span>
+                                                {[
+                                                    { label: "Masaüstü / Baski", path: "~/Desktop/Baski" },
+                                                    { label: "İndirilenler", path: "~/Downloads" },
+                                                    { label: "Server / BASKI", path: "/Volumes/DKM/BASKI" },
+                                                ].map((preset) => (
+                                                    <button
+                                                        key={preset.path}
+                                                        type="button"
+                                                        onClick={() => setPrintTargetDir(preset.path)}
+                                                        className="px-2 py-0.5 rounded bg-slate-200/80 dark:bg-slate-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-slate-700 dark:text-slate-200 font-medium"
+                                                    >
+                                                        {preset.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="flex flex-wrap gap-2 pt-1">
+                                        {latest.printReadyPath ? (
+                                            <>
+                                                <a
+                                                    href={`/api/demo/files/print/${latest.id}`}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                                                >
+                                                    <Printer className="w-3.5 h-3.5" />{" "}
+                                                    {isDemoUi ? "Onaylı Baskı TIFF Dosyasını İndir (TEST)" : "Onaylı Baskı TIFF Dosyasını İndir"}
+                                                </a>
+                                                <button
+                                                    type="button"
+                                                    disabled={busy}
+                                                    onClick={() => handleGeneratePrint({ targetDir: printTargetDir, forceRegenerate: true })}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-800 text-white font-bold disabled:opacity-50"
+                                                >
+                                                    🔄 Yeniden Üret
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <button
+                                                disabled={busy}
+                                                onClick={() => handleGeneratePrint({ targetDir: printTargetDir })}
+                                                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                                            >
+                                                🖨️ {isDemoUi ? "Yüksek Çözünürlüklü Test Baskı Dosyasını Oluştur" : "Yüksek Çözünürlüklü Baskı Dosyasını Oluştur"}
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             ) : (
                                 <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 space-y-2">
                                     <div className="font-bold text-amber-900 dark:text-amber-200">⛔ Onaysız Baskı Dosyası Koruması Aktif</div>
-                                    <p>Baskı dosyası yalnızca müşteri onayı verildikten sonra <code>DKM_DEMO/PRINT_READY</code> test klasörüne kaydedilir.</p>
-                                    <button disabled={busy} onClick={handleGeneratePrint} className="px-3 py-1.5 rounded-lg bg-slate-700 text-white font-bold">
-                                        Onaysız Üretimi Dene (Engellenmeli)
-                                    </button>
+                                    <p>
+                                        {isDemoUi
+                                            ? "Baskı dosyası yalnızca müşteri onayı verildikten sonra DKM_DEMO/PRINT_READY test klasörüne kaydedilir."
+                                            : "Baskı dosyası yalnızca müşteri onayı verildikten sonra seçtiğiniz klasöre kaydedilir."}
+                                    </p>
+                                    {isDemoUi && (
+                                        <button disabled={busy} onClick={() => handleGeneratePrint()} className="px-3 py-1.5 rounded-lg bg-slate-700 text-white font-bold">
+                                            Onaysız Üretimi Dene (Engellenmeli)
+                                        </button>
+                                    )}
                                 </div>
                             )}
                         </div>

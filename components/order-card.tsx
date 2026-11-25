@@ -868,7 +868,7 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                     </div>
                                     {demoDraft.printReadyPath && (
                                         <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[9px] font-bold">
-                                            BASKI HAZIR (TEST)
+                                            {process.env.NEXT_PUBLIC_DKM_DEMO_MODE === "1" ? "BASKI HAZIR (TEST)" : "BASKI HAZIR"}
                                         </span>
                                     )}
                                 </div>
