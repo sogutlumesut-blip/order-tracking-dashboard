@@ -564,6 +564,18 @@ export async function generateDraftForOrder(
       data: { status: "superseded" },
     });
 
+    // Bulut konteynerleri geçici disk kullandığından küçük JPG önizlemelerini DB'ye de kaydet
+    let previewData: string | null = null;
+    let detailData: string | null = null;
+    let proxyData: string | null = null;
+    if (!isDemoMode()) {
+      try {
+        previewData = fs.existsSync(previewPath) ? fs.readFileSync(previewPath).toString("base64") : null;
+        detailData = fs.existsSync(detailPath) ? fs.readFileSync(detailPath).toString("base64") : null;
+        proxyData = fs.existsSync(proxy.proxyPath) ? fs.readFileSync(proxy.proxyPath).toString("base64") : null;
+      } catch {}
+    }
+
     const draft = await ddb.draftRecord.create({
       data: {
         orderId: order.id,
@@ -593,6 +605,9 @@ export async function generateDraftForOrder(
         proxyPath: proxy.proxyPath,
         previewPath,
         detailPath,
+        proxyData,
+        previewData,
+        detailData,
         status: ppi.status === "low" ? "failed" : "ready",
         approvalToken,
         errorCode: ppi.status === "low" ? "LOW_RESOLUTION" : null,

@@ -8,6 +8,7 @@ import {
   getDemoDb,
 } from "@/lib/demo-engine";
 import { dispatchToOfficeAgent, getOfficeAgentStatus } from "@/lib/office-agent-bridge";
+import { findCustomDesignUrl } from "@/dkm-demo/src/engine/drive-fetch.ts";
 
 function stripBlobs(dr: any) {
   if (!dr) return dr;
@@ -83,7 +84,12 @@ export async function POST(request: Request) {
     const agent = await getOfficeAgentStatus();
 
     if (action === "generate" || action === "crop") {
-      if (agent.online && !isDemoMode()) {
+      // Google Drive linki varsa (veya "Google Drive'dan Hazırla" tıklandıysa) Ofis Ajanını beklemeden DOĞRUDAN buluttan indirip işle!
+      const ddbCheck = getDemoDb();
+      const ordCheck = await ddbCheck.order.findUnique({ where: { id: orderId }, include: { items: true } });
+      const hasDrive = !!body.forceDrive || !!findCustomDesignUrl(ordCheck?.items?.[0]);
+
+      if (agent.online && !isDemoMode() && !hasDrive) {
         const res = await dispatchToOfficeAgent(
           "generate_draft",
           {
@@ -117,7 +123,10 @@ export async function POST(request: Request) {
         layoutMode: body.layoutMode,
         tileConfig: body.tileConfig,
       });
-      return NextResponse.json(res, { status: res.ok ? 200 : 422 });
+      return NextResponse.json(
+        res.draft ? { ...res, draft: stripBlobs(res.draft) } : res,
+        { status: res.ok ? 200 : 422 },
+      );
     }
 
     if (action === "whatsapp") {
