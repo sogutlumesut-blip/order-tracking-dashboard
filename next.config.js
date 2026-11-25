@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     output: 'standalone',
-    serverExternalPackages: [],
+    serverExternalPackages: ['sharp', 'better-sqlite3'],
     experimental: {
         serverActions: {
             bodySizeLimit: '20mb',

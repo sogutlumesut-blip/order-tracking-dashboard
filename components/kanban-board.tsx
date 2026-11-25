@@ -2,6 +2,7 @@
 
 import { Order, OrderStatus, Comment } from "../data/mock-orders"
 import { OrderCard } from "./order-card"
+import { DemoDraftModal, type DemoModalTab } from "./demo-draft-modal"
 import { useState, useEffect, useRef, useMemo } from "react"
 import { ChevronDown, ChevronUp, ChevronRight, Search, RefreshCw, Loader2, Plus, Filter, X, LogOut, User, Settings, Volume2, VolumeX, Truck, ScanBarcode, Clock, CheckCircle, Lock, Unlock, Package, Boxes, Sparkles, Scroll } from "lucide-react"
 import { Html5QrcodeScanner } from "html5-qrcode"
@@ -93,6 +94,7 @@ interface KanbanBoardProps {
     }
     cols: { id: string; title: string; color: string }[]
     tags: { id: string; name: string; color: string | null }[]
+    isDemoMode?: boolean
 }
 
 function deduplicateOrders(orderList: Order[]): Order[] {
@@ -114,11 +116,50 @@ function deduplicateOrders(orderList: Order[]): Order[] {
     return Array.from(map.values());
 }
 
-export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBoardProps) {
+export function KanbanBoard({ initialOrders, currentUser, cols, tags, isDemoMode = false }: KanbanBoardProps) {
     const [orders, setOrders] = useState<Order[]>(() => deduplicateOrders(initialOrders))
     const [orderedCols, setOrderedCols] = useState(cols)
     const [collapsedIds, setCollapsedIds] = useState<string[]>([])
     const [searchTerm, setSearchTerm] = useState("")
+    const [demoDraftsByOrder, setDemoDraftsByOrder] = useState<Record<number, any>>({})
+    const [demoModal, setDemoModal] = useState<{ order: Order; tab: DemoModalTab } | null>(null)
+
+    const loadDemoDrafts = async () => {
+        if (!isDemoMode) return
+        try {
+            const r = await fetch("/api/demo/drafts")
+            const d = await r.json()
+            if (r.ok && d.draftsByOrder) setDemoDraftsByOrder(d.draftsByOrder)
+        } catch {}
+    }
+
+    useEffect(() => {
+        if (isDemoMode) loadDemoDrafts()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isDemoMode])
+
+    const handleDemoAction = async (order: Order, tab: DemoModalTab, autoGenerate = false) => {
+        if (autoGenerate) {
+            const tId = toast.loading(`#${order.barcode || order.id} için Server dosyası aranıp otomatik taslak hazırlanıyor...`)
+            try {
+                const r = await fetch("/api/demo/drafts", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "generate", orderId: order.id, autoSendWhatsApp: false }),
+                })
+                const d = await r.json()
+                await loadDemoDrafts()
+                if (!r.ok || !d.ok) {
+                    toast.error(d.error || d.draft?.errorMessage || "Otomatik taslak oluşturulamadı", { id: tId })
+                } else {
+                    toast.success(`Taslak v${d.draft.version} hazır (${Math.round(d.draft.effectivePpi)} PPI, ${d.draft.totalMs}ms)`, { id: tId })
+                }
+            } catch (e: any) {
+                toast.error(e?.message || "Taslak hatası", { id: tId })
+            }
+        }
+        setDemoModal({ order, tab })
+    }
 
     const router = useRouter()
 
@@ -779,6 +820,30 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
             if (!response.ok || (res && res.error)) throw new Error(res?.error || "API Hatası")
 
             toast.success(`Sipariş #${activeId} durumu güncellendi (v3.6.6.45)`)
+
+            // DEMO MODE: Taslak sütununa taşındığında otomatik taslak motorunu tetikle
+            if (isDemoMode && activeId !== null) {
+                const targetCol = orderedCols.find((c) => c.id === String(overId))
+                const isTaslakCol = String(overId).toLowerCase() === "draft" || /taslak/i.test(targetCol?.title || "")
+                if (isTaslakCol) {
+                    const tId = toast.loading(`#${activeId} Taslak sütununa alındı — Server'dan otomatik taslak hazırlanıyor...`)
+                    fetch("/api/demo/drafts", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ action: "generate", orderId: Number(activeId), autoSendWhatsApp: false }),
+                    })
+                        .then((r) => r.json().then((d) => ({ ok: r.ok && d.ok, d })))
+                        .then(({ ok, d }) => {
+                            loadDemoDrafts()
+                            if (ok) {
+                                toast.success(`Taslak v${d.draft.version} oluşturuldu (${Math.round(d.draft.effectivePpi)} PPI, ${d.draft.totalMs}ms)`, { id: tId })
+                            } else {
+                                toast.error(d.error || d.draft?.errorMessage || "Taslak oluşturulamadı", { id: tId })
+                            }
+                        })
+                        .catch((err) => toast.error(err?.message || "Taslak hatası", { id: tId }))
+                }
+            }
 
             // Mark last successful interaction
             if (activeId !== null) {
@@ -1940,6 +2005,9 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                                 setOpenFilterId={setOpenFilterId}
                                 setSelectedOrder={setSelectedOrder}
                                 setIsPanelOpen={setIsPanelOpen}
+                                isDemoMode={isDemoMode}
+                                demoDraftsByOrder={demoDraftsByOrder}
+                                onDemoAction={handleDemoAction}
                                 onSelectAll={() => {
                                     const colOrderIds = getOrdersByStatus(column.id, column.title).map(o => o.id);
                                     const allSelected = colOrderIds.every(id => selectedOrders.includes(id));
@@ -2041,6 +2109,17 @@ export function KanbanBoard({ initialOrders, currentUser, cols, tags }: KanbanBo
                     </div>
                 )}
             </div>
+            {/* DEMO MODE: Otomatik Taslak Stüdyosu Modalı */}
+            {isDemoMode && demoModal && (
+                <DemoDraftModal
+                    order={demoModal.order}
+                    initialTab={demoModal.tab}
+                    onClose={() => setDemoModal(null)}
+                    onUpdated={() => {
+                        loadDemoDrafts()
+                    }}
+                />
+            )}
         </DndContext>
     )
 }
@@ -2089,7 +2168,10 @@ function SortableColumn({
     setIsPanelOpen,
     setOrders,
     onSelectAll,
-    hasMovePermission
+    hasMovePermission,
+    isDemoMode,
+    demoDraftsByOrder,
+    onDemoAction
 }: any) {
     const {
         attributes,
@@ -2261,6 +2343,9 @@ function SortableColumn({
                                 selected={selectedOrders.includes(order.id)}
                                 onSelect={() => toggleOrderSelection(order.id)}
                                 selectionMode={selectedOrders.length > 0}
+                                isDemoMode={isDemoMode}
+                                demoDraft={demoDraftsByOrder?.[order.id]}
+                                onDemoAction={onDemoAction}
                             />
                         </DraggableItem>
                     ))}

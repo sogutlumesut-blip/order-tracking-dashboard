@@ -1,0 +1,9 @@
+{
+  "name": "dkm-takip-demo",
+  "private": true,
+  "type": "module",
+  "description": "DKM Takip - Otomatik Taslak DEMO/TEST ortami. Canli sisteme baglanmaz.",
+  "engines": {
+    "node": ">=22.18.0"
+  }
+}

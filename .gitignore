@@ -33,6 +33,12 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env
 .env*.local
+.env.demo
+
+# DKM demo runtime data & generated artifacts
+/DKM_DEMO/
+/dkm-demo/generated/
+/backups/
 
 # local databases
 *.db

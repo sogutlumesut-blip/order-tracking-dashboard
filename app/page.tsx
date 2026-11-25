@@ -4,8 +4,9 @@ import { Footer } from "@/components/footer"
 import { TeamChat } from "@/components/team-chat"
 import { getSession } from "@/lib/auth"
 import { redirect } from "next/navigation"
-import { db } from "@/lib/prisma"
+import { db, isDemoMode } from "@/lib/prisma"
 import { parseUserPermissions } from "@/lib/permissions"
+import Link from "next/link"
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -71,9 +72,18 @@ export default async function Dashboard() {
   }
 
   const formattedOrders = orders || []
+  const demoMode = isDemoMode()
 
   return (
     <div className="h-[100dvh] bg-slate-50 dark:bg-[#020617] flex flex-col overflow-hidden transition-colors duration-300">
+      {demoMode && (
+        <div className="bg-amber-400 text-slate-950 px-4 py-1.5 text-xs font-extrabold flex flex-wrap items-center justify-between gap-2 shrink-0 border-b border-amber-600">
+          <span>⚠️ DEMO MODE — GERÇEK DKM TAKİP TEST KOPYASI (CANLI DB, GERÇEK WHATSAPP VE GERÇEK BASKI KLASÖRÜ İZOLEDİR)</span>
+          <Link href="/admin/settings" className="px-2.5 py-0.5 rounded bg-slate-950 text-amber-300 hover:bg-slate-800 transition-colors">
+            ⚙️ Server Bağlantı Ayarları &amp; Demo Sıfırlama
+          </Link>
+        </div>
+      )}
       {dbError && (
         <div className="bg-red-600 text-white px-4 py-2 text-center font-bold animate-pulse">
           🚨 {dbError} (Bakım Modu)
@@ -82,6 +92,7 @@ export default async function Dashboard() {
       <main className="flex-1 overflow-hidden">
         <KanbanBoard
           initialOrders={formattedOrders}
+          isDemoMode={true}
           currentUser={{
             id: session.user.id,
             name: session.user.name,

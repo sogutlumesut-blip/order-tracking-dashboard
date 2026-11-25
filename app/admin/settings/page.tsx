@@ -20,6 +20,8 @@ import { WayfairSettingsForm } from "@/components/settings/wayfair-settings-form
 import { ShopifySettingsForm } from "@/components/settings/shopify-settings-form"
 import { OzonSettingsForm } from "@/components/settings/ozon-settings-form"
 import { FaireSettingsForm } from "@/components/settings/faire-settings-form"
+import { DemoServerSettings } from "@/components/settings/demo-server-settings"
+import { isDemoMode } from "@/lib/prisma"
 
 
 export const dynamic = 'force-dynamic'
@@ -47,10 +49,13 @@ export default async function SettingsPage() {
                         <ArrowLeft className="w-6 h-6 text-slate-600" />
                     </Link>
                     <div>
-                        <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Ayarlar</h1>
+                        <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Ayarlar {isDemoMode() && <span className="ml-2 px-2.5 py-0.5 rounded bg-amber-400 text-slate-950 text-xs font-black align-middle">DEMO MODE</span>}</h1>
                         <p className="text-sm md:text-base text-slate-500">Sistem yapılandırmasını yönetin.</p>
                     </div>
                 </div>
+
+                {/* OTOMATİK TASLAK & WINDOWS SERVER BAĞLANTI AYARLARI */}
+                <DemoServerSettings />
 
                 {/* WOOCOMMERCE INTEGRATION */}
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100">

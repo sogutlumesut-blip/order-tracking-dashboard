@@ -1,0 +1,287 @@
+// İzole SQLite DEMO şeması (canlı PostgreSQL şemasına ve veritabanına dokunmaz).
+// Mevcut DKM Takip modellerini birebir korur + Otomatik Taslak & Windows Server İndeks modellerini ekler.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../dkm-demo/generated/prisma-demo"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DEMO_DATABASE_URL")
+}
+
+model User {
+  id              String        @id @default(uuid())
+  username        String        @unique
+  password        String
+  name            String
+  role            String        @default("pending")
+  allowedStatuses String?
+  createdAt       DateTime      @default(now())
+  comments        Comment[]
+  messages        ChatMessage[]
+}
+
+model Order {
+  id                  Int             @id @default(autoincrement())
+  customer            String
+  phone               String?
+  email               String?
+  address             String?
+  city                String?
+  total               String
+  status              String
+  date                DateTime        @default(now())
+  note                String?
+  labels              String
+  trackingNumber      String?
+  printNotes          String?
+  paymentMethod       String?
+  barcode             String?         @unique
+  assignedTo          String?
+  cargoBarcode        String?
+  cargoTrackingNumber String?
+  cargoLabelPdf       String?
+  hasCargoPdf         Boolean         @default(false)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  hasNotification     Boolean         @default(false)
+  externalId          String?
+  source              String?
+  invoiceStatus       String?         @default("draft")
+  invoiceUrl          String?
+  taxNumber           String?
+  taxOffice           String?
+  customDesi          Float?
+  customWeight        Float?
+  comments            Comment[]
+  activities          OrderActivity[]
+  items               OrderItem[]
+  drafts              DraftRecord[]
+  whatsappLogs        WhatsappTestLog[]
+
+  @@unique([source, externalId])
+  @@index([status])
+  @@index([date])
+  @@index([updatedAt])
+  @@index([status, updatedAt])
+}
+
+model EtsyShop {
+  id           String   @id @default(uuid())
+  userId       String?
+  shopId       String   @unique
+  shopName     String?
+  accessToken  String
+  refreshToken String
+  expiresAt    DateTime
+  scopes       String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model OrderItem {
+  id           Int     @id @default(autoincrement())
+  name         String
+  sku          String?
+  url          String?
+  quantity     Int
+  image_src    String
+  material     String?
+  dimensions   String?
+  productNote  String?
+  sampleData   String?
+  croppedImage String?
+  orderId      Int
+  order        Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+model Comment {
+  id          String   @id @default(uuid())
+  message     String
+  timestamp   DateTime @default(now())
+  authorId    String
+  orderId     Int
+  attachments String?
+  type        String   @default("message")
+  author      User     @relation(fields: [authorId], references: [id])
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+model OrderActivity {
+  id        String   @id @default(uuid())
+  orderId   Int
+  author    String
+  action    String
+  details   String
+  timestamp DateTime @default(now())
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+model StatusColumn {
+  id    String @id
+  title String
+  color String
+  order Int    @default(0)
+}
+
+model OrderLabel {
+  id    String  @id @default(uuid())
+  name  String
+  color String?
+}
+
+model SystemSetting {
+  key   String @id
+  value String
+}
+
+model ChatMessage {
+  id             String   @id @default(uuid())
+  text           String
+  senderId       String
+  attachment     String?
+  hasAttachment  Boolean  @default(false)
+  attachmentType String?
+  attachmentUrl  String?
+  replyToId      String?
+  replyToText    String?
+  replyToName    String?
+  reactions      String?
+  isPinned       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
+  sender         User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model WarehouseStock {
+  id            Int       @id @default(autoincrement())
+  sku           String
+  dimensions    String
+  material      String
+  orderNo       String?
+  source        String?
+  returnReason  String?
+  pdfPath       String?
+  imageUrl      String?
+  status        String    @default("available")
+  usedInOrderId Int?
+  usedAt        DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([sku])
+  @@index([status])
+}
+
+// === OTOMATİK TASLAK & WINDOWS SERVER İNDEKS MODELLERİ (YALNIZCA DEMO) ===
+
+model DesignIndexEntry {
+  id          Int      @id @default(autoincrement())
+  sku         String
+  filePath    String   @unique
+  fileName    String
+  format      String
+  sizeBytes   Float
+  widthPx     Int?
+  heightPx    Int?
+  colorSpace  String?
+  depth       String?
+  visualHash  String?
+  mtimeMs     Float
+  indexedAt   DateTime @default(now())
+
+  @@index([sku])
+}
+
+model SkuMapping {
+  id        Int      @id @default(autoincrement())
+  sku       String   @unique
+  filePath  String
+  fileName  String
+  matchedBy String   @default("manual")
+  createdAt DateTime @default(now())
+}
+
+model DraftRecord {
+  id               Int      @id @default(autoincrement())
+  orderId          Int
+  version          Int
+  sku              String
+  dimensionsRaw    String?
+  width            Float?
+  height           Float?
+  unit             String?
+  sourcePath       String?
+  sourceFormat     String?
+  sourceWidth      Int?
+  sourceHeight     Int?
+  sourceSpace      String?
+  sourceBytes      Float?
+  cropX            Int?
+  cropY            Int?
+  cropW            Int?
+  cropH            Int?
+  layoutMode       String   @default("mural")
+  tileConfig       String?
+  effectivePpi     Float?
+  outPpi           Float?
+  ppiStatus        String?
+  outWidth         Int?
+  outHeight        Int?
+  proxyPath        String?
+  previewPath      String?
+  detailPath       String?
+  approvedPath     String?
+  printReadyPath   String?
+  printReadySha256 String?
+  printReadyBytes  Float?
+  status           String   @default("ready")
+  approvalToken    String?  @unique
+  approvedAt       DateTime?
+  approvedByName   String?
+  revisionNote     String?
+  errorCode        String?
+  errorMessage     String?
+  warnings         String   @default("[]")
+  // Performans metrikleri (her sipariş için kaydedilir)
+  findMs           Int?
+  readMs           Int?
+  renderMs         Int?
+  totalMs          Int?
+  peakRssMb        Float?
+  cpuPercent       Float?
+  outputBytes      Float?
+  createdAt        DateTime @default(now())
+  order            Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([approvalToken])
+}
+
+model WhatsappTestLog {
+  id          Int      @id @default(autoincrement())
+  orderId     Int
+  draftId     Int?
+  phone       String
+  customer    String
+  message     String
+  previewUrl  String?
+  approvalUrl String?
+  mode        String   @default("DEMO_SIMULATED")
+  status      String   @default("simulated_sent")
+  createdAt   DateTime @default(now())
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}

@@ -1,10 +1,30 @@
 import { PrismaClient } from "@prisma/client"
+import path from "path"
+
+export function isDemoMode(): boolean {
+    return process.env.DKM_DEMO_MODE === "1" || process.env.NEXT_PUBLIC_DKM_DEMO_MODE === "1";
+}
 
 const globalForPrisma = globalThis as unknown as {
     prisma_oms: PrismaClient | undefined
 }
 
 const getPrismaClient = () => {
+    // DEMO MODE: Canli PostgreSQL veritabanina KESINLIKLE baglanma; yalnizca yerel SQLite demo DB kullan.
+    if (isDemoMode()) {
+        const demoUrl =
+            process.env.DEMO_DATABASE_URL ||
+            `file:${path.join(process.cwd(), "DKM_DEMO", "dkm-takip-demo.sqlite")}`;
+        if (!demoUrl.startsWith("file:")) {
+            throw new Error("GÜVENLİK: DEMO_DATABASE_URL yerel SQLite (file:) olmalıdır!");
+        }
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { PrismaClient: DemoPrismaClient } = require("../dkm-demo/generated/prisma-demo");
+        return new DemoPrismaClient({
+            datasources: { db: { url: demoUrl } },
+        }) as unknown as PrismaClient;
+    }
+
     let databaseUrl = process.env.DATABASE_URL
     if (databaseUrl) {
         try {

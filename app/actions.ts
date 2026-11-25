@@ -474,8 +474,8 @@ export async function updateOrderStatusV2(rawOrderId: any, status: string) {
         console.log(`[DB_UPDATE] Success for #${orderId} (v3.6.6.8)`);
         await logActivity(orderId, user, "STATUS_CHANGE", `Durum '${status}' olarak değiştirildi. (v3.6.6.12)`)
 
-        // ETSY PUSH: If shipped, try to push tracking information back to Etsy
-        if (status === 'shipped') {
+        // ETSY PUSH: If shipped, try to push tracking information back to Etsy (disabled in DEMO MODE)
+        if (status === 'shipped' && process.env.DKM_DEMO_MODE !== '1') {
             const order = await db.order.findUnique({ where: { id: orderId } });
             if (order && order.source === 'etsy' && order.externalId && order.trackingNumber) {
                 try {
@@ -958,6 +958,7 @@ export async function createInvoiceAction(orderId: number, taxNumber?: string, t
 
 export async function createCargoLabelAction(orderId: number) {
     noStore()
+    if (process.env.DKM_DEMO_MODE === '1') return { error: "DEMO MODE: Canlı kargo etiketi oluşturma devre dışıdır." }
     console.log(`[ACTION] createCargoLabelAction started for order ${orderId}`)
     const session = await getSession()
     if (!session) {
@@ -1033,6 +1034,7 @@ export async function createDHLShipmentAction(orderId: number, bypassAuth: boole
 
 export async function syncOrderCargoToShopifyAction(orderId: number) {
     noStore();
+    if (process.env.DKM_DEMO_MODE === '1') return { error: "DEMO MODE: Canlı Shopify aktarımı devre dışıdır." };
     const session = await getSession();
     if (!session) return { error: "Oturum kapalı" };
     try {
@@ -1484,6 +1486,7 @@ export async function saveDHLSettings(formData: FormData) {
 
 // ETSY SYNC ACTION
 export async function syncEtsyOrders() {
+    if (process.env.DKM_DEMO_MODE === '1') return { count: 0, message: "DEMO MODE: Canlı Etsy senkronizasyonu kapalı." };
     try {
         const shops = await db.etsyShop.findMany();
         if (shops.length === 0) {
@@ -1584,6 +1587,7 @@ export async function syncEtsyOrders() {
 
 // WOOCOMMERCE SYNC ACTION
 export async function syncWooCommerceOrders(force: boolean = false) {
+    if (process.env.DKM_DEMO_MODE === '1') return { count: 0, message: "DEMO MODE: Canlı WooCommerce senkronizasyonu kapalı." }
     const settings = (await getSystemSettings()) as Record<string, string>
 
     if (!settings['wc_url'] || !settings['wc_key'] || !settings['wc_secret']) {
@@ -2233,6 +2237,7 @@ export async function deleteCargoLabel(orderId: number) {
 }
 
 export async function syncCargoKargoEntegrator(force: boolean = false) {
+    if (process.env.DKM_DEMO_MODE === '1') return { count: 0, message: "DEMO MODE: Canlı kargo senkronizasyonu kapalı." };
     const settings = (await getSystemSettings()) as Record<string, string>;
     
     // RATE LIMIT CHECK
@@ -2384,6 +2389,7 @@ async function fetchPrintMarktOrdersPage(cleanUrl: string, pmKey: string, limit:
 }
 
 export async function syncPrintMarktOrders(force: boolean = false, targetOrderId?: string | number, bypassRateLimit: boolean = false) {
+    if (process.env.DKM_DEMO_MODE === '1') return { count: 0, message: "DEMO MODE: Canlı PrintMarkt senkronizasyonu kapalı." }
     const settings = (await getSystemSettings()) as Record<string, string>
 
     if (!settings['pm_url'] || !settings['pm_key']) {
@@ -2825,6 +2831,7 @@ export async function syncPrintMarktOrders(force: boolean = false, targetOrderId
 }
 
 export async function syncPrintMarktProofRequests(force: boolean = false) {
+    if (process.env.DKM_DEMO_MODE === '1') return { count: 0, message: "DEMO MODE: Canlı PrintMarkt senkronizasyonu kapalı." };
     const settings = (await getSystemSettings()) as Record<string, string>;
     if (!settings['pm_url'] || !settings['pm_key']) {
         return { error: "PrintMarkt ayarları eksik." };
@@ -3261,6 +3268,7 @@ export async function saveShopifySettings(formData: FormData) {
 
 // SHOPIFY SYNC ACTION
 export async function syncShopifyOrders(force: boolean = false, targetStore: '1' | '2' | 'all' = 'all') {
+    if (process.env.DKM_DEMO_MODE === '1') return { count: 0, message: "DEMO MODE: Canlı Shopify senkronizasyonu kapalı." }
     const settings = (await getSystemSettings()) as Record<string, string>
 
     const store1 = {
@@ -3700,6 +3708,7 @@ async function resolveWfProductName(sku: string | null, skuSize: string | null):
 
 // WAYFAIR SYNC ACTION
 export async function syncWayfairOrders(force: boolean = false) {
+    if (process.env.DKM_DEMO_MODE === '1') return { count: 0, message: "DEMO MODE: Canlı Wayfair senkronizasyonu kapalı." }
     const settings = (await getSystemSettings()) as Record<string, string>
 
     if (!settings['wf_client_id'] || !settings['wf_client_secret']) {
@@ -4008,6 +4017,7 @@ export async function syncWayfairOrders(force: boolean = false) {
 
 // OZON SYNC ACTION
 export async function syncOzonOrders(force: boolean = false) {
+    if (process.env.DKM_DEMO_MODE === '1') return { count: 0, message: "DEMO MODE: Canlı Ozon senkronizasyonu kapalı." }
     const settings = (await getSystemSettings()) as Record<string, string>
 
     const clientId = settings['ozon_client_id']
@@ -4102,6 +4112,7 @@ export async function syncOzonOrders(force: boolean = false) {
 
 // FAIRE SYNC ACTION
 export async function syncFaireOrders(force: boolean = false) {
+    if (process.env.DKM_DEMO_MODE === '1') return { count: 0, message: "DEMO MODE: Canlı Faire senkronizasyonu kapalı." }
     const settings = (await getSystemSettings()) as Record<string, string>
 
     const apiToken = settings['faire_api_token']

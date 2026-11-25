@@ -178,9 +178,13 @@ interface OrderCardProps {
     selected?: boolean
     onSelect?: (selected: boolean) => void
     selectionMode?: boolean
+    // DEMO MODE Otomatik Taslak entegrasyonu
+    isDemoMode?: boolean
+    demoDraft?: any
+    onDemoAction?: (order: Order, tab: "preview" | "edit" | "detail" | "ppi" | "server" | "whatsapp" | "print", autoGenerate?: boolean) => void
 }
 
-export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, onSelect, selectionMode = false }: OrderCardProps) {
+export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, onSelect, selectionMode = false, isDemoMode = false, demoDraft, onDemoAction }: OrderCardProps) {
     // We use the first item's image as the main visual
     const rawImage = order.items[0]?.image_src?.split('|')[0]
     const [imgError, setImgError] = useState(false)
@@ -835,6 +839,80 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                         <div className="flex items-center gap-1.5 mt-1 text-xs text-red-600 bg-red-50 p-2 rounded-md font-bold">
                             <AlertTriangle className="w-3 h-3" />
                             <span>Dikkat: Bu sipariş {Math.floor(daysSinceUpdate)} gündür işlem görmedi!</span>
+                        </div>
+                    )}
+
+                    {/* DEMO MODE: OTOMATİK TASLAK ÖNİZLEME & BUTONLAR (Mevcut kart tasarımını bozmadan) */}
+                    {isDemoMode && onDemoAction && (
+                        <div
+                            className="mt-2 pt-2 border-t border-amber-200 dark:border-amber-800/60 space-y-1.5"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            {demoDraft?.previewPath && (
+                                <div className="relative rounded-md overflow-hidden border border-amber-300 dark:border-amber-700 bg-slate-950">
+                                    <img
+                                        src={`/api/demo/files/preview/${demoDraft.id}?v=${demoDraft.version}`}
+                                        alt="Otomatik Taslak"
+                                        className="w-full h-24 object-cover cursor-pointer"
+                                        onClick={() => onDemoAction(order, "preview")}
+                                    />
+                                    <div className="absolute top-1 left-1 flex gap-1">
+                                        <span className="px-1.5 py-0.5 rounded bg-slate-900/90 text-amber-300 text-[9px] font-bold">
+                                            Taslak v{demoDraft.version}
+                                        </span>
+                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                            demoDraft.ppiStatus === "ok" ? "bg-emerald-600 text-white" : demoDraft.ppiStatus === "warn" ? "bg-amber-500 text-slate-950" : "bg-red-600 text-white"
+                                        }`}>
+                                            {Math.round(demoDraft.effectivePpi || 0)} PPI
+                                        </span>
+                                    </div>
+                                    {demoDraft.printReadyPath && (
+                                        <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[9px] font-bold">
+                                            BASKI HAZIR (TEST)
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+                            {demoDraft?.errorMessage && (
+                                <div className="text-[10px] text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded px-1.5 py-1 truncate" title={demoDraft.errorMessage}>
+                                    ⚠️ {demoDraft.errorCode}: {demoDraft.errorMessage}
+                                </div>
+                            )}
+                            <div className="grid grid-cols-3 gap-1 text-[9.5px] font-semibold">
+                                <button type="button" onClick={() => onDemoAction(order, "preview", true)} className="px-1.5 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white truncate">
+                                    Otomatik Taslak
+                                </button>
+                                <button type="button" onClick={() => onDemoAction(order, "server")} className="px-1.5 py-1 rounded bg-slate-700 hover:bg-slate-800 text-white truncate">
+                                    Server Dosyası
+                                </button>
+                                <button type="button" onClick={() => onDemoAction(order, "preview")} className="px-1.5 py-1 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 truncate">
+                                    Taslağı Gör
+                                </button>
+                                <button type="button" onClick={() => onDemoAction(order, "edit")} className="px-1.5 py-1 rounded bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 truncate">
+                                    Taslağı Düzenle
+                                </button>
+                                <button type="button" onClick={() => onDemoAction(order, "ppi")} className="px-1.5 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 truncate">
+                                    Çözünürlük
+                                </button>
+                                <button type="button" onClick={() => onDemoAction(order, "detail")} className="px-1.5 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 truncate">
+                                    %100 Detay
+                                </button>
+                                <button type="button" onClick={() => onDemoAction(order, "whatsapp")} className="px-1.5 py-1 rounded bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 truncate">
+                                    Test WhatsApp
+                                </button>
+                                {demoDraft?.approvalToken && demoDraft?.ppiStatus !== "low" ? (
+                                    <a href={`/approve/${demoDraft.approvalToken}`} target="_blank" rel="noreferrer" className="px-1.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-center truncate">
+                                        Onay Linki
+                                    </a>
+                                ) : (
+                                    <button type="button" onClick={() => onDemoAction(order, "whatsapp")} className="px-1.5 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700 truncate">
+                                        Onay Linki
+                                    </button>
+                                )}
+                                <button type="button" onClick={() => onDemoAction(order, "print")} className="px-1.5 py-1 rounded bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 truncate">
+                                    Baskı Dosyası
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>

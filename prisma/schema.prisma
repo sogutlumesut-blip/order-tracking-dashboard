@@ -55,6 +55,8 @@ model Order {
   comments            Comment[]
   activities          OrderActivity[]
   items               OrderItem[]
+  drafts              DraftRecord[]
+  whatsappLogs        WhatsappTestLog[]
 
   @@unique([source, externalId])
   @@index([status])
@@ -177,4 +179,103 @@ model WarehouseStock {
 
   @@index([sku])
   @@index([status])
+}
+
+model DesignIndexEntry {
+  id          Int      @id @default(autoincrement())
+  sku         String
+  filePath    String   @unique
+  fileName    String
+  format      String
+  sizeBytes   Float
+  widthPx     Int?
+  heightPx    Int?
+  colorSpace  String?
+  depth       String?
+  visualHash  String?
+  mtimeMs     Float
+  indexedAt   DateTime @default(now())
+
+  @@index([sku])
+}
+
+model SkuMapping {
+  id        Int      @id @default(autoincrement())
+  sku       String   @unique
+  filePath  String
+  fileName  String
+  matchedBy String   @default("manual")
+  createdAt DateTime @default(now())
+}
+
+model DraftRecord {
+  id               Int      @id @default(autoincrement())
+  orderId          Int
+  version          Int
+  sku              String
+  dimensionsRaw    String?
+  width            Float?
+  height           Float?
+  unit             String?
+  sourcePath       String?
+  sourceFormat     String?
+  sourceWidth      Int?
+  sourceHeight     Int?
+  sourceSpace      String?
+  sourceBytes      Float?
+  cropX            Int?
+  cropY            Int?
+  cropW            Int?
+  cropH            Int?
+  layoutMode       String   @default("mural")
+  tileConfig       String?
+  effectivePpi     Float?
+  outPpi           Float?
+  ppiStatus        String?
+  outWidth         Int?
+  outHeight        Int?
+  proxyPath        String?
+  previewPath      String?
+  detailPath       String?
+  approvedPath     String?
+  printReadyPath   String?
+  printReadySha256 String?
+  printReadyBytes  Float?
+  status           String   @default("ready")
+  approvalToken    String?  @unique
+  approvedAt       DateTime?
+  approvedByName   String?
+  revisionNote     String?
+  errorCode        String?
+  errorMessage     String?
+  warnings         String   @default("[]")
+  findMs           Int?
+  readMs           Int?
+  renderMs         Int?
+  totalMs          Int?
+  peakRssMb        Float?
+  cpuPercent       Float?
+  outputBytes      Float?
+  createdAt        DateTime @default(now())
+  order            Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([approvalToken])
+}
+
+model WhatsappTestLog {
+  id          Int      @id @default(autoincrement())
+  orderId     Int
+  draftId     Int?
+  phone       String
+  customer    String
+  message     String
+  previewUrl  String?
+  approvalUrl String?
+  mode        String   @default("DEMO_SIMULATED")
+  status      String   @default("simulated_sent")
+  createdAt   DateTime @default(now())
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
 }

@@ -32,7 +32,8 @@ export async function middleware(request: NextRequest) {
         !request.nextUrl.pathname.startsWith('/register') &&
         !request.nextUrl.pathname.startsWith('/privacy-policy') &&
         !request.nextUrl.pathname.startsWith('/terms-of-service') &&
-        !request.nextUrl.pathname.startsWith('/data-deletion')
+        !request.nextUrl.pathname.startsWith('/data-deletion') &&
+        !request.nextUrl.pathname.startsWith('/approve')
     ) {
         return NextResponse.redirect(new URL('/login', request.url))
     }
