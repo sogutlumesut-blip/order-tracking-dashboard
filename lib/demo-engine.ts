@@ -737,7 +737,7 @@ export async function createTestWhatsAppForDraft(orderId: number, draftId: numbe
 
 export async function generatePrintReadyForDraft(orderId: number, draftId: number, actor: string) {
   const ddb = getDemoDb();
-  const order = await ddb.order.findUnique({ where: { id: orderId } });
+  const order = await ddb.order.findUnique({ where: { id: orderId }, include: { items: true } });
   const draft = await ddb.draftRecord.findUnique({ where: { id: draftId } });
   if (!order || !draft) throw new EngineError("NOT_APPROVED", "Taslak bulunamadı");
   if (draft.status !== "approved") {
@@ -772,10 +772,24 @@ export async function generatePrintReadyForDraft(orderId: number, draftId: numbe
   const ppi = isSeamless && tile ? computeTilePpi(info, dim, tile, engSettings) : computePpi(crop, dim, engSettings);
 
   const tag = String(order.barcode || order.id).replace(/[^A-Za-z0-9_-]/g, "_");
-  const skuSafe = String(draft.sku).replace(/[^A-Za-z0-9_-]/g, "_");
+  const cleanPart = (v: string | null | undefined) => String(v || "").replace(/[\/\\:*?"<>|\r\n\t]+/g, " ").replace(/\s+/g, " ").trim();
+  const dt = new Date(order.date || order.createdAt || Date.now());
+  const dateStr = `${String(dt.getDate()).padStart(2, "0")}.${String(dt.getMonth() + 1).padStart(2, "0")}.${dt.getFullYear()}`;
+  const custLines = String(order.customer || "").split(/\r?\n/).map(cleanPart).filter(Boolean);
+  const item = (order as any).items?.[0];
+  const printNameParts = [
+    dateStr,
+    custLines[0] || "",
+    custLines.slice(1).join(" ") || "",
+    cleanPart(item?.material || ""),
+    `${draft.width}x${draft.height}${draft.unit}`,
+    cleanPart(draft.sku || item?.sku || ""),
+    `${Number(item?.quantity || 1)} ADET`,
+    isSeamless ? "SEAMLESS" : "",
+  ].filter(Boolean);
   const approvedFile = path.join(paths.approved, `ORD_${order.id}_${tag}_v${draft.version}_approved.jpg`);
   const approvedJson = path.join(paths.approved, `ORD_${order.id}_${tag}_v${draft.version}_approval.json`);
-  const printFile = path.join(paths.printReady, `ORD_${order.id}_${skuSafe}_${draft.width}x${draft.height}${draft.unit}_v${draft.version}${isSeamless ? "_SEAMLESS" : ""}_PRINT.tif`);
+  const printFile = path.join(paths.printReady, `${printNameParts.join(" - ")}.tif`);
 
   if (draft.previewPath && fs.existsSync(draft.previewPath)) {
     await fs.promises.copyFile(draft.previewPath, approvedFile);

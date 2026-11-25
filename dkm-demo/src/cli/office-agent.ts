@@ -365,14 +365,55 @@ function resolveTargetDir(rawDir: string | null | undefined, fallbackDir: string
   return path.resolve(cleaned);
 }
 
+function cleanFilePart(val: string | null | undefined): string {
+  return String(val || "")
+    .replace(/[\/\\:*?"<>|\r\n\t]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildPrintFileName(order: any, draft: any, isSeamless: boolean): string {
+  const dt = new Date(order?.date || order?.createdAt || Date.now());
+  const dd = String(dt.getDate()).padStart(2, "0");
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const yyyy = dt.getFullYear();
+  const dateStr = `${dd}.${mm}.${yyyy}`;
+
+  // order.customer genellikle "Bayi İsmi\nMüşteri İsmi" şeklinde iki satır olur
+  const customerLines = String(order?.customer || "")
+    .split(/\r?\n/)
+    .map((s) => cleanFilePart(s))
+    .filter(Boolean);
+  const dealerName = customerLines[0] || "";
+  const customerName = customerLines.slice(1).join(" ") || "";
+
+  const item = order?.items?.[0];
+  const material = cleanFilePart(item?.material || "");
+  const dimStr = `${draft.width}x${draft.height}${draft.unit}`;
+  const skuStr = cleanFilePart(draft.sku || item?.sku || "");
+  const qtyStr = `${Number(item?.quantity || 1)} ADET`;
+
+  const parts = [
+    dateStr,
+    dealerName,
+    customerName,
+    material,
+    dimStr,
+    skuStr,
+    qtyStr,
+    isSeamless ? "SEAMLESS" : "",
+  ].filter(Boolean);
+
+  return `${parts.join(" - ")}.tif`;
+}
+
 async function handleGeneratePrint(order: any, draft: any, settings: any, payload: any = {}) {
   const defaultOutDir = path.join(OUT_ROOT, "PRINT_READY");
   const targetDir = resolveTargetDir(payload?.targetDir || settings?.printReadyFolder, defaultOutDir);
   fs.mkdirSync(targetDir, { recursive: true });
 
   const isSeamless = draft.layoutMode === "seamless" && !!draft.tileConfig;
-  const skuSafe = String(draft.sku).replace(/[^A-Za-z0-9_-]/g, "_");
-  const fileName = `ORD_${order.barcode || order.id}_${skuSafe}_${draft.width}x${draft.height}${draft.unit}_v${draft.version}${isSeamless ? "_SEAMLESS" : ""}_PRINT.tif`;
+  const fileName = buildPrintFileName(order, draft, isSeamless);
   const printFile = path.join(targetDir, fileName);
 
   // Eğer baskı dosyası daha önce bu bilgisayarda üretildiyse ve kullanıcı farklı bir klasöre kaydetmek istiyorsa anında kopyala!
@@ -444,16 +485,17 @@ function startLocalHelperServer() {
 
     if (u.pathname === "/download") {
       const filePath = u.searchParams.get("path") || "";
-      if (!filePath || !filePath.endsWith("_PRINT.tif") || !fs.existsSync(filePath)) {
+      if (!filePath || !filePath.toLowerCase().endsWith(".tif") || !fs.existsSync(filePath)) {
         res.writeHead(404, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Baskı dosyası bu bilgisayarda bulunamadı." }));
         return;
       }
       const stat = fs.statSync(filePath);
+      const encodedName = encodeURIComponent(path.basename(filePath));
       res.writeHead(200, {
         "Content-Type": "image/tiff",
         "Content-Length": String(stat.size),
-        "Content-Disposition": `attachment; filename="${path.basename(filePath)}"`,
+        "Content-Disposition": `attachment; filename*=UTF-8''${encodedName}`,
       });
       fs.createReadStream(filePath).pipe(res);
       return;
