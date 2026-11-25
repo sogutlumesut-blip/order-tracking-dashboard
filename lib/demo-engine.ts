@@ -393,6 +393,7 @@ export async function generateDraftForOrder(
     overrideSku?: string;
     overrideDimensions?: string;
     overrideSourcePath?: string;
+    overrideUrl?: string;
     rememberSkuMapping?: boolean;
     forceDrive?: boolean;
     layoutMode?: "mural" | "seamless";
@@ -417,9 +418,15 @@ export async function generateDraftForOrder(
   if (!order) throw new EngineError("INTERNAL", `Sipariş bulunamadı (#${orderId})`);
 
   const item = order.items[0];
-  const rawSku = (opts.overrideSku ?? item?.sku ?? "").trim();
+  let rawSku = (opts.overrideSku ?? item?.sku ?? "").trim();
+  let explicitUrl = (opts.overrideUrl || "").trim();
+  if (/^https?:\/\//i.test(rawSku)) {
+    if (!explicitUrl) explicitUrl = rawSku;
+    rawSku = (item?.sku || "").trim();
+    if (/^https?:\/\//i.test(rawSku)) rawSku = "";
+  }
   const rawDim = (opts.overrideDimensions ?? item?.dimensions ?? "").trim();
-  const customDriveUrl = findCustomDesignUrl(item);
+  const customDriveUrl = explicitUrl || findCustomDesignUrl(item);
 
   try {
     // 1. Ölçüyü doğrula

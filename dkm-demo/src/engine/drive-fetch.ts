@@ -175,8 +175,9 @@ export async function fetchCustomDesignToCache(
     reqHeaders.Authorization = `Bearer ${opts.accessToken}`;
   } else if (driveId) {
     downloadUrl = `https://drive.usercontent.google.com/download?id=${driveId}&export=download&confirm=t`;
-  } else if (/dropbox\.com/i.test(downloadUrl) && downloadUrl.includes("dl=0")) {
-    downloadUrl = downloadUrl.replace("dl=0", "dl=1");
+  } else if (/dropbox\.com/i.test(downloadUrl)) {
+    if (downloadUrl.includes("dl=0")) downloadUrl = downloadUrl.replace("dl=0", "dl=1");
+    else if (!downloadUrl.includes("dl=1")) downloadUrl += (downloadUrl.includes("?") ? "&" : "?") + "dl=1";
   }
 
   let res: Response;
@@ -198,9 +199,15 @@ export async function fetchCustomDesignToCache(
 
   const ct = (res.headers.get("content-type") || "").toLowerCase();
   if (ct.includes("text/html")) {
+    if (driveId) {
+      throw new EngineError(
+        "SOURCE_UNAVAILABLE",
+        "Google Drive dosyası özel/kilitli (giriş sayfası döndü). Ayarlar > Google Drive Bağlantısı bölümünden şirket Google hesabınızı bağlayın.",
+      );
+    }
     throw new EngineError(
       "SOURCE_UNAVAILABLE",
-      "Google Drive dosyası özel/kilitli (giriş sayfası döndü). Ayarlar > Google Drive Bağlantısı bölümünden şirket Google hesabınızı bağlayın.",
+      "Bu bağlantı (SendGB / WeTransfer vb.) doğrudan dosya yerine web sayfası/doğrulama döndürdü. Dosyayı tarayıcıdan indirip 'Bilgisayardan Dosya Seç' butonuyla anında taslak oluşturabilirsiniz.",
     );
   }
 

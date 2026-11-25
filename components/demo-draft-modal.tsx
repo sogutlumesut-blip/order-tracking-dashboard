@@ -113,7 +113,15 @@ export function DemoDraftModal({ order, initialTab, onClose, onUpdated }: DemoDr
         }
     }
 
-    const handleGenerateDraft = async (autoSendWhatsApp = false, extra: { overrideSourcePath?: string; rememberSkuMapping?: boolean; forceDrive?: boolean } = {}) => {
+    const [urlInput, setUrlInput] = useState(() => {
+        const u = order.items?.[0]?.url || ""
+        return /^https?:\/\//i.test(u) ? u : ""
+    })
+
+    const handleGenerateDraft = async (
+        autoSendWhatsApp = false,
+        extra: { overrideSourcePath?: string; overrideUrl?: string; rememberSkuMapping?: boolean; forceDrive?: boolean } = {}
+    ) => {
         setBusy(true)
         try {
             const r = await fetch("/api/demo/drafts", {
@@ -522,6 +530,9 @@ export function DemoDraftModal({ order, initialTab, onClose, onUpdated }: DemoDr
                     <button disabled={busy} onClick={handleVisualMatch} className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold flex items-center gap-1.5 disabled:opacity-50">
                         <Sparkles className="w-3.5 h-3.5" /> Görselden Bul
                     </button>
+                    <button disabled={busy} onClick={() => setTab("server")} className="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white font-bold flex items-center gap-1.5 disabled:opacity-50">
+                        <ExternalLink className="w-3.5 h-3.5" /> URL / Dosya Seç
+                    </button>
                     <button disabled={busy} onClick={() => { setTab("server"); handleFindServerFile() }} className="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-800 text-white font-semibold flex items-center gap-1.5 disabled:opacity-50">
                         <FolderSearch className="w-3.5 h-3.5" /> Server Dosyasını Bul
                     </button>
@@ -739,12 +750,83 @@ export function DemoDraftModal({ order, initialTab, onClose, onUpdated }: DemoDr
                         ) : <p className="text-sm text-slate-500">Önce otomatik taslak oluşturun.</p>
                     )}
 
-                    {/* SERVER FILE TAB */}
+                    {/* SERVER FILE / URL / LOCAL FILE TAB */}
                     {tab === "server" && (
-                        <div className="space-y-3 text-xs">
-                            <div className="flex gap-2">
-                                <input value={skuInput} onChange={(e) => setSkuInput(e.target.value)} placeholder="SKU kodu..." className="px-3 py-1.5 rounded-lg border dark:bg-slate-800 flex-1 font-mono" />
-                                <button disabled={busy} onClick={() => handleFindServerFile()} className="px-4 py-1.5 rounded-lg bg-blue-600 text-white font-bold">SKU ile Ara</button>
+                        <div className="space-y-4 text-xs">
+                            {/* 1. URL Link ile Dosyayı Çek */}
+                            <div className="p-3.5 rounded-xl bg-cyan-50/60 dark:bg-cyan-950/20 border border-cyan-200 dark:border-cyan-800/70 space-y-2">
+                                <div className="font-bold text-cyan-900 dark:text-cyan-200">
+                                    🔗 URL Link ile Tasarım Dosyasını Çek (Google Drive, Dropbox, Direkt Dosya Linki)
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    <input
+                                        value={urlInput}
+                                        onChange={(e) => setUrlInput(e.target.value)}
+                                        placeholder="https://drive.google.com/... veya https://www.dropbox.com/... veya direkt görsel linki"
+                                        className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 flex-1 min-w-[260px] font-mono text-xs"
+                                    />
+                                    <button
+                                        type="button"
+                                        disabled={busy || !urlInput.trim()}
+                                        onClick={() => handleGenerateDraft(false, { overrideUrl: urlInput.trim() })}
+                                        className="px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white font-bold disabled:opacity-50"
+                                    >
+                                        {busy ? "İndiriliyor..." : "🔗 URL ile Taslak Hazırla"}
+                                    </button>
+                                    {/^https?:\/\//i.test(urlInput.trim()) && (
+                                        <a
+                                            href={urlInput.trim()}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-800 text-white font-semibold inline-flex items-center gap-1"
+                                        >
+                                            <ExternalLink className="w-3.5 h-3.5" /> Linki Aç
+                                        </a>
+                                    )}
+                                </div>
+                                <p className="text-[11px] text-slate-600 dark:text-slate-400">
+                                    Not: SendGB / WeTransfer gibi insan doğrulaması isteyen sitelerde önce <strong>Linki Aç</strong> ile dosyayı bilgisayarınıza indirip aşağıdaki <strong>Bilgisayardan Dosya Seç</strong> butonuyla 1 saniyede taslak oluşturabilirsiniz.
+                                </p>
+                            </div>
+
+                            {/* 2. Bilgisayardan / İndirilenlerden Doğrudan Dosya Seç (SendGB / WeTransfer için) */}
+                            <div className="p-3.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/70 flex flex-wrap items-center justify-between gap-2">
+                                <div>
+                                    <div className="font-bold text-emerald-900 dark:text-emerald-200">
+                                        💻 Bilgisayardan / İndirilenlerden Tasarım Seç (SendGB, WeTransfer vb.)
+                                    </div>
+                                    <div className="text-[11px] text-slate-600 dark:text-slate-400">
+                                        Büyük TIFF / PSD / PSB / JPG / PNG dosyalarını buluta yüklemeden doğrudan bilgisayarınızdan seçip anında taslak üretir.
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    disabled={busy}
+                                    onClick={async () => {
+                                        try {
+                                            const r = await fetch("http://127.0.0.1:4789/pick-file")
+                                            const d = await r.json()
+                                            if (d.ok && d.filePath) {
+                                                toast.success(`Dosya seçildi: ${d.filePath.split("/").pop()} — Taslak hazırlanıyor...`)
+                                                await handleGenerateDraft(false, { overrideSourcePath: d.filePath })
+                                            }
+                                        } catch {
+                                            toast.error("Dosya seçici için Mac terminalinde güncel 'npm run office:agent' çalışıyor olmalıdır.")
+                                        }
+                                    }}
+                                    className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold disabled:opacity-50"
+                                >
+                                    📂 Bilgisayardan Dosya Seç &amp; Hazırla
+                                </button>
+                            </div>
+
+                            {/* 3. Windows Server SKU Arama */}
+                            <div className="space-y-2">
+                                <div className="font-bold text-slate-700 dark:text-slate-200">🖥️ Windows Server Arşivinde SKU ile Ara</div>
+                                <div className="flex gap-2">
+                                    <input value={skuInput} onChange={(e) => setSkuInput(e.target.value)} placeholder="SKU kodu..." className="px-3 py-1.5 rounded-lg border dark:bg-slate-800 flex-1 font-mono" />
+                                    <button disabled={busy} onClick={() => handleFindServerFile()} className="px-4 py-1.5 rounded-lg bg-blue-600 text-white font-bold">SKU ile Ara</button>
+                                </div>
                             </div>
                             {serverResult && (
                                 serverResult.ok && serverResult.matches?.length > 0 ? (

@@ -217,10 +217,16 @@ async function handleGenerateDraft(order: any, payload: any, settings: any, skuM
   };
 
   const item = order?.items?.[0];
-  const rawSku = String(payload.overrideSku ?? item?.sku ?? "").trim();
+  let rawSku = String(payload.overrideSku ?? item?.sku ?? "").trim();
+  let explicitUrl = String(payload.overrideUrl || "").trim();
+  if (/^https?:\/\//i.test(rawSku)) {
+    if (!explicitUrl) explicitUrl = rawSku;
+    rawSku = String(item?.sku || "").trim();
+    if (/^https?:\/\//i.test(rawSku)) rawSku = "";
+  }
   const rawDim = String(payload.overrideDimensions ?? item?.dimensions ?? "").trim();
   const serverPath = (settings.serverPath || DEFAULT_SERVER_PATH).trim();
-  const customDriveUrl = findCustomDesignUrl(item);
+  const customDriveUrl = explicitUrl || findCustomDesignUrl(item);
 
   const isWayfair = (order.source || "").toLowerCase() === "wayfair" || (order.barcode || "").toUpperCase().startsWith("WF-");
   const dim = parseDimensionString(rawDim, isWayfair ? "in" : "cm");
@@ -516,6 +522,27 @@ function startLocalHelperServer() {
       }
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+
+    if (u.pathname === "/pick-file") {
+      if (process.platform === "darwin") {
+        execFile(
+          "osascript",
+          ["-e", 'POSIX path of (choose file with prompt "Tasarım dosyasını seçin (TIFF, PSD, PSB, JPG, PNG)")'],
+          (err, stdout) => {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            if (err || !stdout.trim()) {
+              res.end(JSON.stringify({ ok: false, cancelled: true }));
+            } else {
+              res.end(JSON.stringify({ ok: true, filePath: stdout.trim() }));
+            }
+          },
+        );
+        return;
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: false, error: "Bu işletim sisteminde dosya seçici desteklenmiyor." }));
       return;
     }
 
