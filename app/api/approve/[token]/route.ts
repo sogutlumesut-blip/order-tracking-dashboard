@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isDemoMode } from "@/lib/prisma";
 import { generatePrintReadyForDraft, getDemoDb } from "@/lib/demo-engine";
+import { dispatchToOfficeAgent, getOfficeAgentStatus } from "@/lib/office-agent-bridge";
 
 export async function POST(request: Request, context: { params: Promise<{ token: string }> }) {
   const { token } = await context.params;
@@ -65,11 +66,17 @@ export async function POST(request: Request, context: { params: Promise<{ token:
     },
   });
 
-  // Onaylanan yüksek çözünürlüklü baskı dosyasını test klasörüne kaydet (DKM_DEMO/PRINT_READY)
+  // Onaylanan yüksek çözünürlüklü baskı dosyasını kaydet (Ofis Ajanı çevrimiçiyse ofis baskı klasörüne gönderir!)
   let printResult: any = null;
   let printError: string | null = null;
   try {
-    printResult = await generatePrintReadyForDraft(order.id, draft.id, `Müşteri Onayı (${approver})`);
+    const agent = await getOfficeAgentStatus();
+    if (agent.online && !isDemoMode()) {
+      await dispatchToOfficeAgent("generate_print", { draftId: draft.id, actor: `Müşteri Onayı (${approver})` }, { orderId: order.id, wait: false });
+      printResult = { printReadyPath: "Ofis Ajanına gönderildi (PRINT_READY)" };
+    } else {
+      printResult = await generatePrintReadyForDraft(order.id, draft.id, `Müşteri Onayı (${approver})`);
+    }
   } catch (e: any) {
     printError = e?.message || "Baskı dosyası oluşturulamadı";
   }

@@ -13,7 +13,8 @@
     "demo:reset": "node dkm-demo/src/cli/reset.ts",
     "demo:create-admin": "node dkm-demo/src/cli/create-admin.ts",
     "demo:test": "node dkm-demo/tests/automated.test.ts",
-    "demo:perf": "node dkm-demo/tests/perf-benchmark.ts"
+    "demo:perf": "node dkm-demo/tests/perf-benchmark.ts",
+    "office:agent": "node dkm-demo/src/cli/office-agent.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

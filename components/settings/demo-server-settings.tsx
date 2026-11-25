@@ -23,6 +23,8 @@ export function DemoServerSettings() {
     const [indexResult, setIndexResult] = useState<any>(null)
     const [searchSku, setSearchSku] = useState("")
     const [searchResult, setSearchResult] = useState<any>(null)
+    const [agentStatus, setAgentStatus] = useState<any>(null)
+    const [agentToken, setAgentToken] = useState<string>("")
 
     const load = async () => {
         setLoading(true)
@@ -40,6 +42,8 @@ export function DemoServerSettings() {
                 setMaxFileGb(d.settings?.maxFileGb || "12")
                 setLivePromoStatus(d.settings?.livePromotionStatus || "locked")
                 setLivePromoNote(d.settings?.livePromotionNote || "")
+                setAgentStatus(d.agentStatus || null)
+                setAgentToken(d.agentToken || "")
             }
         } finally {
             setLoading(false)
@@ -189,8 +193,12 @@ export function DemoServerSettings() {
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
                         <div className="p-3 rounded-lg bg-slate-50 border">
-                            <div className="text-slate-500">Bağlantı Durumu</div>
-                            <div className="font-bold mt-0.5">{serverPath ? "Yol Girildi (Test Edilebilir)" : "⚠️ Yapılandırılmadı"}</div>
+                            <div className="text-slate-500">Ofis Ajanı Durumu</div>
+                            <div className="font-bold mt-0.5">
+                                {agentStatus?.online
+                                    ? `🟢 Çevrimiçi (${agentStatus.hostname || "ofis"})`
+                                    : "⚪ Çevrimdışı (Ofis ajanını başlatın)"}
+                            </div>
                         </div>
                         <div className="p-3 rounded-lg bg-slate-50 border">
                             <div className="text-slate-500">İndekslenmiş Dosya</div>
@@ -201,6 +209,15 @@ export function DemoServerSettings() {
                             <div className="font-bold mt-0.5">{lastIndexedAt ? new Date(lastIndexedAt).toLocaleString("tr-TR") : "Henüz indekslenmedi"}</div>
                         </div>
                     </div>
+
+                    {agentToken && (
+                        <div className="p-3 rounded-lg bg-slate-900 text-slate-100 text-xs space-y-1.5">
+                            <div className="font-bold text-amber-300">🔌 Ofis Ajanı Başlatma Komutu (Ofisteki 1 bilgisayarda çalıştırın):</div>
+                            <code className="block break-all text-[11px] bg-slate-950 p-2 rounded border border-slate-700 select-all">
+                                {`DKM_CLOUD_URL="${typeof window !== "undefined" ? window.location.origin : "https://dkmtakip.online"}" DKM_AGENT_TOKEN="${agentToken}" DKM_SERVER_PATH="${serverPath || "/Volumes/DKM/Katalog Baskı/ShutterStocks"}" npm run office:agent`}
+                            </code>
+                        </div>
+                    )}
 
                     {testResult && (
                         <div className={`p-3 rounded-lg text-xs border ${testResult.ok ? "bg-emerald-50 border-emerald-300 text-emerald-900" : "bg-red-50 border-red-300 text-red-900"}`}>

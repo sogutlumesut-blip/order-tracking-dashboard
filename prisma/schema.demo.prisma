@@ -242,6 +242,9 @@ model DraftRecord {
   proxyPath        String?
   previewPath      String?
   detailPath       String?
+  proxyData        String?
+  previewData      String?
+  detailData       String?
   approvedPath     String?
   printReadyPath   String?
   printReadySha256 String?
@@ -284,4 +287,19 @@ model WhatsappTestLog {
   order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
+}
+
+model AgentJob {
+  id        Int      @id @default(autoincrement())
+  type      String
+  status    String   @default("queued")
+  orderId   Int?
+  payload   String   @default("{}")
+  result    String?
+  error     String?
+  agentId   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, id])
 }

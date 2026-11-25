@@ -22,13 +22,20 @@ export async function GET(request: Request, context: { params: Promise<{ kind: s
   }
 
   let filePath: string | null = null;
+  let dbBase64: string | null = null;
   let contentType = "image/jpeg";
   let downloadName: string | undefined;
 
-  if (kind === "preview") filePath = draft.previewPath;
-  else if (kind === "detail") filePath = draft.detailPath;
-  else if (kind === "proxy") filePath = draft.proxyPath;
-  else if (kind === "print") {
+  if (kind === "preview") {
+    filePath = draft.previewPath;
+    dbBase64 = draft.previewData;
+  } else if (kind === "detail") {
+    filePath = draft.detailPath;
+    dbBase64 = draft.detailData;
+  } else if (kind === "proxy") {
+    filePath = draft.proxyPath;
+    dbBase64 = draft.proxyData;
+  } else if (kind === "print") {
     if (draft.status !== "approved" || !draft.printReadyPath) {
       return NextResponse.json({ error: "Onaylı baskı dosyası henüz oluşturulmadı." }, { status: 409 });
     }
@@ -37,16 +44,21 @@ export async function GET(request: Request, context: { params: Promise<{ kind: s
     downloadName = path.basename(draft.printReadyPath);
   }
 
-  if (!filePath || !fs.existsSync(filePath)) {
-    return NextResponse.json({ error: "Dosya diskte bulunamadı" }, { status: 404 });
+  let buf: Buffer | null = null;
+  if (filePath && !filePath.startsWith("db:") && fs.existsSync(filePath)) {
+    buf = await fs.promises.readFile(filePath);
+  } else if (dbBase64) {
+    buf = Buffer.from(dbBase64, "base64");
   }
 
-  const buf = await fs.promises.readFile(filePath);
+  if (!buf) {
+    return NextResponse.json({ error: "Dosya bulunamadı" }, { status: 404 });
+  }
+
   const headers: Record<string, string> = {
     "Content-Type": contentType,
     "Cache-Control": "no-store",
-    "X-DKM-Mode": "DEMO",
   };
   if (downloadName) headers["Content-Disposition"] = `attachment; filename="${downloadName}"`;
-  return new NextResponse(buf, { status: 200, headers });
+  return new NextResponse(new Uint8Array(buf), { status: 200, headers });
 }

@@ -12,6 +12,7 @@ import {
   testServerConnection,
 } from "@/lib/demo-engine";
 import { validateOutputPath } from "@/dkm-demo/src/paths.ts";
+import { dispatchToOfficeAgent, getOfficeAgentStatus, getOrCreateAgentToken } from "@/lib/office-agent-bridge";
 
 export async function GET(request: Request) {
   const session = await getSession();
@@ -22,6 +23,12 @@ export async function GET(request: Request) {
   if (sku) {
     try {
       const res = await searchDesignBySkuOnServer(sku);
+      if (res.ok && res.matches?.length) return NextResponse.json(res);
+      const agent = await getOfficeAgentStatus();
+      if (agent.online) {
+        const remote = await dispatchToOfficeAgent("search_sku", { sku }, { timeoutMs: 45_000 });
+        return NextResponse.json(remote);
+      }
       return NextResponse.json(res);
     } catch (e: any) {
       return NextResponse.json({ ok: false, error: e?.message || "Arama hatası" }, { status: 400 });
@@ -32,12 +39,16 @@ export async function GET(request: Request) {
   const paths = await getDemoPaths();
   const ddb = getDemoDb();
   const indexedCount = await ddb.designIndexEntry.count();
+  const agentStatus = await getOfficeAgentStatus();
+  const agentToken = session.user.role === "admin" ? await getOrCreateAgentToken() : undefined;
   return NextResponse.json({
     ok: true,
-    serverPath: s.demo_server_designs_path || "",
+    serverPath: s.demo_server_designs_path || agentStatus.agentServerPath || "",
     lastIndexedAt: s.demo_server_last_indexed_at || null,
     indexedCount,
     paths,
+    agentStatus,
+    agentToken,
     settings: {
       minPpi: s.demo_min_ppi || "45",
       warnPpi: s.demo_warn_ppi || "72",
@@ -59,6 +70,15 @@ export async function POST(request: Request) {
   const action = String(body.action || "");
 
   if (action === "test") {
+    const agent = await getOfficeAgentStatus();
+    if (agent.online) {
+      try {
+        const res = await dispatchToOfficeAgent("test_connection", { serverPath: String(body.serverPath || "") }, { timeoutMs: 25_000 });
+        return NextResponse.json(res, { status: res.ok ? 200 : 400 });
+      } catch (e: any) {
+        return NextResponse.json({ ok: false, error: e?.message || "Ofis ajanı bağlantı testi başarısız" }, { status: 400 });
+      }
+    }
     const res = await testServerConnection(String(body.serverPath || ""));
     return NextResponse.json(res, { status: res.ok ? 200 : 400 });
   }
@@ -72,6 +92,16 @@ export async function POST(request: Request) {
           where: { key: "demo_server_designs_path" },
           update: { value: String(body.serverPath).trim() },
           create: { key: "demo_server_designs_path", value: String(body.serverPath).trim() },
+        });
+      }
+      const agent = await getOfficeAgentStatus();
+      if (agent.online) {
+        const res = await dispatchToOfficeAgent("index_server", { serverPath: body.serverPath }, { wait: false });
+        return NextResponse.json({
+          ok: true,
+          queued: true,
+          jobId: res.jobId,
+          message: "İndeksleme işi Ofis Ajanına gönderildi. Arka planda tamamlandığında indeks sayısı güncellenecektir.",
         });
       }
       const res = await indexServerDesigns(body.serverPath);

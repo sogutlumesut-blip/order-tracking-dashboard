@@ -37,6 +37,7 @@ yarn-error.log*
 
 # DKM demo runtime data & generated artifacts
 /DKM_DEMO/
+/DKM_OFFICE_OUT/
 /dkm-demo/generated/
 /backups/
 
