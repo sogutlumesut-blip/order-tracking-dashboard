@@ -201,7 +201,7 @@ async function handleIndexServer(serverPath: string, engSettings: EngineSettings
   return { entries, result: { ok: true, indexedCount: entries.length, durationMs: Date.now() - t0 } };
 }
 
-async function handleGenerateDraft(order: any, payload: any, settings: any, skuMappings: any[]) {
+async function handleGenerateDraft(order: any, payload: any, settings: any, skuMappings: any[], prevDraft?: any) {
   const t0 = Date.now();
   const cpu0 = cpuSnap();
   let peakRss = process.memoryUsage().rss;
@@ -227,8 +227,13 @@ async function handleGenerateDraft(order: any, payload: any, settings: any, skuM
 
   const tFind0 = Date.now();
   let sourcePath: string | null = null;
+  let reusedPrevSource = false;
   if (payload.overrideSourcePath && fs.existsSync(payload.overrideSourcePath)) {
     sourcePath = payload.overrideSourcePath;
+  } else if (prevDraft?.sourcePath && prevDraft.sku === sku && fs.existsSync(prevDraft.sourcePath)) {
+    // HIZLANDIRMA: Aynı siparişin v2/v3/v4 kırpma veya seamless düzenlemelerinde Drive/SMB aramasını atla (0 ms!)
+    sourcePath = prevDraft.sourcePath;
+    reusedPrevSource = true;
   } else if (customDriveUrl) {
     // Siparişte Google Drive dosya/klasör linki varsa 2.98 TB Server'ı boşuna taramadan DOĞRUDAN Drive'dan indir!
     const dl = await fetchCustomDesignToCache(customDriveUrl, path.join(OUT_ROOT, "CACHE"), {
@@ -276,13 +281,18 @@ async function handleGenerateDraft(order: any, payload: any, settings: any, skuM
   const previewPath = path.join(OUT_ROOT, "PREVIEWS", `ORD_${order.id}_${tag}_${stamp}_preview.jpg`);
   const detailPath = path.join(OUT_ROOT, "DETAILS", `ORD_${order.id}_${tag}_${stamp}_detail100.jpg`);
 
+  // HIZLANDIRMA: Önizleme ve %100 Detay görsellerini PARALEL üret
   const tRender0 = Date.now();
   if (layoutMode === "seamless" && tile) {
-    await renderTiledPreview(info, work, proxy, dim, tile, ppi, { orderNo: String(order.barcode || order.id), sku, version: 1, dim }, previewPath, engSettings);
-    await renderTiledDetail(info, work, dim, tile, ppi, detailPath, engSettings);
+    await Promise.all([
+      renderTiledPreview(info, work, proxy, dim, tile, ppi, { orderNo: String(order.barcode || order.id), sku, version: 1, dim }, previewPath, engSettings),
+      renderTiledDetail(info, work, dim, tile, ppi, detailPath, engSettings),
+    ]);
   } else {
-    await renderPreview(info, work, proxy, crop, ppi, { orderNo: String(order.barcode || order.id), sku, version: 1, dim }, previewPath, engSettings);
-    await renderDetail(info, work, crop, ppi, detailPath, engSettings, payload.detailCenter);
+    await Promise.all([
+      renderPreview(info, work, proxy, crop, ppi, { orderNo: String(order.barcode || order.id), sku, version: 1, dim }, previewPath, engSettings),
+      renderDetail(info, work, crop, ppi, detailPath, engSettings, payload.detailCenter),
+    ]);
   }
   const renderMs = Date.now() - tRender0;
   const totalMs = Date.now() - t0;
@@ -293,11 +303,11 @@ async function handleGenerateDraft(order: any, payload: any, settings: any, skuM
   const cpuPercent = Number((((dTotal - (cpu1.idle - cpu0.idle)) / dTotal) * 100).toFixed(1));
   const outputBytes = fs.statSync(previewPath).size + fs.statSync(detailPath).size;
 
-  // Küçük JPG'leri buluta göndermek üzere sıkıştır (~150-350 KB)
+  // HIZLANDIRMA: Önceki sürümden aynı kaynak kullanılıyorsa proxyData'yı tekrar yükleme (upload yarıya iner!)
   const [previewData, detailData, proxyData] = await Promise.all([
-    compressForCloud(previewPath, 1400, 82),
-    compressForCloud(detailPath, 1000, 85),
-    compressForCloud(proxy.proxyPath, 1200, 78),
+    compressForCloud(previewPath, 1280, 80),
+    compressForCloud(detailPath, 900, 82),
+    reusedPrevSource ? Promise.resolve(null) : compressForCloud(proxy.proxyPath, 1100, 76),
   ]);
 
   return {
@@ -411,7 +421,7 @@ async function loop() {
       const d = (await r.json()) as any;
       const job = d.job;
       if (!job) {
-        await new Promise((res) => setTimeout(res, 1200));
+        await new Promise((res) => setTimeout(res, 350));
         continue;
       }
 
@@ -439,7 +449,7 @@ async function loop() {
             body: JSON.stringify({ jobId: job.id, ok: true, result, indexEntries: entries }),
           });
         } else if (job.type === "generate_draft") {
-          const draftPayload = await handleGenerateDraft(d.order, job.payload, d.settings, d.skuMappings);
+          const draftPayload = await handleGenerateDraft(d.order, job.payload, d.settings, d.skuMappings, d.latestDraft);
           await fetch(`${CLOUD_URL}/api/agent/complete`, {
             method: "POST",
             headers,

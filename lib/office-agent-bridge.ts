@@ -62,7 +62,7 @@ export async function dispatchToOfficeAgent(
   const timeoutMs = opts.timeoutMs ?? 55_000;
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, 400));
+    await new Promise((r) => setTimeout(r, 150));
     const cur = await ddb.agentJob.findUnique({ where: { id: job.id } });
     if (!cur) throw new Error("Ajan işi kayboldu");
     if (cur.status === "done") {
