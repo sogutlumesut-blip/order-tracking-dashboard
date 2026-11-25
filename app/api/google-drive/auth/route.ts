@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { getGoogleDriveConfig } from "@/lib/google-drive-auth";
+import { getGoogleDriveConfig, getPublicOrigin } from "@/lib/google-drive-auth";
 
 export async function GET(request: Request) {
   const session = await getSession();
@@ -9,11 +9,11 @@ export async function GET(request: Request) {
   }
 
   const cfg = await getGoogleDriveConfig();
+  const origin = getPublicOrigin(request);
   if (!cfg.clientId || !cfg.clientSecret) {
-    return NextResponse.redirect(new URL("/admin/settings?gdrive=missing_keys", request.url));
+    return NextResponse.redirect(`${origin}/admin/settings?gdrive=missing_keys`);
   }
 
-  const origin = new URL(request.url).origin;
   const redirectUri = `${origin}/api/google-drive/callback`;
   const params = new URLSearchParams({
     client_id: cfg.clientId,

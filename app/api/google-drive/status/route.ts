@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { clearGoogleDriveTokens, getGoogleDriveConfig, saveGoogleDriveSetting } from "@/lib/google-drive-auth";
+import { clearGoogleDriveTokens, getGoogleDriveConfig, getPublicOrigin, saveGoogleDriveSetting } from "@/lib/google-drive-auth";
 
 export async function GET(request: Request) {
   const session = await getSession();
@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Yetkisiz" }, { status: 403 });
   }
   const cfg = await getGoogleDriveConfig();
-  const origin = new URL(request.url).origin;
+  const origin = getPublicOrigin(request);
   return NextResponse.json({
     ok: true,
     hasCredentials: Boolean(cfg.clientId && cfg.clientSecret),

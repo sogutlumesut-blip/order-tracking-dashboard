@@ -5,6 +5,15 @@ import { getDemoDb, getDemoSettingsMap } from "@/lib/demo-engine";
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
+export function getPublicOrigin(request: Request): string {
+  const fwdHost = request.headers.get("x-forwarded-host") || request.headers.get("host");
+  const fwdProto = request.headers.get("x-forwarded-proto") || "https";
+  if (fwdHost && !fwdHost.includes("localhost") && !fwdHost.includes("127.0.0.1")) {
+    return `${fwdProto.split(",")[0].trim()}://${fwdHost.split(",")[0].trim()}`;
+  }
+  return new URL(request.url).origin;
+}
+
 export async function getGoogleDriveConfig() {
   const s = await getDemoSettingsMap();
   return {
