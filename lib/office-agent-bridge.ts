@@ -31,7 +31,7 @@ export async function verifyAgentAuth(request: Request): Promise<boolean> {
 export async function getOfficeAgentStatus() {
   const s = await getDemoSettingsMap();
   const lastSeen = s.dkm_agent_last_seen ? new Date(s.dkm_agent_last_seen).getTime() : 0;
-  const online = lastSeen > 0 && Date.now() - lastSeen < 25_000;
+  const online = lastSeen > 0 && Date.now() - lastSeen < 90_000;
   return {
     online,
     lastSeenAt: s.dkm_agent_last_seen || null,

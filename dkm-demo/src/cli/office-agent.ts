@@ -150,49 +150,53 @@ async function handleIndexServer(serverPath: string, engSettings: EngineSettings
 
   const entries: any[] = [];
   let cursor = 0;
+  let done = 0;
   const worker = async () => {
     while (cursor < allFiles.length) {
       const f = allFiles[cursor++];
       try {
-        const info = await probeSource(f.full, engSettings);
+        const st = await fs.promises.stat(f.full);
+        // 2.98 TB SMB arşivinde hızlı indeksleme: 30 MB altı dosyalarda görsel parmak izi + boyut, büyüklerde hızlı başlık okuma
+        let widthPx: number | null = null;
+        let heightPx: number | null = null;
+        let colorSpace: string | null = null;
+        let depth: string | null = null;
         let visualHash: string | null = null;
-        if (["jpeg", "png", "tiff"].includes(info.format) && info.sizeBytes <= 150 * 1024 * 1024) {
+        let format = f.ext.replace(".", "").toUpperCase();
+        if (st.size <= 30 * 1024 * 1024) {
           try {
-            visualHash = await computeVisualSignature(f.full);
+            const info = await probeSource(f.full, engSettings);
+            format = info.format.toUpperCase();
+            widthPx = info.width;
+            heightPx = info.height;
+            colorSpace = info.space;
+            depth = info.depth;
+            if (["jpeg", "png", "tiff"].includes(info.format)) {
+              visualHash = await computeVisualSignature(f.full);
+            }
           } catch {}
         }
         entries.push({
           sku: f.skuStem,
           filePath: f.full,
           fileName: f.name,
-          format: info.format.toUpperCase(),
-          sizeBytes: info.sizeBytes,
-          widthPx: info.width,
-          heightPx: info.height,
-          colorSpace: info.space,
-          depth: info.depth,
+          format,
+          sizeBytes: st.size,
+          widthPx,
+          heightPx,
+          colorSpace,
+          depth,
           visualHash,
-          mtimeMs: info.mtimeMs,
+          mtimeMs: st.mtimeMs,
         });
-      } catch {
-        const st = await fs.promises.stat(f.full).catch(() => null);
-        entries.push({
-          sku: f.skuStem,
-          filePath: f.full,
-          fileName: f.name,
-          format: f.ext.replace(".", "").toUpperCase(),
-          sizeBytes: st?.size || 0,
-          widthPx: null,
-          heightPx: null,
-          colorSpace: null,
-          depth: null,
-          visualHash: null,
-          mtimeMs: st?.mtimeMs || 0,
-        });
+      } catch {}
+      done++;
+      if (done % 250 === 0 || done === allFiles.length) {
+        console.log(`[agent] İndeks ilerleme: ${done}/${allFiles.length}`);
       }
     }
   };
-  await Promise.all(Array.from({ length: 6 }, () => worker()));
+  await Promise.all(Array.from({ length: 8 }, () => worker()));
   console.log(`[agent] İndeksleme bitti: ${entries.length} dosya (${Date.now() - t0}ms)`);
   return { entries, result: { ok: true, indexedCount: entries.length, durationMs: Date.now() - t0 } };
 }

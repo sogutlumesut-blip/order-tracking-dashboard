@@ -83,7 +83,7 @@ export function DemoServerSettings() {
             const d = await r.json()
             setIndexResult(d)
             if (d.ok) {
-                toast.success(`${d.indexedCount} tasarım dosyası indekslendi (${d.durationMs}ms)`)
+                toast.success(d.queued ? d.message : `${d.indexedCount} tasarım dosyası indekslendi (${d.durationMs}ms)`)
                 await load()
             } else {
                 toast.error(d.error || "İndeksleme başarısız")
@@ -240,7 +240,9 @@ export function DemoServerSettings() {
                     {indexResult && (
                         <div className={`p-3 rounded-lg text-xs border ${indexResult.ok ? "bg-blue-50 border-blue-300 text-blue-900" : "bg-red-50 border-red-300 text-red-900"}`}>
                             {indexResult.ok
-                                ? `✅ ${indexResult.indexedCount} dosya indekslendi (${indexResult.durationMs} ms). Hatalı/okunamayan: ${indexResult.errorCount}.`
+                                ? indexResult.queued
+                                    ? `⏳ ${indexResult.message}`
+                                    : `✅ ${indexResult.indexedCount} dosya indekslendi (${indexResult.durationMs} ms). Hatalı/okunamayan: ${indexResult.errorCount}.`
                                 : `❌ ${indexResult.error}`}
                         </div>
                     )}

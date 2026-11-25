@@ -95,16 +95,23 @@ export async function POST(request: Request) {
         });
       }
       const agent = await getOfficeAgentStatus();
+      const targetPath = String(body.serverPath || "").trim();
       if (agent.online) {
-        const res = await dispatchToOfficeAgent("index_server", { serverPath: body.serverPath }, { wait: false });
+        const res = await dispatchToOfficeAgent("index_server", { serverPath: targetPath }, { wait: false });
         return NextResponse.json({
           ok: true,
           queued: true,
           jobId: res.jobId,
-          message: "İndeksleme işi Ofis Ajanına gönderildi. Arka planda tamamlandığında indeks sayısı güncellenecektir.",
+          message: "İndeksleme işi Ofis Ajanına gönderildi! İlerlemeyi ofis Terminal ekranından izleyebilirsiniz; bittiğinde dosya sayısı otomatik güncellenecektir.",
         });
       }
-      const res = await indexServerDesigns(body.serverPath);
+      if (/^(\/Volumes\/|\\\\|[A-Za-z]:\\)/.test(targetPath)) {
+        return NextResponse.json(
+          { ok: false, error: "Bu klasör ofis içi yerel bir yoldur; indekslemek için Ofis Ajanı'nın çevrimiçi olması gerekir. Lütfen Terminal'de ofis ajanının çalıştığını kontrol edin." },
+          { status: 400 },
+        );
+      }
+      const res = await indexServerDesigns(targetPath);
       return NextResponse.json(res);
     } catch (e: any) {
       return NextResponse.json({ ok: false, error: e?.message || "İndeksleme hatası" }, { status: 400 });
