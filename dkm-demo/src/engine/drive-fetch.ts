@@ -6,6 +6,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { EngineError } from "./errors.ts";
 import { sniffFormat, SUPPORTED_EXTS } from "./index.ts";
 import { candidateSkus } from "./sku-finder.ts";
@@ -204,18 +206,31 @@ export async function fetchCustomDesignToCache(
 
   const tmp = path.join(driveDir, `${key}.${process.pid}.${Date.now()}.tmp`);
   try {
-    const arrBuf = await res.arrayBuffer();
-    const buf = Buffer.from(arrBuf);
-    if (buf.length < 32) throw new EngineError("CORRUPT_FILE", "İndirilen Google Drive dosyası boş veya çok küçük.");
-    const headStr = buf.subarray(0, 64).toString("latin1").trim().toLowerCase();
+    // Akışlı (streaming) indirme — 500 MB+ dosyalarda RAM'i şişirmez!
+    if (res.body) {
+      const ws = fs.createWriteStream(tmp);
+      await pipeline(Readable.fromWeb(res.body as any), ws);
+    } else {
+      const buf = Buffer.from(await res.arrayBuffer());
+      await fs.promises.writeFile(tmp, buf);
+    }
+    const st = await fs.promises.stat(tmp);
+    if (st.size < 32) throw new EngineError("CORRUPT_FILE", "İndirilen Google Drive dosyası boş veya çok küçük.");
+
+    // İlk 64 baytı okuyup HTML izin sayfası olup olmadığını kontrol et
+    const fh = await fs.promises.open(tmp, "r");
+    const headBuf = Buffer.alloc(64);
+    await fh.read(headBuf, 0, 64, 0);
+    await fh.close();
+    const headStr = headBuf.toString("latin1").trim().toLowerCase();
     if (headStr.startsWith("<!doctype html") || headStr.startsWith("<html")) {
+      await fs.promises.rm(tmp, { force: true });
       throw new EngineError(
         "SOURCE_UNAVAILABLE",
         "Google Drive erişim izni gerekli. Ayarlar > Google Drive Bağlantısı bölümünden Google hesabınızı bağlayın.",
       );
     }
 
-    await fs.promises.writeFile(tmp, buf);
     const sn = await sniffFormat(tmp);
     if (!sn.format) {
       await fs.promises.rm(tmp, { force: true });

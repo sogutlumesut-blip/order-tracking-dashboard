@@ -84,12 +84,9 @@ export async function POST(request: Request) {
     const agent = await getOfficeAgentStatus();
 
     if (action === "generate" || action === "crop") {
-      // Google Drive linki varsa (veya "Google Drive'dan Hazırla" tıklandıysa) Ofis Ajanını beklemeden DOĞRUDAN buluttan indirip işle!
-      const ddbCheck = getDemoDb();
-      const ordCheck = await ddbCheck.order.findUnique({ where: { id: orderId }, include: { items: true } });
-      const hasDrive = !!body.forceDrive || !!findCustomDesignUrl(ordCheck?.items?.[0]);
-
-      if (agent.online && !isDemoMode() && !hasDrive) {
+      // Ofis Ajanı çevrimiçiyse (büyük RAM + disk) ağır Google Drive dosyalarını da Ofis Ajanı işlesin;
+      // Ofis Ajanı çevrimdışıysa bulutta akışlı (streaming) indirip işlesin!
+      if (agent.online && !isDemoMode()) {
         const res = await dispatchToOfficeAgent(
           "generate_draft",
           {
@@ -105,7 +102,7 @@ export async function POST(request: Request) {
             layoutMode: body.layoutMode,
             tileConfig: body.tileConfig,
           },
-          { orderId, timeoutMs: 55_000 },
+          { orderId, timeoutMs: 90_000 },
         );
         return NextResponse.json(res, { status: res.ok ? 200 : 422 });
       }

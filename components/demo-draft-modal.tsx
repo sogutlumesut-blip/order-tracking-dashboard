@@ -104,6 +104,15 @@ export function DemoDraftModal({ order, initialTab, onClose, onUpdated }: DemoDr
         }
     }
 
+    const safeJson = async (r: Response) => {
+        const text = await r.text()
+        try {
+            return JSON.parse(text)
+        } catch {
+            return { ok: false, error: `Sunucu yanıtı zaman aşımı veya bellek sınırı (HTTP ${r.status}). Büyük dosyalar için Ofis Ajanı'nın açık olduğundan emin olun.` }
+        }
+    }
+
     const handleGenerateDraft = async (autoSendWhatsApp = false, extra: { overrideSourcePath?: string; rememberSkuMapping?: boolean; forceDrive?: boolean } = {}) => {
         setBusy(true)
         try {
@@ -119,7 +128,7 @@ export function DemoDraftModal({ order, initialTab, onClose, onUpdated }: DemoDr
                     ...extra,
                 }),
             })
-            const d = await r.json()
+            const d = await safeJson(r)
             await loadOrderDrafts()
             onUpdated()
             if (!r.ok || !d.ok) {
@@ -128,6 +137,8 @@ export function DemoDraftModal({ order, initialTab, onClose, onUpdated }: DemoDr
                 toast.success(`Taslak v${d.draft.version} oluşturuldu (${Math.round(d.draft.effectivePpi)} PPI, ${d.draft.totalMs}ms)`)
                 setTab("preview")
             }
+        } catch (e: any) {
+            toast.error(e?.message || "Taslak oluşturulurken bağlantı hatası oluştu")
         } finally {
             setBusy(false)
         }

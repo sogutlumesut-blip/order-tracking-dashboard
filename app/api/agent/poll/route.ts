@@ -26,11 +26,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: true, heartbeat: true });
   }
 
-  // Bekleyen en eski işi al
-  const job = await ddb.agentJob.findFirst({
-    where: { status: "queued" },
-    orderBy: { id: "asc" },
-  });
+  // Öncelik: anlık kullanıcı işleri (taslak, arama, bağlantı testi, baskı) uzun indeksleme işinin önünde çalışsın
+  const job =
+    (await ddb.agentJob.findFirst({
+      where: { status: "queued", type: { not: "index_server" } },
+      orderBy: { id: "asc" },
+    })) ||
+    (await ddb.agentJob.findFirst({
+      where: { status: "queued" },
+      orderBy: { id: "asc" },
+    }));
   if (!job) {
     return NextResponse.json({ ok: true, job: null });
   }
