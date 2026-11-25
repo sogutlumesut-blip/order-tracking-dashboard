@@ -9,6 +9,7 @@ import {
 } from "@/lib/demo-engine";
 import { dispatchToOfficeAgent, getOfficeAgentStatus } from "@/lib/office-agent-bridge";
 import { findCustomDesignUrl } from "@/dkm-demo/src/engine/drive-fetch.ts";
+import { getPublicOrigin } from "@/lib/google-drive-auth";
 
 function stripBlobs(dr: any) {
   if (!dr) return dr;
@@ -77,8 +78,8 @@ export async function POST(request: Request) {
   const orderId = Number(body.orderId);
   if (!orderId) return NextResponse.json({ error: "orderId zorunludur" }, { status: 400 });
 
-  const origin = new URL(request.url).origin;
-  const actor = session.user.name || session.user.username || "Demo Kullanıcı";
+  const origin = getPublicOrigin(request);
+  const actor = session.user.name || session.user.username || "Kullanıcı";
 
   try {
     const agent = await getOfficeAgentStatus();

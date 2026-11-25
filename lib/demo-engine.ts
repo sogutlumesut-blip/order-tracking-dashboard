@@ -692,24 +692,25 @@ export async function createTestWhatsAppForDraft(orderId: number, draftId: numbe
   }
 
   const approvalUrl = `${publicBaseUrl}/approve/${draft.approvalToken}`;
-  const previewUrl = `${publicBaseUrl}/api/demo/files/preview/${draft.id}`;
+  const previewUrl = `${publicBaseUrl}/api/demo/files/sheet/${draft.id}?token=${draft.approvalToken}`;
+  const demo = isDemoMode();
   const message =
-    `[DEMO TEST — GERÇEK MÜŞTERİYE GÖNDERİLMEDİ]\n` +
+    (demo ? "[DEMO TEST — GERÇEK MÜŞTERİYE GÖNDERİLMEDİ]\n" : "") +
     `Merhaba ${order.customer},\n` +
-    `#${order.barcode || order.id} numaralı (${draft.sku} • ${draft.dimensionsRaw}) siparişinizin v${draft.version} taslağı hazırlandı (${Math.round(draft.effectivePpi || 0)} PPI).\n` +
+    `#${order.barcode || order.id} numaralı (${draft.sku} • ${draft.dimensionsRaw}) siparişinizin baskı öncesi taslağı ve %100 çözünürlük detayı hazırlandı (${Math.round(draft.effectivePpi || 0)} PPI).\n` +
     `Önizleme ve onay bağlantısı: ${approvalUrl}`;
 
   const log = await ddb.whatsappTestLog.create({
     data: {
       orderId: order.id,
       draftId: draft.id,
-      phone: order.phone || "+90 500 000 00 00 (TEST)",
+      phone: order.phone || "",
       customer: order.customer,
       message,
       previewUrl,
       approvalUrl,
-      mode: "DEMO_SIMULATED",
-      status: "simulated_sent",
+      mode: demo ? "DEMO_SIMULATED" : "LIVE_WHATSAPP",
+      status: demo ? "simulated_sent" : "ready_to_send",
     },
   });
 
@@ -723,8 +724,8 @@ export async function createTestWhatsAppForDraft(orderId: number, draftId: numbe
     data: {
       orderId: order.id,
       author: actor,
-      action: "TEST_WHATSAPP_SENT",
-      details: `[DEMO] Test WhatsApp kaydı #${log.id} oluşturuldu (gerçek mesaj gönderilmedi). Sipariş 'Onay Beklemede' sütununa taşındı.`,
+      action: demo ? "TEST_WHATSAPP_SENT" : "WHATSAPP_PROOF_SENT",
+      details: `${demo ? "[DEMO] Test " : ""}WhatsApp taslak gönderimi #${log.id} oluşturuldu. Sipariş 'Onay Beklemede' sütununa taşındı.`,
     },
   });
   return log;

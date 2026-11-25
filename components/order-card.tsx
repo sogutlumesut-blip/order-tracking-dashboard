@@ -898,7 +898,7 @@ export function OrderCard({ order, onClick, onPrefetch, tags, selected = false, 
                                     %100 Detay
                                 </button>
                                 <button type="button" onClick={() => onDemoAction(order, "whatsapp")} className="px-1.5 py-1 rounded bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800 truncate">
-                                    Test WhatsApp
+                                    {process.env.NEXT_PUBLIC_DKM_DEMO_MODE === "1" ? "Test WhatsApp" : "WhatsApp"}
                                 </button>
                                 {demoDraft?.approvalToken && demoDraft?.ppiStatus !== "low" ? (
                                     <a href={`/approve/${demoDraft.approvalToken}`} target="_blank" rel="noreferrer" className="px-1.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-center truncate">

@@ -445,8 +445,8 @@ export function DemoDraftModal({ order, initialTab, onClose, onUpdated }: DemoDr
                         { id: "ppi", label: "Çözünürlük & Performans", icon: Gauge },
                         { id: "server", label: "Server Dosyası", icon: FolderSearch },
                         { id: "visual", label: "Görselden Eşleştir", icon: Sparkles },
-                        { id: "whatsapp", label: `Test WhatsApp (${waLogs.length})`, icon: MessageSquare },
-                        { id: "print", label: "Baskı Dosyası (TEST)", icon: Printer },
+                        { id: "whatsapp", label: `${process.env.NEXT_PUBLIC_DKM_DEMO_MODE === "1" ? "Test WhatsApp" : "WhatsApp"} (${waLogs.length})`, icon: MessageSquare },
+                        { id: "print", label: process.env.NEXT_PUBLIC_DKM_DEMO_MODE === "1" ? "Baskı Dosyası (TEST)" : "Baskı Dosyası", icon: Printer },
                     ].map((t) => {
                         const Icon = t.icon
                         return (
@@ -491,13 +491,16 @@ export function DemoDraftModal({ order, initialTab, onClose, onUpdated }: DemoDr
                                         </span>
                                     </div>
                                     <div className="flex flex-wrap gap-2">
+                                        <a href={`/api/demo/files/sheet/${latest.id}?download=1&v=${latest.version}`} download className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold flex items-center gap-1.5">
+                                            ⬇️ Birleşik Sunum Kartı (JPG)
+                                        </a>
                                         {latest.approvalToken && latest.ppiStatus !== "low" && (
                                             <a href={`/approve/${latest.approvalToken}`} target="_blank" rel="noreferrer" className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5">
                                                 <ExternalLink className="w-3.5 h-3.5" /> Müşteri Onay Linkini Aç
                                             </a>
                                         )}
                                         <button disabled={busy} onClick={handleSendWhatsApp} className="px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold flex items-center gap-1.5">
-                                            <MessageSquare className="w-3.5 h-3.5" /> Test WhatsApp Gönder
+                                            <MessageSquare className="w-3.5 h-3.5" /> {process.env.NEXT_PUBLIC_DKM_DEMO_MODE === "1" ? "Test WhatsApp Gönder" : "WhatsApp Gönder"}
                                         </button>
                                     </div>
                                 </div>
@@ -599,7 +602,9 @@ export function DemoDraftModal({ order, initialTab, onClose, onUpdated }: DemoDr
                                         {layoutMode === "seamless" ? "🔁 Takipli Taslağı Kaydet & Üret" : "✂️ Kırpmayı Kaydet & Yeni Taslak Üret"}
                                     </button>
                                     <button disabled={busy} onClick={() => handleApplyCrop(true)} className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold">
-                                        {layoutMode === "seamless" ? "🔁 Kaydet + Test WhatsApp Gönder" : "✂️ Kaydet + Test WhatsApp Gönder"}
+                                        {layoutMode === "seamless"
+                                            ? (process.env.NEXT_PUBLIC_DKM_DEMO_MODE === "1" ? "🔁 Kaydet + Test WhatsApp Gönder" : "🔁 Kaydet + WhatsApp Gönder")
+                                            : (process.env.NEXT_PUBLIC_DKM_DEMO_MODE === "1" ? "✂️ Kaydet + Test WhatsApp Gönder" : "✂️ Kaydet + WhatsApp Gönder")}
                                     </button>
                                 </div>
                             </div>
@@ -729,28 +734,76 @@ export function DemoDraftModal({ order, initialTab, onClose, onUpdated }: DemoDr
                         </div>
                     )}
 
-                    {/* TEST WHATSAPP TAB */}
+                    {/* WHATSAPP TAB */}
                     {tab === "whatsapp" && (
-                        <div className="space-y-3 text-xs">
-                            <div className="flex justify-between items-center">
-                                <span className="text-slate-600 dark:text-slate-400">Gerçek müşterilere mesaj gönderilmez; tüm kayıtlar DEMO test simülasyonudur.</span>
-                                <button disabled={busy || !latest} onClick={handleSendWhatsApp} className="px-3 py-1.5 rounded-lg bg-green-600 text-white font-bold">Yeni Test WhatsApp Kaydı Oluştur</button>
-                            </div>
-                            {waLogs.map((w) => (
-                                <div key={w.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border space-y-2">
-                                    <div className="flex justify-between">
-                                        <strong>{w.phone} — {w.customer}</strong>
-                                        <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">{w.mode}</span>
-                                    </div>
-                                    <pre className="whitespace-pre-wrap text-[11px] bg-white dark:bg-slate-900 p-2 rounded border">{w.message}</pre>
-                                    {w.approvalUrl && (
-                                        <a href={w.approvalUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-blue-600 font-bold underline">
-                                            <ExternalLink className="w-3.5 h-3.5" /> Müşteri Onay Linkini Aç
+                        <div className="space-y-4 text-xs">
+                            <div className="flex flex-wrap justify-between items-center gap-2">
+                                <span className="text-slate-600 dark:text-slate-400">
+                                    {process.env.NEXT_PUBLIC_DKM_DEMO_MODE === "1"
+                                        ? "DEMO MODE: Gerçek müşteriye gönderilmez."
+                                        : "Müşteriye ölçülü + %100 çözünürlüklü birleşik sunum kartını ve onay linkini WhatsApp'tan iletin."}
+                                </span>
+                                <div className="flex flex-wrap gap-2">
+                                    {latest && (
+                                        <a
+                                            href={`/api/demo/files/sheet/${latest.id}?download=1`}
+                                            className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold"
+                                        >
+                                            ⬇️ Birleşik Sunum Kartı İndir (JPG)
                                         </a>
                                     )}
+                                    <button disabled={busy || !latest} onClick={handleSendWhatsApp} className="px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-bold">
+                                        📲 WhatsApp Mesajı Hazırla &amp; Onay Beklemede&apos;ye Al
+                                    </button>
                                 </div>
-                            ))}
-                            {waLogs.length === 0 && <p className="text-slate-500">Henüz test WhatsApp kaydı yok.</p>}
+                            </div>
+
+                            {latest?.previewPath && (
+                                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border space-y-2">
+                                    <div className="font-bold text-slate-700 dark:text-slate-200">
+                                        ✨ Müşteri Sunum Kartı (Ölçülü Taslak + %100 Çözünürlük Detayı Bir Arada)
+                                    </div>
+                                    <img
+                                        src={`/api/demo/files/sheet/${latest.id}?v=${latest.version}`}
+                                        alt="Birleşik Müşteri Sunum Kartı"
+                                        className="w-full max-h-[46vh] object-contain rounded-lg border bg-[#f7f3eb]"
+                                    />
+                                </div>
+                            )}
+
+                            {waLogs.map((w) => {
+                                const cleanPhone = String(w.phone || "").replace(/[^0-9]/g, "")
+                                const waHref = cleanPhone
+                                    ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(w.message || "")}`
+                                    : `https://api.whatsapp.com/send?text=${encodeURIComponent(w.message || "")}`
+                                return (
+                                    <div key={w.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <strong>{w.phone || "Telefon yok"} — {w.customer}</strong>
+                                            <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">
+                                                {w.mode === "LIVE_WHATSAPP" ? "CANLI WHATSAPP" : w.mode}
+                                            </span>
+                                        </div>
+                                        <pre className="whitespace-pre-wrap text-[11px] bg-white dark:bg-slate-900 p-2 rounded border">{w.message}</pre>
+                                        <div className="flex flex-wrap gap-2">
+                                            <a
+                                                href={waHref}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-bold"
+                                            >
+                                                <MessageSquare className="w-3.5 h-3.5" /> WhatsApp&apos;ta Aç ve Gönder
+                                            </a>
+                                            {w.approvalUrl && (
+                                                <a href={w.approvalUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 text-white font-bold">
+                                                    <ExternalLink className="w-3.5 h-3.5" /> Müşteri Onay Linkini Aç
+                                                </a>
+                                            )}
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                            {waLogs.length === 0 && <p className="text-slate-500">Henüz WhatsApp gönderim kaydı yok.</p>}
                         </div>
                     )}
 

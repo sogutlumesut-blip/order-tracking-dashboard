@@ -56,7 +56,7 @@ export default async function CustomerApprovalPage(props: { params: Promise<{ to
 
                 {isApproved && (
                     <div className="p-4 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-900 text-sm font-bold">
-                        ✅ Bu taslak (v{draft.version}) {draft.approvedByName} tarafından onaylandı. Onaylı yüksek çözünürlüklü baskı dosyası TEST klasörüne kaydedildi.
+                        ✅ Bu taslak (v{draft.version}) {draft.approvedByName} tarafından onaylandı. {demoMode ? "Onaylı yüksek çözünürlüklü baskı dosyası TEST klasörüne kaydedildi." : "Siparişiniz baskıya hazırlanıyor."}
                     </div>
                 )}
                 {!isCurrent && (
@@ -64,6 +64,28 @@ export default async function CustomerApprovalPage(props: { params: Promise<{ to
                         ⛔ Bu onay bağlantısı eski bir taslak sürümüne (v{draft.version}) aittir. Güncel sürüm v{latest?.version} olduğundan bu bağlantıdan onay verilemez.
                     </div>
                 )}
+
+                {/* Combined Luxury Presentation Sheet (Scaled + 100% Detail) */}
+                <div className="bg-[#f7f3eb] border border-[#e3dac8] rounded-2xl p-4 shadow-sm space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                            <h2 className="font-bold text-sm text-[#2d2822]">Birleşik Müşteri Sunum Kartı (Ölçülü Taslak + %100 Çözünürlük)</h2>
+                            <p className="text-xs text-[#6f665a]">Duvar/tavan ölçünüz ({draft.dimensionsRaw}) ve gerçek baskı netliği tek görselde yer alır.</p>
+                        </div>
+                        <a
+                            href={`/api/demo/files/sheet/${draft.id}?token=${encodeURIComponent(token)}&download=1`}
+                            download
+                            className="px-3 py-1.5 rounded-lg bg-[#2d2822] hover:bg-[#1f1b17] text-[#f7f3eb] text-xs font-bold"
+                        >
+                            ⬇️ Sunum Kartını İndir (JPG)
+                        </a>
+                    </div>
+                    <img
+                        src={`/api/demo/files/sheet/${draft.id}?token=${encodeURIComponent(token)}&v=${draft.version}`}
+                        alt="Birleşik Müşteri Sunum Kartı"
+                        className="w-full rounded-xl border border-[#dfd5c3] bg-[#f7f3eb]"
+                    />
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4">

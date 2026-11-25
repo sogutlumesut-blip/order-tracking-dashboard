@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import { getDemoDb, createTestWhatsAppForDraft } from "@/lib/demo-engine";
 import { verifyAgentAuth } from "@/lib/office-agent-bridge";
+import { getPublicOrigin } from "@/lib/google-drive-auth";
 
 export async function POST(request: Request) {
   if (!(await verifyAgentAuth(request))) {
@@ -121,7 +122,7 @@ export async function POST(request: Request) {
     const jobPayload = JSON.parse(job.payload || "{}");
     let whatsappLog = null;
     if (dp.ppiStatus !== "low" && jobPayload.autoSendWhatsApp) {
-      const origin = new URL(request.url).origin;
+      const origin = getPublicOrigin(request);
       whatsappLog = await createTestWhatsAppForDraft(job.orderId, draft.id, origin, dp.actor || "Ofis Ajanı");
     }
 
