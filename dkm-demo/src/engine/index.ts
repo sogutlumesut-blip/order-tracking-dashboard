@@ -378,13 +378,7 @@ export async function renderPreview(info: SourceInfo, work: WorkImage, proxy: Pr
   const fs1 = Math.round(barH * 0.42);
   const ppiTxt = `${Math.round(ppi.effectivePpi)} PPI${ppi.status === "low" ? " – YETERSİZ" : ppi.status === "warn" ? " – düşük" : ""}`;
   const label = `#${meta.orderNo} • ${meta.sku} • ${formatDim(meta.dim)} • Taslak v${meta.version} • ${ppiTxt}`;
-  const wmSize = Math.round(Math.min(W, H) * 0.07);
-  const wm: string[] = [];
-  const stepX = Math.max(260, wmSize * 9);
-  const stepY = Math.max(160, wmSize * 4);
-  for (let y = -H; y < H * 2; y += stepY) for (let x = -W; x < W * 2; x += stepX) wm.push(`<text x="${x}" y="${y}">TASLAK • ONAY İÇİNDİR</text>`);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H + barH}">
-    <g transform="rotate(-28 ${W / 2} ${H / 2})" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="${wmSize}" fill="#ffffff" fill-opacity="0.28" stroke="#000" stroke-opacity="0.18" stroke-width="1">${wm.join("")}</g>
     <rect x="0" y="0" width="${W}" height="${H}" fill="none" stroke="#0f172a" stroke-width="2"/>
     <rect x="0" y="${H}" width="${W}" height="${barH}" fill="#0f172a"/>
     <text x="12" y="${H + barH / 2 + fs1 / 3}" font-family="Helvetica, Arial, sans-serif" font-size="${fs1}" fill="#ffffff">${esc(label)}</text>
@@ -584,17 +578,7 @@ export async function renderTiledPreview(
   const repeatsX = (inch.w / tile.repeatWidthInch).toFixed(2);
   const ppiTxt = `${Math.round(ppi.effectivePpi)} PPI${ppi.status === "low" ? " – YETERSİZ" : ppi.status === "warn" ? " – düşük" : ""}`;
   const barLabel = `#${meta.orderNo} • ${meta.sku} • ${formatDim(meta.dim)} • TAKİPLİ (Seamless ${repeatsX}x) • v${meta.version} • ${ppiTxt}`;
-  const wmSize = Math.round(Math.min(pw, ph) * 0.065);
-  const wm: string[] = [];
-  const stepX = Math.max(240, wmSize * 9);
-  const stepY = Math.max(150, wmSize * 4);
-  for (let y = -ph; y < ph * 2; y += stepY) for (let x = -pw; x < pw * 2; x += stepX) wm.push(`<text x="${x}" y="${y}">TASLAK • ONAY İÇİNDİR</text>`);
-
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${fullW}" height="${fullH}">
-    <defs><clipPath id="imgClip"><rect x="${padLeft}" y="${padTop}" width="${pw}" height="${ph}"/></clipPath></defs>
-    <g clip-path="url(#imgClip)">
-      <g transform="translate(${padLeft},${padTop}) rotate(-28 ${pw / 2} ${ph / 2})" font-family="Helvetica, Arial, sans-serif" font-weight="700" font-size="${wmSize}" fill="#ffffff" fill-opacity="0.22" stroke="#000" stroke-opacity="0.14" stroke-width="1">${wm.join("")}</g>
-    </g>
     <line x1="0" y1="${padTop}" x2="${fullW}" y2="${padTop}" stroke="#dc2626" stroke-width="1"/>
     <line x1="0" y1="${padTop + ph}" x2="${fullW}" y2="${padTop + ph}" stroke="#dc2626" stroke-width="1"/>
     <line x1="${padLeft}" y1="0" x2="${padLeft}" y2="${padTop + ph}" stroke="#dc2626" stroke-width="1"/>

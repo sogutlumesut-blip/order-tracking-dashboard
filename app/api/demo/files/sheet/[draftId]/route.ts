@@ -48,27 +48,50 @@ export async function GET(request: Request, context: { params: Promise<{ draftId
 
   const order = await ddb.order.findUnique({ where: { id: draft.orderId }, include: { items: true } });
   const prevBuf = await loadBuf(draft.previewPath, draft.previewData);
+  const proxyBuf = await loadBuf(draft.proxyPath, draft.proxyData);
   const detBuf = await loadBuf(draft.detailPath, draft.detailData);
-  if (!prevBuf) return NextResponse.json({ error: "Taslak görseli bulunamadı" }, { status: 404 });
+  if (!prevBuf && !proxyBuf) return NextResponse.json({ error: "Taslak görseli bulunamadı" }, { status: 404 });
 
   // Tuval: 1600 x 1160 px sıcak fildişi/krem lüks sunum sayfası
   const W = 1600;
   const H = 1160;
   const BG = "#f7f3eb";
 
-  // Sol alan: ölçülü ana taslak (alt koyu bilgi şeridini temizleyerek)
+  // Sol alan: ölçülü ana taslak (filigransız temiz proxy varsa doğrudan ondan kırp, yoksa prevBuf'tan alt şeridi temizle)
   const leftMaxW = 800;
   const leftMaxH = 740;
-  const prevMeta = await sharp(prevBuf).metadata();
-  let prevPipe = sharp(prevBuf);
-  if (prevMeta.width && prevMeta.height && prevMeta.height > 120) {
-    const approxH = Math.round(prevMeta.height / 1.035);
-    const barH = Math.max(34, Math.round(Math.max(prevMeta.width, approxH) * 0.035)) + 2;
-    if (prevMeta.height - barH > 80) {
-      prevPipe = prevPipe.extract({ left: 0, top: 0, width: prevMeta.width, height: prevMeta.height - barH });
+  let prevPipe: sharp.Sharp | null = null;
+  if (proxyBuf && draft.layoutMode !== "seamless" && draft.cropJson && draft.sourceWidth && draft.sourceHeight) {
+    try {
+      const crop = JSON.parse(draft.cropJson) as { x: number; y: number; w: number; h: number };
+      const pm = await sharp(proxyBuf).metadata();
+      if (pm.width && pm.height && crop.w > 0 && crop.h > 0) {
+        const sx = pm.width / draft.sourceWidth;
+        const sy = pm.height / draft.sourceHeight;
+        const left = Math.max(0, Math.min(pm.width - 1, Math.round(crop.x * sx)));
+        const top = Math.max(0, Math.min(pm.height - 1, Math.round(crop.y * sy)));
+        const width = Math.max(1, Math.min(pm.width - left, Math.round(crop.w * sx)));
+        const height = Math.max(1, Math.min(pm.height - top, Math.round(crop.h * sy)));
+        prevPipe = sharp(proxyBuf).extract({ left, top, width, height });
+      }
+    } catch {
+      prevPipe = null;
     }
   }
-  const prevResized = await prevPipe
+  if (!prevPipe && prevBuf) {
+    const prevMeta = await sharp(prevBuf).metadata();
+    prevPipe = sharp(prevBuf);
+    if (prevMeta.width && prevMeta.height && prevMeta.height > 120) {
+      const approxH = Math.round(prevMeta.height / 1.035);
+      const barH = Math.max(34, Math.round(Math.max(prevMeta.width, approxH) * 0.035)) + 2;
+      if (prevMeta.height - barH > 80) {
+        prevPipe = prevPipe.extract({ left: 0, top: 0, width: prevMeta.width, height: prevMeta.height - barH });
+      }
+    }
+  }
+  if (!prevPipe && proxyBuf) prevPipe = sharp(proxyBuf);
+
+  const prevResized = await prevPipe!
     .resize(leftMaxW, leftMaxH, { fit: "inside" })
     .toColourspace("srgb")
     .jpeg({ quality: 92 })
@@ -82,7 +105,7 @@ export async function GET(request: Request, context: { params: Promise<{ draftId
   const prevX = Math.round(leftAreaX + (leftAreaW - pw) / 2);
   const prevY = Math.round(185 + (leftMaxH - ph) / 2);
 
-  // Sağ alan: %100 yakın çözünürlük detayı (500 x 440)
+  // Sağ alan: %100 yakın çözünürlük detayı (500 x 440, alt koyu 30px şeridi temizleyerek)
   const rightX = 1005;
   const detMaxW = 510;
   const detMaxH = 440;
@@ -90,7 +113,12 @@ export async function GET(request: Request, context: { params: Promise<{ draftId
   let dw = detMaxW;
   let dh = 360;
   if (detBuf) {
-    const detResized = await sharp(detBuf)
+    const dm = await sharp(detBuf).metadata();
+    let detPipe = sharp(detBuf);
+    if (dm.width && dm.height && dm.height > 80) {
+      detPipe = detPipe.extract({ left: 0, top: 0, width: dm.width, height: dm.height - 32 });
+    }
+    const detResized = await detPipe
       .resize(detMaxW, detMaxH, { fit: "inside" })
       .toColourspace("srgb")
       .jpeg({ quality: 92 })
