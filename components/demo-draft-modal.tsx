@@ -144,6 +144,75 @@ export function DemoDraftModal({ order, initialTab, onClose, onUpdated }: DemoDr
         }
     }
 
+    const [waIncludeLink, setWaIncludeLink] = useState(false)
+    const [copyingSheet, setCopyingSheet] = useState(false)
+
+    const isDemoUi = process.env.NEXT_PUBLIC_DKM_DEMO_MODE === "1"
+
+    const sanitizeWaMessage = (rawMsg: string, approvalUrl?: string | null) => {
+        let msg = String(rawMsg || "")
+        if (!isDemoUi) {
+            msg = msg.replace(/^\[DEMO TEST[^\n]*\]\n?/gim, "")
+            const origin = typeof window !== "undefined" ? window.location.origin : "https://dkmtakip.online"
+            msg = msg.replace(/https?:\/\/localhost:\d+/gi, origin)
+            if (!waIncludeLink) {
+                msg = msg.replace(/\n?Önizleme ve onay bağlantısı:\s*https?:\/\/\S+/gi, "").trim()
+                if (!/onay/i.test(msg)) {
+                    msg += "\nLütfen ekteki görseli inceleyip baskı onayınızı iletir misiniz?"
+                }
+            } else if (approvalUrl && !msg.includes("/approve/")) {
+                const safeUrl = approvalUrl.replace(/https?:\/\/localhost:\d+/gi, origin)
+                msg += `\nOnay linki: ${safeUrl}`
+            }
+        }
+        return msg.trim()
+    }
+
+    const copySheetImageToClipboard = async (draftId: number, version?: number) => {
+        setCopyingSheet(true)
+        try {
+            const url = `/api/demo/files/sheet/${draftId}?v=${version || 1}`
+            const resp = await fetch(url)
+            if (!resp.ok) throw new Error("Sunum görseli yüklenemedi")
+            const blob = await resp.blob()
+            // Clipboard API en güvenilir şekilde image/png kabul eder; canvas ile PNG'ye çevir
+            const bitmap = await createImageBitmap(blob)
+            const canvas = document.createElement("canvas")
+            canvas.width = bitmap.width
+            canvas.height = bitmap.height
+            const ctx = canvas.getContext("2d")
+            if (!ctx) throw new Error("Canvas oluşturulamadı")
+            ctx.drawImage(bitmap, 0, 0)
+            const pngBlob: Blob = await new Promise((resolve, reject) =>
+                canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("PNG dönüştürme hatası"))), "image/png")
+            )
+            await navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob })])
+            return true
+        } catch (err: any) {
+            console.error("Clipboard copy error:", err)
+            toast.error("Görsel panoya kopyalanamadı. Lütfen 'Görseli İndir' butonunu kullanın.")
+            return false
+        } finally {
+            setCopyingSheet(false)
+        }
+    }
+
+    const handleCopyAndOpenWhatsApp = async (phone: string, message: string, draftId?: number, version?: number) => {
+        const targetDraftId = draftId || latest?.id
+        let copied = false
+        if (targetDraftId) {
+            copied = await copySheetImageToClipboard(targetDraftId, version || latest?.version)
+        }
+        const cleanPhone = String(phone || "").replace(/[^0-9]/g, "")
+        const waHref = cleanPhone
+            ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`
+            : `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`
+        window.open(waHref, "_blank", "noopener,noreferrer")
+        if (copied) {
+            toast.success("Görsel panoya kopyalandı! Açılan WhatsApp sohbetinde Cmd+V (Ctrl+V) yapıp görseli direkt gönderin.", { duration: 7000 })
+        }
+    }
+
     const handleSendWhatsApp = async () => {
         if (!latest) return toast.error("Önce otomatik taslak oluşturun.")
         setBusy(true)
@@ -154,8 +223,12 @@ export function DemoDraftModal({ order, initialTab, onClose, onUpdated }: DemoDr
                 body: JSON.stringify({ action: "whatsapp", orderId: order.id, draftId: latest.id }),
             })
             const d = await r.json()
-            if (!r.ok) return toast.error(d.error || "Test WhatsApp oluşturulamadı")
-            toast.success("Test WhatsApp kaydı oluşturuldu (gerçek mesaj gönderilmedi). Sipariş 'Onay Beklemede' sütununa taşındı.")
+            if (!r.ok) return toast.error(d.error || "WhatsApp kaydı oluşturulamadı")
+            toast.success(
+                isDemoUi
+                    ? "Test WhatsApp kaydı oluşturuldu (gerçek mesaj gönderilmedi). Sipariş 'Onay Beklemede' sütununa taşındı."
+                    : "WhatsApp taslak gönderimi hazırlandı. Sipariş 'Onay Beklemede' sütununa taşındı."
+            )
             await loadOrderDrafts()
             onUpdated()
             setTab("whatsapp")
@@ -739,29 +812,68 @@ export function DemoDraftModal({ order, initialTab, onClose, onUpdated }: DemoDr
                         <div className="space-y-4 text-xs">
                             <div className="flex flex-wrap justify-between items-center gap-2">
                                 <span className="text-slate-600 dark:text-slate-400">
-                                    {process.env.NEXT_PUBLIC_DKM_DEMO_MODE === "1"
+                                    {isDemoUi
                                         ? "DEMO MODE: Gerçek müşteriye gönderilmez."
-                                        : "Müşteriye ölçülü + %100 çözünürlüklü birleşik sunum kartını ve onay linkini WhatsApp'tan iletin."}
+                                        : "Görseli panoya kopyalayıp doğrudan WhatsApp sohbetine yapıştırarak (Cmd+V / Ctrl+V) müşteriye iletebilirsiniz."}
                                 </span>
-                                <div className="flex flex-wrap gap-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <label className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-300 cursor-pointer select-none mr-1">
+                                        <input
+                                            type="checkbox"
+                                            checked={waIncludeLink}
+                                            onChange={(e) => setWaIncludeLink(e.target.checked)}
+                                            className="rounded border-slate-300"
+                                        />
+                                        Mesaja onay linkini de ekle
+                                    </label>
                                     {latest && (
-                                        <a
-                                            href={`/api/demo/files/sheet/${latest.id}?download=1`}
-                                            className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold"
-                                        >
-                                            ⬇️ Birleşik Sunum Kartı İndir (JPG)
-                                        </a>
+                                        <>
+                                            <button
+                                                type="button"
+                                                disabled={copyingSheet}
+                                                onClick={async () => {
+                                                    const ok = await copySheetImageToClipboard(latest.id, latest.version)
+                                                    if (ok) toast.success("Görsel panoya kopyalandı! WhatsApp'ta Cmd+V (Ctrl+V) ile yapıştırabilirsiniz.")
+                                                }}
+                                                className="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-800 text-white font-bold disabled:opacity-50"
+                                            >
+                                                {copyingSheet ? "Kopyalanıyor..." : "📋 Görseli Kopyala"}
+                                            </button>
+                                            <a
+                                                href={`/api/demo/files/sheet/${latest.id}?download=1&v=${latest.version}`}
+                                                download
+                                                className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold"
+                                            >
+                                                ⬇️ İndir (JPG)
+                                            </a>
+                                        </>
                                     )}
                                     <button disabled={busy || !latest} onClick={handleSendWhatsApp} className="px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-bold">
-                                        📲 WhatsApp Mesajı Hazırla &amp; Onay Beklemede&apos;ye Al
+                                        📲 Yeni Mesaj Hazırla &amp; Onay Beklemede&apos;ye Al
                                     </button>
                                 </div>
                             </div>
 
                             {latest?.previewPath && (
                                 <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border space-y-2">
-                                    <div className="font-bold text-slate-700 dark:text-slate-200">
-                                        ✨ Müşteri Sunum Kartı (Ölçülü Taslak + %100 Çözünürlük Detayı Bir Arada)
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <div className="font-bold text-slate-700 dark:text-slate-200">
+                                            ✨ Müşteri Sunum Kartı (Ölçülü Taslak + %100 Çözünürlük Detayı Bir Arada)
+                                        </div>
+                                        <button
+                                            type="button"
+                                            disabled={copyingSheet}
+                                            onClick={() => {
+                                                const defaultMsg = sanitizeWaMessage(
+                                                    `Merhaba ${order.customer},\n#${order.barcode || order.id} numaralı (${latest.sku} • ${latest.dimensionsRaw}) siparişinizin ölçülü baskı taslağı ve %100 çözünürlük detayı ekte yer almaktadır.\nLütfen görseli inceleyip baskı onayınızı iletir misiniz?`,
+                                                    latest.approvalToken ? `${window.location.origin}/approve/${latest.approvalToken}` : null
+                                                )
+                                                handleCopyAndOpenWhatsApp(order.phone || "", defaultMsg, latest.id, latest.version)
+                                            }}
+                                            className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 disabled:opacity-50"
+                                        >
+                                            <MessageSquare className="w-3.5 h-3.5" /> {copyingSheet ? "Hazırlanıyor..." : "Görseli Kopyala & WhatsApp'ta Aç"}
+                                        </button>
                                     </div>
                                     <img
                                         src={`/api/demo/files/sheet/${latest.id}?v=${latest.version}`}
@@ -772,31 +884,30 @@ export function DemoDraftModal({ order, initialTab, onClose, onUpdated }: DemoDr
                             )}
 
                             {waLogs.map((w) => {
-                                const cleanPhone = String(w.phone || "").replace(/[^0-9]/g, "")
-                                const waHref = cleanPhone
-                                    ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(w.message || "")}`
-                                    : `https://api.whatsapp.com/send?text=${encodeURIComponent(w.message || "")}`
+                                const origin = typeof window !== "undefined" ? window.location.origin : "https://dkmtakip.online"
+                                const safeApprovalUrl = w.approvalUrl ? String(w.approvalUrl).replace(/https?:\/\/localhost:\d+/gi, origin) : null
+                                const cleanMessage = sanitizeWaMessage(w.message || "", safeApprovalUrl)
                                 return (
                                     <div key={w.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border space-y-2">
                                         <div className="flex justify-between items-center">
                                             <strong>{w.phone || "Telefon yok"} — {w.customer}</strong>
                                             <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">
-                                                {w.mode === "LIVE_WHATSAPP" ? "CANLI WHATSAPP" : w.mode}
+                                                {isDemoUi ? "DEMO" : "WHATSAPP"}
                                             </span>
                                         </div>
-                                        <pre className="whitespace-pre-wrap text-[11px] bg-white dark:bg-slate-900 p-2 rounded border">{w.message}</pre>
+                                        <pre className="whitespace-pre-wrap text-[11px] bg-white dark:bg-slate-900 p-2 rounded border">{cleanMessage}</pre>
                                         <div className="flex flex-wrap gap-2">
-                                            <a
-                                                href={waHref}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-bold"
+                                            <button
+                                                type="button"
+                                                disabled={copyingSheet}
+                                                onClick={() => handleCopyAndOpenWhatsApp(w.phone || order.phone || "", cleanMessage, w.draftId || latest?.id, latest?.version)}
+                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white font-bold disabled:opacity-50"
                                             >
-                                                <MessageSquare className="w-3.5 h-3.5" /> WhatsApp&apos;ta Aç ve Gönder
-                                            </a>
-                                            {w.approvalUrl && (
-                                                <a href={w.approvalUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 text-white font-bold">
-                                                    <ExternalLink className="w-3.5 h-3.5" /> Müşteri Onay Linkini Aç
+                                                <MessageSquare className="w-3.5 h-3.5" /> Görseli Kopyala &amp; WhatsApp&apos;ta Aç
+                                            </button>
+                                            {safeApprovalUrl && (
+                                                <a href={safeApprovalUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 text-white font-bold">
+                                                    <ExternalLink className="w-3.5 h-3.5" /> Müşteri Onay Sayfası
                                                 </a>
                                             )}
                                         </div>

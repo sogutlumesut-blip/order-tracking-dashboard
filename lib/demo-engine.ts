@@ -691,14 +691,18 @@ export async function createTestWhatsAppForDraft(orderId: number, draftId: numbe
     throw new EngineError("INTERNAL", "Hatalı veya yetersiz çözünürlüklü taslak gönderilemez.");
   }
 
-  const approvalUrl = `${publicBaseUrl}/approve/${draft.approvalToken}`;
-  const previewUrl = `${publicBaseUrl}/api/demo/files/sheet/${draft.id}?token=${draft.approvalToken}`;
+  const safeBase =
+    !isDemoMode() && /localhost|127\.0\.0\.1/i.test(publicBaseUrl)
+      ? "https://dkmtakip.online"
+      : publicBaseUrl;
+  const approvalUrl = `${safeBase}/approve/${draft.approvalToken}`;
+  const previewUrl = `${safeBase}/api/demo/files/sheet/${draft.id}?token=${draft.approvalToken}`;
   const demo = isDemoMode();
   const message =
     (demo ? "[DEMO TEST — GERÇEK MÜŞTERİYE GÖNDERİLMEDİ]\n" : "") +
     `Merhaba ${order.customer},\n` +
-    `#${order.barcode || order.id} numaralı (${draft.sku} • ${draft.dimensionsRaw}) siparişinizin baskı öncesi taslağı ve %100 çözünürlük detayı hazırlandı (${Math.round(draft.effectivePpi || 0)} PPI).\n` +
-    `Önizleme ve onay bağlantısı: ${approvalUrl}`;
+    `#${order.barcode || order.id} numaralı (${draft.sku} • ${draft.dimensionsRaw}) siparişinizin ölçülü baskı taslağı ve %100 çözünürlük detayı ekte yer almaktadır.\n` +
+    `Lütfen görseli inceleyip baskı onayınızı iletir misiniz?`;
 
   const log = await ddb.whatsappTestLog.create({
     data: {

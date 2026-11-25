@@ -1,8 +1,27 @@
+import type { Metadata } from "next"
 import { isDemoMode } from "@/lib/prisma"
 import { getDemoDb } from "@/lib/demo-engine"
 import { ApprovalClient } from "./approval-client"
 
 export const dynamic = "force-dynamic"
+
+export async function generateMetadata(props: { params: Promise<{ token: string }> }): Promise<Metadata> {
+    const { token } = await props.params
+    const ddb = getDemoDb()
+    const draft = await ddb.draftRecord.findUnique({ where: { approvalToken: token } })
+    if (!draft) return { title: "Baskı Öncesi Taslak Onayı — DKM" }
+    const order = await ddb.order.findUnique({ where: { id: draft.orderId } })
+    const sheetUrl = `https://dkmtakip.online/api/demo/files/sheet/${draft.id}?token=${encodeURIComponent(token)}`
+    return {
+        title: `Baskı Taslağı Onayı #${order?.barcode || order?.id} (${draft.sku})`,
+        description: `${draft.dimensionsRaw} ölçülü baskı taslağı ve %100 çözünürlük detayı`,
+        openGraph: {
+            title: `Baskı Taslağı Onayı #${order?.barcode || order?.id}`,
+            description: `${draft.sku} • ${draft.dimensionsRaw}`,
+            images: [{ url: sheetUrl, width: 1600, height: 1160 }],
+        },
+    }
+}
 
 export default async function CustomerApprovalPage(props: { params: Promise<{ token: string }> }) {
     const demoMode = isDemoMode()

@@ -56,10 +56,19 @@ export async function GET(request: Request, context: { params: Promise<{ draftId
   const H = 1160;
   const BG = "#f7f3eb";
 
-  // Sol alan: ölçülü ana taslak (max 820 x 760)
+  // Sol alan: ölçülü ana taslak (alt koyu bilgi şeridini temizleyerek)
   const leftMaxW = 800;
   const leftMaxH = 740;
-  const prevResized = await sharp(prevBuf)
+  const prevMeta = await sharp(prevBuf).metadata();
+  let prevPipe = sharp(prevBuf);
+  if (prevMeta.width && prevMeta.height && prevMeta.height > 120) {
+    const approxH = Math.round(prevMeta.height / 1.035);
+    const barH = Math.max(34, Math.round(Math.max(prevMeta.width, approxH) * 0.035)) + 2;
+    if (prevMeta.height - barH > 80) {
+      prevPipe = prevPipe.extract({ left: 0, top: 0, width: prevMeta.width, height: prevMeta.height - barH });
+    }
+  }
+  const prevResized = await prevPipe
     .resize(leftMaxW, leftMaxH, { fit: "inside" })
     .toColourspace("srgb")
     .jpeg({ quality: 92 })
