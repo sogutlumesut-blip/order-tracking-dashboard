@@ -969,9 +969,29 @@ export function DemoDraftModal({ order, initialTab, onClose, onUpdated }: DemoDr
                                                     type="text"
                                                     value={printTargetDir}
                                                     onChange={(e) => setPrintTargetDir(e.target.value)}
-                                                    placeholder="Örn: ~/Desktop/Baski veya /Volumes/DKM/BASKIYA_HAZIR (boş = varsayılan)"
-                                                    className="flex-1 min-w-[260px] px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 font-mono text-xs"
+                                                    placeholder="Örn: /Volumes/DKM/Katalog Baskı/DKMTAKIP BASKI"
+                                                    className="flex-1 min-w-[240px] px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 font-mono text-xs"
                                                 />
+                                                <button
+                                                    type="button"
+                                                    disabled={busy}
+                                                    onClick={async () => {
+                                                        try {
+                                                            const r = await fetch("http://127.0.0.1:4789/pick-folder")
+                                                            const d = await r.json()
+                                                            if (d.ok && d.folder) {
+                                                                setPrintTargetDir(d.folder)
+                                                                localStorage.setItem("dkm_print_target_dir", d.folder)
+                                                                toast.success(`Klasör seçildi: ${d.folder}`)
+                                                            }
+                                                        } catch {
+                                                            toast.error("Klasör seçici için ofis bilgisayarında güncel 'npm run office:agent' çalışıyor olmalıdır.")
+                                                        }
+                                                    }}
+                                                    className="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-800 text-white font-bold disabled:opacity-50"
+                                                >
+                                                    📂 Klasör Seç...
+                                                </button>
                                                 <button
                                                     type="button"
                                                     disabled={busy}
@@ -984,9 +1004,9 @@ export function DemoDraftModal({ order, initialTab, onClose, onUpdated }: DemoDr
                                             <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
                                                 <span className="text-slate-500">Hızlı seçim:</span>
                                                 {[
+                                                    { label: "DKMTAKIP BASKI", path: "/Volumes/DKM/Katalog Baskı/DKMTAKIP BASKI" },
                                                     { label: "Masaüstü / Baski", path: "~/Desktop/Baski" },
                                                     { label: "İndirilenler", path: "~/Downloads" },
-                                                    { label: "Server / BASKI", path: "/Volumes/DKM/BASKI" },
                                                 ].map((preset) => (
                                                     <button
                                                         key={preset.path}
@@ -1004,13 +1024,40 @@ export function DemoDraftModal({ order, initialTab, onClose, onUpdated }: DemoDr
                                     <div className="flex flex-wrap gap-2 pt-1">
                                         {latest.printReadyPath ? (
                                             <>
-                                                <a
-                                                    href={`/api/demo/files/print/${latest.id}`}
+                                                <button
+                                                    type="button"
+                                                    onClick={async () => {
+                                                        try {
+                                                            const h = await fetch("http://127.0.0.1:4789/health")
+                                                            if (h.ok) {
+                                                                window.location.href = `http://127.0.0.1:4789/download?path=${encodeURIComponent(latest.printReadyPath)}`
+                                                                return
+                                                            }
+                                                        } catch { /* bulut fallback */ }
+                                                        window.open(`/api/demo/files/print/${latest.id}`, "_blank")
+                                                    }}
                                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
                                                 >
                                                     <Printer className="w-3.5 h-3.5" />{" "}
                                                     {isDemoUi ? "Onaylı Baskı TIFF Dosyasını İndir (TEST)" : "Onaylı Baskı TIFF Dosyasını İndir"}
-                                                </a>
+                                                </button>
+                                                {!isDemoUi && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={async () => {
+                                                            try {
+                                                                const r = await fetch(`http://127.0.0.1:4789/reveal?path=${encodeURIComponent(latest.printReadyPath)}`)
+                                                                if (!r.ok) throw new Error()
+                                                                toast.success("Dosya Finder'da açıldı.")
+                                                            } catch {
+                                                                toast.error("Finder'da açmak için güncel 'npm run office:agent' çalışıyor olmalıdır.")
+                                                            }
+                                                        }}
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                                                    >
+                                                        📂 Klasörde Göster (Finder)
+                                                    </button>
+                                                )}
                                                 <button
                                                     type="button"
                                                     disabled={busy}

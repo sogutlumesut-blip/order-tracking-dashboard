@@ -5,6 +5,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import http from "node:http";
+import { execFile } from "node:child_process";
+import { pipeline } from "node:stream/promises";
 import sharp from "sharp";
 import { REPO_ROOT } from "../config.ts";
 import {
@@ -375,7 +378,12 @@ async function handleGeneratePrint(order: any, draft: any, settings: any, payloa
   // Eğer baskı dosyası daha önce bu bilgisayarda üretildiyse ve kullanıcı farklı bir klasöre kaydetmek istiyorsa anında kopyala!
   if (!payload?.forceRegenerate && draft.printReadyPath && fs.existsSync(draft.printReadyPath)) {
     if (path.resolve(draft.printReadyPath) !== path.resolve(printFile)) {
-      await fs.promises.copyFile(draft.printReadyPath, printFile);
+      try {
+        await fs.promises.copyFile(draft.printReadyPath, printFile);
+      } catch {
+        // SMB / ağ paylaşımlarında copyFile yerine güvenli akış (stream) kopyası
+        await pipeline(fs.createReadStream(draft.printReadyPath), fs.createWriteStream(printFile));
+      }
     }
     const stat = fs.statSync(printFile);
     return {
@@ -413,6 +421,94 @@ async function handleGeneratePrint(order: any, draft: any, settings: any, payloa
   };
 }
 
+const LOCAL_HELPER_PORT = Number(process.env.DKM_AGENT_LOCAL_PORT || 4789);
+
+function startLocalHelperServer() {
+  const srv = http.createServer((req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "*");
+    res.setHeader("Access-Control-Allow-Private-Network", "true");
+    if (req.method === "OPTIONS") {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
+    const u = new URL(req.url || "/", `http://127.0.0.1:${LOCAL_HELPER_PORT}`);
+    if (u.pathname === "/health") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, hostname: HOSTNAME }));
+      return;
+    }
+
+    if (u.pathname === "/download") {
+      const filePath = u.searchParams.get("path") || "";
+      if (!filePath || !filePath.endsWith("_PRINT.tif") || !fs.existsSync(filePath)) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Baskı dosyası bu bilgisayarda bulunamadı." }));
+        return;
+      }
+      const stat = fs.statSync(filePath);
+      res.writeHead(200, {
+        "Content-Type": "image/tiff",
+        "Content-Length": String(stat.size),
+        "Content-Disposition": `attachment; filename="${path.basename(filePath)}"`,
+      });
+      fs.createReadStream(filePath).pipe(res);
+      return;
+    }
+
+    if (u.pathname === "/reveal") {
+      const filePath = u.searchParams.get("path") || "";
+      if (!filePath || !fs.existsSync(filePath)) {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Dosya bulunamadı." }));
+        return;
+      }
+      if (process.platform === "darwin") {
+        execFile("open", ["-R", filePath], () => {});
+      } else if (process.platform === "win32") {
+        execFile("explorer", [`/select,${filePath}`], () => {});
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+
+    if (u.pathname === "/pick-folder") {
+      if (process.platform === "darwin") {
+        execFile(
+          "osascript",
+          ["-e", 'POSIX path of (choose folder with prompt "Baskı dosyalarının kaydedileceği klasörü seçin")'],
+          (err, stdout) => {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            if (err || !stdout.trim()) {
+              res.end(JSON.stringify({ ok: false, cancelled: true }));
+            } else {
+              res.end(JSON.stringify({ ok: true, folder: stdout.trim().replace(/\/$/, "") }));
+            }
+          },
+        );
+        return;
+      }
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: false, error: "Bu işletim sisteminde klasör seçici desteklenmiyor." }));
+      return;
+    }
+
+    res.writeHead(404);
+    res.end();
+  });
+
+  srv.on("error", (err: any) => {
+    if (err?.code !== "EADDRINUSE") console.error("[agent] Yerel yardımcı sunucu hatası:", err?.message);
+  });
+  srv.listen(LOCAL_HELPER_PORT, "127.0.0.1", () => {
+    console.log(`  Yerel İndirme  : http://127.0.0.1:${LOCAL_HELPER_PORT} (Finder & Direkt İndirme aktif)`);
+  });
+}
+
 async function loop() {
   console.log("================================================================");
   console.log("  DKM TAKİP — OFİS WORKER AJANI BAŞLATILDI");
@@ -420,6 +516,7 @@ async function loop() {
   console.log(`  Bilgisayar     : ${HOSTNAME}`);
   console.log(`  Tasarım Arşivi : ${DEFAULT_SERVER_PATH || "(Ayarlar panelinden okunur)"}`);
   console.log(`  Baskı Çıktı    : ${path.join(OUT_ROOT, "PRINT_READY")}`);
+  startLocalHelperServer();
   console.log("================================================================");
 
   let connectedOnce = false;

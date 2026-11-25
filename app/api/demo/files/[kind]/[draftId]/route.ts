@@ -52,6 +52,15 @@ export async function GET(request: Request, context: { params: Promise<{ kind: s
   }
 
   if (!buf) {
+    if (kind === "print" && filePath) {
+      return NextResponse.json(
+        {
+          error: "Bu yüksek çözünürlüklü baskı dosyası bulut sunucusunda değil, doğrudan ofis bilgisayarınızda / serverınızda kayıtlıdır.",
+          printReadyPath: filePath,
+        },
+        { status: 404 },
+      );
+    }
     return NextResponse.json({ error: "Dosya bulunamadı" }, { status: 404 });
   }
 
