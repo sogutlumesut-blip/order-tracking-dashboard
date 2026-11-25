@@ -18,8 +18,9 @@ const getPrismaClient = () => {
         if (!demoUrl.startsWith("file:")) {
             throw new Error("GÜVENLİK: DEMO_DATABASE_URL yerel SQLite (file:) olmalıdır!");
         }
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { PrismaClient: DemoPrismaClient } = require("../dkm-demo/generated/prisma-demo");
+        // eslint-disable-next-line @typescript-eslint/no-require-imports, no-eval
+        const demoClientPath = path.join(process.cwd(), "dkm-demo", "generated", "prisma-demo");
+        const { PrismaClient: DemoPrismaClient } = eval("require")(demoClientPath);
         return new DemoPrismaClient({
             datasources: { db: { url: demoUrl } },
         }) as unknown as PrismaClient;
