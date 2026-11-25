@@ -102,7 +102,8 @@ export async function sniffFormat(p: string): Promise<{ format: SourceFormat | n
 }
 
 function sharpOpts(s: EngineSettings, extra: any = {}) {
-  return { limitInputPixels: false as const, failOn: s.failOn, ...extra };
+  // unlimited: true -> Photoshop katmanlı büyük TIFF dosyalarındaki (>50MB) ImageSourceData etiketlerinde libtiff bellek sınırını kaldırır
+  return { limitInputPixels: false as const, unlimited: true, failOn: s.failOn, ...extra };
 }
 
 export async function probeSource(p: string, s: EngineSettings = DEFAULT_ENGINE): Promise<SourceInfo> {
