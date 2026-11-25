@@ -68,7 +68,7 @@ export async function getDemoPaths() {
   const s = await getDemoSettingsMap();
   const def = defaultPaths(DEMO_ROOT);
   const paths = {
-    // Windows Server veya yerel salt-okunur tasarım klasörü — kullanıcı tarafından girilir, tahmin edilmez!
+    // Windows Server veya yerel salt-okunur tasarım klasörü — kullanıcı tarafından girilir, ASLA mkdir yapılmaz!
     designs: (s.demo_server_designs_path || "").trim(),
     previews: path.resolve(s.demo_path_previews || def.previews),
     details: path.resolve(s.demo_path_details || def.details),
@@ -77,15 +77,13 @@ export async function getDemoPaths() {
     cache: path.resolve(s.demo_path_cache || def.cache),
     logs: path.resolve(s.demo_path_logs || def.logs),
   };
-  ensureDemoFolders({
-    designs: paths.designs || def.designs,
-    previews: paths.previews,
-    details: paths.details,
-    approved: paths.approved,
-    printReady: paths.printReady,
-    cache: paths.cache,
-    logs: paths.logs,
-  });
+  for (const dir of [paths.previews, paths.details, paths.approved, paths.printReady, paths.cache, paths.logs]) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+    } catch {
+      // Salt-okunur bulut dosya sisteminde sessizce geç
+    }
+  }
   return paths;
 }
 

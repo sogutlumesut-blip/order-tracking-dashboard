@@ -25,6 +25,7 @@ export function DemoServerSettings() {
     const [searchResult, setSearchResult] = useState<any>(null)
     const [agentStatus, setAgentStatus] = useState<any>(null)
     const [agentToken, setAgentToken] = useState<string>("")
+    const [saveMsg, setSaveMsg] = useState<string>("")
 
     const load = async () => {
         setLoading(true)
@@ -106,6 +107,7 @@ export function DemoServerSettings() {
 
     const handleSaveSettings = async () => {
         setBusy(true)
+        setSaveMsg("")
         try {
             const r = await fetch("/api/demo/server", {
                 method: "POST",
@@ -113,8 +115,14 @@ export function DemoServerSettings() {
                 body: JSON.stringify({ action: "save", serverPath, paths, minPpi, warnPpi, printPpiMax, maxFileGb }),
             })
             const d = await r.json()
-            if (r.ok) { toast.success(d.message); await load() }
-            else toast.error(d.error || "Kaydedilemedi")
+            if (r.ok) {
+                setSaveMsg("✅ Ayarlar veritabanına kaydedildi!")
+                toast.success(d.message)
+                await load()
+            } else {
+                setSaveMsg("❌ " + (d.error || "Kaydedilemedi"))
+                toast.error(d.error || "Kaydedilemedi")
+            }
         } finally {
             setBusy(false)
         }
@@ -309,9 +317,12 @@ export function DemoServerSettings() {
                     <div><label className="block font-semibold text-slate-600 mb-1">Maks Baskı PPI</label><input value={printPpiMax} onChange={(e) => setPrintPpiMax(e.target.value)} className="w-full px-2.5 py-1.5 border rounded" /></div>
                     <div><label className="block font-semibold text-slate-600 mb-1">Maks Dosya (GB)</label><input value={maxFileGb} onChange={(e) => setMaxFileGb(e.target.value)} className="w-full px-2.5 py-1.5 border rounded" /></div>
                 </div>
-                <button disabled={busy} onClick={handleSaveSettings} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold flex items-center gap-1.5">
-                    <Save className="w-4 h-4" /> Server ve Klasör Ayarlarını Kaydet
-                </button>
+                <div className="flex flex-wrap items-center gap-3">
+                    <button disabled={busy} onClick={handleSaveSettings} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold flex items-center gap-1.5">
+                        <Save className="w-4 h-4" /> Server ve Klasör Ayarlarını Kaydet
+                    </button>
+                    {saveMsg && <span className="text-xs font-bold text-emerald-700">{saveMsg}</span>}
+                </div>
             </div>
 
             {/* DEMO SIFIRLAMA & CANLI GEÇİŞ YÖNETİCİ ONAYI */}
