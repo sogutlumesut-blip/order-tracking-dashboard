@@ -68,7 +68,7 @@ set "DKM_OFFICE_OUT=$OutPath"
 "$NodeExe" "$AgentScript" >> "$LogFile" 2>&1
 "@
 
-Set-Content -Path $RunnerCmd -Value $cmdContent -Encoding ASCII
+[System.IO.File]::WriteAllText($RunnerCmd, $cmdContent, (New-Object System.Text.UTF8Encoding($false)))
 
 # 6. Windows Görev Zamanlayıcı (7/24 Sistem Başlangıcında Otomatik Başlatma + Çökme Halinde Yeniden Başlatma)
 $TaskName = "DKM-Takip-Office-Agent"
