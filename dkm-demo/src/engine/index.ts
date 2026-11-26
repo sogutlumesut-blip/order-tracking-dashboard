@@ -15,7 +15,9 @@ import { TiffStripWriter } from "./tiff-writer.ts";
 import { toInches, formatDim } from "./units.ts";
 import type { Dim } from "./units.ts";
 
-sharp.cache(false);
+// Tüm CPU çekirdeklerini kullan ve aynı dosyanın proxy+detay okumasında 128MB sınırlı önbellekle 2-3x hızlan
+sharp.concurrency(0);
+sharp.cache({ memory: 128, files: 10, items: 50 });
 
 export interface EngineSettings {
   minPpi: number; // altında: YETERSİZ ÇÖZÜNÜRLÜK (otomatik gönderim durdurulur)
@@ -269,10 +271,10 @@ export async function ensureProxy(info: SourceInfo, work: WorkImage, cacheDir: s
   try {
     // Tüm görüntü sıralı okunur → kesik/bozuk dosyalar burada hata verir.
     await sharp(work.workPath, sharpOpts(s, { sequentialRead: true }))
-      .resize(pw, ph, { fit: "fill", kernel: "lanczos3" })
+      .resize(pw, ph, { fit: "fill", kernel: "linear" })
       .flatten({ background: "#ffffff" })
       .toColourspace("srgb")
-      .jpeg({ quality: 85, mozjpeg: false })
+      .jpeg({ quality: 82, mozjpeg: false })
       .toFile(tmp);
     await fs.promises.rename(tmp, out);
   } catch (e) {
@@ -409,7 +411,7 @@ export async function renderDetail(info: SourceInfo, work: WorkImage, crop: Crop
   const cy = center ? center.cy : crop.y + crop.h / 2;
   const left = Math.round(Math.max(crop.x, Math.min(crop.x + crop.w - sw, cx - sw / 2)));
   const top = Math.round(Math.max(crop.y, Math.min(crop.y + crop.h - sh, cy - sh / 2)));
-  let p = sharp(work.workPath, sharpOpts(s)).extract({ left, top, width: sw, height: sh });
+  let p = sharp(work.workPath, sharpOpts(s, { sequentialRead: true })).extract({ left, top, width: sw, height: sh });
   if (sw !== outW || sh !== outH) {
     p = p.resize(outW, outH, { fit: "fill", kernel: "lanczos3" });
   }

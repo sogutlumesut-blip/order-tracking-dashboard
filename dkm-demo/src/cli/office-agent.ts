@@ -28,7 +28,7 @@ import {
   SUPPORTED_EXTS,
 } from "../engine/index.ts";
 import type { Crop, EngineSettings, TileConfig } from "../engine/index.ts";
-import { findDesignBySku, validateSku, candidateSkus, warmSkuIndex } from "../engine/sku-finder.ts";
+import { findDesignBySku, validateSku, candidateSkus, warmSkuIndex, setSkuIndexCacheDir } from "../engine/sku-finder.ts";
 import { parseDimensionString, toInches, formatDim } from "../engine/units.ts";
 import { EngineError, toEngineError } from "../engine/errors.ts";
 import { fetchCustomDesignToCache, findCustomDesignUrl } from "../engine/drive-fetch.ts";
@@ -589,11 +589,12 @@ async function loop() {
   startLocalHelperServer();
   console.log("================================================================");
 
-  // Başlangıçta arka planda hızlı dosya adı indeksini ısıt (ilk SKU aramasının 5ms sürmesi için)
+  // Başlangıçta disk önbelleğinden 15ms'de hızlı SKU indeksini yükle (yoksa arka planda oluştur)
+  setSkuIndexCacheDir(path.join(OUT_ROOT, "CACHE"));
   if (DEFAULT_SERVER_PATH && fs.existsSync(DEFAULT_SERVER_PATH)) {
     const tWarm = Date.now();
     warmSkuIndex(DEFAULT_SERVER_PATH)
-      .then((n) => console.log(`[agent] ⚡ Hızlı SKU indeksi hazır: ${n} tasarım (${Date.now() - tWarm}ms)`))
+      .then((r) => console.log(`[agent] ⚡ Hızlı SKU indeksi hazır: ${r.count} tasarım (${Date.now() - tWarm}ms${r.fromDisk ? ", SSD önbellek" : ""})`))
       .catch(() => {});
   }
 

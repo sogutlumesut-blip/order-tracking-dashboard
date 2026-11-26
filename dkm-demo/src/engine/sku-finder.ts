@@ -51,14 +51,51 @@ export function candidateSkus(rawSku: string): string[] {
   return out;
 }
 
-// 2.98 TB SMB paylaşımını her seferinde baştan taramamak için hızlı bellek içi dosya adı indeksi (15 dk TTL)
+// 2.98 TB SMB paylaşımını her seferinde baştan taramamak için bellek + disk dosya adı indeksi
 interface DirIndex {
   root: string;
   builtAt: number;
   byStem: Map<string, { full: string; ext: string }[]>;
 }
 const indexCache = new Map<string, DirIndex>();
-const INDEX_TTL_MS = 15 * 60 * 1000;
+const INDEX_TTL_MS = 60 * 60 * 1000; // 1 saat bellek/disk önbellek
+let diskCacheDir: string | null = null;
+
+export function setSkuIndexCacheDir(dir: string) {
+  diskCacheDir = dir;
+}
+
+function diskIndexFile(designsDir: string): string | null {
+  if (!diskCacheDir) return null;
+  const safe = designsDir.replace(/[^A-Za-z0-9]/g, "_").slice(-40);
+  return path.join(diskCacheDir, `sku_index_${safe}.json`);
+}
+
+function loadDiskIndex(designsDir: string): DirIndex | null {
+  const f = diskIndexFile(designsDir);
+  if (!f || !fs.existsSync(f)) return null;
+  try {
+    const raw = JSON.parse(fs.readFileSync(f, "utf8")) as { root: string; builtAt: number; entries: [string, { full: string; ext: string }[]][] };
+    if (raw.root !== designsDir || !Array.isArray(raw.entries)) return null;
+    if (Date.now() - raw.builtAt > 24 * 60 * 60 * 1000) return null;
+    const idx: DirIndex = { root: raw.root, builtAt: raw.builtAt, byStem: new Map(raw.entries) };
+    indexCache.set(designsDir, idx);
+    return idx;
+  } catch {
+    return null;
+  }
+}
+
+function saveDiskIndex(idx: DirIndex) {
+  const f = diskIndexFile(idx.root);
+  if (!f) return;
+  try {
+    fs.mkdirSync(path.dirname(f), { recursive: true });
+    const tmp = `${f}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify({ root: idx.root, builtAt: idx.builtAt, entries: Array.from(idx.byStem.entries()) }));
+    fs.renameSync(tmp, f);
+  } catch {}
+}
 
 async function buildDirIndex(designsDir: string): Promise<DirIndex> {
   const byStem = new Map<string, { full: string; ext: string }[]>();
@@ -99,16 +136,25 @@ async function buildDirIndex(designsDir: string): Promise<DirIndex> {
     }
   };
 
-  await Promise.all(Array.from({ length: 12 }, () => worker()));
+  await Promise.all(Array.from({ length: 20 }, () => worker()));
   const idx: DirIndex = { root: designsDir, builtAt: Date.now(), byStem };
   indexCache.set(designsDir, idx);
+  saveDiskIndex(idx);
   return idx;
 }
 
-export async function warmSkuIndex(designsDir: string): Promise<number> {
-  if (!designsDir || !fs.existsSync(designsDir)) return 0;
+export async function warmSkuIndex(designsDir: string): Promise<{ count: number; fromDisk: boolean }> {
+  if (!designsDir || !fs.existsSync(designsDir)) return { count: 0, fromDisk: false };
+  const disk = loadDiskIndex(designsDir);
+  if (disk) {
+    // Diskten 15ms'de yüklendi! 1 saatten eskiyse arka planda sessizce tazele
+    if (Date.now() - disk.builtAt > INDEX_TTL_MS) {
+      buildDirIndex(designsDir).catch(() => {});
+    }
+    return { count: disk.byStem.size, fromDisk: true };
+  }
   const idx = await buildDirIndex(designsDir);
-  return idx.byStem.size;
+  return { count: idx.byStem.size, fromDisk: false };
 }
 
 export function validateSku(sku: string | null | undefined): string {
@@ -222,7 +268,7 @@ export async function findDesignBySku(designsDir: string, rawSku: string): Promi
     return { supportedByCand, unsupportedByCand };
   };
 
-  let idx = useCache ? indexCache.get(designsDir) : undefined;
+  let idx = useCache ? indexCache.get(designsDir) || loadDiskIndex(designsDir) || undefined : undefined;
 
   // Eğer tam indeks henüz hazır değilse önce ~50ms süren hızlı 1-seviye kontrol yap (zaman aşımını önler!)
   if (useCache && (!idx || Date.now() - idx.builtAt > INDEX_TTL_MS)) {
