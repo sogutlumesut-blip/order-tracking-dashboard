@@ -118,6 +118,41 @@ export function DemoDraftModal({ order, initialTab, onClose, onUpdated }: DemoDr
         return /^https?:\/\//i.test(u) ? u : ""
     })
 
+    const fileUploadRef = useRef<HTMLInputElement | null>(null)
+
+    const handleUploadLocalFile = async (file: File | null | undefined) => {
+        if (!file) return
+        setBusy(true)
+        const toastId = toast.loading(`"${file.name}" (${(file.size / 1024 / 1024).toFixed(1)} MB) yüklenip taslak hazırlanıyor...`)
+        try {
+            const qs = new URLSearchParams({
+                orderId: String(order.id),
+                filename: file.name,
+                sku: skuInput || "",
+                dim: dimInput || "",
+            })
+            const r = await fetch(`/api/demo/upload-design?${qs.toString()}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/octet-stream" },
+                body: file,
+            })
+            const d = await safeJson(r)
+            await loadOrderDrafts()
+            onUpdated()
+            if (!r.ok || !d.ok) {
+                toast.error(d.error || d.draft?.errorMessage || "Dosya işlenemedi", { id: toastId })
+            } else {
+                toast.success(`Taslak v${d.draft.version} oluşturuldu (${Math.round(d.draft.effectivePpi)} PPI)`, { id: toastId })
+                setTab("preview")
+            }
+        } catch (e: any) {
+            toast.error(e?.message || "Dosya yüklenirken hata oluştu", { id: toastId })
+        } finally {
+            setBusy(false)
+            if (fileUploadRef.current) fileUploadRef.current.value = ""
+        }
+    }
+
     const handleGenerateDraft = async (
         autoSendWhatsApp = false,
         extra: { overrideSourcePath?: string; overrideUrl?: string; rememberSkuMapping?: boolean; forceDrive?: boolean } = {}
@@ -789,34 +824,30 @@ export function DemoDraftModal({ order, initialTab, onClose, onUpdated }: DemoDr
                                 </p>
                             </div>
 
-                            {/* 2. Bilgisayardan / İndirilenlerden Doğrudan Dosya Seç (SendGB / WeTransfer için) */}
+                            {/* 2. Bilgisayardan / İndirilenlerden Doğrudan Dosya Seç (Her PC / Mac / Telefon) */}
                             <div className="p-3.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/70 flex flex-wrap items-center justify-between gap-2">
                                 <div>
                                     <div className="font-bold text-emerald-900 dark:text-emerald-200">
-                                        💻 Bilgisayardan / İndirilenlerden Tasarım Seç (SendGB, WeTransfer vb.)
+                                        💻 Bilgisayardan / İndirilenlerden Tasarım Seç (TIFF, PSD, PSB, JPG, PNG)
                                     </div>
                                     <div className="text-[11px] text-slate-600 dark:text-slate-400">
-                                        Büyük TIFF / PSD / PSB / JPG / PNG dosyalarını buluta yüklemeden doğrudan bilgisayarınızdan seçip anında taslak üretir.
+                                        SendGB, WeTransfer veya masaüstünüzdeki tasarım dosyasını doğrudan seçip taslak oluşturabilirsiniz (ekstra ajan gerekmez).
                                     </div>
                                 </div>
+                                <input
+                                    ref={fileUploadRef}
+                                    type="file"
+                                    accept=".tif,.tiff,.psd,.psb,.jpg,.jpeg,.png,image/*"
+                                    className="hidden"
+                                    onChange={(e) => handleUploadLocalFile(e.target.files?.[0])}
+                                />
                                 <button
                                     type="button"
                                     disabled={busy}
-                                    onClick={async () => {
-                                        try {
-                                            const r = await fetch("http://127.0.0.1:4789/pick-file")
-                                            const d = await r.json()
-                                            if (d.ok && d.filePath) {
-                                                toast.success(`Dosya seçildi: ${d.filePath.split("/").pop()} — Taslak hazırlanıyor...`)
-                                                await handleGenerateDraft(false, { overrideSourcePath: d.filePath })
-                                            }
-                                        } catch {
-                                            toast.error("Dosya seçici için Mac terminalinde güncel 'npm run office:agent' çalışıyor olmalıdır.")
-                                        }
-                                    }}
+                                    onClick={() => fileUploadRef.current?.click()}
                                     className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold disabled:opacity-50"
                                 >
-                                    📂 Bilgisayardan Dosya Seç &amp; Hazırla
+                                    {busy ? "Yükleniyor..." : "📂 Bilgisayardan Dosya Seç & Hazırla"}
                                 </button>
                             </div>
 
