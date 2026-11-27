@@ -51,9 +51,11 @@ export async function GET(
 
     let zpl = order.cargoBarcode || "";
 
+    const cargoLabelPdf = order.cargoLabelPdf?.trim() || "";
+
     if (!zpl.startsWith('^XA')) {
-        if (order.cargoLabelPdf && (order.cargoLabelPdf.startsWith('easyship:') || order.cargoLabelPdf.includes('/easyship:'))) {
-            const labelId = order.cargoLabelPdf.split(':').pop()?.replace('/', '') || '';
+        if (cargoLabelPdf && (cargoLabelPdf.startsWith('easyship:') || cargoLabelPdf.includes('/easyship:'))) {
+            const labelId = cargoLabelPdf.split(':').pop()?.replace('/', '') || '';
             return new NextResponse(`
                 <!DOCTYPE html>
                 <html>
@@ -125,46 +127,63 @@ export async function GET(
             } catch (e: any) {
                 return new NextResponse("Kargo Entegratör'den PDF çekilirken hata oluştu: " + e.message, { status: 500 });
             }
-        } else if (order.cargoLabelPdf && order.cargoLabelPdf.startsWith('http')) {
-            return NextResponse.redirect(order.cargoLabelPdf);
-        } else if (order.cargoLabelPdf && order.cargoLabelPdf.startsWith('data:application/pdf;base64,')) {
-            const base64Data = order.cargoLabelPdf.replace('data:application/pdf;base64,', '');
-            const pdfBuffer = Buffer.from(base64Data, 'base64');
-            return new NextResponse(pdfBuffer, {
-                status: 200,
-                headers: {
-                    "Content-Type": "application/pdf",
-                    "Content-Disposition": `inline; filename="kargo_fisi_${order.cargoTrackingNumber || orderId}.pdf"`,
-                    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-                    "Pragma": "no-cache"
-                }
-            });
-        } else if (order.cargoLabelPdf && order.cargoLabelPdf.startsWith('data:image/')) {
-            const match = order.cargoLabelPdf.match(/^data:(image\/[a-zA-Z+.-]+);base64,/);
-            if (match) {
-                const mimeType = match[1];
-                const base64Data = order.cargoLabelPdf.substring(match[0].length);
-                const imgBuffer = Buffer.from(base64Data, 'base64');
-                const ext = mimeType.split('/')[1] === 'jpeg' ? 'jpg' : mimeType.split('/')[1];
-                return new NextResponse(imgBuffer, {
-                    status: 200,
-                    headers: {
-                        "Content-Type": mimeType,
-                        "Content-Disposition": `inline; filename="kargo_fisi_${order.cargoTrackingNumber || orderId}.${ext}"`,
-                        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-                        "Pragma": "no-cache"
+        } else if (cargoLabelPdf && cargoLabelPdf.startsWith('http')) {
+            return NextResponse.redirect(cargoLabelPdf);
+        } else if (cargoLabelPdf && cargoLabelPdf.startsWith('data:')) {
+            const base64MarkerIndex = cargoLabelPdf.toLowerCase().indexOf(';base64,');
+            if (base64MarkerIndex !== -1) {
+                const headerPart = cargoLabelPdf.slice(5, base64MarkerIndex);
+                let mimeType = headerPart.split(';')[0].trim().toLowerCase();
+                const base64Data = cargoLabelPdf.slice(base64MarkerIndex + 8).replace(/\s+/g, '');
+                const buffer = Buffer.from(base64Data, 'base64');
+
+                // Detect actual type from magic bytes if MIME type is generic or missing
+                if (!mimeType || mimeType === 'application/octet-stream') {
+                    const fileHeader = buffer.subarray(0, 4).toString('utf-8');
+                    if (fileHeader === '%PDF') {
+                        mimeType = 'application/pdf';
+                    } else if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+                        mimeType = 'image/jpeg';
+                    } else if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
+                        mimeType = 'image/png';
+                    } else if (buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP') {
+                        mimeType = 'image/webp';
                     }
-                });
+                }
+
+                if (mimeType === 'application/pdf') {
+                    return new NextResponse(buffer, {
+                        status: 200,
+                        headers: {
+                            "Content-Type": "application/pdf",
+                            "Content-Disposition": `inline; filename="kargo_fisi_${order.cargoTrackingNumber || orderId}.pdf"`,
+                            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+                            "Pragma": "no-cache"
+                        }
+                    });
+                } else if (mimeType.startsWith('image/')) {
+                    const rawExt = mimeType.split('/')[1] || 'png';
+                    const ext = rawExt === 'jpeg' ? 'jpg' : rawExt.replace(/[^a-z0-9]/gi, '') || 'png';
+                    return new NextResponse(buffer, {
+                        status: 200,
+                        headers: {
+                            "Content-Type": mimeType,
+                            "Content-Disposition": `inline; filename="kargo_fisi_${order.cargoTrackingNumber || orderId}.${ext}"`,
+                            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+                            "Pragma": "no-cache"
+                        }
+                    });
+                }
             }
-            return new NextResponse("Geçersiz Resim Formatı", { status: 400 });
-        } else if (order.cargoLabelPdf && order.cargoLabelPdf.startsWith('production_files/')) {
-            return NextResponse.redirect(`https://printmarkt.co/${order.cargoLabelPdf}`);
-        } else if (order.cargoLabelPdf && (order.cargoLabelPdf.startsWith('/uploads/') || order.cargoLabelPdf.startsWith('uploads/'))) {
-            const cleanPath = order.cargoLabelPdf.startsWith('/') ? order.cargoLabelPdf : `/${order.cargoLabelPdf}`;
+            return new NextResponse("Geçersiz Barkod Formatı veya ZPL bulunamadı.", { status: 400 });
+        } else if (cargoLabelPdf && cargoLabelPdf.startsWith('production_files/')) {
+            return NextResponse.redirect(`https://printmarkt.co/${cargoLabelPdf}`);
+        } else if (cargoLabelPdf && (cargoLabelPdf.startsWith('/uploads/') || cargoLabelPdf.startsWith('uploads/'))) {
+            const cleanPath = cargoLabelPdf.startsWith('/') ? cargoLabelPdf : `/${cargoLabelPdf}`;
             return NextResponse.redirect(`https://duvarkagidimarketi.com${cleanPath}`);
-        } else if (order.cargoLabelPdf && /^[A-Za-z0-9+/=]+$/.test(order.cargoLabelPdf)) {
+        } else if (cargoLabelPdf && /^[A-Za-z0-9+/=\s]+$/.test(cargoLabelPdf)) {
             try {
-                const buffer = Buffer.from(order.cargoLabelPdf, 'base64');
+                const buffer = Buffer.from(cargoLabelPdf.replace(/\s+/g, ''), 'base64');
                 const fileHeader = buffer.subarray(0, 4).toString('utf-8');
                 if (fileHeader === '%PDF') {
                     return new NextResponse(buffer, {
